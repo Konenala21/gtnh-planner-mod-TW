@@ -161,7 +161,7 @@ public final class CardPaint {
     public static void count(final String count, final boolean none, @Nullable final String under, final int underColor,
         final boolean hover, final int[] picture) {
         final float s = Hyb.FIGURE, tw = Hyb.width(count) * s;
-        final float block = Math.max(tw, Hyb.width(SET_COUNT));
+        final float block = Math.max(Math.max(tw, Hyb.width(SET_COUNT)), under == null ? 0 : Hyb.width(under));
         final float right = picture[0] + picture[2] - 2;
         final float cx = right - block / 2f;
         final float y = picture[1] + picture[2] - 8 * s - 2 - 9;

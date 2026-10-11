@@ -183,17 +183,21 @@ public final class CardModel {
         final com.gtnhplanner.machines.game.WebSettings.Coil coil = web == null ? null
             : com.gtnhplanner.machines.game.WebSettings.coil(node, cfg, web);
 
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(node.recipeId);
-        final List<ItemStack> catalysts = catalysts(ref);
-        ItemStack chosen = null;
-        for (final ItemStack s : catalysts) {
+        final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(node.recipeId);
+        // A crop has no machine in NEI: its harvester (a Crop Manager at a tier, or the Industrial Farm) is a setting.
+        final com.gtnhplanner.machines.CropsNh.Setup crop = com.gtnhplanner.machines.game.CropCards.setup(node);
+        final List<ItemStack> catalysts = crop != null ? com.gtnhplanner.machines.game.CropCards.harvesterChoices(node)
+            : catalysts(ref);
+        ItemStack chosen = crop != null ? com.gtnhplanner.machines.game.CropCards.harvesterStack(crop) : null;
+        for (final ItemStack s : crop != null ? List.<ItemStack>of() : catalysts) {
             if (CardDefaults.matches(s, node.machineName)) {
                 chosen = s;
                 break;
             }
         }
         final ItemStack machineStack = chosen != null ? chosen : catalysts.isEmpty() ? null : catalysts.get(0);
-        final String machineName = machineStack != null ? machineStack.getDisplayName() : node.machineName;
+        final String machineName = crop != null ? com.gtnhplanner.machines.game.CropCards.harvesterName(crop)
+            : machineStack != null ? machineStack.getDisplayName() : node.machineName;
 
         final double machines = balance == null ? 0 : balance.operations();
         final List<PortView> inputs = ports(node.inputs, false, balance, wired);
@@ -205,7 +209,8 @@ public final class CardModel {
             catalysts,
             machineStack,
             gregtech,
-            gregtech ? CardDefaults.stringSetting(cfg, "voltage") : "",
+            gregtech ? CardDefaults.stringSetting(cfg, "voltage")
+                : crop != null ? com.gtnhplanner.machines.CropsNh.tierName(crop.tier()) : "",
             gregtech ? Math.max(1, CardDefaults.intSetting(cfg, "amp")) : 1,
             web != null ? com.gtnhplanner.machines.web.Power.isMultiblock(web.effectiveRecipe())
                 : gregtech && CardDefaults.boolSetting(cfg, "gt_multiblock"),
@@ -217,7 +222,10 @@ public final class CardModel {
             inputs,
             outputs,
             duration,
-            effect.energyPerT(),
+            // A crop draws per harvester, not per crop: its average share (BoardSession.power has the whole draw).
+            crop != null ? Math.round(
+                com.gtnhplanner.machines.game.CropCards.drawEut(node, Math.max(1, machines)) / Math.max(1, machines))
+                : effect.energyPerT(),
             machines,
             node.isMachineCountFixed(),
             circuit(ref),
@@ -292,7 +300,7 @@ public final class CardModel {
 
     /** The machines NEI says run a node's recipe. */
     public static List<ItemStack> catalystsOf(final Node node) {
-        return catalysts(RecipeHandlerRef.of(node.recipeId));
+        return catalysts(com.gtnhplanner.nei.RecipeRefs.of(node.recipeId));
     }
 
     private static List<ItemStack> catalysts(final RecipeHandlerRef ref) {

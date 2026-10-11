@@ -212,7 +212,21 @@ public final class DevHarness {
 
     private void startServer() {
         try {
-            final HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
+            // Several games at once (agents' dev games, the full pack): when the port is taken and none was asked
+            // for, the next free one of ten, said in the log and in plannh-dev.port.
+            HttpServer bound = null;
+            int port = PORT;
+            final boolean asked = System.getProperty("gtnhplanner.dev.port") != null;
+            for (int p = PORT; p < PORT + (asked ? 1 : 10) && bound == null; p++) {
+                try {
+                    bound = HttpServer.create(new InetSocketAddress("127.0.0.1", p), 0);
+                    port = p;
+                } catch (final java.net.BindException taken) {
+                    if (asked || p == PORT + 9) throw taken;
+                }
+            }
+            final HttpServer server = bound;
+            Files.writeString(new File(mc.mcDataDir, "plannh-dev.port").toPath(), String.valueOf(port));
             server.setExecutor(Executors.newSingleThreadExecutor(r -> {
                 final Thread t = new Thread(r, "GTNH Planner-DevHarness");
                 t.setDaemon(true);
@@ -220,7 +234,7 @@ public final class DevHarness {
             }));
             server.createContext("/", this::handle);
             server.start();
-            GtnhPlanner.LOG.info("[dev] Harness listening on http://127.0.0.1:{}/", PORT);
+            GtnhPlanner.LOG.info("[dev] Harness listening on http://127.0.0.1:{}/", port);
             // Killing the gradle run task does not kill the game; tools/dev/mc.sh uses this as a fallback.
             final File pidFile = new File(mc.mcDataDir, "plannh-dev.pid");
             // "pid@host". Not ProcessHandle: below Java 25 the jar runs downgraded, where it asks WMIC, which

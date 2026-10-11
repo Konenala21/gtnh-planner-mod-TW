@@ -51,7 +51,7 @@ public final class SettingsSheet extends Popup {
     private record Line(String heading, SettingControls.Control control, int x, int y) {}
 
     /** A formula line's height; the formulas column's narrowest and widest. */
-    private static final int FORMULA = 10, FORMULAS_MIN = 200, FORMULAS_MAX = 320;
+    private static final int FORMULA = 12, FORMULAS_MIN = 200, FORMULAS_MAX = 340;
 
     /**
      * The sheet laid out: its lines, its size, how many columns, and a modelled machine's worked formulas, read-only
@@ -62,7 +62,7 @@ public final class SettingsSheet extends Popup {
         List<com.gtnhplanner.machines.FormulaLine> formulas, int formulasX, int formulasW) {
 
         static Sheet of(final CardModel m) {
-            return of(SettingControls.of(m), com.gtnhplanner.machines.game.MachineModels.formulas(m.node));
+            return of(SettingControls.of(m), com.gtnhplanner.machines.game.MachineModels.formulas(m.node, m.machines));
         }
 
         static Sheet of(final List<SettingControls.Control> controls,
@@ -113,7 +113,7 @@ public final class SettingsSheet extends Popup {
                 0,
                 0);
             final int fw = Body.formulasWidth(formulas);
-            final int formulasH = HEADING + formulas.size() * FORMULA + 4;
+            final int formulasH = Body.formulasHeight(formulas, fw);
             // A machine with nothing to set (most single blocks): says so beside its working.
             if (controls.isEmpty()) {
                 final int left = Hyb.width(NONE) + 16;
@@ -247,7 +247,22 @@ public final class SettingsSheet extends Popup {
             java.util.Map.entry("bioVatOutputHatch", 0xFFC9A24A),
             java.util.Map.entry("bioVatGlass", 0xFF9FD3E6),
             java.util.Map.entry("bioVatRadio", 0xFF7FD94A),
-            java.util.Map.entry("bioVatShutter", 0xFFE0A060));
+            java.util.Map.entry("bioVatShutter", 0xFFE0A060),
+            // A crop's: its stats and surroundings, then the farm's units in the website's pip colours.
+            java.util.Map.entry("cropGrowthStat", 0xFF7FD94A),
+            java.util.Map.entry("cropGainStat", 0xFFE0C060),
+            java.util.Map.entry("cropWater", 0xFF5AA7D9),
+            java.util.Map.entry("cropFertilizer", 0xFFC9A24A),
+            java.util.Map.entry("cropIfFertilized", 0xFFC9A24A),
+            java.util.Map.entry("cropSky", 0xFF9FD3E6),
+            java.util.Map.entry("cropBiome", 0xFF3FB08A),
+            java.util.Map.entry("cropManagerTier", 0xFFB0B8C8),
+            java.util.Map.entry("cropSeedBedTier", 0xFFB0B8C8),
+            java.util.Map.entry("cropIfGrowthUnits", 0xFF6FBF50),
+            java.util.Map.entry("cropIfFertilizerUnits", 0xFFC9A24A),
+            java.util.Map.entry("cropIfHarvestUnits", 0xFF5AA7D9),
+            java.util.Map.entry("cropIfEnvironmentUnits", 0xFFB06FD9),
+            java.util.Map.entry("cropIfOverclocks", 0xFFE06060));
         private static final int FORMULA_TEXT = 0xFF8A8D96, LABEL_W = 62;
 
         /**
@@ -272,33 +287,88 @@ public final class SettingsSheet extends Popup {
         private void formulas(final List<com.gtnhplanner.machines.FormulaLine> lines, final int x, final int y,
             final int w) {
             title("Formulas", x, y, w);
-            final int answerX = x + w - 8 - answersWidth(lines);
+            final int answersW = answersWidth(lines), answerX = x + w - 8 - answersW;
+            int ly = y + HEADING;
             for (int i = 0; i < lines.size(); i++) {
                 final com.gtnhplanner.machines.FormulaLine l = lines.get(i);
-                final int ly = y + HEADING + i * FORMULA;
+                final Laid laid = lay(l, w, answersW);
+                // A faint band behind every other line, so a long working is easy to follow to its answer.
+                if (i % 2 == 1) Hyb.rect(x + 4, ly - 2, w - 8, laid.rows() * FORMULA, 0x08FFFFFF);
                 Hyb.text(Hyb.fit(l.label(), LABEL_W - 4), x + 8, ly, 0xFF6E7179);
-                int mx = Math.max(x + 8 + LABEL_W, answerX - 4 - mathWidth(l));
-                for (final com.gtnhplanner.machines.FormulaLine.Term term : l.math()) {
-                    if (mx > answerX - 6) break;
-                    mx += term(term, mx, ly);
-                }
+                for (int k = 0; k < l.math()
+                    .size(); k++)
+                    term(
+                        l.math()
+                            .get(k),
+                        x + 8 + LABEL_W + laid.dx()[k],
+                        ly + laid.row()[k] * FORMULA);
                 final int answer = switch (l.tone()) {
                     case GOOD -> 0xFF7FD94A;
                     case BAD -> 0xFFE06060;
                     default -> Hyb.INK;
                 };
+                // The answer on the working's last row, or on a row of its own under a working too long to share one.
+                final int ay = ly + (laid.rows() - 1) * FORMULA;
                 // A line with no working (a count) shows its answer alone, in the answers' column.
                 if (!l.math()
-                    .isEmpty()) Hyb.text("=", answerX, ly, FORMULA_TEXT);
-                Hyb.text(l.result(), answerX + Hyb.width("= "), ly, answer);
+                    .isEmpty()) Hyb.text("=", answerX, ay, FORMULA_TEXT);
+                Hyb.text(l.result(), answerX + Hyb.width("= "), ay, answer);
+                ly += laid.rows() * FORMULA;
             }
+        }
+
+        /**
+         * Where a line's working goes, from the working column's left: each term's offset and row, and how many rows
+         * the line takes. A working that fits sits right-aligned against its answer on one row; a longer one starts
+         * at the left, runs to the column's edge (breaking between terms), and its answer takes the row under it.
+         */
+        record Laid(int[] dx, int[] row, int rows) {}
+
+        static Laid lay(final com.gtnhplanner.machines.FormulaLine l, final int w, final int answersW) {
+            final int n = l.math()
+                .size();
+            final int[] dx = new int[n], row = new int[n];
+            final int oneRow = w - 8 - answersW - 6 - 8 - LABEL_W, total = mathWidth(l);
+            if (total <= oneRow) {
+                int at = oneRow - total;
+                for (int k = 0; k < n; k++) {
+                    dx[k] = at;
+                    at += termWidth(
+                        l.math()
+                            .get(k));
+                }
+                return new Laid(dx, row, 1);
+            }
+            final int full = w - 8 - 8 - LABEL_W;
+            int at = 0, r = 0;
+            for (int k = 0; k < n; k++) {
+                final int tw = termWidth(
+                    l.math()
+                        .get(k));
+                if (at > 0 && at + tw > full) {
+                    r++;
+                    at = 0;
+                }
+                dx[k] = at;
+                row[k] = r;
+                at += tw;
+            }
+            return new Laid(dx, row, r + 2);
+        }
+
+        /** The formulas' height: the heading, then each line's rows. */
+        static int formulasHeight(final List<com.gtnhplanner.machines.FormulaLine> lines, final int w) {
+            final int answersW = answersWidth(lines);
+            int rows = 0;
+            for (final com.gtnhplanner.machines.FormulaLine l : lines) rows += lay(l, w, answersW).rows();
+            return HEADING + rows * FORMULA + 4;
         }
 
         /** The column the formulas need: label, the widest working and the widest answer, within limits. */
         static int formulasWidth(final List<com.gtnhplanner.machines.FormulaLine> lines) {
             int math = 0;
             for (final com.gtnhplanner.machines.FormulaLine l : lines) math = Math.max(math, mathWidth(l));
-            return Math.max(FORMULAS_MIN, Math.min(FORMULAS_MAX, 8 + LABEL_W + math + 4 + answersWidth(lines) + 8));
+            return Math.max(FORMULAS_MIN, Math.min(FORMULAS_MAX, 8 + LABEL_W + math + 6 + answersWidth(lines) + 8));
         }
 
         private static int answersWidth(final List<com.gtnhplanner.machines.FormulaLine> lines) {
@@ -375,7 +445,15 @@ public final class SettingsSheet extends Popup {
                 c);
             pinGlyph(x + 6, y + 4, pinned ? Hyb.LIT : hot && mx < 16 ? Hyb.INK : hot ? Hyb.MUTED : 0xFF44474F);
             final int[] box = controlBox(c);
-            Hyb.text(Hyb.fit(c.label(), box[0] - 18 - 6), x + 18, y + 5, c.enabled() ? Hyb.INK : 0xFF5A5C65);
+            int lx = x + 18;
+            // A number's icon (a farm unit's block) goes before its name; a list shows the one picked in its box.
+            if (c.icon() != null && c.type() == SettingControls.Type.NUMBER) {
+                Hyb.item(c.icon(), lx, y + 3, 12, 0);
+                org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
+                org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_DEPTH_TEST);
+                lx += 16;
+            }
+            Hyb.text(Hyb.fit(c.label(), x + box[0] - lx - 6), lx, y + 5, c.enabled() ? Hyb.INK : 0xFF5A5C65);
             control(c, x, y, hot, mx);
         }
 

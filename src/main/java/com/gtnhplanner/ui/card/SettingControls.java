@@ -98,19 +98,43 @@ public final class SettingControls {
             .visibleSettings(new RecipeContext(m.node.properties), cfg.settings);
         // A modelled machine's own setup first (the TGS's tools and genes, the vat's glass, hatch and radiation),
         // under the website's keys: "machine:<key>", changed through MachineModels.
+        // A crop's settings come in sections (machine, crop, surroundings, the farm's units), most pinned from the
+        // start.
+        final boolean crop = com.gtnhplanner.machines.game.CropCards.isCrop(m.node);
         for (final com.gtnhplanner.machines.game.MachineModels.Setting s : com.gtnhplanner.machines.game.MachineModels
-            .settings(m.node))
+            .settings(m.node)) {
+            final String group = crop ? com.gtnhplanner.machines.game.CropCards.group(s.key()) : "SETTINGS";
+            // The farm's slots, read-only, close the units it shares them between.
+            if (crop && com.gtnhplanner.machines.game.CropCards.FARM_UNITS.equals(group)
+                && out.stream()
+                    .noneMatch(
+                        c -> c.group()
+                            .equals(group)))
+                out.add(
+                    new Control(
+                        "reading:slots",
+                        group,
+                        "Upgrade slots",
+                        com.gtnhplanner.machines.game.CropCards.slots(m.node),
+                        null,
+                        false,
+                        true,
+                        Type.READING,
+                        false));
             out.add(
                 new Control(
                     MACHINE_PREFIX + s.key(),
-                    "SETTINGS",
+                    group,
                     s.label(),
                     s.value(),
                     s.icon(),
                     s.warn(),
-                    true,
+                    // A number with nowhere to go (a farm unit with no slot left, overclocks below ZPM) is greyed.
+                    !crop || !s.number() || s.max() > s.min() || Double.parseDouble(s.value()) > s.min(),
                     s.number() ? Type.NUMBER : Type.CHOICE,
-                    com.gtnhplanner.machines.game.WebSettings.COIL.equals(s.key())));
+                    crop ? com.gtnhplanner.machines.game.CropCards.pinnedByDefault(s.key())
+                        : com.gtnhplanner.machines.game.WebSettings.COIL.equals(s.key())));
+        }
         // A modelled machine runs by the game's own rules (machines/): the TGS 100 ticks at VP[t], the vat GT's normal
         // overclocks. The generic speed, parallel and overclock knobs could only make numbers the game never does.
         if (com.gtnhplanner.machines.game.MachineModels.isModelled(m.node) || m.web != null) return out;

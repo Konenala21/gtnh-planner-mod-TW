@@ -71,6 +71,8 @@ public class Node {
      */
     public final List<int[]> worldLinks = new ArrayList<>();
 
+    /** The recipe page this node was made from, for its first read (a page NEI cannot find again by id). */
+    private transient RecipeHandlerRef madeFrom;
     @Getter
     private transient PropertyProvider extractor;
     @Getter
@@ -88,6 +90,7 @@ public class Node {
             .trim();
         this.recipeId = Recipe.RecipeId.of(handler, recipeIndex);
         this.handlerRecipeIndex = recipeIndex;
+        this.madeFrom = RecipeHandlerRef.of(handler, recipeIndex);
 
         this.availableExtractors = RecipePropertyAPI.getExtractors(handler.getClass());
         this.extractorIndex = 0;
@@ -129,7 +132,9 @@ public class Node {
             return;
         }
         if (extractor == null) return;
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(recipeId);
+        // The page it was made from, while there is one; else found again by its id. Not found: left as it is.
+        RecipeHandlerRef ref = madeFrom != null ? madeFrom : com.gtnhplanner.nei.RecipeRefs.of(recipeId);
+        if (ref == null) return;
         final IRecipeHandler handler = ref.handler;
         final int recipeIndex = ref.recipeIndex;
         inputs.clear();
@@ -175,7 +180,7 @@ public class Node {
         extractorIndex = (extractorIndex + 1) % availableExtractors.size();
         this.extractor = availableExtractors.get(extractorIndex);
 
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(recipeId);
+        final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(recipeId);
         if (ref != null) {
             final String pid = extractor.getProfileId(ref.handler, ref.recipeIndex);
             if (pid != null && !MachineProfileRegistry.defaultId()
@@ -202,7 +207,7 @@ public class Node {
     }
 
     public void initExtractor() {
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(recipeId);
+        final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(recipeId);
         if (ref == null) {
             this.extractor = null;
             this.availableExtractors = List.of();

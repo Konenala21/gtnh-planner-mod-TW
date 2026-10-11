@@ -114,7 +114,7 @@ public final class CardDefaults {
     }
 
     public static ItemStack firstCatalyst(final Node node) {
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(node.recipeId);
+        final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(node.recipeId);
         if (ref == null) return null;
         final List<PositionedStack> stacks = RecipeCatalysts.getRecipeCatalysts(ref.handler);
         return stacks.isEmpty() || stacks.get(0) == null ? null : stacks.get(0).item;

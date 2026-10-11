@@ -51,7 +51,7 @@ public final class WebCards {
     public static String mapId(final Node node) {
         if (node.isPower()) return null;
         if (node.properties.get(GTProvider.RECIPE_MAP) instanceof final RecipeMap<?> map) return map.unlocalizedName;
-        final RecipeHandlerRef ref = RecipeHandlerRef.of(node.recipeId);
+        final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(node.recipeId);
         return ref != null && ref.handler instanceof FurnaceRecipeHandler ? SMELTING : null;
     }
 

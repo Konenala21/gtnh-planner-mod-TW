@@ -90,7 +90,7 @@ public final class MachineModels {
     }
 
     public static boolean isModelled(final Node node) {
-        return isTgs(node.properties) || isVat(node.properties);
+        return isTgs(node.properties) || isVat(node.properties) || CropCards.isCrop(node);
     }
 
     // region Reading the recipes
@@ -283,6 +283,10 @@ public final class MachineModels {
         final Port<?> earlier = burned.remove(node);
         if (earlier != null) node.inputs.remove(earlier);
         final MachineConfig cfg = node.machineConfig;
+        if (CropCards.isCrop(node)) {
+            CropCards.afterRefresh(node);
+            return;
+        }
         if (isTgs(node.properties)) {
             cfg.outputProductivity.clear();
             final TreeGrowthSimulator.Tree tree = tree(node);
@@ -342,7 +346,13 @@ public final class MachineModels {
      * website's machine maths (machines/web Working); empty for any other machine.
      */
     public static List<FormulaLine> formulas(final Node node) {
+        return formulas(node, 1);
+    }
+
+    /** The same, a crop card's for this many crops planted. */
+    public static List<FormulaLine> formulas(final Node node, final double machines) {
         if (node.isPower() || node.machineConfig == null) return Collections.emptyList();
+        if (CropCards.isCrop(node)) return CropCards.formulas(node, machines);
         final MachineConfig cfg = node.machineConfig;
         if (!isTgs(node.properties) && !isVat(node.properties)) {
             final com.gtnhplanner.machines.web.NodeMath.Result r = WebEffect.result(node, cfg);
@@ -406,6 +416,7 @@ public final class MachineModels {
     public static List<Setting> settings(final Node node) {
         final List<Setting> out = new ArrayList<>();
         if (node.isPower() || node.machineConfig == null) return out;
+        if (CropCards.isCrop(node)) return CropCards.settings(node);
         if (!isTgs(node.properties) && !isVat(node.properties)) return WebSettings.settings(node);
         final MachineConfig cfg = node.machineConfig;
         if (isTgs(node.properties)) {

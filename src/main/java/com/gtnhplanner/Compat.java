@@ -11,6 +11,7 @@ import com.gtnhplanner.data.provider.AvaritiaProvider;
 import com.gtnhplanner.data.provider.BinnieProvider;
 import com.gtnhplanner.data.provider.BloodMagicProvider;
 import com.gtnhplanner.data.provider.BotaniaProvider;
+import com.gtnhplanner.data.provider.CropsNhProvider;
 import com.gtnhplanner.data.provider.DefaultProvider;
 import com.gtnhplanner.data.provider.DraconicEvolutionProvider;
 import com.gtnhplanner.data.provider.EFRProvider;
@@ -57,7 +58,8 @@ public enum Compat {
     THAUMICTINKERER(IDs.THAUMICTINKERER, ThaumicTinkererProvider.class),
     TINKERSCONSTRUCT(IDs.TINKERSCONSTRUCT, TinkersConstructProvider.class),
     WITCHINGGADGETS(IDs.WITCHINGGADGETS, WitchingGadgetsProvider.class),
-    EFR(IDs.EFR, EFRProvider.class);
+    EFR(IDs.EFR, EFRProvider.class),
+    CROPSNH(IDs.CROPSNH, CropsNhProvider.class);
 
     public static class IDs {
 
@@ -83,6 +85,7 @@ public enum Compat {
         public static final String TINKERSCONSTRUCT = "TConstruct";
         public static final String WITCHINGGADGETS = "WitchingGadgets";
         public static final String EFR = "etfuturum";
+        public static final String CROPSNH = "cropsnh";
     }
 
     public final String modid;
@@ -121,7 +124,14 @@ public enum Compat {
             if (mod.isLoaded) {
                 mod.extractor = create(mod.providerFactory);
                 if (mod.extractor != null) {
-                    mod.extractor.register();
+                    try {
+                        mod.extractor.register();
+                    } catch (RuntimeException | LinkageError e) {
+                        // Registering reaches into the mod's own classes too (its NEI handlers): an older version
+                        // without one loses that mod's recipes, never the game.
+                        GtnhPlanner.LOG.warn("[compat] {} failed to register; its recipes are not read", mod.modid, e);
+                        mod.extractor = null;
+                    }
                 }
             }
         }

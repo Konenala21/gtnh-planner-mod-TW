@@ -263,9 +263,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return model != null && model.isPower() ? PowerTiles.tierSetting(model.power.source()) : null;
     }
 
-    /** Whether the head has a tier chip: a GregTech recipe's voltage, or a generator's tier. */
+    /** Whether the head has a tier chip: a GregTech recipe's voltage, a generator's tier, or a crop's harvester's. */
     private boolean hasTier() {
-        return model != null && (model.gregtech || powerTier() != null);
+        return model != null && (model.gregtech || powerTier() != null || crop());
+    }
+
+    /** Whether the card grows a crop (its machine is a harvester, picked by a setting; CropCards). */
+    private boolean crop() {
+        return model != null && com.gtnhplanner.machines.game.CropCards.isCrop(model.node);
     }
 
     private int barRight() {
@@ -339,7 +344,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /** The machine count as the card shows it: a wheeled count at once, before the solve catches up. */
     private String countText() {
-        return "×" + Fmt.machines(pendingCount > 0 ? pendingCount : machinesTotal());
+        // A crop counts crops planted, not machines: no times sign, and the line under it says so.
+        return (crop() ? "" : "×") + Fmt.machines(pendingCount > 0 ? pendingCount : machinesTotal());
     }
 
     /** Screen point of a card-local point, for anchoring popups. */
@@ -640,6 +646,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         } else if (powerTier() != null) {
             final Hyb.Tier tier = Hyb.tier(powerTier().value(m.node.powerSettings.get("tier")));
             chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true);
+        } else if (crop()) {
+            final Hyb.Tier tier = Hyb.tier(com.gtnhplanner.machines.game.CropCards.tierName(m.node));
+            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true);
         }
 
         // The name is the machine menu: a faint plate under it while the mouse is on it, and its chevron. A generator
@@ -936,12 +945,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             CardPaint.circuitBadge(m.circuit, box, z);
         // Under the count: pinned, or (while the plan has nothing set to solve for) the prompt to set it.
         final boolean pinnedNow = pendingCount > 0 || pinned() && !pendingUnpin;
-        final String under = pinnedNow ? CardPaint.PINNED : session.nothingToSolveFor() ? CardPaint.SET_COUNT : null;
+        final String under = crop()
+            ? pinnedNow ? "crops, pinned"
+                : session.nothingToSolveFor() ? CardPaint.SET_COUNT
+                    : Math.round(machinesTotal()) == 1 ? "crop planted" : "crops planted"
+            : pinnedNow ? CardPaint.PINNED : session.nothingToSolveFor() ? CardPaint.SET_COUNT : null;
         CardPaint.count(
             countText(),
             machinesTotal() <= 0 && pendingCount <= 0,
             under,
-            pinnedNow ? Hyb.MUTED : CardPaint.prompt(),
+            pinnedNow || crop() && !session.nothingToSolveFor() ? Hyb.MUTED : CardPaint.prompt(),
             hover == Part.MACHINES,
             box);
     }
@@ -1254,6 +1267,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     /** Changes a modelled machine's setting; a tree's tools are remembered for its next card, as other settings. */
     private void changeMachine(final String key, final String value) {
         final Node node = model.node;
+        if (com.gtnhplanner.machines.game.CropCards.isCrop(node)) {
+            // A farm unit writes the whole normalized set of units; every crop setting is remembered for the next.
+            final java.util.Map<String, String> writes = com.gtnhplanner.machines.game.CropCards
+                .change(node, key, value);
+            session.setSettings(node, writes);
+            for (final java.util.Map.Entry<String, String> w : writes.entrySet())
+                SettingMemory.remember(node, w.getKey(), w.getValue());
+            return;
+        }
         if (key.startsWith("tgs") || com.gtnhplanner.machines.game.WebSettings.isKey(key))
             changeSetting(node, key, value);
         else session.setSetting(node, key, value);
@@ -1426,6 +1448,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 };
             }
             case MACHINE -> {
+                if (crop()) yield cropTip(m);
                 final Tip tip = Tip.of(m.machineName)
                     .sub(m.multiblock ? "Multiblock" : "Machine")
                     .row(pinned() ? "Pinned machines" : "Required machines", "×" + Fmt.machines(machinesTotal()));
@@ -1441,6 +1464,17 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 yield tip;
             }
             case TIER -> {
+                if (crop()) yield Tip
+                    .of(
+                        com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Seed bed tier"
+                            : "Crop Manager tier")
+                    .row("Configured tier", com.gtnhplanner.machines.game.CropCards.tierName(m.node))
+                    .row(
+                        "Crops per machine",
+                        Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
+                    .action(Tip.Input.LEFT, "Up")
+                    .action(Tip.Input.RIGHT, "Down")
+                    .action(Tip.Input.WHEEL, "Step");
                 final Tip tip = Tip.of("Voltage tier")
                     .row("Configured tier", m.tier);
                 if (m.node.properties.get(GTKeys.EU_PER_TICK) instanceof final Number eu && eu.longValue() > 0)
@@ -1803,6 +1837,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     private void stepTier(final int step) {
+        if (crop()) {
+            // The Crop Manager's tier (each its own machine), or the Industrial Farm's seed bed.
+            final java.util.Map.Entry<String, String> next = com.gtnhplanner.machines.game.CropCards
+                .stepTier(model.node, step);
+            if (next == null) return;
+            com.gtnhplanner.ui.sound.Sfx.tier(Integer.parseInt(next.getValue()));
+            changeMachine(next.getKey(), next.getValue());
+            return;
+        }
         if (!model.gregtech) return;
         if (isSingle(model.machineStack)) {
             // Each tier of a single block is its own machine: step to the next one there is, and it brings its tier.
@@ -1910,7 +1953,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             || isSingle(machines.get(k)) && isSingle(model.machineStack)) i = k;
         i = (i + step + machines.size()) % machines.size();
         com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
-        session.chooseMachine(model.node, machines.get(i), model.gregtech);
+        chooseMachine(machines.get(i));
+    }
+
+    /** Runs the recipe on a machine; a crop's harvester is a setting of the card, not its machine. */
+    private void chooseMachine(final ItemStack machine) {
+        if (crop()) changeMachine(
+            com.gtnhplanner.machines.CropsNh.HARVESTER,
+            com.gtnhplanner.machines.game.CropCards.isFarm(machine) ? com.gtnhplanner.machines.CropsNh.FARM
+                : com.gtnhplanner.machines.CropsNh.MANAGER);
+        else session.chooseMachine(model.node, machine, model.gregtech);
     }
 
     /** Whether the card is placed on a block in the world. */
@@ -1920,6 +1972,26 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     private String placeName() {
         return model.isPower() ? model.node.powerSource : model.machineName;
+    }
+
+    /** A crop's harvester: the crops planted (the card's count), the machines they fill, the harvest and the draw. */
+    private Tip cropTip(final CardModel m) {
+        final double crops = machinesTotal();
+        final boolean farm = com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack);
+        final Tip tip = Tip.of(m.machineName)
+            .sub(farm ? "Multiblock" : "Machine")
+            .row(pinned() ? "Pinned crops" : "Crops planted", Fmt.machines(crops))
+            .row(
+                "Crops per machine",
+                Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
+            .row(
+                farm ? "Industrial Farms" : "Crop Managers",
+                "×" + com.gtnhplanner.machines.game.CropCards.harvesters(m.node, crops))
+            .row("Harvest every", Fmt.compact(m.durationTicks / 20.0) + " s")
+            .row("Draw", Fmt.power(com.gtnhplanner.machines.game.CropCards.drawEut(m.node, crops)) + " EU/t");
+        if (machineChoices().size() > 1) tip.action(Tip.Input.LEFT, "Machines that harvest it")
+            .action(Tip.Input.WHEEL, "Next machine");
+        return tip;
     }
 
     private Tip placeTip() {
@@ -1964,12 +2036,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 if (kind != null) detail = kind.multiblock() ? "Multiblock"
                     : kind.steam() ? "Steam" : isSingle(machine) ? "Single block, tier by the chip" : "";
             }
-            final boolean current = ItemStack.areItemStacksEqual(machine, model.machineStack)
-                || isSingle(machine) && isSingle(model.machineStack);
-            rows.add(new PickList.Entry(machine, machine.getDisplayName(), detail, Hyb.INK, current, () -> {
-                if (!(isSingle(machine) && isSingle(model.machineStack))) {
+            final boolean farm = com.gtnhplanner.machines.game.CropCards.isFarm(machine);
+            if (crop()) detail = farm ? "Multiblock, seed bed by the chip" : "Single block, tier by the chip";
+            final boolean current = crop() ? farm == com.gtnhplanner.machines.game.CropCards.isFarm(model.machineStack)
+                : ItemStack.areItemStacksEqual(machine, model.machineStack)
+                    || isSingle(machine) && isSingle(model.machineStack);
+            final String name = crop() && !farm ? "Crop Manager" : machine.getDisplayName();
+            rows.add(new PickList.Entry(machine, name, detail, Hyb.INK, current, () -> {
+                if (!current) {
                     com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
-                    session.chooseMachine(model.node, machine, model.gregtech);
+                    chooseMachine(machine);
                 }
             }));
         }
@@ -1977,7 +2053,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             getPanel(),
             PickList.popup(
                 "gtnhplanner_machines",
-                shared() ? "MACHINES THAT RUN EVERY RECIPE ON THIS CARD" : "MACHINES THAT RUN THIS RECIPE",
+                crop() ? "MACHINES THAT HARVEST THIS CROP"
+                    : shared() ? "MACHINES THAT RUN EVERY RECIPE ON THIS CARD" : "MACHINES THAT RUN THIS RECIPE",
                 rows,
                 rows.size() > 8,
                 240),

@@ -795,7 +795,7 @@ public final class BoardSession {
                 made.add(n);
                 continue;
             }
-            final RecipeHandlerRef ref = RecipeHandlerRef.of(c.recipe());
+            final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(c.recipe());
             if (ref == null) {
                 made.add(null);
                 continue;
@@ -1184,6 +1184,9 @@ public final class BoardSession {
 
     /** A card's power as the board's switches say: average or peak. */
     public double power(final CardModel card) {
+        // A crop: its harvesters draw as whole machines (a farm bills its full draw), however few crops it holds.
+        if (com.gtnhplanner.machines.game.CropCards.isCrop(card.node))
+            return com.gtnhplanner.machines.game.CropCards.drawEut(card.node, card.machines);
         return card.euPerTick * (peakPower ? Math.ceil(card.machines - 1e-9) : card.machines);
     }
 
@@ -1492,6 +1495,16 @@ public final class BoardSession {
         });
     }
 
+    /** Sets several of a card's settings as one edit (a crop farm's units, kept as one normalized set). */
+    public void setSettings(final Node node, final java.util.Map<String, String> values) {
+        Sfx.ADJUST.play();
+        edit(() -> {
+            for (final java.util.Map.Entry<String, String> e : values.entrySet())
+                node.machineConfig.setString(e.getKey(), e.getValue());
+            syncShared(node);
+        });
+    }
+
     /** Picks which machine runs the recipe; GregTech single blocks bring their tier, multiblocks their options. */
     public void chooseMachine(final Node node, final ItemStack machine, final boolean gregtech) {
         edit(() -> {
@@ -1541,7 +1554,7 @@ public final class BoardSession {
                 copies.add(copy);
                 continue;
             }
-            final RecipeHandlerRef ref = from == null ? null : RecipeHandlerRef.of(from.recipeId);
+            final RecipeHandlerRef ref = from == null ? null : com.gtnhplanner.nei.RecipeRefs.of(from.recipeId);
             if (ref == null) return;
             final Node copy = new Node(ref.handler, ref.recipeIndex, node.x + 24, node.y + 24);
             copy.machineConfig.copySettingsFrom(from.machineConfig);
@@ -1736,7 +1749,10 @@ public final class BoardSession {
                     card.node.id,
                     card.machineName,
                     card.machineStack,
-                    card.machines,
+                    // A crop card counts crops; the plan builds its harvesters.
+                    com.gtnhplanner.machines.game.CropCards.isCrop(card.node)
+                        ? com.gtnhplanner.machines.game.CropCards.harvesters(card.node, card.machines)
+                        : card.machines,
                     card.pinned,
                     card.tier,
                     card.amps,
