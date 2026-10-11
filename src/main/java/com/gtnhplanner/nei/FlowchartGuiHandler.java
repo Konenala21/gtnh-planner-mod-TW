@@ -23,8 +23,11 @@ public class FlowchartGuiHandler extends INEIGuiAdapter {
 
     /** An item dragged from NEI's list onto the board: offered as a drawer there, or its recipes. */
     @Override
-    public boolean handleDragNDrop(final GuiContainer gui, final int mouseX, final int mouseY,
+    public boolean handleDragNDrop(final GuiContainer gui, final int neiX, final int neiY,
         final net.minecraft.item.ItemStack draggedStack, final int button) {
+        // NEI measures in the game's GUI pixels, the board in its own.
+        final int mouseX = com.gtnhplanner.ui.PlannerScale.fromGame(neiX),
+            mouseY = com.gtnhplanner.ui.PlannerScale.fromGame(neiY);
         if (!(com.gtnhplanner.ui.Planner.screenOf(gui) instanceof final com.gtnhplanner.ui.BoardScreen board)
             || draggedStack == null) return false;
         final com.cleanroommc.modularui.widget.sizer.Area area = board.canvas()

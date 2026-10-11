@@ -1,7 +1,6 @@
 package com.gtnhplanner.ui.popup;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -10,6 +9,7 @@ import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.client.CrashReports;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
@@ -57,8 +57,7 @@ public final class CrashOffer extends Widget<CrashOffer> implements Interactable
         };
         popup.child(new CrashOffer(board, session, canvas, crash).pos(0, 0));
         final Minecraft mc = Minecraft.getMinecraft();
-        final ScaledResolution sr = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        Popup.open(board, popup, (sr.getScaledWidth() - W) / 2, (sr.getScaledHeight() - H) / 3);
+        Popup.open(board, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 3);
     }
 
     private int[] sendRect() {

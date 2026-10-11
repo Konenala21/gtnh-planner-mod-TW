@@ -10,6 +10,8 @@
         "GuiOverlayButtonMixin",
         "EntityRendererMixin",
         "GuiDrawMixin",
-        "GuiScreenShiftMixin"
+        "GuiScreenShiftMixin",
+        "GuiContextMixin",
+        "MuiNeiHandlerMixin"
     ]
 }

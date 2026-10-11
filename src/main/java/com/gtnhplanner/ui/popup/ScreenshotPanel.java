@@ -5,7 +5,6 @@ import java.awt.image.BufferedImage;
 import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.ResourceLocation;
 
@@ -17,6 +16,7 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.data.flowchart.balancer.Severity;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.canvas.PlanPicture;
 import com.gtnhplanner.ui.card.CardPaint;
@@ -73,9 +73,8 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
     private ScreenshotPanel(final BoardSession session, final BoardCanvas canvas) {
         this.session = session;
         this.canvas = canvas;
-        final ScaledResolution sr = resolution();
-        boxW = Math.min(MAX_W, sr.getScaledWidth() - 2 * MARGIN);
-        boxH = Math.min(MAX_H, sr.getScaledHeight() - 2 * MARGIN);
+        boxW = Math.min(MAX_W, PlannerScale.width() - 2 * MARGIN);
+        boxH = Math.min(MAX_H, PlannerScale.height() - 2 * MARGIN);
         wellW = boxW - 2 * PAD - 10 - COL_W;
         wellH = boxH - TITLE - 2 * PAD;
         col = PAD + wellW + 10;
@@ -91,20 +90,13 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
 
             @Override
             public void drawBackground(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
-                final ScaledResolution sr = resolution();
-                Hyb.rect(-getArea().x, -getArea().y, sr.getScaledWidth(), sr.getScaledHeight(), 0x60000000);
+                Hyb.rect(-getArea().x, -getArea().y, PlannerScale.width(), PlannerScale.height(), 0x60000000);
                 Hyb.dropShadow(0, 0, w, h);
                 CardPaint.surface(w, h);
             }
         };
         popup.child(shot.pos(0, 0));
-        final ScaledResolution sr = resolution();
-        Popup.open(parent, popup, (sr.getScaledWidth() - w) / 2, (sr.getScaledHeight() - h) / 2);
-    }
-
-    private static ScaledResolution resolution() {
-        final Minecraft mc = Minecraft.getMinecraft();
-        return new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        Popup.open(parent, popup, (PlannerScale.width() - w) / 2, (PlannerScale.height() - h) / 2);
     }
 
     // region The picture
@@ -120,7 +112,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         final PlanPicture.Options o = chosen;
         taking = o;
         PlanPicture.take(canvas, o, image -> {
-            final int scale = resolution().getScaleFactor();
+            final int scale = PlannerScale.current();
             PlanPicture.preview(image, (wellW - 8) * scale, (wellH - 8) * scale, small -> {
                 show(small, scale);
                 picture = image;

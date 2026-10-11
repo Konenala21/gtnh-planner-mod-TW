@@ -11,7 +11,6 @@ import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiControls;
-import net.minecraft.client.gui.ScaledResolution;
 
 import com.cleanroommc.modularui.api.UpOrDown;
 import com.cleanroommc.modularui.api.widget.Interactable;
@@ -19,6 +18,7 @@ import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
@@ -64,6 +64,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
     // The box: a title bar, the sections on the left, the settings on the right.
     private static final int W = 340, TITLE = 22, SIDE = 96, SIDE_ROW = 18, ROW = 22, PAD = 6, MAX_ROWS = 6;
+    /** The settings box's panel, found again to centre it when the planner's size changes. */
+    private static final String PANEL = "gtnhplanner_settings_panel";
     private static final int H = TITLE + PAD + MAX_ROWS * ROW + PAD;
     // The controls, right-aligned in their row.
     private static final int RIGHT = W - 10, SWITCH_W = 22, SWITCH_H = 12, CHOICE_H = 16, TRACK_W = 96, VALUE_W = 30,
@@ -89,25 +91,18 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     /** Opens the settings in the middle of the screen. */
     public static void open(final ModularPanel parent) {
         final SettingsPanel settings = new SettingsPanel(sections());
-        final Popup popup = new Popup("gtnhplanner_settings_panel", W, H) {
+        final Popup popup = new Popup(PANEL, W, H) {
 
             @Override
             public void drawBackground(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
                 // The board behind dims a little; the box in the card's colours, with the card's shadow.
-                final ScaledResolution sr = resolution();
-                Hyb.rect(-getArea().x, -getArea().y, sr.getScaledWidth(), sr.getScaledHeight(), 0x60000000);
+                Hyb.rect(-getArea().x, -getArea().y, PlannerScale.width(), PlannerScale.height(), 0x60000000);
                 Hyb.dropShadow(0, 0, W, H);
                 CardPaint.surface(W, H);
             }
         };
         popup.child(settings.pos(0, 0));
-        final ScaledResolution sr = resolution();
-        Popup.open(parent, popup, (sr.getScaledWidth() - W) / 2, (sr.getScaledHeight() - H) / 2);
-    }
-
-    private static ScaledResolution resolution() {
-        final Minecraft mc = Minecraft.getMinecraft();
-        return new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        Popup.open(parent, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 2);
     }
 
     // region The settings
@@ -128,6 +123,31 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         return new Row(label, hint, Kind.CHOICE, names, at, to);
     }
 
+    /** A new size lays the planner out again at once, as a resized window would (NEI's list keeps its own). */
+    private static void setSize(final int size) {
+        if (size == PlannerSettings.size()) return;
+        PlannerSettings.setSize(size);
+        final Minecraft mc = Minecraft.getMinecraft();
+        final net.minecraft.client.gui.ScaledResolution sr = new net.minecraft.client.gui.ScaledResolution(
+            mc,
+            mc.displayWidth,
+            mc.displayHeight);
+        if (mc.currentScreen != null)
+            mc.currentScreen.setWorldAndResolution(mc, sr.getScaledWidth(), sr.getScaledHeight());
+        // ModularUI lays out again only when the game's size changes, which this does not.
+        if (!(com.gtnhplanner.ui.Planner.screenOf(mc.currentScreen) instanceof final com.gtnhplanner.ui.BoardScreen board))
+            return;
+        board.onResize(sr.getScaledWidth(), sr.getScaledHeight());
+        // This box stays open, in the middle of the board as it now measures.
+        for (final ModularPanel p : board.getPanelManager()
+            .getOpenPanels()) {
+            if (p.getName() == null || !p.getName()
+                .startsWith(PANEL + "_")) continue;
+            p.pos((PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 2);
+            p.scheduleResize();
+        }
+    }
+
     private static List<Section> sections() {
         final List<Section> out = new ArrayList<>();
 
@@ -137,6 +157,12 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             new Section(
                 "Board",
                 List.of(
+                    choice(
+                        "Size",
+                        "beside NEI",
+                        PlannerSettings.SIZE_NAMES,
+                        PlannerSettings::size,
+                        SettingsPanel::setSize),
                     toggle(
                         "Names when zoomed out",
                         null,

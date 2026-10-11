@@ -6,8 +6,6 @@ import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -27,6 +25,7 @@ import com.gtnhplanner.library.Account;
 import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.Posting;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.Resources;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
@@ -160,11 +159,7 @@ public final class AccountForms {
 
     /** In the middle of the screen. */
     private static void open(final ModularPanel parent, final Popup popup, final int h) {
-        final ScaledResolution sr = new ScaledResolution(
-            Minecraft.getMinecraft(),
-            Minecraft.getMinecraft().displayWidth,
-            Minecraft.getMinecraft().displayHeight);
-        Popup.open(parent, popup, (sr.getScaledWidth() - W) / 2, (sr.getScaledHeight() - h) / 2 - 20);
+        Popup.open(parent, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - h) / 2 - 20);
     }
 
     /** What both forms share: the title and subtitle, labels over fields, the error, the button and the link. */

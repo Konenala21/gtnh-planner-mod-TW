@@ -3,13 +3,11 @@ package com.gtnhplanner.ui.popup;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
-
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
@@ -39,13 +37,9 @@ public class Popup extends ModularPanel {
      * outside and close it again.
      */
     public static void open(final ModularPanel parent, final Popup popup, final int screenX, final int screenY) {
-        final ScaledResolution sr = new ScaledResolution(
-            Minecraft.getMinecraft(),
-            Minecraft.getMinecraft().displayWidth,
-            Minecraft.getMinecraft().displayHeight);
         final int w = popup.popupW, h = popup.popupH;
-        final int x = Math.max(2, Math.min(screenX, sr.getScaledWidth() - w - 2));
-        final int y = Math.max(2, Math.min(screenY, sr.getScaledHeight() - h - 2));
+        final int x = Math.max(2, Math.min(screenX, PlannerScale.width() - w - 2));
+        final int y = Math.max(2, Math.min(screenY, PlannerScale.height() - h - 2));
         popup.pos(x, y);
         PENDING.add(() -> {
             if (!parent.isOpen()) return;

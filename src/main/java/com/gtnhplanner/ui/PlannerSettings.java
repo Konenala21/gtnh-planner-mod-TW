@@ -174,6 +174,34 @@ public final class PlannerSettings {
 
     // endregion
 
+    // region Size
+
+    /**
+     * The planner's size against NEI's, as an index into these names. Normal is a GUI scale step below NEI's (never
+     * below 2, where a step smaller is too small to read); Large is NEI's own; Small and Tiny are a step and two below
+     * Normal.
+     */
+    public static final String[] SIZE_NAMES = { "Tiny", "Small", "Normal", "Large" };
+    public static final int SIZE_NORMAL = 2, SIZE_LARGE = 3;
+
+    public static int size() {
+        return clamp(integer("board.planSize", SIZE_NORMAL), SIZE_NAMES.length);
+    }
+
+    public static void setSize(final int index) {
+        set("board.planSize", clamp(index, SIZE_NAMES.length));
+    }
+
+    /** The planner's GUI scale on a game whose scale is {@code game}. */
+    public static int boardScale(final int game) {
+        final int size = size();
+        if (size == SIZE_LARGE) return game;
+        final int normal = Math.max(Math.min(game, 2), game - 1);
+        return Math.max(1, normal - (SIZE_NORMAL - size));
+    }
+
+    // endregion
+
     // region Background
 
     /** The see-through slider's step, in percent, and where it starts. */

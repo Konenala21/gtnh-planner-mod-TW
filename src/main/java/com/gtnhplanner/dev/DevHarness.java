@@ -1045,8 +1045,20 @@ public final class DevHarness {
         return main;
     }
 
-    private static String describe(final IWidget widget) {
+    /** A widget's area in the game's GUI pixels, as the harness's input takes them (the board lays out in its own). */
+    private static Area gameArea(final IWidget widget) {
         final Area a = widget.getArea();
+        if (!com.gtnhplanner.ui.Planner.isPlanner(Minecraft.getMinecraft().currentScreen)) return a;
+        final int x = com.gtnhplanner.ui.PlannerScale.toGame(a.x()), y = com.gtnhplanner.ui.PlannerScale.toGame(a.y());
+        return new Area(
+            x,
+            y,
+            com.gtnhplanner.ui.PlannerScale.toGame(a.x() + a.w()) - x,
+            com.gtnhplanner.ui.PlannerScale.toGame(a.y() + a.h()) - y);
+    }
+
+    private static String describe(final IWidget widget) {
+        final Area a = gameArea(widget);
         return widget.getClass()
             .getSimpleName() + " @"
             + a.x()
@@ -1060,7 +1072,7 @@ public final class DevHarness {
 
     private static Map<String, Object> dumpWidget(final IWidget widget, final int depth) {
         final Map<String, Object> m = new LinkedHashMap<>();
-        final Area a = widget.getArea();
+        final Area a = gameArea(widget);
         m.put(
             "type",
             widget.getClass()

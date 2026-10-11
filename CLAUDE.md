@@ -248,7 +248,13 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
   `call 'window?w=1920&h=1080'` (`scale=` sets the GUI scale). It runs Java 21, so it runs the fully downgraded
   classes (`gradle.properties`: the partial downgrade to 21 broke pattern switches), which the dev game on Java 25
   never does; the harness port is the same, so stop one game before starting the other.
-- Input endpoints and `shot` crops take GUI coordinates (960x540), not screen pixels. On the board, act on a card
+- The board has its own GUI scale (`ui/PlannerScale`, the gear's Size: Tiny, Small, Normal, Large; Normal is a step
+  below the game's, never below 2; Large is the game's): it lays out in its own pixels and draws scaled to the game's,
+  while NEI's list beside it keeps the game's. Two mixins carry the mouse (`GuiContextMixin`) and NEI's hidden slots
+  (`MuiNeiHandlerMixin`) across; NEI's drop converts in `FlowchartGuiHandler`. Anything measuring the screen on the
+  board uses `PlannerScale`, not `ScaledResolution`. The tour plays at the game's scale.
+- Input endpoints and `shot` crops take GUI coordinates (960x540), not screen pixels: the game's, also on the board
+  (`call board` and `widgets` report the board's parts converted to them). On the board, act on a card
   control by name: `mc.sh part 1 MACHINES` (from `call board`, which also returns each card's state). Elsewhere
   find targets with `call widgets` and check `hovered`/`focused` in `call status` rather than estimating.
 - `mc.sh stop` kills the game on purpose: a clean quit with GT loaded hangs on a "really close?" dialog.

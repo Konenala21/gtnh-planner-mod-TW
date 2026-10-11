@@ -746,11 +746,35 @@ public final class BoardScreen extends ModularScreen {
         super.onClose();
     }
 
+    /**
+     * The board lays out on the screen measured in its own pixels ({@link PlannerScale}), a step or two smaller than
+     * the game's that NEI keeps; it keeps clear of NEI's search box, which is measured in the game's.
+     */
+    @Override
+    public void onResize(final int width, final int height) {
+        getMainPanel().marginBottom(PlannerScale.fromGame(22));
+        super.onResize(PlannerScale.boardWidth(), PlannerScale.boardHeight());
+    }
+
+    /** Drawn scaled to the game's GUI pixels; NEI draws between this and the foreground, unscaled. */
+    @Override
+    public void drawScreen() {
+        final float k = PlannerScale.ratio();
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glScalef(k, k, 1);
+        super.drawScreen();
+        org.lwjgl.opengl.GL11.glPopMatrix();
+    }
+
     @Override
     public void drawForeground() {
+        final float k = PlannerScale.ratio();
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glScalef(k, k, 1);
         super.drawForeground();
         drawLinkBanner();
         drawPortTooltip();
+        org.lwjgl.opengl.GL11.glPopMatrix();
     }
 
     /** While placing a card on a block from the world: which block, and what to do, at the bottom of the board. */

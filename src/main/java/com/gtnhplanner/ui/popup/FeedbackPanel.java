@@ -8,7 +8,6 @@ import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.ScaledResolution;
 
 import org.lwjgl.opengl.GL11;
 
@@ -22,6 +21,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.Reports;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.canvas.PlanPicture;
 import com.gtnhplanner.ui.card.CardPaint;
@@ -99,8 +99,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         };
         popup.child(new FeedbackPanel(session, canvas, crash).pos(0, 0));
         final Minecraft mc = Minecraft.getMinecraft();
-        final ScaledResolution sr = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        Popup.open(parent, popup, (sr.getScaledWidth() - W) / 2, (sr.getScaledHeight() - H) / 2);
+        Popup.open(parent, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 2);
     }
 
     @Override

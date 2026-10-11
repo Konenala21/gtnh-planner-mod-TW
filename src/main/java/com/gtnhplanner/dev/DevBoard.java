@@ -203,8 +203,14 @@ final class DevBoard {
             canvas.screenY(ny + ly + CardLayout.ICON) - y0);
     }
 
-    /** {x, y, w, h} plus the centre, which is what a click wants. */
-    private static Map<String, Object> rect(final int x, final int y, final int w, final int h) {
+    /**
+     * {x, y, w, h} plus the centre, which is what a click wants: in the game's GUI pixels, as the harness's input
+     * takes them, though the board lays out in its own ({@link com.gtnhplanner.ui.PlannerScale}).
+     */
+    private static Map<String, Object> rect(final int bx, final int by, final int bw, final int bh) {
+        final int x = com.gtnhplanner.ui.PlannerScale.toGame(bx), y = com.gtnhplanner.ui.PlannerScale.toGame(by);
+        final int w = com.gtnhplanner.ui.PlannerScale.toGame(bx + bw) - x,
+            h = com.gtnhplanner.ui.PlannerScale.toGame(by + bh) - y;
         final Map<String, Object> m = new LinkedHashMap<>();
         m.put("x", x);
         m.put("y", y);

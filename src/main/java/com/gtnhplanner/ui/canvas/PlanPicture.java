@@ -23,7 +23,6 @@ import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -136,7 +135,7 @@ public final class PlanPicture {
         final BoardSession session = canvas.session();
         final Graph g = session.graph();
         final int maxSide = Math.min(MAX_SIDE, GL11.glGetInteger(GL30.GL_MAX_RENDERBUFFER_SIZE));
-        // Pixels per GUI unit: the game's own GUI scale, so the picture looks as the board does. A plan too big for
+        // Pixels per GUI unit: the board's GUI scale, so the picture looks as the board does. A plan too big for
         // that gets fewer, then (at one) a smaller board.
         int scale = guiScale();
         float zoom = o.detail() == Detail.DETAILED ? FULL_ZOOM : OUT_ZOOM;
@@ -296,9 +295,9 @@ public final class PlanPicture {
         return image;
     }
 
+    /** The board's GUI scale: the picture is drawn in its pixels. */
     private static int guiScale() {
-        final Minecraft mc = Minecraft.getMinecraft();
-        return new ScaledResolution(mc, mc.displayWidth, mc.displayHeight).getScaleFactor();
+        return com.gtnhplanner.ui.PlannerScale.board();
     }
 
     // endregion

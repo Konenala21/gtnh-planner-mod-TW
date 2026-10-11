@@ -59,10 +59,7 @@ public final class ZoomedOutLabels {
      */
     /** A font pixel in world units at {@code zoom}: a screen pixel (two at large GUI scales). */
     private static float font(final float zoom) {
-        final int gui = new net.minecraft.client.gui.ScaledResolution(
-            net.minecraft.client.Minecraft.getMinecraft(),
-            net.minecraft.client.Minecraft.getMinecraft().displayWidth,
-            net.minecraft.client.Minecraft.getMinecraft().displayHeight).getScaleFactor();
+        final int gui = com.gtnhplanner.ui.PlannerScale.board();
         return Math.max(1, Math.round(gui / 2f)) / (float) gui / zoom;
     }
 
