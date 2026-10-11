@@ -251,7 +251,9 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
   `.minecraft/screenshots`); `swap` and `start` do not. It opens at 854x480 whatever Prism's settings say:
   `call 'window?w=1920&h=1080'` (`scale=` sets the GUI scale). It runs Java 21, so it runs the fully downgraded
   classes (`gradle.properties`: the partial downgrade to 21 broke pattern switches), which the dev game on Java 25
-  never does; the harness port is the same, so stop one game before starting the other.
+  never does. Its harness answers on port 25601 (`-Dgtnhplanner.dev.port` in its JVM arguments), so it runs beside a
+  dev game: `PLANNH_DEV_PORT=25601 tools/dev/mc.sh call ...`. Before sending input, check which game answers (a
+  screenshot's path names its folder): sessions share these ports.
 - The board has its own GUI scale (`ui/PlannerScale`, the gear's Size: Tiny, Small, Normal, Large; Normal is a step
   below the game's, never below 2; Large is the game's): it lays out in its own pixels and draws scaled to the game's,
   while NEI's list beside it keeps the game's. Two mixins carry the mouse (`GuiContextMixin`) and NEI's hidden slots
