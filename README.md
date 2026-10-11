@@ -30,7 +30,7 @@ a flowchart planner that lives in NEI, builds its cards from NEI's own recipes, 
 
 ## Dependencies
 
-- Minecraft **1.7.10** with Forge, in the GT New Horizons pack
+- Minecraft **1.7.10** with Forge, in the GT New Horizons pack (RC2)
 - **Not Enough Items** (GTNH's), **ModularUI2**, **GTNHLib**, **Mixin**
 
 ## Building
