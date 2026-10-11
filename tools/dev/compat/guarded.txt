@@ -1,19 +1,20 @@
 # Gaps compatCheck finds in an older GTNH 2.9 build that the code handles: one per line, exactly as the check prints it,
+# then two spaces, <- and the classes of ours whose use of it is handled (another class reaching it fails the check),
 # then two spaces, # and why it is safe (what catches it, or why players never reach it).
 
 # NEI before 2.8.155 (RC-1 and older): the recipe button event has no recipe or size. NEIPlanConfig.addPlanButton and
 # refOf catch NoSuchFieldError and take the recipe from NEI's own buttons and the place from above them.
-MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.handlerRef : Lcodechicken/nei/recipe/RecipeHandlerRef;  # NEIPlanConfig.refOf
-MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.height : I  # NEIPlanConfig.addPlanButton
-MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.width : I  # NEIPlanConfig.addPlanButton
+MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.handlerRef : Lcodechicken/nei/recipe/RecipeHandlerRef;  <- nei/NEIPlanConfig  # NEIPlanConfig.refOf
+MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.height : I  <- nei/NEIPlanConfig  # NEIPlanConfig.addPlanButton
+MEMBER codechicken/nei/recipe/GuiRecipeButton$UpdateRecipeButtonsEvent$Post.width : I  <- nei/NEIPlanConfig  # NEIPlanConfig.addPlanButton
 
 # NEI before beta-3 links an ItemStack in chat, without BookmarkPayload: PlanAPI.shareGraph falls back by reflection.
-CLASS codechicken/nei/bookmark/BookmarkPayload  # PlanAPI.shareGraph
-MEMBER codechicken/nei/NEIClientUtils.sendChatItemLink(Lnet/minecraft/nbt/NBTTagCompound;)V  # PlanAPI.shareGraph
+CLASS codechicken/nei/bookmark/BookmarkPayload  <- api/PlanAPI  # PlanAPI.shareGraph
+MEMBER codechicken/nei/NEIClientUtils.sendChatItemLink(Lnet/minecraft/nbt/NBTTagCompound;)V  <- api/PlanAPI  # PlanAPI.shareGraph
 
 # Thaumic Tinkerer before beta-2 has no NEI necromancy handler: ThaumicTinkererProvider.register throws on its first
 # line, Compat.init drops the provider, and its recipes go unread.
-CLASS thaumic/tinkerer/client/nei/NEINecromancyHandler  # Compat.init
+CLASS thaumic/tinkerer/client/nei/NEINecromancyHandler  <- data/provider/ThaumicTinkererProvider  # Compat.init
 
 # GregTech before beta-3 has no fake Tree Growth Simulator map: only the dev harness's machinedata call reads it.
-MEMBER gregtech/api/recipe/RecipeMaps.treeGrowthSimulatorFakeRecipes : Lgregtech/api/recipe/RecipeMap;  # dev harness only
+MEMBER gregtech/api/recipe/RecipeMaps.treeGrowthSimulatorFakeRecipes : Lgregtech/api/recipe/RecipeMap;  <- dev/DevMachineData  # dev harness only

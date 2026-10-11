@@ -43,11 +43,15 @@ public class Check {
 
     public static void main(String[] a) throws Exception {
         final Path classes = Path.of(a[0]);
-        final Map<String, String> guarded = new LinkedHashMap<>();
+        // A gap and the classes of ours whose use of it is handled: another class reaching it is a new gap.
+        final Map<String, Set<String>> guarded = new LinkedHashMap<>();
         for (String line : Files.readAllLines(Path.of(a[1]))) {
             if (line.isBlank() || line.startsWith("#")) continue;
             final int why = line.indexOf("  #");
-            guarded.put((why < 0 ? line : line.substring(0, why)).trim(), why < 0 ? "" : line.substring(why + 3).trim());
+            final String entry = (why < 0 ? line : line.substring(0, why)).trim();
+            final int by = entry.indexOf("  <- ");
+            if (by < 0) throw new IllegalArgumentException("guarded.txt: no '  <- ' list of the classes it covers: " + line);
+            guarded.put(entry.substring(0, by).trim(), new TreeSet<>(List.of(entry.substring(by + 5).trim().split("\\s*,\\s*"))));
         }
         final Set<String> guardUsed = new HashSet<>();
         int failures = 0;
@@ -61,10 +65,16 @@ public class Check {
             final List<String> open = new ArrayList<>();
             int handled = 0;
             for (var e : c.missing.entrySet()) {
-                if (guarded.containsKey(e.getKey())) {
-                    guardUsed.add(e.getKey());
+                final Set<String> covered = guarded.get(e.getKey());
+                if (covered != null) guardUsed.add(e.getKey());
+                if (covered != null && covered.containsAll(e.getValue())) {
                     handled++;
-                } else open.add(e.getKey() + "\n      used by " + String.join(", ", e.getValue()));
+                    continue;
+                }
+                final TreeSet<String> uncovered = new TreeSet<>(e.getValue());
+                if (covered != null) uncovered.removeAll(covered);
+                open.add(e.getKey() + "\n      used by " + String.join(", ", uncovered)
+                    + (covered != null ? " (guarded.txt covers only " + String.join(", ", covered) + ")" : ""));
             }
             System.out.println(pack + ": " + (open.isEmpty() ? "ok" : open.size() + " unguarded") + (handled > 0 ? " (" + handled + " guarded)" : ""));
             for (String o : open) System.out.println("    " + o);
@@ -75,7 +85,7 @@ public class Check {
         }
         if (failures > 0) {
             System.out.println("\nEach would throw in that pack when reached. Guard it (catch the LinkageError, check the version,"
-                + " or reach it by reflection), then add the line to tools/dev/compat/guarded.txt with why it is safe.");
+                + " or reach it by reflection), then add the line to tools/dev/compat/guarded.txt with the classes it covers and why it is safe.");
             System.exit(1);
         }
     }
