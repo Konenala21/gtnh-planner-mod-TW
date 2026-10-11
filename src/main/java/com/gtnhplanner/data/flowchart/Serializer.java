@@ -250,6 +250,13 @@ public final class Serializer {
             }
             root.add("settingPins", pins);
         }
+        if (!graph.pinList.isEmpty()) {
+            final JsonArray pinList = new JsonArray();
+            // Cards since deleted are left out.
+            for (final UUID id : graph.pinList)
+                if (graph.nodes.containsKey(id)) pinList.add(new com.google.gson.JsonPrimitive(id.toString()));
+            if (pinList.size() > 0) root.add("pinList", pinList);
+        }
 
         final JsonArray nodesArray = new JsonArray();
         for (final Node node : graph.getNodes()) {
@@ -485,6 +492,15 @@ public final class Serializer {
                 for (final JsonElement k : e.getValue()
                     .getAsJsonArray()) keys.add(k.getAsString());
                 graph.settingPins.put(e.getKey(), keys);
+            }
+        }
+
+        if (root.has("pinList") && root.get("pinList")
+            .isJsonArray()) {
+            for (final JsonElement id : root.getAsJsonArray("pinList")) {
+                try {
+                    graph.pinList.add(UUID.fromString(id.getAsString()));
+                } catch (final IllegalArgumentException ignored) {}
             }
         }
 

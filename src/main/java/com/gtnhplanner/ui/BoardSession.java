@@ -1176,6 +1176,17 @@ public final class BoardSession {
         return peakPower;
     }
 
+    /** Puts a card on the pin list shown while playing, or takes it off: one undo step, saved. */
+    public void togglePinList(final UUID machine) {
+        final boolean on = !graph.pinList.contains(machine);
+        (on ? com.gtnhplanner.ui.sound.Sfx.TOGGLE_ON : com.gtnhplanner.ui.sound.Sfx.TOGGLE_OFF).play();
+        editLayout(() -> {
+            if (on) graph.pinList.add(machine);
+            else graph.pinList.remove(machine);
+        });
+        if (graph.pinList.contains(machine)) PlannerSettings.setPinList(true);
+    }
+
     public void togglePeakPower() {
         peakPower = !peakPower;
         // The totals rail sums power with it.

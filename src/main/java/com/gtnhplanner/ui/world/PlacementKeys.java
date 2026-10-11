@@ -175,6 +175,15 @@ public final class PlacementKeys {
     private record Item(String key, String what, boolean live) {}
 
     /** Whether the keys strip shows: while the plan is over the world, not over a screen, the HUD hidden or placing. */
+    /** Where the strip was last drawn, {x, y, w, h}, or null when it is not showing. */
+    @javax.annotation.Nullable
+    static int[] stripBounds() {
+        return stripShown() ? lastStrip : null;
+    }
+
+    @javax.annotation.Nullable
+    private static int[] lastStrip;
+
     static boolean stripShown() {
         final Minecraft mc = Minecraft.getMinecraft();
         return PlanOverlay.on() && mc.currentScreen == null && !mc.gameSettings.hideGUI && !LinkPicker.active();
@@ -216,6 +225,7 @@ public final class PlacementKeys {
         final float right = map == null ? sr.getScaledWidth() - 6 : map[0] + map[2];
         final float x = right - w;
         final float y = map == null ? 6 : below ? map[1] + map[3] : map[1] - h;
+        lastStrip = new int[] { (int) x, (int) y, w, h };
         GL11.glPushMatrix();
         GL11.glDisable(GL11.GL_LIGHTING);
         Hyb.rect(x, y, w, h, Minimap.BACKING);

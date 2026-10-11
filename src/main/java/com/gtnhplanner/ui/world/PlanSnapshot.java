@@ -20,9 +20,10 @@ import com.gtnhplanner.ui.card.StructureArt;
  * @param graphVersion the plan's version when taken: a different version now means it changed since
  * @param viewX        the board's view centre, world units
  * @param rateUnit     the unit the board shows rates in
+ * @param pinList      the cards on the plan's pin list, in the order they were pinned
  */
 public record PlanSnapshot(Graph graph, String planName, long graphVersion, List<Card> cards, List<Box> drawers,
-    List<Line> wires, float viewX, float viewY, com.gtnhplanner.ui.theme.Fmt.RateUnit rateUnit) {
+    List<Line> wires, float viewX, float viewY, com.gtnhplanner.ui.theme.Fmt.RateUnit rateUnit, List<UUID> pinList) {
 
     /** What flows through a port or drawer, per second. */
     public record Flow(String name, @Nullable ItemStack item, @Nullable FluidStack fluid, boolean power,

@@ -139,6 +139,28 @@ public final class PlannerSettings {
         set("minimap.follow", on);
     }
 
+    /** The pin list: the plan's pinned machines on screen while playing. */
+    public static boolean pinList() {
+        return bool("pinList.on", true);
+    }
+
+    public static void setPinList(final boolean on) {
+        set("pinList.on", on);
+    }
+
+    public static Corner pinListCorner() {
+        try {
+            return Corner.valueOf(load().getProperty("pinList.corner", Corner.TOP_RIGHT.name()));
+        } catch (final IllegalArgumentException e) {
+            return Corner.TOP_RIGHT;
+        }
+    }
+
+    public static void setPinListCorner(final Corner corner) {
+        load().setProperty("pinList.corner", corner.name());
+        save();
+    }
+
     /** The plan overlaid on the world: its placed cards over their blocks, with their wires. */
     public static boolean arLens() {
         return bool("world.ar", true);

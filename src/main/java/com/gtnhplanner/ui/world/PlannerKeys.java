@@ -33,6 +33,7 @@ public final class PlannerKeys {
     static final KeyBinding RECENTRE = new KeyBinding("key.gtnhplanner.minimapRecentre", Keyboard.KEY_NONE, CATEGORY);
     static final KeyBinding AR = new KeyBinding("key.gtnhplanner.ar", Keyboard.KEY_Y, CATEGORY);
     static final KeyBinding LINK = new KeyBinding("key.gtnhplanner.link", Keyboard.KEY_L, CATEGORY);
+    static final KeyBinding PIN_LIST = new KeyBinding("key.gtnhplanner.pinList", Keyboard.KEY_NONE, CATEGORY);
 
     public PlannerKeys() {}
 
@@ -78,7 +79,7 @@ public final class PlannerKeys {
 
     public static void register() {
         for (final KeyBinding k : new KeyBinding[] { MINIMAP, ZOOM_IN, ZOOM_OUT, PAN_UP, PAN_DOWN, PAN_LEFT, PAN_RIGHT,
-            RECENTRE, AR, LINK }) ClientRegistry.registerKeyBinding(k);
+            RECENTRE, AR, LINK, PIN_LIST }) ClientRegistry.registerKeyBinding(k);
     }
 
     /** The presses: show or hide, zoom a step, re-centre, the AR lens, linking. */
@@ -98,6 +99,11 @@ public final class PlannerKeys {
             WorldView.say(PlannerSettings.arLens() ? "Plan over the world: on" : "Plan over the world: off");
         }
         while (LINK.isPressed()) LinkTarget.beginForCrosshair();
+        while (PIN_LIST.isPressed()) {
+            PlannerSettings.setPinList(!PlannerSettings.pinList());
+            (PlannerSettings.pinList() ? com.gtnhplanner.ui.sound.Sfx.TOGGLE_ON
+                : com.gtnhplanner.ui.sound.Sfx.TOGGLE_OFF).play();
+        }
         // Placing a machine takes [ and ] for its size.
         if (!PlannerSettings.minimap() || LinkPicker.active()) {
             while (ZOOM_IN.isPressed() || ZOOM_OUT.isPressed()) {}

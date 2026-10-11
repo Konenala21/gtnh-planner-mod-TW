@@ -155,7 +155,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   kept fake world: display lists of block rendering come out invisible under Angelica. They are built as the card needs
   them (its coil, a tower's height, a line's length) through GregTech's structure channels. Placed machines are adjusted
   from the world with sneak held (`PlacementKeys`: R turn, G pick up and move, Del remove, U Focus: cards only where you
-  look, Y hides the whole overlay). World code never loads the plans (`Plan.loaded()`). The earlier lens of every machine's live
+  look, Y hides the whole overlay). World code never loads the plans (`Plan.loaded()`). The pin list (`PinList`, issue 5) lists
+  the plan's pinned cards in a corner while playing (machine, tier tags, how many; clear of the minimap and the keys
+  strip): a card's pin key, or the one right of each overview machine line's EU/t, opens Place in the world / Pin to
+  the screen (`RecipeCard.openPlaceMenu`); right-click unpins both (`clearPins`). Pins are `Graph.pinList` (card ids,
+  saved with the plan); show and corner are in the gear's Pin list section, and a key (unbound) shows or hides it. The earlier lens of every machine's live
   state is shelved on `shelf/ar-machine-lens`. Settings are the top bar's gear (`PlannerSettings`).
 - Sound (`ui/sound/Sfx`, `docs/design/sound.md`): every sound is synthesized (`tools/sound/engine.mjs` the
   material, `sounds.mjs` the recipes, `synth.mjs` renders them with ffmpeg; `sounds.json` names them) and balanced

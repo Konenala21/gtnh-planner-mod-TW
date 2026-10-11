@@ -615,7 +615,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             Hyb.KEY_LO,
             Hyb.KEY_EDGE,
             1);
-        keyIcon(true, PLACE_X + KEY_W / 2f, y + CHIP_H / 2f, placed() ? Hyb.GOLD : Hyb.INK);
+        keyIcon(true, PLACE_X + KEY_W / 2f, y + CHIP_H / 2f, placed() || listed() ? Hyb.GOLD : Hyb.INK);
         // The settings key: a gear, red when a setting stops the recipe (a coil too cold).
         Hyb.bevel(
             GEAR_X + 1,
@@ -677,6 +677,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             gear(cx + px, cy + px, 0xFF16181C);
             gear(cx, cy, color);
         }
+    }
+
+    /** The map pin of the place key, with its shadow, for other lists (the overview's pin keys, the pin list). */
+    public static void pinIcon(final float cx, final float cy, final int color) {
+        keyIcon(true, cx, cy, color);
     }
 
     /** A gear: a ring with a hole in it and eight tapered teeth. */
@@ -1678,14 +1683,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 if (mouseButton == 0) openActions();
             }
             case PLACE -> {
-                if (mouseButton == 0) com.gtnhplanner.ui.world.LinkPicker.start(
-                    session.graph(),
-                    node.id,
-                    placeName(),
-                    model.machineStack,
-                    CardModel.structureNeeds(models),
-                    (int) Math.min(64, Math.ceil(machinesTotal() - 1e-9)));
-                else if (mouseButton == 1 && placed()) com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node);
+                if (mouseButton == 0) openPlaceMenu(screenX(PLACE_X), screenY(CHIP_Y + CHIP_H + 2));
+                else if (mouseButton == 1) clearPins();
             }
             case SECTION -> {
                 final int[] key = sectionKeyAt(x, y);
@@ -1965,6 +1964,63 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         else session.chooseMachine(model.node, machine, model.gregtech);
     }
 
+    /**
+     * The pin key's menu, here and on the overview's machine lines: place the card on a block in the world, and put
+     * it on the pin list shown on screen while playing, or take it off.
+     */
+    public void openPlaceMenu(final int screenX, final int screenY) {
+        if (model == null) return;
+        final Node node = model.node;
+        final boolean listed = session.graph().pinList.contains(nodeId);
+        final List<PickList.Entry> rows = new ArrayList<>();
+        rows.add(
+            new PickList.Entry(
+                null,
+                placed() ? "Place again in the world" : "Place in the world",
+                "",
+                Hyb.INK,
+                false,
+                () -> com.gtnhplanner.ui.world.LinkPicker.start(
+                    session.graph(),
+                    node.id,
+                    placeName(),
+                    model.machineStack,
+                    CardModel.structureNeeds(models),
+                    (int) Math.min(64, Math.ceil(machinesTotal() - 1e-9)))));
+        if (placed()) rows.add(
+            PickList.Entry
+                .of("Remove from the world", () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
+        rows.add(
+            new PickList.Entry(
+                null,
+                listed ? "Unpin from the screen" : "Pin to the screen",
+                "",
+                Hyb.INK,
+                false,
+                () -> session.togglePinList(nodeId)));
+        Popup.open(getPanel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
+    }
+
+    /** The pin key's right-click: off the block in the world and off the pin list, as one undo step. */
+    public void clearPins() {
+        if (!pinnedAnywhere()) return;
+        com.gtnhplanner.ui.sound.Sfx.TOGGLE_OFF.play();
+        session.editLayout(() -> {
+            model.node.worldLinks.clear();
+            session.graph().pinList.remove(nodeId);
+        });
+    }
+
+    /** Whether the card is placed in the world or on the pin list: its pin key is gold. */
+    public boolean pinnedAnywhere() {
+        return placed() || listed();
+    }
+
+    /** Whether the card is on the pin list shown while playing. */
+    private boolean listed() {
+        return model != null && session.graph().pinList.contains(nodeId);
+    }
+
     /** Whether the card is placed on a block in the world. */
     private boolean placed() {
         return model != null && !model.node.worldLinks.isEmpty();
@@ -1995,14 +2051,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     private Tip placeTip() {
-        if (!placed()) return Tip.of("Place in the world")
-            .sub("Show this card over a block in the world")
-            .action(Tip.Input.LEFT, "Pick the block");
-        final int[] at = model.node.worldLinks.get(0);
-        return Tip.of("Placed in the world")
-            .sub("On the block at " + at[1] + ", " + at[2] + ", " + at[3])
-            .action(Tip.Input.LEFT, "Pick another block")
-            .action(Tip.Input.RIGHT, "Remove it from the world");
+        Tip tip = Tip.of(placed() ? "Placed in the world" : listed() ? "Pinned to the screen" : "Pin");
+        if (placed()) {
+            final int[] at = model.node.worldLinks.get(0);
+            tip = tip.sub("On the block at " + at[1] + ", " + at[2] + ", " + at[3]);
+        }
+        if (placed() && listed()) tip = tip.sub("On your pin list while playing");
+        if (!pinnedAnywhere()) return tip.sub("Place it in the world, or list it on screen while playing")
+            .action(Tip.Input.LEFT, "Choose");
+        return tip.action(Tip.Input.LEFT, "Choose")
+            .action(Tip.Input.RIGHT, "Unpin it everywhere");
     }
 
     private void openActions() {

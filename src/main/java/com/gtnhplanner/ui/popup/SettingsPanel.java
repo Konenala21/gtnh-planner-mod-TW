@@ -235,6 +235,20 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         PlannerSettings::minimapFollows,
                         PlannerSettings::setMinimapFollows))));
 
+        out.add(
+            new Section(
+                "Pin list",
+                List.of(
+                    toggle("Show the pin list", null, PlannerSettings::pinList, PlannerSettings::setPinList),
+                    new Row(
+                        "Position",
+                        null,
+                        Kind.CORNER,
+                        cornerNames,
+                        () -> PlannerSettings.pinListCorner()
+                            .ordinal(),
+                        i -> PlannerSettings.setPinListCorner(corners[i])))));
+
         final String[] ranges = new String[PlannerSettings.AR_RANGES.length];
         for (int i = 0; i < ranges.length; i++) ranges[i] = Integer.toString(PlannerSettings.AR_RANGES[i]);
         out.add(

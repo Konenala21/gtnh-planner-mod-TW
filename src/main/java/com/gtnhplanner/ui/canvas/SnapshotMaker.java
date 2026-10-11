@@ -115,7 +115,8 @@ final class SnapshotMaker {
             lines,
             viewX,
             viewY,
-            session.rateUnit());
+            session.rateUnit(),
+            List.copyOf(graph.pinList));
     }
 
     private static PlanSnapshot.Flow flow(final CardModel.PortView p) {

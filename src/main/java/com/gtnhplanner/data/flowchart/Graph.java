@@ -67,6 +67,12 @@ public class Graph {
      */
     public final java.util.Map<String, java.util.List<String>> settingPins = new java.util.TreeMap<>();
 
+    /**
+     * The cards on the pin list shown while playing ({@code ui/world/PinList}), by node id (a shared machine by its
+     * host), in the order they were pinned: the machines to gather for a build. Saved with the plan.
+     */
+    public final java.util.LinkedHashSet<UUID> pinList = new java.util.LinkedHashSet<>();
+
     /** Whether the plan has a tab. A closed plan is still kept, in the library's My plans. Saved with the slot. */
     @Getter
     @Setter

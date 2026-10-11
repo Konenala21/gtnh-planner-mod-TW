@@ -706,6 +706,8 @@ public final class PlanOverlay {
         // The minimap is drawn over the cards: they keep out from under it.
         final int[] map = Minimap.bounds(sr);
         if (map != null) taken.add(new float[] { map[0], map[1], map[2], map[3] });
+        final int[] pins = PinList.bounds();
+        if (pins != null) taken.add(new float[] { pins[0], pins[1], pins[2], pins[3] });
         for (final Placed p : shown) {
             final float[] o = offsets.computeIfAbsent(p.card.id(), id -> new float[4]);
             float bestX = o[0], bestY = o[1];

@@ -42,7 +42,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     private static final int HEAD_H = 18, FILTER_Y = 20, FILTER_H = 14, LIST_Y = 38;
     private static final int SECTION_H = 16, ROW_H = 18, DRAWER_H = 16, GROUP_H = 18, LINE_H = 14, GAP = 4;
-    private static final int TOGGLE_W = 34;
+    private static final int TOGGLE_W = 34, PIN_W = 14;
     private static final int INTERNAL_INK = 0xFFD4D4D4;
 
     private enum Kind {
@@ -57,6 +57,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         MACHINE,
         /** A machine line's count: wheel it, or click to type a pinned count, as on the card. */
         COUNT,
+        /** A machine's pin key: puts it on the pin list shown while playing, or takes it off. */
+        PIN,
         /** The list's scroll bar: drag the thumb, or click the track to jump. */
         SCROLLBAR
     }
@@ -521,7 +523,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             hits.add(new Hit(Kind.GROUP, 0, y, w - 1, y + GROUP_H, g.getKey()));
             y += GROUP_H;
             for (final BoardSession.MachineLine m : lines) {
-                final boolean hot = hover != null && hover.kind() == Kind.MACHINE && hover.data() == m;
+                final boolean pinHot = hover != null && hover.kind() == Kind.PIN && hover.data() == m;
+                final boolean hot = hover != null && (hover.kind() == Kind.MACHINE || hover.kind() == Kind.COUNT)
+                    && hover.data() == m || pinHot;
                 if (hot) Hyb.rect(0, y, w - 1, LINE_H, 0x1A22D3EE);
                 int cx = 23;
                 if (m.gregtech())
@@ -537,10 +541,20 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 if (countHot)
                     for (int dx = 0; dx < Hyb.width(count); dx += 3) Hyb.rect(cx + dx, y + 11, 1, 1, Hyb.MUTED);
                 if (card != null) hits.add(new Hit(Kind.COUNT, cx - 2, y, cx + Hyb.width(count) + 2, y + LINE_H, m));
-                if (m.tooLow()) Hyb.textRight("TIER!", w - 6, y + 3, Hyb.RED_INK);
+                // The pin key, as the card's: gold while the card is placed or on the pin list, else on hover.
+                final int pinX = w - 4 - PIN_W;
+                final boolean pinned = card != null && card.pinnedAnywhere();
+                if (card != null && (pinned || hot)) {
+                    if (pinHot) Hyb.rect(pinX, y, PIN_W, LINE_H, Hyb.KEY_HOVER);
+                    com.gtnhplanner.ui.card.RecipeCard
+                        .pinIcon(pinX + PIN_W / 2f, y + LINE_H / 2f, pinned ? Hyb.GOLD : pinHot ? Hyb.INK : Hyb.MUTED);
+                }
+                if (card != null) hits.add(new Hit(Kind.PIN, pinX, y, pinX + PIN_W, y + LINE_H, m));
+                final int er = pinX - 3;
+                if (m.tooLow()) Hyb.textRight("TIER!", er, y + 3, Hyb.RED_INK);
                 else if (m.madeEuPerTick() > 0)
-                    Hyb.textRight("+" + Fmt.power(m.madeEuPerTick()) + " EU/t", w - 6, y + 3, 0xFFE0B04A);
-                else Hyb.textRight(Fmt.power(m.euPerTick()) + " EU/t", w - 6, y + 3, Hyb.MUTED);
+                    Hyb.textRight("+" + Fmt.power(m.madeEuPerTick()) + " EU/t", er, y + 3, 0xFFE0B04A);
+                else Hyb.textRight(Fmt.power(m.euPerTick()) + " EU/t", er, y + 3, Hyb.MUTED);
                 hits.add(new Hit(Kind.MACHINE, 0, y, w - 1, y + LINE_H, m));
                 y += LINE_H;
             }
@@ -607,6 +621,11 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             session.showSetupsMaking((BoardSession.TotalLine) hit.data());
             return Result.SUCCESS;
         }
+        if (mouseButton == 1 && hit.kind() == Kind.PIN) {
+            final com.gtnhplanner.ui.card.RecipeCard card = cardOf(((BoardSession.MachineLine) hit.data()).nodeId());
+            if (card != null) card.clearPins();
+            return Result.SUCCESS;
+        }
         if (mouseButton != 0 && hit.kind() != Kind.RULE) return Result.SUCCESS;
         final int sx = getArea().x + hit.x0(), sy = getArea().y + hit.y1() + 2;
         if (hit.kind() != Kind.RESOURCE) Hyb.click();
@@ -641,6 +660,11 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             case RATE -> DrawerCard.openRate(getPanel(), session, (DrawerModel) hit.data(), sx, sy);
             case PEAK -> session.togglePeakPower();
             case GROUP -> flyToGroup((String) hit.data());
+            case PIN -> {
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
+                    ((BoardSession.MachineLine) hit.data()).nodeId());
+                if (card != null) card.openPlaceMenu(sx, sy);
+            }
             case MACHINE -> canvas.frame(List.of(((BoardSession.MachineLine) hit.data()).nodeId()));
             case COUNT -> {
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
@@ -693,17 +717,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
         if (!open) return false;
-        // On a rule or a rate the wheel steps it, as on the drawer itself; anywhere else it scrolls the list.
+        // The wheel scrolls the list, even over a rule or a rate (stepping them while scrolling past was a trap).
         final Hit hit = hitAtMouseFromLastFrame();
         final int step = direction == UpOrDown.UP ? 1 : -1;
-        if (hit != null && hit.kind() == Kind.RULE) {
-            DrawerCard.stepRule(session, (DrawerModel) hit.data(), step);
-            return true;
-        }
-        if (hit != null && hit.kind() == Kind.RATE) {
-            DrawerCard.stepRate(session, (DrawerModel) hit.data(), step);
-            return true;
-        }
         if (hit != null && hit.kind() == Kind.COUNT) {
             final com.gtnhplanner.ui.card.RecipeCard card = cardOf(((BoardSession.MachineLine) hit.data()).nodeId());
             if (card != null) card.wheelCount(step);
@@ -755,12 +771,19 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     hint + "Right-click: find public plans that make it",
                     hint + "R, U: its recipes and uses in NEI");
             }
-            case RULE -> List.of("Rule", hint + "Click: choose  Wheel: next  Middle click: clear");
-            case RATE -> List.of("Rate", hint + "Click: type it  Wheel: +1 (Ctrl 10, Shift 100)  Middle click: clear");
+            case RULE -> List.of("Rule", hint + "Click: choose  Right-click: previous  Middle click: clear");
+            case RATE -> List.of("Rate", hint + "Click: type it  Middle click: clear");
             case PEAK -> List.of(
                 session.peakPower() ? "Peak power: every machine running at once"
                     : "Average power: machines running only as much as the plan needs");
             case GROUP -> List.of((String) hit.data(), hint + "Click: go to its cards one by one");
+            case PIN -> {
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
+                    ((BoardSession.MachineLine) hit.data()).nodeId());
+                yield card != null && card.pinnedAnywhere()
+                    ? List.of("Pin", hint + "Click: choose", hint + "Right-click: unpin it everywhere")
+                    : List.of("Pin", hint + "Click: place it in the world, or list it on screen while playing");
+            }
             case COUNT -> List
                 .of("Machine count", hint + "Click: type a pinned count  Wheel: one more or fewer (below one unpins)");
             case MACHINE -> {
