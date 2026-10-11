@@ -81,12 +81,32 @@ public final class MachineModels {
             .withVisibility((ctx, s) -> tgs ? isTgs(ctx.properties()) : isVat(ctx.properties()));
     }
 
+    // The modelled machines' recipe maps, looked up by name: an older pack (GTNH 2.9's betas) lacks some of them, and
+    // naming a missing field outright stops the game.
+    private static final Object TGS_MAP = mapField(RecipeMaps.class, "treeGrowthSimulatorFakeRecipes"),
+        VAT_MAP = mapField(BartWorksRecipeMaps.class, "bacterialVatRecipes"),
+        RADIO_MAP = mapField(BartWorksRecipeMaps.class, "radioHatchFakeRecipes");
+
+    @Nullable
+    private static Object mapField(final Class<?> owner, final String name) {
+        try {
+            return owner.getField(name)
+                .get(null);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            GtnhPlanner.LOG.warn(
+                "[machines] {}.{} is not in this pack; that machine is not modelled",
+                owner.getSimpleName(),
+                name);
+            return null;
+        }
+    }
+
     public static boolean isTgs(final Map<RecipeProperty<?>, Object> props) {
-        return props.get(GTProvider.RECIPE_MAP) == RecipeMaps.treeGrowthSimulatorFakeRecipes;
+        return TGS_MAP != null && props.get(GTProvider.RECIPE_MAP) == TGS_MAP;
     }
 
     public static boolean isVat(final Map<RecipeProperty<?>, Object> props) {
-        return props.get(GTProvider.RECIPE_MAP) == BartWorksRecipeMaps.bacterialVatRecipes;
+        return VAT_MAP != null && props.get(GTProvider.RECIPE_MAP) == VAT_MAP;
     }
 
     public static boolean isModelled(final Node node) {
@@ -225,7 +245,8 @@ public final class MachineModels {
         if (materials != null) return materials;
         final List<BacterialVat.Material> found = new ArrayList<>();
         try {
-            for (final GTRecipe r : BartWorksRecipeMaps.radioHatchFakeRecipes.getAllRecipes()) {
+            if (!(RADIO_MAP instanceof final gregtech.api.recipe.RecipeMap<?> radio)) return materials = List.of();
+            for (final GTRecipe r : radio.getAllRecipes()) {
                 if (r.mInputs == null || r.mInputs.length == 0 || r.mInputs[0] == null) continue;
                 final ItemStack stack = r.mInputs[0].copy();
                 stack.stackSize = 1;
@@ -238,7 +259,7 @@ public final class MachineModels {
                         r.getMetadataOrDefault(GTRecipeConstants.SIEVERT, new Sievert(0, false)).sievert,
                         r.getMetadataOrDefault(GTRecipeConstants.MASS, 0)));
             }
-        } catch (final RuntimeException e) {
+        } catch (final RuntimeException | LinkageError e) {
             GtnhPlanner.LOG.warn("Radio hatch materials could not be read", e);
         }
         materials = BacterialVat.sorted(found);
