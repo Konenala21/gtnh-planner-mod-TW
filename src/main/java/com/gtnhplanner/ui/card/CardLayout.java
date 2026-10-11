@@ -71,7 +71,10 @@ public final class CardLayout {
 
     /** Each recipe on the card: one, or several on a shared machine. */
     private final int sections;
+    /** Rows per side (ports and their extra rows), and per port the row it starts on and whether an extra follows. */
     private final int[] inRows, outRows, ruleY, railsY;
+    private final int[][] inSlot, outSlot;
+    private final boolean[][] inExtra, outExtra;
     /** Where the rails end: below the last recipe's (and the power row). */
     public final int railsEnd;
 
@@ -96,11 +99,19 @@ public final class CardLayout {
         outRows = new int[sections];
         ruleY = new int[sections];
         railsY = new int[sections];
+        inSlot = new int[sections][];
+        outSlot = new int[sections][];
+        inExtra = new boolean[sections][];
+        outExtra = new boolean[sections][];
         int y = RAILS_Y, circuitY = -1, powerY = -1;
         for (int s = 0; s < sections; s++) {
             final CardModel model = models.get(s);
-            inRows[s] = model.inputs.size();
-            outRows[s] = model.outputs.size();
+            inExtra[s] = extras(model.inputs);
+            outExtra[s] = extras(model.outputs);
+            inSlot[s] = slots(inExtra[s]);
+            outSlot[s] = slots(outExtra[s]);
+            inRows[s] = rowsOf(inExtra[s]);
+            outRows[s] = rowsOf(outExtra[s]);
             if (shared) {
                 if (s > 0) y += SECTION_GAP;
                 ruleY[s] = y;
@@ -148,6 +159,39 @@ public final class CardLayout {
         }
         warningsY = stripEnd + 2;
         height = warningsY + (warningLines.isEmpty() ? 0 : warningLines.size() * 9 + 4) + 4;
+    }
+
+    private static boolean[] extras(final List<CardModel.PortView> ports) {
+        final boolean[] out = new boolean[ports.size()];
+        for (int i = 0; i < out.length; i++) out[i] = ports.get(i)
+            .hasExtra();
+        return out;
+    }
+
+    /** Each port's first row: after the ports before it and their extra rows. */
+    private static int[] slots(final boolean[] extra) {
+        final int[] out = new int[extra.length];
+        int row = 0;
+        for (int i = 0; i < extra.length; i++) {
+            out[i] = row;
+            row += extra[i] ? 2 : 1;
+        }
+        return out;
+    }
+
+    private static int rowsOf(final boolean[] extra) {
+        int rows = extra.length;
+        for (final boolean e : extra) if (e) rows++;
+        return rows;
+    }
+
+    /** Whether the port rows sit where another layout's do, so the port widgets need no new place. */
+    public boolean sameRows(final CardLayout other) {
+        return other != null && java.util.Arrays.deepEquals(inSlot, other.inSlot)
+            && java.util.Arrays.deepEquals(outSlot, other.outSlot)
+            && java.util.Arrays.equals(railsY, other.railsY)
+            && java.util.Arrays.deepEquals(inExtra, other.inExtra)
+            && java.util.Arrays.deepEquals(outExtra, other.outExtra);
     }
 
     /** A chip's width: its icon, label and value. */
@@ -203,16 +247,25 @@ public final class CardLayout {
 
     /** Top of a port's row, card-local. */
     public int rowY(final int section, final boolean output, final int index) {
-        final int s = clampSection(section), rows = (output ? outRows : inRows)[s];
-        return railsY[s] + Math.max(0, Math.min(index, Math.max(0, rows - 1))) * ROW;
+        final int s = clampSection(section);
+        final int[] slots = (output ? outSlot : inSlot)[s];
+        if (slots.length == 0) return railsY[s];
+        return railsY[s] + slots[Math.max(0, Math.min(index, slots.length - 1))] * ROW;
     }
 
     public int rowY(final boolean output, final int index) {
         return rowY(0, output, index);
     }
 
-    public int rowH(final boolean output, final int index) {
-        return ROW;
+    /** Whether a port has its extra row under it ({@link CardModel.PortView#extra}). */
+    public boolean hasExtra(final int section, final boolean output, final int index) {
+        final boolean[] extra = (output ? outExtra : inExtra)[clampSection(section)];
+        return index >= 0 && index < extra.length && extra[index];
+    }
+
+    /** A port's height: its row, and its extra row when it has one. */
+    public int rowH(final int section, final boolean output, final int index) {
+        return hasExtra(section, output, index) ? 2 * ROW : ROW;
     }
 
     /** Where a wire meets the card: the card edge, level with the middle of the port's row. */

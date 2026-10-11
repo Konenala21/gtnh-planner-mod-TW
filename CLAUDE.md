@@ -94,7 +94,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   the count keeps its place, a line kept under it. Scrolling a pinned count below one unpins it. The gear's See-through slider (0 to 100%) fades
   the board, its dots and the overview (`Hyb.seeThrough`) down to nothing; cards and text stay solid. The gear opens
   `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
-  minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin).
+  minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin). Where the solve sends
+  something out of the plan, or brings it in, at a wired port with no drawer (the balancer's open gates), the card
+  shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Surplus" in a
+  byproduct drawer's green, "Imported" in a source's pink, faintly striped; the port's own row shows what its wires
+  carry. It is part of the port, so dragging it makes a drawer, which takes the flow, and the row goes.
   They are Factory Flow's text annotations (`kind: "text"`, its colour tags and font sizes), so they come in with an
   imported plan and go out with a posted one; they take no part in the solve, the wiring or Arrange.
 - The tour (`ui/tutorial/`, `docs/design/tutorial.md`): the "?" key's Take the tour, or the first-run offer (`TourOffer`:

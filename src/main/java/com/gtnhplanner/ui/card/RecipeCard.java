@@ -119,7 +119,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 onlySection = s;
                 only = i;
                 final int top = layout.rowY(s, output, i);
-                if (y >= top && y < top + CardLayout.ROW) return new int[] { s, i };
+                if (y >= top && y < top + layout.rowH(s, output, i)) return new int[] { s, i };
             }
         }
         return count == 1 ? new int[] { onlySection, only } : null;
@@ -175,7 +175,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         models = next;
         model = next.get(0);
         final CardLayout nextLayout = new CardLayout(next, session.graph());
-        if (layout == null || layout.height != nextLayout.height) {
+        if (layout == null || layout.height != nextLayout.height || !nextLayout.sameRows(layout)) {
             layout = nextLayout;
             size(CardLayout.W, layout.height);
             scheduleResize();
@@ -831,9 +831,17 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             if (p.index() > 0) CardPaint.rowSeparator(output, y);
             if (hoveredSlot != null && hoveredSlot.section == section
                 && hoveredSlot.output == output
-                && hoveredSlot.index == p.index()) Hyb.rect(x, y, w, h, 0x10FFFFFF);
+                && hoveredSlot.index == p.index()) Hyb.rect(x, y, w, layout.rowH(section, output, p.index()), 0x10FFFFFF);
             CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
-            CardPaint.flowWords(p.perSecond(), p.isPower(), p.isFluid(), p.name(), unit, output, y);
+            CardPaint.flowWords(
+                p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
+                p.isPower(),
+                p.isFluid(),
+                p.name(),
+                unit,
+                output,
+                y);
+            if (layout.hasExtra(section, output, p.index())) CardPaint.extraRow(p, unit, y + h, z);
             if (!p.wired()) {
                 final int ix = CardLayout.iconX(output) - 2, iy = y + CardLayout.ICON_Y - 2, side = CardLayout.ICON + 4;
                 Hyb.dashed(ix, iy, side, side, alpha(0xFFFFFF, 0.3f + 0.55f * b), 3, 3);

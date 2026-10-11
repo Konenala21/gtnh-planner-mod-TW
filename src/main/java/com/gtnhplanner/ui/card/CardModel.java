@@ -31,10 +31,25 @@ import codechicken.nei.recipe.RecipeHandlerRef;
 public final class CardModel {
 
     public static final String GT_PROFILE = "gregtech:unified";
+    /** Below this (per second) an extra flow is solver dust, not a row. */
+    static final double EXTRA_EPS = 1e-6;
 
-    /** One port as drawn; {@code wired} when a wire or drawer is on it (or it needs none: nothing is used up). */
+    /**
+     * One port as drawn; {@code wired} when a wire or drawer is on it (or it needs none: nothing is used up).
+     * {@code extra} is the part of {@code perSecond} the solve sends out of the plan (an output) or brings into it (an
+     * input) at this port with no drawer there: the card shows it as a row of its own under the port.
+     */
     public record PortView(int index, boolean output, ItemStack item, FluidStack fluid, String name, float chance,
-        double perSecond, boolean wired, String key) {
+        double perSecond, boolean wired, String key, double extra) {
+
+        /** What the port's wires carry: its rate less the extra. */
+        public double wiredPerSecond() {
+            return Math.max(0, perSecond - extra);
+        }
+
+        public boolean hasExtra() {
+            return extra > EXTRA_EPS;
+        }
 
         public boolean isFluid() {
             return fluid != null;
@@ -171,8 +186,21 @@ public final class CardModel {
         boolean test(boolean output, int index);
     }
 
+    /** What the solve sends out of or brings into a port with no drawer on it (per second), 0 for none. */
+    public interface Extra {
+
+        Extra NONE = (output, index) -> 0;
+
+        double rate(boolean output, int index);
+    }
+
     public static CardModel of(final Node node, final Balancer.NodeBalance balance, final Wired wired) {
-        if (node.isPower()) return power(node, balance, wired);
+        return of(node, balance, wired, Extra.NONE);
+    }
+
+    public static CardModel of(final Node node, final Balancer.NodeBalance balance, final Wired wired,
+        final Extra extra) {
+        if (node.isPower()) return power(node, balance, wired, extra);
         final MachineConfig cfg = node.machineConfig;
         final boolean gregtech = GT_PROFILE.equals(cfg.profileId);
         final EffectResult effect = cfg.computeEffect(node.properties);
@@ -200,8 +228,8 @@ public final class CardModel {
             : machineStack != null ? machineStack.getDisplayName() : node.machineName;
 
         final double machines = balance == null ? 0 : balance.operations();
-        final List<PortView> inputs = ports(node.inputs, false, balance, wired);
-        final List<PortView> outputs = ports(node.outputs, true, balance, wired);
+        final List<PortView> inputs = ports(node.inputs, false, balance, wired, extra);
+        final List<PortView> outputs = ports(node.outputs, true, balance, wired, extra);
 
         return new CardModel(
             node,
@@ -241,7 +269,8 @@ public final class CardModel {
      * A non-recipe machine: its source's name and machine, one craft a second, and its ports from the model. It draws
      * power only when the model is parasitic (net EU/t below zero).
      */
-    private static CardModel power(final Node node, final Balancer.NodeBalance balance, final Wired wired) {
+    private static CardModel power(final Node node, final Balancer.NodeBalance balance, final Wired wired,
+        final Extra extra) {
         final PowerSource source = PowerRegistry.get(node.powerSource);
         final PowerModel model = node.powerModel;
         final List<PowerModel.Stat> stats = new ArrayList<>();
@@ -261,8 +290,8 @@ public final class CardModel {
             0,
             false,
             1,
-            ports(node.inputs, false, balance, wired),
-            ports(node.outputs, true, balance, wired),
+            ports(node.inputs, false, balance, wired, extra),
+            ports(node.outputs, true, balance, wired, extra),
             PowerPorts.DURATION_TICKS,
             model == null ? 0 : Math.round(Math.max(0, -model.euPerTick())),
             balance == null ? 0 : balance.operations(),
@@ -274,7 +303,7 @@ public final class CardModel {
     }
 
     private static List<PortView> ports(final List<Port<?>> ports, final boolean output,
-        final Balancer.NodeBalance balance, final Wired wired) {
+        final Balancer.NodeBalance balance, final Wired wired, final Extra extra) {
         final List<PortView> views = new ArrayList<>(ports.size());
         for (int i = 0; i < ports.size(); i++) {
             final Port<?> port = ports.get(i);
@@ -293,7 +322,8 @@ public final class CardModel {
                     port.getChance(),
                     perSecond,
                     port.getAmount() == 0 || wired.test(output, i),
-                    com.gtnhplanner.ui.Resources.key(port)));
+                    com.gtnhplanner.ui.Resources.key(port),
+                    Math.min(perSecond, Math.max(0, extra.rate(output, i)))));
         }
         return views;
     }

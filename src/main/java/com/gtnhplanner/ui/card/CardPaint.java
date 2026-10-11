@@ -72,6 +72,12 @@ public final class CardPaint {
      */
     public static void words(final String number, final String suffix, final String name, final int colour,
         final boolean output, final int y) {
+        words(number, suffix, name, colour, Hyb.MUTED, output, y);
+    }
+
+    /** As {@link #words(String, String, String, int, boolean, int)}, the name in {@code nameColour}. */
+    public static void words(final String number, final String suffix, final String name, final int colour,
+        final int nameColour, final boolean output, final int y) {
         final int edge = CardLayout.textEdge(output), room = CardLayout.TEXT_W;
         final float rateW = Hyb.width(number) * Hyb.FIGURE + 2 + Hyb.width(suffix);
         final boolean big = rateW <= room;
@@ -92,7 +98,7 @@ public final class CardPaint {
         }
         final float nameW = Hyb.width(shown) * size, nameY = top + rateH + 2;
         final float nx = output ? edge - nameW : edge;
-        Hyb.text(shown, nx, nameY, size, Hyb.MUTED);
+        Hyb.text(shown, nx, nameY, size, nameColour);
         if (!cut) return;
         // The cut end fades into the card.
         for (int k = 0; k < NAME_FADE; k++) {
@@ -109,6 +115,44 @@ public final class CardPaint {
         final String suffix = power ? " EU/t" : (fluid ? " L" : "") + unit.suffix;
         words(number, suffix, name, perSecond <= 0 ? 0xFFA8AFBB : Hyb.INK, output, y);
     }
+
+    /**
+     * A port's extra row ({@link CardModel.PortView#extra}), at {@code y} under the port's own: what the plan sends out
+     * at the port with no drawer to take it, or brings in with no source, drawn as the drawer it stands for in a row of
+     * the card. A faint striped box in that drawer's colours and shape (a byproduct's shield out, a source's tank in),
+     * the resource, the rate in the drawer's ink, and the drawer's word under it.
+     */
+    public static void extraRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z) {
+        final com.gtnhplanner.data.flowchart.Drawer.Kind kind = p.output()
+            ? com.gtnhplanner.data.flowchart.Drawer.Kind.BYPRODUCT
+            : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE;
+        final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(kind);
+        final int bx = CardLayout.railX(p.output()) - 2, bw = CardLayout.RAIL_W + 4, by = y + 2,
+            bh = CardLayout.ROW - 4;
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        com.gtnhplanner.ui.drawer.DrawerPaint.shape(kind, bx, by, bw, bh, 0, Hyb.mix(tint, EDGE, 0.4f), EXTRA_SHAPE);
+        com.gtnhplanner.ui.drawer.DrawerPaint
+            .shape(kind, bx, by, bw, bh, -1, Hyb.mix(tint, SURFACE, 0.07f), EXTRA_SHAPE);
+        com.gtnhplanner.ui.drawer.DrawerPaint
+            .stripes(kind, bx, by, bw, bh, -1, Hyb.mix(tint, SURFACE, 0.13f), EXTRA_SHAPE, 8, 3);
+        if (own) Hyb.endBatch();
+        icon(p.item(), p.fluid(), p.isPower(), p.output(), y, z);
+        final String number = p.isPower() ? Fmt.power(p.extra() / 20) : Fmt.compact(p.extra() * unit.perSecond);
+        final String suffix = p.isPower() ? " EU/t" : (p.isFluid() ? " L" : "") + unit.suffix;
+        words(
+            number,
+            suffix,
+            p.output() ? EXTRA_OUT : EXTRA_IN,
+            Hyb.mix(tint, Hyb.INK, 0.75f),
+            Hyb.mix(tint, Hyb.MUTED, 0.45f),
+            p.output(),
+            y);
+    }
+
+    /** The extra row's drawer shape, at this share of a drawer's corners, and its words. */
+    private static final float EXTRA_SHAPE = 0.5f;
+    public static final String EXTRA_OUT = "Surplus", EXTRA_IN = "Imported";
 
     /** A port's icon at the card's edge (a bolt for power). */
     public static void icon(@Nullable final ItemStack item, @Nullable final net.minecraftforge.fluids.FluidStack fluid,

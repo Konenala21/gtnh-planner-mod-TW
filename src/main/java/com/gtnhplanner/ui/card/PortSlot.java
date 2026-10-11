@@ -35,9 +35,12 @@ public final class PortSlot extends Widget<PortSlot>
         if (card.layout() != null) place(card.layout());
     }
 
-    /** The whole row (icon, name, rate) is the handle: drag a wire from anywhere on it, click it for NEI's recipes. */
+    /**
+     * The whole row (icon, name, rate), and its extra row when it has one, is the handle: drag a wire from anywhere on
+     * it, click it for NEI's recipes.
+     */
     void place(final CardLayout layout) {
-        size(CardLayout.RAIL_W, layout.rowH(output, index));
+        size(CardLayout.RAIL_W, layout.rowH(section, output, index));
         pos(CardLayout.railX(output), layout.rowY(section, output, index));
     }
 

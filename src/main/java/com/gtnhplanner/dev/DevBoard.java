@@ -187,6 +187,7 @@ final class DevBoard {
         m.put("side", p.output() ? "out" : "in");
         m.put("name", p.name());
         m.put("perSecond", p.perSecond());
+        if (p.hasExtra()) m.put("extra", p.extra());
         if (p.chance() < 0.9999f) m.put("chance", p.chance());
         return m;
     }

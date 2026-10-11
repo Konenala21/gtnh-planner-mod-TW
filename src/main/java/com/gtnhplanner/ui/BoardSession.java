@@ -1645,6 +1645,7 @@ public final class BoardSession {
         indexSharedMachines();
         seenVersion = graph.version();
         final Set<String> wired = wiredPorts();
+        final Map<String, Double> extras = extraFlows();
         final Map<UUID, CardModel> next = new LinkedHashMap<>();
         for (final Node node : graph.getNodes()) {
             try {
@@ -1655,7 +1656,8 @@ public final class BoardSession {
                         result == null ? null
                             : result.nodeBalances()
                                 .get(node.id),
-                        (output, index) -> wired.contains(portKey(node.id, output, index))));
+                        (output, index) -> wired.contains(portKey(node.id, output, index)),
+                        (output, index) -> extras.getOrDefault(portKey(node.id, output, index), 0.0)));
             } catch (final RuntimeException e) {
                 GtnhPlanner.LOG.warn("Card for {} failed", node.machineName, e);
             }
@@ -1822,6 +1824,30 @@ public final class BoardSession {
 
     private static String portKey(final UUID nodeId, final boolean output, final int index) {
         return nodeId + (output ? ":o:" : ":i:") + index;
+    }
+
+    /**
+     * What the solve sends out of the plan or brings into it at a wired port with no drawer there (the solver's open
+     * gates), per port: a card shows it as a row of its own under the port, in the colours of the drawer it stands for.
+     * With a drawer on the port, that drawer takes it.
+     */
+    private Map<String, Double> extraFlows() {
+        final Map<String, Double> out = new HashMap<>();
+        if (!(result instanceof final BalanceResult.Solved solved) || solved.auto() == null) return out;
+        for (final List<com.gtnhplanner.data.flowchart.balancer.External> side : List
+            .of(solved.auto().gatedSinks, solved.auto().gatedSources)) {
+            for (final com.gtnhplanner.data.flowchart.balancer.External e : side) {
+                final boolean output = !e.port()
+                    .input();
+                final UUID node = e.port()
+                    .nodeId();
+                final int index = e.port()
+                    .portIndex();
+                if (e.ratePerSecond() <= 0 || portHasDrawer(node, output, index)) continue;
+                out.merge(portKey(node, output, index), e.ratePerSecond(), Double::sum);
+            }
+        }
+        return out;
     }
 
     /** Every port with a wire or a drawer on it. */

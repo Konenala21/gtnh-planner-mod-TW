@@ -124,6 +124,30 @@ public final class DrawerPaint {
         if (own) Hyb.endBatch();
     }
 
+    /**
+     * Diagonal stripes inside the kind's silhouette over the box (grown by {@code grow}, as {@link #shape}):
+     * {@code width}
+     * pixels of {@code colour} every {@code period}, rising to the right, drawn as rows of rectangles.
+     */
+    public static void stripes(final Drawer.Kind kind, final float x, final float y, final float w, final float h,
+        final float grow, final int colour, final float scale, final int period, final int width) {
+        final float bx = x - grow, by = y - grow, bw = w + 2 * grow, bh = h + 2 * grow;
+        final int rows = Math.max(0, Math.round(bh));
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        for (int j = 0; j < rows; j++) {
+            final int inset = in(kind, j, bh, grow, scale);
+            final float left = bx + inset, right = bx + bw - inset;
+            // Where a stripe starts on this row: one pixel further left each row down, so the stripes rise rightwards.
+            float sx = left - Math.floorMod(inset + j, period);
+            for (; sx < right; sx += period) {
+                final float a = Math.max(sx, left), b = Math.min(sx + width, right);
+                if (b > a) Hyb.rect(a, by + j, b - a, 1, colour);
+            }
+        }
+        if (own) Hyb.endBatch();
+    }
+
     /** How far in from each side the silhouette is on row {@code j} of a box {@code bh} tall. */
     private static int in(final Drawer.Kind kind, final int j, final float bh, final float grow, final float scale) {
         final float yc = j + 0.5f;
