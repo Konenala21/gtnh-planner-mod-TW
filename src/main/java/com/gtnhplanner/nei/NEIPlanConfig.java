@@ -122,15 +122,34 @@ public class NEIPlanConfig implements IConfigureNEI {
 
     /** The plan button, at the top of NEI's column of recipe buttons (+ at the bottom, the star above it). */
     private static void addPlanButton(final UpdateRecipeButtonsEvent.Post event) {
-        final RecipeHandlerRef ref = event.handlerRef;
+        final RecipeHandlerRef ref = refOf(event);
         if (ref == null || !PlanOverlayHandler.plannable(ref.handler, ref.recipeIndex)) return;
-        int x = Math.min(166, event.width) - GuiRecipeButton.BUTTON_WIDTH;
-        int top = event.height - 5;
+        int x, top;
+        try {
+            x = Math.min(166, event.width) - GuiRecipeButton.BUTTON_WIDTH;
+            top = event.height - 5;
+        } catch (final NoSuchFieldError older) {
+            // NEI before 2.8.155 (GTNH 2.9's betas) has no size on the event: the button goes above NEI's own, or not
+            // at all when there are none to stand on.
+            if (event.buttonList.isEmpty()) return;
+            x = 0;
+            top = Integer.MAX_VALUE;
+        }
         for (final GuiRecipeButton b : event.buttonList) {
             x = b.xPosition;
             top = Math.min(top, b.yPosition);
         }
         event.buttonList.add(new PlanButton(ref, x, top - GuiRecipeButton.BUTTON_HEIGHT - 1));
+    }
+
+    /** The event's recipe; an older NEI's event has none, but its buttons (+, the star) each carry it. */
+    private static RecipeHandlerRef refOf(final UpdateRecipeButtonsEvent.Post event) {
+        try {
+            return event.handlerRef;
+        } catch (final NoSuchFieldError older) {
+            for (final GuiRecipeButton b : event.buttonList) if (b.handlerRef != null) return b.handlerRef;
+            return null;
+        }
     }
 
     @Override

@@ -18,6 +18,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.StatCollector;
 
+import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Serializer;
@@ -68,9 +69,19 @@ public final class PlanAPI {
         final ItemStack stack = createShareStack();
         stack.getTagCompound()
             .setString(DATA_KEY, encoded);
-        NEIClientUtils.sendChatItemLink(
-            BookmarkPayload.of(stack, null)
-                .toNBT());
+        try {
+            NEIClientUtils.sendChatItemLink(
+                BookmarkPayload.of(stack, null)
+                    .toNBT());
+        } catch (final NoClassDefFoundError | NoSuchMethodError older) {
+            // NEI before GTNH 2.9's beta-3 links an ItemStack itself and has no BookmarkPayload.
+            try {
+                NEIClientUtils.class.getMethod("sendChatItemLink", ItemStack.class)
+                    .invoke(null, stack);
+            } catch (final ReflectiveOperationException e) {
+                GtnhPlanner.LOG.warn("[compat] this NEI cannot link items in chat", e);
+            }
+        }
     }
 
     /** Copies the serialised graph to the system clipboard. */

@@ -202,9 +202,15 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.
 - `./gradlew spotlessApply` before committing; CI checks formatting.
+- One jar runs on every GTNH 2.9 build, beta-1 to the newest (2.8 is not supported). It compiles against the newest;
+  where an older build's mods lack something, the code catches the LinkageError or reaches it by reflection.
+  `./gradlew compatCheck` checks it: every class, method, field and mixin target our classes use, against each pack's
+  mod versions (`tools/dev/compat/manifests/`, GTNH's release lists from DreamAssemblerXXL; add the next build's there),
+  and fails on any gap not in `tools/dev/compat/guarded.txt` (each with why it is safe). Run it after moving the pins
+  and before a release. It cannot see an API that still exists but behaves differently: test in an older pack for that.
 - Releases are pre-releases tagged `0.2.0-alpha.N` on main (annotated, "GTNH Planner <tag>"), notes in
-  `.changelogs/<tag>.md`. The fork's Actions have never run, so the tag builds nothing: smoke-test the jar in the full
-  pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
+  `.changelogs/<tag>.md`. The fork's Actions have never run, so the tag builds nothing: run `./gradlew compatCheck`,
+  smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
   `gh release create <tag> --prerelease --title "GTNH Planner <tag>" -F .changelogs/<tag>.md
   build/libs/gtnhplanner-<tag>.jar`.
 - The layout benchmark (`./gradlew test -Pbench=<label> --tests '*LayoutBenchmark*'`, tagged `bench`, left out of the
@@ -232,7 +238,8 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
   machines or items are needed; the plain start (29 mods, no GT) is enough for anything else.
 - The target pack is GTNH 2.9 (2.9.0-RC-2 as of 2026-10-09). `dependencies.gradle` pins that pack's versions of NEI,
   GT, MUI2, GTNHLib, the core mod and every mod a recipe provider reads, so what compiles runs there; move them
-  together when the pack moves (NEI 2.8.155 changed the recipe button event and broke the plan button). The full
+  together when the pack moves (NEI 2.8.155 changed the recipe button event and broke the plan button, so the
+  older event is guarded; `compatCheck` keeps the older builds working). The full
   pack, all of its mods and recipes, is the Prism instance `GTNH_2.9.0-RC-2_planner`: build, swap the
   `gtnhplanner-*.jar` in its `.minecraft/mods`, launch it with `prismlauncher.exe --launch GTNH_2.9.0-RC-2_planner`
   (from `%LOCALAPPDATA%\Programs\PrismLauncher2`). Its JVM arguments turn the harness on and load

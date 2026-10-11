@@ -23,6 +23,69 @@ test {
     }
 }
 
+// One jar for every GTNH 2.9 build: ./gradlew compatCheck lists every class, method and field our classes use that an
+// older build's mods lack (tools/dev/compat/Check.java), against each pack in tools/dev/compat/manifests/ (GTNH's own
+// release lists, from DreamAssemblerXXL). Each pinned mod is swapped for that pack's version; a mod the pack lacks
+// is left out. Gaps the code handles are in tools/dev/compat/guarded.txt; any other fails the task.
+configurations {
+    compatAsm
+}
+dependencies {
+    compatAsm('org.ow2.asm:asm:9.9.1')
+}
+def compatModGroups = ['com.github.GTNewHorizons', 'ganymedes01.etfuturum', 'net.glease']
+// Not pinned here but read through GregTech; checked at the pack's version too.
+def compatExtraMods = ['StructureLib']
+tasks.register('compatClasspaths') {
+    description = 'Writes each pack\'s classpath for compatCheck: its mods first, then the game and the rest'
+    notCompatibleWithConfigurationCache('resolves each pack\'s mod jars as it runs')
+    dependsOn 'compileJava'
+    doLast {
+        def pinned = [:] // module name -> [group, classifier]
+        ['api', 'implementation', 'compileOnly', 'compileOnlyApi'].each { conf ->
+            configurations.findByName(conf)?.dependencies?.withType(ExternalModuleDependency)?.each { d ->
+                if (d.group in compatModGroups) pinned[d.name] = [d.group, d.artifacts.find { it.classifier }?.classifier]
+            }
+        }
+        compatExtraMods.each { pinned[it] = ['com.github.GTNewHorizons', 'dev'] }
+        // Everything on the compile classpath that is not one of those mods (Forge, libraries), and the game's classes.
+        def rest = configurations.compileClasspath.incoming.artifacts.artifacts.findAll { a ->
+            def id = a.id.componentIdentifier
+            !(id instanceof ModuleComponentIdentifier && id.module in pinned.keySet())
+        }.collect { it.file } + sourceSets.patchedMc.output.classesDirs.files
+        def out = layout.buildDirectory.dir('compat').get().asFile
+        out.mkdirs()
+        file('tools/dev/compat/manifests').listFiles().findAll { it.name.endsWith('.json') }.sort().each { mf ->
+            def json = new groovy.json.JsonSlurper().parse(mf)
+            def mods = (json.github_mods ?: [:]) + (json.external_mods ?: [:])
+            def deps = pinned.findAll { name, gc -> mods[name] }.collect { name, gc ->
+                project.dependencies.create("${gc[0]}:${name}:${mods[name].version}" + (gc[1] ? ":${gc[1]}" : ''))
+            }
+            def conf = configurations.detachedConfiguration(deps as Dependency[])
+            conf.transitive = false
+            def jars = conf.incoming.artifactView { lenient = true }.files.files
+            if (jars.size() < deps.size()) logger.warn("compatCheck: ${mf.name}: ${deps.size() - jars.size()} of ${deps.size()} mods could not be downloaded")
+            new File(out, mf.name.replace('.json', '.cp')).text = (jars + rest).collect { it.absolutePath }.join('\n')
+        }
+    }
+}
+tasks.register('compatCheck', Exec) {
+    description = 'Fails if our classes use a class, method or field an older GTNH 2.9 build lacks, unguarded'
+    group = 'verification'
+    notCompatibleWithConfigurationCache('reads the classpaths compatClasspaths writes')
+    dependsOn 'compatClasspaths'
+    def launcher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    doFirst {
+        def packs = file('tools/dev/compat/manifests').listFiles().findAll { it.name.endsWith('.json') }.sort().collect {
+            def name = it.name.replace('.json', '')
+            "${name}=" + layout.buildDirectory.file("compat/${name}.cp").get().asFile.absolutePath
+        }
+        commandLine([launcher.get().executablePath.asFile.absolutePath, '-cp', configurations.compatAsm.singleFile.absolutePath,
+            file('tools/dev/compat/Check.java').absolutePath, sourceSets.main.java.classesDirectory.get().asFile.absolutePath,
+            file('tools/dev/compat/guarded.txt').absolutePath] + packs)
+    }
+}
+
 // Checkstyle (the wildcard import check) runs out of its default heap on the tour's Callout.java: give it room.
 tasks.withType(Checkstyle).configureEach {
     maxHeapSize = '1g'
