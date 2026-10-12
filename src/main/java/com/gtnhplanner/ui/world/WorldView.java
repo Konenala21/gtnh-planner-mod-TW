@@ -216,8 +216,10 @@ public final class WorldView {
         if (mc.currentScreen != null || mc.gameSettings.hideGUI) return;
         final ScaledResolution sr = event.resolution;
         final float cx = sr.getScaledWidth() / 2f;
-        // While the keys strip shows, the note is its last line instead; while placing, it goes under the title.
-        if (System.currentTimeMillis() < noteUntil && !PlacementKeys.stripShown()) {
+        // While the keys strip shows, the note is its last line instead (unless too long for it); while placing, it
+        // goes
+        // under the title.
+        if (System.currentTimeMillis() < noteUntil && (!PlacementKeys.stripShown() || PlacementKeys.noteAtTop())) {
             final int[] title = LinkPicker.titleBounds();
             final float y = title == null ? 6 : title[1] + title[3] + 3;
             Hyb.rect(cx - Hyb.width(note) / 2f - 4, y, Hyb.width(note) + 8, 13, 0xE0141414);

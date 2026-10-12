@@ -82,6 +82,9 @@ public final class PlanOverlay {
          */
         float sx, sy, bx, by, scale, w, h, left, top;
 
+        /** Which of its card's placements it is, from 1 (its place in the card's list); 0 for the one being placed. */
+        int nth;
+
         Placed(final PlanSnapshot.Card card, final int[] at, final boolean main) {
             this(card, at, main, false);
         }
@@ -210,10 +213,13 @@ public final class PlanOverlay {
                 all.add(new Placed(c, preview, true, true));
                 first = false;
             }
-            for (final int[] l : n.worldLinks) if (l[0] == dim) {
+            for (int i = 0; i < n.worldLinks.size(); i++) {
+                final int[] l = n.worldLinks.get(i);
                 // Where the machine in hand was is empty while it is in hand.
-                if (inHand && LinkPicker.hidden(l)) continue;
-                all.add(new Placed(c, l, first));
+                if (l[0] != dim || inHand && LinkPicker.hidden(l)) continue;
+                final Placed p = new Placed(c, l, first);
+                p.nth = i + 1;
+                all.add(p);
                 first = false;
             }
         }
@@ -409,10 +415,10 @@ public final class PlanOverlay {
         }
         Hyb.fadeOut = 0;
         Hyb.endBatch();
-        // Each machine's label in its ghost, far to near.
-        if (PlannerSettings.arLabels()) for (int i = all.size() - 1; i >= 0; i--) {
-            final Placed p = all.get(i);
-            if (!p.preview) label(p, sr, mc);
+        // Each machine's label in its ghost, near to far, each clear of those before it.
+        if (PlannerSettings.arLabels()) {
+            final List<float[]> labels = new ArrayList<>();
+            for (final Placed p : all) if (!p.preview) label(p, sr, mc, labels);
         }
         // Far to near, so nearer cards cover farther ones as objects do, the one looked at over the rest; the one the
         // crosshair is on over them all.
@@ -454,15 +460,21 @@ public final class PlanOverlay {
 
     /**
      * A machine's label in the middle of its ghost on the screen, on a soft dark backing: its name (over two lines when
-     * long), then its tier, the power it draws (or makes) and how many machines its card has. It always fits in the
+     * long), then its tier, the power it draws (or makes) and how many machines its card has ("2/4": which of them this
+     * is). It always fits in the
      * ghost: as the ghost gets small on the screen the name goes first, then the power, then the count, and with not
-     * even its tier fitting at a letter pixel a screen pixel (the smallest that reads), there is no label.
+     * even its tier fitting at a letter pixel a screen pixel (the smallest that reads), there is no label. It keeps
+     * clear
+     * of the nearer machines' labels ({@code taken}) the same way: less of it, or none.
      */
-    private void label(final Placed p, final ScaledResolution sr, final Minecraft mc) {
+    private void label(final Placed p, final ScaledResolution sr, final Minecraft mc, final List<float[]> taken) {
         final float[] r = p.rect, at = screen(p.home, sr, mc);
         if (r == null || at == null) return;
         final PlanSnapshot.Card c = p.card;
-        final String count = "×" + com.gtnhplanner.ui.theme.Fmt.machines(c.machines());
+        // One of several: which, "2/4"; a card of one machine, how many, "×1".
+        final int of = (int) Math.ceil(c.machines() - 1e-9);
+        final String count = of > 1 && p.nth > 0 ? p.nth + "/" + of
+            : "×" + com.gtnhplanner.ui.theme.Fmt.machines(c.machines());
         final boolean makes = c.madeEuPerTick() > 0;
         final double eu = makes ? c.madeEuPerTick() : c.euPerTick();
         final String power = eu > 0 ? (makes ? "+" : "") + com.gtnhplanner.ui.theme.Fmt.power(eu) + " EU/t" : "";
@@ -484,8 +496,16 @@ public final class PlanOverlay {
             final int w = l[0] + 2 * LABEL_PAD, h = l[1];
             final float scale = Math.min(Math.min(roomW / w, roomH / h), LABEL_MAX);
             if (scale < least) continue;
+            // Clear of the nearer machines' labels, else less of it, else none.
+            final float x0 = at[0] - w * scale / 2, y0 = at[1] - h * scale / 2, x1 = x0 + w * scale,
+                y1 = y0 + h * scale;
+            boolean clear = true;
+            for (final float[] t : taken)
+                if (x0 < t[2] + 1 && t[0] < x1 + 1 && y0 < t[3] + 1 && t[1] < y1 + 1) clear = false;
+            if (!clear) continue;
+            taken.add(new float[] { x0, y0, x1, y1 });
             GL11.glPushMatrix();
-            GL11.glTranslatef(at[0] - w * scale / 2, at[1] - h * scale / 2, 0);
+            GL11.glTranslatef(x0, y0, 0);
             GL11.glScalef(scale, scale, 1);
             Hyb.roundRect(0, 0, w, h, 3, 0xA8141518);
             for (int i = 0; i < l[2]; i++) Hyb.text(name.get(i), LABEL_PAD, 3 + 10 * i, Hyb.INK);
@@ -592,7 +612,7 @@ public final class PlanOverlay {
     private static final float TAG_RATE = 1.5f;
 
     /** Arrowheads along a wire: how far apart and how fast they move, in blocks and blocks a second. */
-    private static final double ARROW_GAP = 0.4, ARROW_SPEED = 0.67;
+    private static final double ARROW_GAP = 0.8, ARROW_SPEED = 0.67;
 
     /** How far from either end of a wire its arrowheads fade, in blocks. */
     private static final double ARROW_FADE = 0.35;
@@ -950,8 +970,8 @@ public final class PlanOverlay {
         band(r.ax, r.ay, r.bx, r.by, w + (lit ? 3 : 2), edge);
         band(r.ax, r.ay, r.bx, r.by, w, flowing || lit ? colour : colour & 0x00FFFFFF | 0x99000000);
         // The arrowheads, set out along the wire in the world.
-        final float head = 4.5f * arrow, half = 2.4f * arrow;
-        final int tip = Hyb.mix(colour, 0xFFFFFFFF, 0.45f);
+        final float head = 5.6f * arrow, half = 3f * arrow;
+        final int tip = Hyb.mix(colour, 0xFFFFFFFF, 0.6f);
         for (final float[] a : r.arrows) {
             final float px = a[0], py = a[1], ux = a[2], uy = a[3], fade = a[4];
             final float fx = px + ux * head * 0.6f, fy = py + uy * head * 0.6f;

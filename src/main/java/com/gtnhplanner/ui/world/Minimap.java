@@ -82,6 +82,12 @@ public final class Minimap {
         placed = true;
     }
 
+    /**
+     * The zoom past which the map draws whole cards and drawers, as the board does: a step sooner than the board's
+     * glance view (the owner, 2026-10-12), at its 35%.
+     */
+    private static final float WHOLE_FROM = 0.33f;
+
     private static float zoom() {
         return PlannerSettings.MINIMAP_ZOOMS[PlannerSettings.minimapZoomIndex()];
     }
@@ -159,7 +165,7 @@ public final class Minimap {
         clipBegin(sr, x0, y0, size, circle);
         LABELS.clear();
         drawWires(snap.wires(), ox, oy, z, lit);
-        if (z > com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM) {
+        if (z > WHOLE_FROM) {
             // Close in, as the board: whole cards and drawers.
             for (final PlanSnapshot.Box b : snap.drawers()) whole(
                 ox + b.x() * z,
@@ -175,7 +181,7 @@ public final class Minimap {
             drawDrawers(snap.drawers(), ox, oy, z, snap.rateUnit());
             drawCards(snap.cards(), ox, oy, z, focused);
         }
-        if (z <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM && PlannerSettings.zoomedOutNames()) {
+        if (z <= WHOLE_FROM && PlannerSettings.zoomedOutNames()) {
             GL11.glPushMatrix();
             GL11.glTranslatef(ox, oy, 0);
             GL11.glScalef(z, z, 1);

@@ -657,7 +657,7 @@ final class WireLayer {
     }
 
     private static final int CASING = 0xB8111827;
-    private static final int ARROW_EVERY = 160;
+    private static final int ARROW_EVERY = 320;
 
     /** Dots along the run, for a wire nothing flows through yet. */
     private static void dotted(final List<int[]> path, final int color, final float width) {
@@ -704,10 +704,10 @@ final class WireLayer {
      * every {@value #ARROW_EVERY} on a long run, and at least one per wire, on its longest run.
      */
     private static void arrows(final List<int[]> path, final int color, final float width, final List<float[]> hops) {
-        final float len = Math.max(7, Math.min(12, 2f * width + 3));
-        final float half = Math.max(3.5f, Math.min(6, width * 0.9f + 1.5f));
+        final float len = 1.25f * Math.max(7, Math.min(12, 2f * width + 3));
+        final float half = 1.25f * Math.max(3.5f, Math.min(6, width * 0.9f + 1.5f));
         final float clear = len + 8;
-        final int fill = brighter(color, 0.3f), outline = darker(color);
+        final int fill = brighter(color, 0.45f), outline = darker(color);
         int longest = 0;
         float longestLen = 0, longestAt = 0, at = 0;
         boolean any = false;

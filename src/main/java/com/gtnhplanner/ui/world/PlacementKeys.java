@@ -105,9 +105,7 @@ public final class PlacementKeys {
         final int key = Keyboard.getEventKey();
         if (PlannerKeys.is(PlannerKeys.FOCUS, key)) {
             com.gtnhplanner.ui.PlannerSettings.setArFocus(!com.gtnhplanner.ui.PlannerSettings.arFocus());
-            WorldView.say(
-                com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus on: a card where you look"
-                    : "Focus off: no cards");
+            WorldView.say(com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus: on" : "Focus: off");
             return;
         }
         if (PlannerKeys.is(PlannerKeys.LABELS, key)) {
@@ -131,7 +129,7 @@ public final class PlacementKeys {
         to[1] += (int) Math.round(((a[0] + a[3]) - (b[0] + b[3])) / 2);
         to[3] += (int) Math.round(((a[2] + a[5]) - (b[2] + b[5])) / 2);
         if (!WorldLinks.relink(graph, node, link, to, false)) {
-            WorldView.say("Another machine is placed there");
+            WorldView.say("A machine is there already");
             com.gtnhplanner.ui.sound.Sfx.DENY.play();
             return;
         }
@@ -153,7 +151,7 @@ public final class PlacementKeys {
 
     private void remove() {
         WorldLinks.unlink(graph, node, link[0], link[1], link[2], link[3]);
-        WorldView.say("Removed " + WorldView.cardName(node) + " from the world");
+        WorldView.say("Removed from the world");
         com.gtnhplanner.ui.sound.Sfx.WORLD_REMOVE.play();
         link = null;
     }
@@ -193,6 +191,13 @@ public final class PlacementKeys {
     @javax.annotation.Nullable
     private static int[] lastStrip;
 
+    /** Whether the note is too long for the strip, and shows at the top of the screen instead. */
+    private static boolean noteAtTop;
+
+    static boolean noteAtTop() {
+        return noteAtTop;
+    }
+
     static boolean stripShown() {
         final Minecraft mc = Minecraft.getMinecraft();
         return PlanOverlay.on() && com.gtnhplanner.ui.PlannerSettings.arKeys()
@@ -230,7 +235,11 @@ public final class PlacementKeys {
             whatW = Math.max(whatW, Hyb.width(it.what()));
         }
         final int most = map == null ? 200 : map[2];
-        final String said = WorldView.note();
+        // The last thing done, as its last line when it fits; a longer one goes at the top of the screen.
+        final String note = WorldView.note();
+        final int most0 = map == null ? 200 : map[2];
+        noteAtTop = note != null && Hyb.width(note) + 10 > most0;
+        final String said = noteAtTop ? null : note;
         final int rowH = 10;
         final int w = (int) Math.min(most, Math.max(keysW + 8 + whatW + 10, said == null ? 0 : Hyb.width(said) + 10));
         final int h = (items.size() + (said == null ? 0 : 1)) * rowH + 5;

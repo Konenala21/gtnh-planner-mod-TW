@@ -8,9 +8,9 @@
 
 ## Better
 
-- Dragging a wire lights up every card and port that can take it.
+- Dragging a wire lights up every card and port that can take it. Wire arrows are fewer, bigger and lighter, on the board and in the world.
 - The plan over the world is calmer: a machine's card only pops up above it when you look at it (Shift + U), and each machine gets a small label with its name, tier, power and count (Shift + I). Machines can show as see-through, solid or not at all, and the keys list in the corner can be hidden (all in the gear).
-- Every world key (turn, pick up, remove, Focus, Labels) can be changed in Controls, and the minimap can be made see-through.
+- Every world key (turn, pick up, remove, Focus, Labels) can be changed in Controls, and the minimap can be made see-through. It also shows whole cards one zoom step sooner.
 - Rates you set on a card's port show up in the overview, and "~ Set" puts a rate on anything nothing sets yet.
 - "(set count)" only nags on the part of the plan that actually needs a number.
 - Steam machines lose the voltage chip (they don't use EU) and show how much steam they burn instead.
@@ -24,5 +24,5 @@
 - Crop farms in pasted plans come in now, and crop cards share to the library properly.
 - Generators in pasted Build plans keep their count instead of getting resized.
 - Cards in pasted plans don't land on top of each other.
-- Placing machines in the world: you can stack the next one on the one you just placed, and you can see which way R turns it.
+- Placing machines in the world: you can stack the next one on the one you just placed, and you can see which way R turns it. Each machine of a group says which it is (1/4, 2/4...).
 - Placing a generator in the world shows its name, not a code.

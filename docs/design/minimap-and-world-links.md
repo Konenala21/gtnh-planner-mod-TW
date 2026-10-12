@@ -28,7 +28,7 @@ order they are built.
 - The board publishes a `PlanSnapshot` (cards, drawers, wire paths, view centre, links) whenever it rebuilds its models
   or routes; the minimap draws the latest one. A plan changed while the planner is closed (NEI's plan button) marks the
   map out of date until the planner opens again.
-- Zoomed in past the board's glance zoom (the steps 0.5, 0.71 and 1), it draws whole cards and drawers as the board
+- Zoomed in from 35% (a step sooner than the board's glance zoom: the steps 0.35, 0.5, 0.71 and 1; `Minimap.WHOLE_FROM`), it draws whole cards and drawers as the board
   does (`PlanCardView.draw`, `PlanCardView.drawer`: no keys, menus or rules), without the zoomed-out names.
 - Settings: on/off, size (Small, Medium, Large, Huge), shape (square, circle), corner, zoom, and "Centre on the machine
   you look at".
@@ -156,7 +156,7 @@ Nothing shows until a card of the plan last open is placed.
   the one nearest the other and the block of the other nearest that (a structure's own blocks, so a wire leaves from
   the side toward where it goes and meets the near side of where it arrives), from where it leaves the one block to
   where it meets the other (cut short at the camera): a thick line in the resource's colour on a dark
-  edge, with many small arrowheads drifting slowly towards the card fed (set out in the world, two fifths of a block apart at two
+  edge, with arrowheads drifting slowly towards the card fed, lighter than the wire (set out in the world, four fifths of a block apart at two
   thirds of a block a second, so their pace holds as you move; all the way from end to end, fading in and out over a
   third of a block at each; they stop growing early as you come close), faint where nothing flows yet. Several wires between
   the same two cards run side by side in lanes (a line, its edges and a clear gap apart), so the two directions of a pair part. At its middle a tag says what
