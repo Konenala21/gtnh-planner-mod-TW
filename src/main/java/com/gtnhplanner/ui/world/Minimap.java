@@ -95,7 +95,15 @@ public final class Minimap {
         if (mc.currentScreen != null && !(mc.currentScreen instanceof com.gtnhplanner.ui.tutorial.TourScreen)
             || mc.gameSettings.hideGUI
             || mc.gameSettings.showDebugInfo) return;
-        draw(mc, event.resolution);
+        // As see-through as set, the whole map.
+        Hyb.fadeOut = PlannerSettings.minimapSeeThrough() / 100f;
+        Hyb.keepItems = true;
+        try {
+            draw(mc, event.resolution);
+        } finally {
+            Hyb.fadeOut = 0;
+            Hyb.keepItems = false;
+        }
     }
 
     /** Where the map is on the screen, {x, y, w, h} with its frame and title; null when it is off. */

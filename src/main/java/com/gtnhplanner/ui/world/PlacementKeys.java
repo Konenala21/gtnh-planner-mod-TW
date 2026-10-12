@@ -20,11 +20,13 @@ import cpw.mods.fml.common.gameevent.InputEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * The plan over the world's keys, all with sneak (Shift) held, and their strip under the minimap. With a machine lit
- * gold, it is in hand while sneak is held: R turns it about its middle, G picks it up to put down elsewhere (the
- * picker, where [ and ] size a structure that comes in sizes), and Delete takes it out of the world, each one undo step
- * in its plan. U turns Focus on and off; Y (the overlay's own key, with Shift or without) hides and shows the whole
- * overlay. Moving is picking up and putting down only, so the minimap keeps its arrows and [ ]. With the overlay off
+ * The plan over the world's keys, all with sneak (Shift) held, and their strip under the minimap (unless the settings
+ * hide it). With a machine lit gold, it is in hand while sneak is held: R turns it about its middle, G picks it up to
+ * put down elsewhere (the picker, where [ and ] size a structure that comes in sizes), and Delete takes it out of the
+ * world, each one undo step in its plan. U turns Focus on and off (a card over the machine looked at), I the labels in
+ * the ghosts; Y (the overlay's own key, with Shift or without) hides and shows the whole overlay. Each key is the one
+ * set in Controls ({@link PlannerKeys}): these are the defaults. Moving is picking up and putting down only, so the
+ * minimap keeps its arrows and [ ]. With the overlay off
  * none of this shows or acts: nothing is lit to act on.
  *
  * <p>
@@ -99,23 +101,26 @@ public final class PlacementKeys {
     @SubscribeEvent
     public void onKey(final InputEvent.KeyInputEvent event) {
         if (!adjusting() || !Keyboard.getEventKeyState()) return;
-        // Focus needs no machine lit.
-        if (Keyboard.getEventKey() == Keyboard.KEY_U) {
+        // Focus and Labels need no machine lit. Each key is the one set in Controls.
+        final int key = Keyboard.getEventKey();
+        if (PlannerKeys.is(PlannerKeys.FOCUS, key)) {
             com.gtnhplanner.ui.PlannerSettings.setArFocus(!com.gtnhplanner.ui.PlannerSettings.arFocus());
             WorldView.say(
-                com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus on: only what you look at"
-                    : "Focus off: all cards, faint");
+                com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus on: a card where you look"
+                    : "Focus off: no cards");
+            return;
+        }
+        if (PlannerKeys.is(PlannerKeys.LABELS, key)) {
+            com.gtnhplanner.ui.PlannerSettings.setArLabels(!com.gtnhplanner.ui.PlannerSettings.arLabels());
+            WorldView.say(com.gtnhplanner.ui.PlannerSettings.arLabels() ? "Labels: on" : "Labels: off");
             return;
         }
         // The key can come in the same tick as sneak, before the tick takes the placement in hand.
         grab();
         if (link == null) return;
-        switch (Keyboard.getEventKey()) {
-            case Keyboard.KEY_R -> turn();
-            case Keyboard.KEY_G -> pickUp();
-            case Keyboard.KEY_DELETE, Keyboard.KEY_BACK -> remove();
-            default -> {}
-        }
+        if (PlannerKeys.is(PlannerKeys.ROTATE, key)) turn();
+        else if (PlannerKeys.is(PlannerKeys.PICK_UP, key)) pickUp();
+        else if (PlannerKeys.is(PlannerKeys.REMOVE, key)) remove();
     }
 
     /** Turns the placement a quarter, clockwise from above, about the middle of what it fills. */
@@ -190,14 +195,17 @@ public final class PlacementKeys {
 
     static boolean stripShown() {
         final Minecraft mc = Minecraft.getMinecraft();
-        return PlanOverlay.on() && mc.currentScreen == null && !mc.gameSettings.hideGUI && !LinkPicker.active();
+        return PlanOverlay.on() && com.gtnhplanner.ui.PlannerSettings.arKeys()
+            && mc.currentScreen == null
+            && !mc.gameSettings.hideGUI
+            && !LinkPicker.active();
     }
 
     /**
      * The keys, one word each, in a see-through strip at the right under the minimap (above it in a bottom corner, in
      * its corner when it is off), as wide as it needs; the last thing done (a note) is its last line while it lasts.
      * The
-     * lines for the lit machine are dim while none is lit; Focus is gold while on.
+     * lines for the lit machine are dim while none is lit; Focus and Labels are gold while on.
      */
     @SubscribeEvent
     public void onOverlay(final RenderGameOverlayEvent.Post event) {
@@ -207,11 +215,12 @@ public final class PlacementKeys {
         final String shift = keyName(mc.gameSettings.keyBindSneak.getKeyCode()) + " + ";
         final boolean focus = com.gtnhplanner.ui.PlannerSettings.arFocus();
         final java.util.List<Item> items = java.util.List.of(
-            new Item(shift + "R", "Rotate", some),
-            new Item(shift + "G", "Pick up", some),
-            new Item(shift + "Del", "Remove", some),
-            new Item(shift + "U", "Focus", true),
-            new Item(shift + "Y", "Hide", true));
+            new Item(shift + PlannerKeys.label(PlannerKeys.ROTATE), "Rotate", some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.PICK_UP), "Pick up", some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.REMOVE), "Remove", some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.FOCUS), "Focus", true),
+            new Item(shift + PlannerKeys.label(PlannerKeys.LABELS), "Labels", true),
+            new Item(shift + PlannerKeys.label(PlannerKeys.AR), "Hide", true));
 
         final ScaledResolution sr = event.resolution;
         final int[] map = Minimap.bounds(sr);
@@ -236,7 +245,9 @@ public final class PlacementKeys {
         float ry = y + 3;
         for (final Item it : items) {
             final boolean on = focus && it.what()
-                .equals("Focus");
+                .equals("Focus") || com.gtnhplanner.ui.PlannerSettings.arLabels()
+                    && it.what()
+                        .equals("Labels");
             final int key = on ? Hyb.GOLD : it.live() ? 0xFFC8CAD0 : 0x70C8CAD0;
             final int what = on ? Hyb.GOLD : it.live() ? Hyb.MUTED : 0x709A9CA4;
             Hyb.text(it.key(), x + 5, ry, key);
@@ -255,6 +266,8 @@ public final class PlacementKeys {
             case Keyboard.KEY_LCONTROL, Keyboard.KEY_RCONTROL -> "Ctrl";
             case Keyboard.KEY_LSHIFT, Keyboard.KEY_RSHIFT -> "Shift";
             case Keyboard.KEY_LMENU, Keyboard.KEY_RMENU -> "Alt";
+            case Keyboard.KEY_DELETE -> "Del";
+            case Keyboard.KEY_BACK -> "Backspace";
             default -> {
                 final String n = Keyboard.getKeyName(code);
                 yield n == null ? "?"

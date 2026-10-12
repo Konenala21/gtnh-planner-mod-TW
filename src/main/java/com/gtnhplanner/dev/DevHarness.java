@@ -721,6 +721,43 @@ public final class DevHarness {
                     return Map
                         .of("yaw", p.rotationYaw, "pitch", p.rotationPitch, "x", p.posX, "y", p.posY, "z", p.posZ);
                 });
+            case "/keybind":
+                // Sets a binding as Controls does (name=key.gtnhplanner.focus&code=24), or none given lists the
+                // planner's: each binding's key, and which binding the game's key table runs for that key.
+                return onClient(() -> {
+                    final net.minecraft.client.settings.KeyBinding[] all = mc.gameSettings.keyBindings;
+                    if (q.containsKey("name"))
+                        for (final net.minecraft.client.settings.KeyBinding k : all) if (k.getKeyDescription()
+                            .equals(q.get("name"))) {
+                                mc.gameSettings.setOptionKeyBinding(k, Integer.parseInt(q.get("code")));
+                                net.minecraft.client.settings.KeyBinding.resetKeyBindingArrayAndHash();
+                            }
+                    final Map<String, Object> out = new java.util.LinkedHashMap<>();
+                    if (q.containsKey("yield")) out.put("yields", com.gtnhplanner.ui.world.PlannerKeys.yieldsKeys());
+                    if (q.containsKey("probe")) {
+                        // Which binding a press of that key runs: the one the game's key table holds for it.
+                        for (final net.minecraft.client.settings.KeyBinding k : all) while (k.isPressed()) {}
+                        net.minecraft.client.settings.KeyBinding.onTick(Integer.parseInt(q.get("probe")));
+                        final List<String> runs = new ArrayList<>();
+                        for (final net.minecraft.client.settings.KeyBinding k : all)
+                            if (k.isPressed()) runs.add(k.getKeyDescription());
+                        out.put("runs", runs);
+                        return out;
+                    }
+                    for (final net.minecraft.client.settings.KeyBinding k : all) {
+                        if (!k.getKeyCategory()
+                            .equals("key.categories.neiflowchart") && !q.containsKey("all")) continue;
+                        final List<String> sharing = new ArrayList<>();
+                        for (final net.minecraft.client.settings.KeyBinding o : all)
+                            if (o != k && o.getKeyCode() == k.getKeyCode() && k.getKeyCode() != 0)
+                                sharing.add(o.getKeyDescription());
+                        out.put(
+                            k.getKeyDescription(),
+                            org.lwjgl.input.Keyboard.getKeyName(k.getKeyCode())
+                                + (sharing.isEmpty() ? "" : " (shared with " + String.join(", ", sharing) + ")"));
+                    }
+                    return out;
+                });
             case "/worldplace":
                 // The plan over the world set up for a look: card=N placed at x,y,z[&facing][&add=1], pick=N starts
                 // placing card N as its place key does, clear=1 takes the open plan out of the world.

@@ -259,19 +259,19 @@ public final class LinkPicker {
         } else if (finishing) stop();
     }
 
-    /** R turns what is being placed a quarter; [ and ] size a structure that comes in sizes. */
+    /**
+     * The rotate key (R) turns what is being placed a quarter; the minimap's zoom keys ([ and ]) size a structure that
+     * comes in sizes. Each as set in Controls.
+     */
     @SubscribeEvent
     public void onKey(final InputEvent.KeyInputEvent event) {
         if (!active() || Minecraft.getMinecraft().currentScreen != null || !Keyboard.getEventKeyState()) return;
-        switch (Keyboard.getEventKey()) {
-            case Keyboard.KEY_R -> {
-                turn = (turn + 1) & 3;
-                Hyb.click();
-            }
-            case Keyboard.KEY_LBRACKET -> resize(-1);
-            case Keyboard.KEY_RBRACKET -> resize(1);
-            default -> {}
-        }
+        final int key = Keyboard.getEventKey();
+        if (PlannerKeys.is(PlannerKeys.ROTATE, key)) {
+            turn = (turn + 1) & 3;
+            Hyb.click();
+        } else if (PlannerKeys.is(PlannerKeys.ZOOM_OUT, key)) resize(-1);
+        else if (PlannerKeys.is(PlannerKeys.ZOOM_IN, key)) resize(1);
     }
 
     private void resize(final int step) {
@@ -388,8 +388,13 @@ public final class LinkPicker {
         final String title = (moving != null ? "Move " : "Place ") + name
             + (max > 1 ? ": " + (placed + 1) + " of " + max : "")
             + (g == null ? "" : "   " + dimensions(g));
-        final String how = placed > 0 ? "Click for the next one. R turns it. Right-click or Esc to stop here."
-            : "Click a block face to place it there. R turns it" + (g != null && g.sized() ? ", [ ] sizes it" : "")
+        final String turns = PlannerKeys.label(PlannerKeys.ROTATE) + " turns it";
+        final String how = placed > 0 ? "Click for the next one. " + turns + ". Right-click or Esc to stop here."
+            : "Click a block face to place it there. " + turns
+                + (g != null && g.sized() ? ", " + PlannerKeys.label(PlannerKeys.ZOOM_OUT)
+                    + " "
+                    + PlannerKeys.label(PlannerKeys.ZOOM_IN)
+                    + " sizes it" : "")
                 + ". Right-click or Esc to cancel.";
         final int w = Math.max(Hyb.width(title) + 22, Hyb.width(how)) + 12, h = 29;
         final float x = (event.resolution.getScaledWidth() - w) / 2f, y = 6;

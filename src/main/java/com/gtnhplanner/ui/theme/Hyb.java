@@ -506,7 +506,7 @@ public final class Hyb {
     public static void iconShadow(final ItemStack item, final FluidStack fluid, final float x, final float y,
         final float size) {
         // Faded with the drawing, and gone with the icon once it drops out.
-        if (fadeOut >= FADE_ITEMS) return;
+        if (fadeOut >= FADE_ITEMS && !keepItems) return;
         // Three spreads, the widest faintest: about two fifths black at the heart, fading over two pixels.
         final float dy = size / 8f;
         final float[] grow = { 2, 1, 0 };
@@ -521,15 +521,19 @@ public final class Hyb {
     public static void item(final ItemStack stack, final float x, final float y, final float size, final float z) {
         // The game draws items with no alpha of their own, whatever the blending: a fading drawing drops them once it
         // is more than a third gone, a little ahead of the rest.
-        if (stack != null && fadeOut < FADE_ITEMS) GuiDraw.drawItem(stack, (int) x, (int) y, size, size, (int) z);
+        if (stack != null && (fadeOut < FADE_ITEMS || keepItems))
+            GuiDraw.drawItem(stack, (int) x, (int) y, size, size, (int) z);
     }
 
     public static void fluid(final FluidStack stack, final float x, final float y, final float size, final float z) {
-        if (stack != null && fadeOut < FADE_ITEMS) GuiDraw.drawFluidTexture(stack, x, y, size, size, z);
+        if (stack != null && (fadeOut < FADE_ITEMS || keepItems)) GuiDraw.drawFluidTexture(stack, x, y, size, size, z);
     }
 
     /** How far a drawing fades before its items and fluids drop out. */
     private static final float FADE_ITEMS = 0.35f;
+
+    /** Items and fluids drawn solid however faded (the see-through minimap), instead of dropping out. */
+    public static boolean keepItems;
 
     public static void text(final String s, final float x, final float y, final int color) {
         text(s, x, y, 1f, color, true);

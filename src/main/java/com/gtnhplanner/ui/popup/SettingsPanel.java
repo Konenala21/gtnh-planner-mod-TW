@@ -63,7 +63,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     private record Section(String name, List<Row> rows) {}
 
     // The box: a title bar, the sections on the left, the settings on the right.
-    private static final int W = 340, TITLE = 22, SIDE = 96, SIDE_ROW = 18, ROW = 22, PAD = 6, MAX_ROWS = 6;
+    private static final int W = 340, TITLE = 22, SIDE = 96, SIDE_ROW = 18, ROW = 22, PAD = 6, MAX_ROWS = 7;
     /** The settings box's panel, found again to centre it when the planner's size changes. */
     private static final String PANEL = "gtnhplanner_settings_panel";
     private static final int H = TITLE + PAD + MAX_ROWS * ROW + PAD;
@@ -192,6 +192,10 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         PlannerSettings::soundIndex,
                         PlannerSettings::setSoundIndex))));
 
+        final String[] mapSeeThrough = new String[PlannerSettings.MINIMAP_SEE_THROUGH_MAX
+            / PlannerSettings.MINIMAP_SEE_THROUGH_STEP + 1];
+        for (int i = 0; i < mapSeeThrough.length; i++)
+            mapSeeThrough[i] = i * PlannerSettings.MINIMAP_SEE_THROUGH_STEP + "%";
         final String[] zooms = new String[PlannerSettings.MINIMAP_ZOOMS.length];
         for (int i = 0; i < zooms.length; i++) zooms[i] = Math.round(PlannerSettings.MINIMAP_ZOOMS[i] * 100) + "%";
         final PlannerSettings.Corner[] corners = PlannerSettings.Corner.values();
@@ -233,7 +237,14 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         "Centre on the machine you look at",
                         null,
                         PlannerSettings::minimapFollows,
-                        PlannerSettings::setMinimapFollows))));
+                        PlannerSettings::setMinimapFollows),
+                    new Row(
+                        "See-through",
+                        null,
+                        Kind.SLIDER,
+                        mapSeeThrough,
+                        () -> PlannerSettings.minimapSeeThrough() / PlannerSettings.MINIMAP_SEE_THROUGH_STEP,
+                        i -> PlannerSettings.setMinimapSeeThrough(i * PlannerSettings.MINIMAP_SEE_THROUGH_STEP)))));
 
         out.add(
             new Section(
@@ -257,14 +268,26 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                 List.of(
                     toggle(
                         "Show the plan over the world",
-                        "Shift+Y",
+                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.AR),
                         PlannerSettings::arLens,
                         PlannerSettings::setArLens),
                     toggle(
-                        "Cards only where you look",
-                        "Shift+U",
+                        "Card where you look",
+                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.FOCUS),
                         PlannerSettings::arFocus,
                         PlannerSettings::setArFocus),
+                    toggle(
+                        "Labels on machines",
+                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.LABELS),
+                        PlannerSettings::arLabels,
+                        PlannerSettings::setArLabels),
+                    choice(
+                        "Machines",
+                        null,
+                        PlannerSettings.AR_GHOST_NAMES,
+                        PlannerSettings::arGhosts,
+                        PlannerSettings::setArGhosts),
+                    toggle("Keys list in the corner", null, PlannerSettings::arKeys, PlannerSettings::setArKeys),
                     choice(
                         "Range, in blocks",
                         null,

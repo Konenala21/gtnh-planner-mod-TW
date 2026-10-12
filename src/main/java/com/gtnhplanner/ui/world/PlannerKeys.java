@@ -31,9 +31,84 @@ public final class PlannerKeys {
     static final KeyBinding PAN_LEFT = new KeyBinding("key.gtnhplanner.minimapLeft", Keyboard.KEY_LEFT, CATEGORY);
     static final KeyBinding PAN_RIGHT = new KeyBinding("key.gtnhplanner.minimapRight", Keyboard.KEY_RIGHT, CATEGORY);
     static final KeyBinding RECENTRE = new KeyBinding("key.gtnhplanner.minimapRecentre", Keyboard.KEY_NONE, CATEGORY);
-    static final KeyBinding AR = new KeyBinding("key.gtnhplanner.ar", Keyboard.KEY_Y, CATEGORY);
+    public static final KeyBinding AR = new KeyBinding("key.gtnhplanner.ar", Keyboard.KEY_Y, CATEGORY);
     static final KeyBinding LINK = new KeyBinding("key.gtnhplanner.link", Keyboard.KEY_L, CATEGORY);
     static final KeyBinding PIN_LIST = new KeyBinding("key.gtnhplanner.pinList", Keyboard.KEY_NONE, CATEGORY);
+
+    /**
+     * The keys held with sneak to adjust a placed machine and the plan over the world (R also turns the machine being
+     * placed). They are read by their code ({@link #is}), never through the game's key table, which holds one binding a
+     * key: each tick a key one of them shares with another binding is handed back to that one, so setting these never
+     * takes a key from anything else.
+     */
+    static final KeyBinding ROTATE = new KeyBinding("key.gtnhplanner.rotate", Keyboard.KEY_R, CATEGORY);
+    static final KeyBinding PICK_UP = new KeyBinding("key.gtnhplanner.pickUp", Keyboard.KEY_G, CATEGORY);
+    static final KeyBinding REMOVE = new KeyBinding("key.gtnhplanner.remove", Keyboard.KEY_DELETE, CATEGORY);
+    public static final KeyBinding FOCUS = new KeyBinding("key.gtnhplanner.focus", Keyboard.KEY_U, CATEGORY);
+    public static final KeyBinding LABELS = new KeyBinding("key.gtnhplanner.labels", Keyboard.KEY_I, CATEGORY);
+
+    private static final KeyBinding[] BY_CODE = { ROTATE, PICK_UP, REMOVE, FOCUS, LABELS };
+
+    /** Whether a key is the one a binding is set to; one set to none matches nothing. */
+    static boolean is(final KeyBinding binding, final int key) {
+        return key != Keyboard.KEY_NONE && binding.getKeyCode() == key;
+    }
+
+    /** A key held with sneak, as the settings name it: "Shift+U" (the sneak key as bound). */
+    public static String held(final KeyBinding binding) {
+        return PlacementKeys.keyName(Minecraft.getMinecraft().gameSettings.keyBindSneak.getKeyCode()) + "+"
+            + label(binding);
+    }
+
+    /** A binding's key as people say it. */
+    static String label(final KeyBinding binding) {
+        return keyLabel(binding.getKeyCode());
+    }
+
+    /** The game's key table and every binding, once found; null until then, or when they cannot be reached. */
+    @javax.annotation.Nullable
+    private static net.minecraft.util.IntHashMap table;
+    @javax.annotation.Nullable
+    private static java.util.List<KeyBinding> bindings;
+    private static boolean unreachable;
+
+    /**
+     * Gives every key one of {@link #BY_CODE} holds in the game's key table back to the binding the game would have
+     * there without it (the last other one set to that key), or empties it. Out of reach (it never is in this game),
+     * ours keep their keys as any binding does.
+     */
+    /** For the dev harness: tries again, and says whether the key table is in reach. */
+    public static boolean yieldsKeys() {
+        unreachable = false;
+        yieldKeys();
+        return !unreachable;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void yieldKeys() {
+        if (unreachable) return;
+        try {
+            if (table == null) {
+                table = cpw.mods.fml.relauncher.ReflectionHelper
+                    .getPrivateValue(KeyBinding.class, null, "hash", "field_74514_b");
+                bindings = cpw.mods.fml.relauncher.ReflectionHelper
+                    .getPrivateValue(KeyBinding.class, null, "keybindArray", "field_74516_a");
+            }
+            for (final KeyBinding k : BY_CODE) {
+                final int code = k.getKeyCode();
+                if (code == Keyboard.KEY_NONE || table.lookup(code) != k) continue;
+                KeyBinding other = null;
+                for (final KeyBinding b : bindings) if (b.getKeyCode() == code && !java.util.Arrays.asList(BY_CODE)
+                    .contains(b)) other = b;
+                if (other != null) table.addKey(code, other);
+                else table.removeObject(code);
+            }
+        } catch (final RuntimeException e) {
+            unreachable = true;
+            com.gtnhplanner.GtnhPlanner.LOG
+                .warn("The game's key table is out of reach: the world keys take their keys", e);
+        }
+    }
 
     public PlannerKeys() {}
 
@@ -79,7 +154,8 @@ public final class PlannerKeys {
 
     public static void register() {
         for (final KeyBinding k : new KeyBinding[] { MINIMAP, ZOOM_IN, ZOOM_OUT, PAN_UP, PAN_DOWN, PAN_LEFT, PAN_RIGHT,
-            RECENTRE, AR, LINK, PIN_LIST }) ClientRegistry.registerKeyBinding(k);
+            RECENTRE, AR, LINK, PIN_LIST, ROTATE, PICK_UP, REMOVE, FOCUS, LABELS })
+            ClientRegistry.registerKeyBinding(k);
     }
 
     /** The presses: show or hide, zoom a step, re-centre, the AR lens, linking. */
@@ -117,6 +193,7 @@ public final class PlannerKeys {
     /** Panning goes on while the keys are held, at a steady speed on screen whatever the zoom. */
     @SubscribeEvent
     public void onTick(final TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) yieldKeys();
         if (event.phase != TickEvent.Phase.END || Minecraft.getMinecraft().currentScreen != null
             || !PlannerSettings.minimap()) return;
         final int dx = (PAN_RIGHT.getIsKeyPressed() ? 1 : 0) - (PAN_LEFT.getIsKeyPressed() ? 1 : 0);

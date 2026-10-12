@@ -110,6 +110,17 @@ public final class PlannerSettings {
         return MINIMAP_SIZES[minimapSizeIndex()];
     }
 
+    /** How see-through the minimap is drawn, in percent, in steps of {@link #MINIMAP_SEE_THROUGH_STEP} up to 80. */
+    public static final int MINIMAP_SEE_THROUGH_STEP = 10, MINIMAP_SEE_THROUGH_MAX = 80;
+
+    public static int minimapSeeThrough() {
+        return Math.max(0, Math.min(MINIMAP_SEE_THROUGH_MAX, integer("minimap.seeThrough", 0)));
+    }
+
+    public static void setMinimapSeeThrough(final int percent) {
+        set("minimap.seeThrough", Math.max(0, Math.min(MINIMAP_SEE_THROUGH_MAX, percent)));
+    }
+
     public static boolean minimapCircle() {
         return bool("minimap.circle", false);
     }
@@ -179,16 +190,46 @@ public final class PlannerSettings {
         set("world.ar", on);
     }
 
-    /**
-     * The plan over the world shows a card only while you look at (or near) its machine, fading in and out, instead
-     * of every card at once.
-     */
+    /** Focus: the plan over the world shows a machine's card above it while you look at its ghost. */
     public static boolean arFocus() {
-        return bool("world.arFocus", false);
+        return bool("world.arFocus", true);
     }
 
     public static void setArFocus(final boolean on) {
         set("world.arFocus", on);
+    }
+
+    /** Labels: each machine of the plan over the world shows its name, tier, power and count in its ghost. */
+    public static boolean arLabels() {
+        return bool("world.arLabels", true);
+    }
+
+    public static void setArLabels(final boolean on) {
+        set("world.arLabels", on);
+    }
+
+    /**
+     * How placed machines show in the world: see-through ghosts, solid blocks, or not at all (wires and labels only).
+     */
+    public static final String[] AR_GHOST_NAMES = { "See-through", "Solid", "Hidden" };
+
+    public static final int GHOSTS_SEE_THROUGH = 0, GHOSTS_SOLID = 1, GHOSTS_HIDDEN = 2;
+
+    public static int arGhosts() {
+        return clamp(integer("world.arGhosts", GHOSTS_SEE_THROUGH), AR_GHOST_NAMES.length);
+    }
+
+    public static void setArGhosts(final int i) {
+        set("world.arGhosts", clamp(i, AR_GHOST_NAMES.length));
+    }
+
+    /** The list of the world's keys in the corner, under the minimap. */
+    public static boolean arKeys() {
+        return bool("world.arKeys", true);
+    }
+
+    public static void setArKeys(final boolean on) {
+        set("world.arKeys", on);
     }
 
     public static int arRangeIndex() {

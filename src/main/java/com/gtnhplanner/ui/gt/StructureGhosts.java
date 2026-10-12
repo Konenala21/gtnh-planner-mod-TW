@@ -170,8 +170,14 @@ public final class StructureGhosts {
 
     /** A ghost's second pass, after {@link #depth}: its outside, see-through. */
     public static void colour(final Ghost ghost, final int x, final int y, final int z, final int facing) {
+        colour(ghost, x, y, z, facing, false);
+    }
+
+    /** {@link #colour}, or with {@code solid} as solid blocks: opaque, hiding what is behind them. */
+    public static void colour(final Ghost ghost, final int x, final int y, final int z, final int facing,
+        final boolean solid) {
         try {
-            StructureGhostBuilder.draw(ghost, x, y, z, facing, false);
+            StructureGhostBuilder.draw(ghost, x, y, z, facing, false, solid);
         } catch (final LinkageError | RuntimeException e) {
             GtnhPlanner.LOG.warn("Could not draw a multiblock ghost", e);
         }

@@ -156,6 +156,12 @@ final class StructureGhostBuilder {
      */
     static void draw(final StructureGhosts.Ghost ghost, final int x, final int y, final int z, final int facing,
         final boolean depthOnly) {
+        draw(ghost, x, y, z, facing, depthOnly, false);
+    }
+
+    /** {@link #draw}, its colour pass with {@code solid} opaque and writing its depth, as real blocks are. */
+    static void draw(final StructureGhosts.Ghost ghost, final int x, final int y, final int z, final int facing,
+        final boolean depthOnly, final boolean solid) {
         final Built built = (Built) ghost.built();
         final World real = Minecraft.getMinecraft().theWorld;
         Minecraft.getMinecraft()
@@ -174,6 +180,9 @@ final class StructureGhostBuilder {
         if (depthOnly) {
             GL11.glColorMask(false, false, false, false);
             GL11.glDepthMask(true);
+        } else if (solid) {
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL11.GL_BLEND);
         } else {
             GL11.glDepthMask(false);
             GL11.glEnable(GL11.GL_BLEND);
@@ -211,6 +220,7 @@ final class StructureGhostBuilder {
             GL11.glColorMask(true, true, true, true);
             GL11.glDepthMask(false);
             GL11.glDisable(GL11.GL_ALPHA_TEST);
+            GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GL11.glDisable(GL11.GL_CULL_FACE);
             GL11.glDisable(GL11.GL_TEXTURE_2D);

@@ -159,9 +159,15 @@ final class WorldMarks {
      */
     static void machineGhost(final ItemStack machine, final StructureGhosts.Needs needs, final int size, final int x,
         final int y, final int z, final int facing, final boolean builtHere) {
+        machineGhost(machine, needs, size, x, y, z, facing, builtHere, false);
+    }
+
+    /** {@link #machineGhost}, or with {@code solid} as solid blocks, opaque and behind real blocks as they would be. */
+    static void machineGhost(final ItemStack machine, final StructureGhosts.Needs needs, final int size, final int x,
+        final int y, final int z, final int facing, final boolean builtHere, final boolean solid) {
         final StructureGhosts.Ghost structure = StructureGhosts.get(machine, needs, size);
-        if (structure != null) StructureGhosts.colour(structure, x, y, z, facing);
-        else if (!builtHere) ghost(machine, x, y, z, facing);
+        if (structure != null) StructureGhosts.colour(structure, x, y, z, facing, solid);
+        else if (!builtHere) ghost(machine, x, y, z, facing, solid);
     }
 
     private static final net.minecraft.client.renderer.RenderBlocks GHOST = new net.minecraft.client.renderer.RenderBlocks();
@@ -173,6 +179,12 @@ final class WorldMarks {
      */
     static void ghost(final net.minecraft.item.ItemStack machine, final int x, final int y, final int z,
         final int facing) {
+        ghost(machine, x, y, z, facing, false);
+    }
+
+    /** {@link #ghost}, or with {@code solid} as a solid block: opaque, and hidden behind real blocks as one is. */
+    static void ghost(final net.minecraft.item.ItemStack machine, final int x, final int y, final int z,
+        final int facing, final boolean solid) {
         final net.minecraft.block.Block block = net.minecraft.block.Block.getBlockFromItem(machine.getItem());
         if (block == null || block == net.minecraft.init.Blocks.air) return;
         Minecraft.getMinecraft()
@@ -186,11 +198,17 @@ final class WorldMarks {
         GL11.glScalef(0.96f, 0.96f, 0.96f);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_CULL_FACE);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(false);
+        if (solid) {
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GL11.glDepthMask(true);
+        } else {
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthMask(false);
+        }
         GL11.glEnable(GL11.GL_BLEND);
-        // See-through however the model sets its colours: blend by a constant alpha.
-        org.lwjgl.opengl.GL14.glBlendColor(1, 1, 1, 0.55f);
+        // See-through however the model sets its colours: blend by a constant alpha (none, solid).
+        org.lwjgl.opengl.GL14.glBlendColor(1, 1, 1, solid ? 1f : 0.55f);
         GL11.glBlendFunc(0x8003, 0x8004); // GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA
         GL11.glColor4f(1, 1, 1, 1);
         // Transparent texels left out, as everywhere else: the constant alpha above ignores a texture's own, and the
@@ -203,6 +221,7 @@ final class WorldMarks {
         } catch (final RuntimeException ignored) {}
         net.minecraft.client.renderer.RenderHelper.disableStandardItemLighting();
         GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glDepthMask(false);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_TEXTURE_2D);

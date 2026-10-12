@@ -32,6 +32,8 @@ order they are built.
   does (`PlanCardView.draw`, `PlanCardView.drawer`: no keys, menus or rules), without the zoomed-out names.
 - Settings: on/off, size (Small, Medium, Large, Huge), shape (square, circle), corner, zoom, and "Centre on the machine
   you look at".
+- See-through (the gear's Minimap, 0 to 80%): the whole map faded by it (`Hyb.fadeOut`), its items kept solid
+  (`Hyb.keepItems`) where a faded card would drop them.
 - Keys (Minecraft's Controls, category GTNH Planner): toggle the minimap, zoom in and out, pan (arrow keys), re-centre.
 - Square maps clip with the scissor test; round ones mask their corners with the depth buffer.
 
@@ -98,14 +100,24 @@ plan show what the machines are doing.
 ## 5. The plan over the world (AR)
 
 `ui/world/PlanOverlay`, toggled with Y and in the settings ("Show the plan over the world (AR)", "How far to show it").
-How much a card is looked at (`PlanOverlay.attention`, 0 to 1, easing in and out over a few frames) sets its size and
-how solid it is: looked at (the crosshair on its machine, its ghost through blocks, or on the card itself) it is a
-little over half the board's size and nearly solid; otherwise it is 60% of that and faint (22%), so the world shows
-past the plan. With Focus off a card comes up by how near the crosshair is to its machine on the screen, whole on it,
-a quarter 14 GUI pixels off and none past 80. Shift+U, Focus (or "Cards only where you look" in the settings), shows
-only the card looked at: the rest are not drawn at all. Every placed machine's edges always show, faint, so a
-machine can be found with its card faint or hidden. A wire shows as much as the more looked at of its two cards, and
-its tag only once one is. While placing, the card in hand is a third looked at and every other card none. Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
+What shows is set in the gear's In the world, each also on a key held with sneak (Minecraft's Controls, GTNH Planner:
+every one can be rebound; `PlannerKeys` reads them by key code, so a key shared with another binding, NEI's R recipe
+key say, works for both; GTNH runs every binding on a pressed key anyway):
+
+- **Focus** (Shift+U, "Card where you look", on by default): the card of the machine you look at (its ghost under the
+  crosshair, through blocks, or the card itself) pops up above it, growing from 60% of its size as it fades in
+  (`PlanOverlay.attention`); no other card shows, and none while placing. Off, no cards show at all.
+- **Labels** (Shift+I, on by default): each machine's label in its ghost on the screen (`PlanOverlay.label`): its name
+  (two lines when long), its tier chip, the EU/t it draws (or makes, green) and its card's machine count. It always fits
+  inside the ghost: as the ghost gets small the name goes first, then the power, then the count, and with not even its
+  tier fitting at a letter pixel a screen pixel there is none.
+- **Machines**: See-through (the ghosts below), Solid (opaque blocks, hidden behind real blocks as real ones are), or
+  Hidden (wires, labels and cards only). The machine being placed always shows as a ghost.
+- **Keys list in the corner**: the keys strip under the minimap, or not.
+
+With Focus and Labels both off, only the machines and the wires show. Wires show at 60%, more for the card looked
+at, whose wires' tags show (and the tag of the wire under the crosshair). Only the machine looked at is outlined.
+Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
 draws is multiplied by; items and fluids, which the game draws solid whatever the blending, drop out once a card is a
 third faded.
 Nothing shows until a card of the plan last open is placed.
@@ -126,7 +138,7 @@ Nothing shows until a card of the plan last open is placed.
   structure already standing in the world, the same block (and meta, but a machine's), is left out, so a structure
   half built shows what is left to build. Anything else shows its own block model, not when the machine is built there
   already. Display lists do not work here under Angelica (they come out invisible), hence drawing each frame.
-- The card stands just above its machine, never on it, so the spot or structure stays in view, drawn as the board
+- The card (Focus) stands just above its machine, never on it, so the spot or structure stays in view, drawn as the board
   draws it (`ui/card/CleanCardView`), with nothing to press, a line from it to the middle of the machine's top. A card
   placed on several spots stands over the one the crosshair meets, else its first; its wires run from the first; the
   others show the ghost alone. A card is drawn at its size within ten blocks of you and shrinks with distance beyond

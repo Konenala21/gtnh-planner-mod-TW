@@ -162,34 +162,33 @@ public final class PlanOverlay {
     }
 
     /**
-     * How solid a card is drawn looked at (a touch see-through, so the world behind it still shows), and not: faint,
-     * at {@link #IDLE_SIZE} of its size, so the world shows past the plan. With Focus on, a card not looked at is not
-     * drawn at all. While placing, the card in hand is {@link #IN_HAND} looked at and every other card none.
+     * How solid a card is drawn (a touch see-through, so the world behind it still shows). A card shows only with Focus
+     * on, for the machine you look at, and grows from {@link #POP_SIZE} of its size as it comes up.
      */
-    private static final float SOLID = 0.85f, IDLE_SOLID = 0.22f, IDLE_SIZE = 0.6f, IN_HAND = 0.35f;
+    private static final float SOLID = 0.85f, POP_SIZE = 0.6f;
 
-    /** How solid a wire is drawn between two cards not looked at; its tag shows once either is looked at this much. */
-    private static final float IDLE_WIRE = 0.3f, TAG_FROM = 0.3f;
-
-    /** A placed machine's edges, not looked at. */
-    private static final int EDGE = 0xC8CCD4;
+    /**
+     * How solid a wire is drawn, and with a card it joins looked at; its tag shows once one is looked at this much (or
+     * the crosshair is on it).
+     */
+    private static final float WIRE_SOLID = 0.6f, TAG_FROM = 0.3f;
 
     /** The room kept between a card and its machine on the screen, in GUI pixels. */
     private static final float GHOST_GAP = 4;
 
     /** How solid a card is drawn, looked at {@code a}. */
     private static float solid(final float a) {
-        return PlannerSettings.arFocus() ? SOLID * a : IDLE_SOLID + (SOLID - IDLE_SOLID) * a;
+        return SOLID * a;
     }
 
     /** How solid a wire is drawn, its cards looked at {@code a}. */
     private static float wireSolid(final float a) {
-        return PlannerSettings.arFocus() ? SOLID * a : IDLE_WIRE + (SOLID - IDLE_WIRE) * a;
+        return WIRE_SOLID + (SOLID - WIRE_SOLID) * a;
     }
 
-    /** A card's size, looked at {@code a}, as a share of its full size. */
+    /** A card's size, looked at {@code a}, as a share of its full size: it pops up as it comes in. */
     private static float sized(final float a) {
-        return IDLE_SIZE + (1 - IDLE_SIZE) * a;
+        return POP_SIZE + (1 - POP_SIZE) * a;
     }
 
     /** The cards placed in this dimension within range, nearest first. */
@@ -272,19 +271,20 @@ public final class PlanOverlay {
         final List<Placed> placed = placed(mc);
         if (placed.isEmpty()) return;
         WorldMarks.begin();
-        // Each placed card's spot: the machine's ghost (unless the machine is built there); the one looked at outlined.
-        // Every multiblock's depth first, so each shows its outside alone and nearer ghosts hide farther ones.
-        for (final Placed p : placed) if (!p.preview && p.card.machine() != null)
+        // Each placed card's spot: the machine's ghost (unless the machine is built there), see-through, solid or not
+        // shown as set; the one looked at outlined. Every multiblock's depth first, so each shows its outside alone and
+        // nearer ghosts hide farther ones.
+        final int look = PlannerSettings.arGhosts();
+        final boolean shown = look != PlannerSettings.GHOSTS_HIDDEN, solid = look == PlannerSettings.GHOSTS_SOLID;
+        if (shown) for (final Placed p : placed) if (!p.preview && p.card.machine() != null)
             WorldMarks.ghostDepth(p.card.machine(), p.card.needs(), p.size, p.x, p.y, p.z, p.facing);
         for (final Placed p : placed) {
             if (p.preview) continue;
-            if (p.card.machine() != null) WorldMarks
-                .machineGhost(p.card.machine(), p.card.needs(), p.size, p.x, p.y, p.z, p.facing, built(mc, p));
-            // Every machine's edges always show, so it can be found with its card faint or hidden; lit, the one looked
-            // at.
+            if (shown && p.card.machine() != null) WorldMarks
+                .machineGhost(p.card.machine(), p.card.needs(), p.size, p.x, p.y, p.z, p.facing, built(mc, p), solid);
+            // The one looked at outlined: what the keys act on.
             if (p.card.id()
                 .equals(lit)) WorldMarks.outline(p.box, Hyb.LIT & 0xFFFFFF, 0.012f, 1.5f, 0.6f);
-            else WorldMarks.outline(p.box, EDGE, 0.004f, 1f, 0.4f);
         }
         WorldMarks.end();
     }
@@ -341,7 +341,7 @@ public final class PlanOverlay {
         final float cx = sr.getScaledWidth() / 2f, cy = sr.getScaledHeight() / 2f;
         // Where each machine is on the screen, and how much its card is looked at.
         for (final Placed p : all) p.rect = screenBox(p.box, sr, mc);
-        final Map<UUID, Float> seen = attention(all, cx, cy);
+        final Map<UUID, Float> seen = attention(all);
         for (final Placed p : all) p.a = seen.getOrDefault(p.card.id(), 0f);
         // A card stands over one of its machines, the one the crosshair meets, else its first (the one in hand while
         // placing): the others show as ghosts.
@@ -409,6 +409,11 @@ public final class PlanOverlay {
         }
         Hyb.fadeOut = 0;
         Hyb.endBatch();
+        // Each machine's label in its ghost, far to near.
+        if (PlannerSettings.arLabels()) for (int i = all.size() - 1; i >= 0; i--) {
+            final Placed p = all.get(i);
+            if (!p.preview) label(p, sr, mc);
+        }
         // Far to near, so nearer cards cover farther ones as objects do, the one looked at over the rest; the one the
         // crosshair is on over them all.
         Placed top = null;
@@ -437,13 +442,82 @@ public final class PlanOverlay {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
     }
 
-    // region How much each card is looked at
+    // region Labels in the ghosts
+
+    /** A label's padding, unscaled, and its largest scale. */
+    private static final int LABEL_PAD = 4;
+
+    private static final float LABEL_MAX = 0.75f;
+
+    /** Power a generator makes, on its label. */
+    private static final int MADE = 0xFF8FD694;
 
     /**
-     * How near the crosshair comes to a machine on the screen (the outline of its box), in GUI pixels, for its card to
-     * come up whole, to come up a quarter, and to stay down: steep, so only what you look at stands out.
+     * A machine's label in the middle of its ghost on the screen, on a soft dark backing: its name (over two lines when
+     * long), then its tier, the power it draws (or makes) and how many machines its card has. It always fits in the
+     * ghost: as the ghost gets small on the screen the name goes first, then the power, then the count, and with not
+     * even its tier fitting at a letter pixel a screen pixel (the smallest that reads), there is no label.
      */
-    private static final float NEAR_WHOLE = 2, NEAR_QUARTER = 14, NEAR_NONE = 80;
+    private void label(final Placed p, final ScaledResolution sr, final Minecraft mc) {
+        final float[] r = p.rect, at = screen(p.home, sr, mc);
+        if (r == null || at == null) return;
+        final PlanSnapshot.Card c = p.card;
+        final String count = "×" + com.gtnhplanner.ui.theme.Fmt.machines(c.machines());
+        final boolean makes = c.madeEuPerTick() > 0;
+        final double eu = makes ? c.madeEuPerTick() : c.euPerTick();
+        final String power = eu > 0 ? (makes ? "+" : "") + com.gtnhplanner.ui.theme.Fmt.power(eu) + " EU/t" : "";
+        final String amps = c.amps() > 1 ? c.amps() + "A" : null;
+        final int tierW = c.tier()
+            .isEmpty() ? 0 : Hyb.tierTagWidth(c.tier(), amps);
+        final int countW = Hyb.width(count);
+        final int full = tierW + (tierW > 0 && !power.isEmpty() ? 4 : 0) + Hyb.width(power) + 6 + countW;
+        final List<String> name = wrap(c.name(), Math.max(full, 70));
+        int nameW = 0;
+        for (final String s : name) nameW = Math.max(nameW, Hyb.width(s));
+        // Most first, each {width, height, name lines, power shown, count shown}.
+        final int[][] levels = { { Math.max(nameW, full), 4 + name.size() * 10 + 15, name.size(), 1, 1 },
+            { full, 17, 0, 1, 1 }, { tierW + (tierW > 0 ? 6 : 0) + countW, 17, 0, 0, 1 },
+            { tierW > 0 ? tierW : countW, 17, 0, 0, tierW > 0 ? 0 : 1 } };
+        // Inside the ghost's face, clear of its neighbours' labels.
+        final float roomW = (r[2] - r[0]) * 0.8f, roomH = (r[3] - r[1]) * 0.7f, least = 1f / sr.getScaleFactor();
+        for (final int[] l : levels) {
+            final int w = l[0] + 2 * LABEL_PAD, h = l[1];
+            final float scale = Math.min(Math.min(roomW / w, roomH / h), LABEL_MAX);
+            if (scale < least) continue;
+            GL11.glPushMatrix();
+            GL11.glTranslatef(at[0] - w * scale / 2, at[1] - h * scale / 2, 0);
+            GL11.glScalef(scale, scale, 1);
+            Hyb.roundRect(0, 0, w, h, 3, 0xA8141518);
+            for (int i = 0; i < l[2]; i++) Hyb.text(name.get(i), LABEL_PAD, 3 + 10 * i, Hyb.INK);
+            final float y = h - 13;
+            float x = LABEL_PAD;
+            if (tierW > 0) {
+                Hyb.tierTag(c.tier(), amps, x, y);
+                x += tierW + 4;
+            }
+            if (l[3] == 1 && !power.isEmpty()) Hyb.text(power, x, y, makes ? MADE : Hyb.MUTED);
+            if (l[4] == 1) Hyb.textRight(count, w - LABEL_PAD, y, Hyb.INK);
+            GL11.glPopMatrix();
+            return;
+        }
+    }
+
+    /** A name on one line, or two split at a space when it is wider than {@code room}, each cut to fit. */
+    private static List<String> wrap(final String s, final int room) {
+        if (Hyb.width(s) <= room) return List.of(s);
+        final String[] words = s.split(" ");
+        String first = words[0];
+        int i = 1;
+        while (i < words.length && Hyb.width(first + " " + words[i]) <= room) first += " " + words[i++];
+        if (i >= words.length) return List.of(Hyb.fit(first, room));
+        return List.of(
+            Hyb.fit(first, room),
+            Hyb.fit(String.join(" ", java.util.Arrays.copyOfRange(words, i, words.length)), room));
+    }
+
+    // endregion
+
+    // region How much each card is looked at
 
     /** How quickly a card comes up or goes down: a share of the way a second. */
     private static final float EASE = 12;
@@ -456,22 +530,18 @@ public final class PlanOverlay {
     private UUID overCard;
 
     /**
-     * How much each card is looked at, by card, easing in and out: whole with the crosshair on its machine (its ghost,
-     * through blocks) or on the card itself; else, with Focus off, by how near the crosshair is to its machine on the
-     * screen, and with Focus on not at all. While placing, the card in hand is {@link #IN_HAND} and the rest none.
+     * How much each card is looked at, by card, easing in and out: with Focus on, whole with the crosshair on its
+     * machine (its ghost, through blocks) or on its card, else none; with Focus off, and while placing, none.
      */
-    private Map<UUID, Float> attention(final List<Placed> all, final float cx, final float cy) {
+    private Map<UUID, Float> attention(final List<Placed> all) {
         final long now = System.nanoTime();
         final float step = attentionAt == 0 ? 1 : Math.min(1, (now - attentionAt) / 1e9f * EASE);
         attentionAt = now;
-        final boolean focus = PlannerSettings.arFocus();
-        final Node inHand = LinkPicker.active() ? LinkPicker.node() : null;
+        final boolean focus = PlannerSettings.arFocus() && !LinkPicker.active();
         final Map<UUID, Float> want = new HashMap<>();
         for (final Placed p : all) {
             final UUID id = p.card.id();
-            final float w = inHand != null ? p.card.nodeIds()
-                .contains(inHand.id) ? IN_HAND : 0
-                : id.equals(looked) || id.equals(overCard) ? 1 : focus ? 0 : near(p.rect, cx, cy);
+            final float w = focus && (id.equals(looked) || id.equals(overCard)) ? 1 : 0;
             want.merge(id, w, Math::max);
         }
         attention.keySet()
@@ -481,24 +551,6 @@ public final class PlanOverlay {
             attention.put(e.getKey(), was + (e.getValue() - was) * step);
         }
         return attention;
-    }
-
-    /**
-     * 1 with the crosshair on a machine's outline on the screen, a quarter {@link #NEAR_QUARTER} off it, none past
-     * {@link #NEAR_NONE}.
-     */
-    private static float near(@Nullable final float[] r, final float cx, final float cy) {
-        if (r == null) return 0;
-        final float dx = Math.max(0, Math.max(r[0] - cx, cx - r[2])), dy = Math.max(0, Math.max(r[1] - cy, cy - r[3]));
-        final float d = (float) Math.hypot(dx, dy);
-        if (d <= NEAR_WHOLE) return 1;
-        if (d <= NEAR_QUARTER) return 1 - 0.75f * smooth((d - NEAR_WHOLE) / (NEAR_QUARTER - NEAR_WHOLE));
-        return 0.25f * (1 - smooth(Math.min(1, (d - NEAR_QUARTER) / (NEAR_NONE - NEAR_QUARTER))));
-    }
-
-    /** Smoothstep, so a change starts and ends gently. */
-    private static float smooth(final float t) {
-        return t * t * (3 - 2 * t);
     }
 
     /**
@@ -624,12 +676,11 @@ public final class PlanOverlay {
         final double[] middle = along(from, to, (span[0] + span[1]) / 2);
         final float[] mid = screen(middle, sr, mc);
         if (sa == null || sb == null || mid == null) return null;
-        // Sized as the cards are: full size near, shrinking with distance, smaller while neither card is looked at.
+        // Sized as the cards are: full size near, shrinking with distance.
         final double far = Math.sqrt(
             (middle[0] - camX) * (middle[0] - camX) + (middle[1] - camY) * (middle[1] - camY)
                 + (middle[2] - camZ) * (middle[2] - camZ));
-        final float scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / far))
-            * sized(Math.max(seen.getOrDefault(c.from.card.id(), 0f), seen.getOrDefault(c.to.card.id(), 0f)));
+        final float scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / far));
         // The lane: a step across the wire on the screen, measured the same way for both directions of a pair.
         final boolean forward = c.from.card.id()
             .compareTo(c.to.card.id()) < 0;
@@ -970,7 +1021,7 @@ public final class PlanOverlay {
     /**
      * A card's home on the GUI, just above its machine (never on it: the machine stays in view), where its line ends
      * (the middle of the machine's top), and its scale: {@link #SIZE} within {@link #FULL_SIZE_WITHIN} blocks,
-     * shrinking with distance beyond, and smaller while it is not looked at. False when its machine is off the screen.
+     * shrinking with distance beyond, and smaller as it pops up. False when its machine is off the screen.
      */
     private boolean project(final Placed p, final ScaledResolution sr, final Minecraft mc) {
         final float[] r = p.rect;

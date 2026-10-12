@@ -9,7 +9,8 @@
 ## Better
 
 - Dragging a wire lights up every card and port that can take it.
-- Cards over the world stay small and faint until you look at their machine, and sit beside it instead of on it. Focus (Shift + U) now shows only the one you're looking at.
+- The plan over the world is calmer: a machine's card only pops up above it when you look at it (Shift + U), and each machine gets a small label with its name, tier, power and count (Shift + I). Machines can show as see-through, solid or not at all, and the keys list in the corner can be hidden (all in the gear).
+- Every world key (turn, pick up, remove, Focus, Labels) can be changed in Controls, and the minimap can be made see-through.
 - Rates you set on a card's port show up in the overview, and "~ Set" puts a rate on anything nothing sets yet.
 - "(set count)" only nags on the part of the plan that actually needs a number.
 - Steam machines lose the voltage chip (they don't use EU) and show how much steam they burn instead.

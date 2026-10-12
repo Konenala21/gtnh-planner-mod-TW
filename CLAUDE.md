@@ -194,8 +194,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   places it on a spot, the imaginary block in front of the face looked at (`LinkPicker`, `LinkTarget`,
   `WorldLinks`, `Node.worldLinks`, a spot and a facing per machine; breaking blocks never removes one), and
   `PlanOverlay` (Y) draws each placed card just above its machine's ghost, never on it, as the board does
-  (`ui/card/CleanCardView`), with the plan's wires as connectors: small and faint until you look at the machine or the
-  card (`PlanOverlay.attention`; Focus, Shift+U, draws only that one), every ghost's edges always showing. Placing
+  (`ui/card/CleanCardView`), with the plan's wires as connectors, only for the machine you look at (Focus, Shift+U), and
+  a label in each ghost (Labels, Shift+I: name, tier, EU/t, count, as much as fits in it); machines see-through, solid
+  or hidden, and the keys strip on or off, in the gear. Every world key is a binding in Controls (`PlannerKeys`, read
+  by key code; `call keybind` lists and sets them, `probe=<code>` says what a press runs). Placing
   builds against placed machines' ghosts as against blocks (`LinkPicker.aim`), and the ghost's front is lit with an
   arrow (`WorldMarks.front`); `call 'worldplace?card=N&x&y&z&facing'` places a card, `pick=N` starts placing it. Multiblocks show as their whole structure (`ui/gt/StructureGhosts`), drawn every frame from a
   kept fake world: display lists of block rendering come out invisible under Angelica. They are built as the card needs
