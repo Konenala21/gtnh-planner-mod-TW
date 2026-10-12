@@ -31,11 +31,12 @@ import com.gtnhplanner.ui.popup.Tip;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
- * The non-recipe machines: everything you can put on the board that does not run an NEI recipe, for now the power
- * sources, listed compactly over a dimmed board: five columns of kinds (generators, turbines, boilers, engines and
- * solar, reactors and endgame), one row per machine with its block, its name and the tier that unlocks it, and the
- * structure picture in a preview beside the row under the mouse. Typing searches the machines and everything they burn
- * or make, so "benzene" finds every machine that runs on it and places it with that fuel set.
+ * The non-recipe machines: everything you can put on the board that does not run an NEI recipe, listed compactly over
+ * a dimmed board: the planning cards first (Other: the custom rate card, the fluid tank), then the power sources in
+ * five columns of kinds (generators, turbines, boilers, engines and solar, reactors and endgame), one row per machine
+ * with its block, its name and the tier that unlocks it, and the structure picture in a preview beside the row under
+ * the mouse. Typing searches the machines and everything they burn or make, so "benzene" finds every machine that runs
+ * on it and places it with that fuel set.
  */
 public final class PowerPicker extends ParentWidget<PowerPicker> implements Interactable {
 
@@ -52,7 +53,7 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
         AMBER = 0xFFFCD34D, CYAN = 0xFF22D3EE;
 
     /** Five columns, the groups stacked in them: the short ones share, so the whole list fits on one screen. */
-    private static final PowerGroup[][] COLUMNS = { { PowerGroup.BURNERS }, { PowerGroup.TURBINES },
+    private static final PowerGroup[][] COLUMNS = { { PowerGroup.OTHER, PowerGroup.BURNERS }, { PowerGroup.TURBINES },
         { PowerGroup.STEAM }, { PowerGroup.ENGINES, PowerGroup.PASSIVE }, { PowerGroup.REACTORS, PowerGroup.ENDGAME } };
     private static final String[] TIERS = { "ULV", "LV", "MV", "HV", "EV", "IV", "LuV", "ZPM", "UV", "UHV", "UEV",
         "UIV", "UMV", "UXV", "MAX" };
@@ -70,8 +71,6 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
 
     private enum Kind {
         CLOSE,
-        /** The custom rate card's key, beside the title (the website's "Custom" spawn key). */
-        CUSTOM,
         GROUP,
         TIER,
         TILE,
@@ -193,7 +192,7 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
         right = closeKey(right, y + 4, hover) - 8;
         right = key(right, y + 4, tierFilter == null ? "All tiers" : tierFilter, Kind.TIER, hover) - 4;
         right = key(right, y + 4, groupFilter == null ? "All types" : groupFilter.title, Kind.GROUP, hover) - 8;
-        final int left = customKey(x + 20 + Hyb.width("NON-RECIPE MACHINES") + 12, y + 4, hover) + 12;
+        final int left = x + 20 + Hyb.width("NON-RECIPE MACHINES") + 12;
         final int fieldW = Math.max(60, Math.min(220, right - left));
         searchField.pos(right - fieldW, y + 5)
             .size(fieldW, 14);
@@ -313,6 +312,15 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
             drawArt(art, x, y, w, h);
             return;
         }
+        if (com.gtnhplanner.power.CustomRate.ID.equals(source.id())) {
+            // The custom rate card's dial, twice over.
+            org.lwjgl.opengl.GL11.glPushMatrix();
+            org.lwjgl.opengl.GL11.glTranslatef(x + (w - 18) / 2f, y + (h - 16) / 2f, 0);
+            org.lwjgl.opengl.GL11.glScalef(2, 2, 1);
+            gauge(0, 0, 0xFFAEBCEB);
+            org.lwjgl.opengl.GL11.glPopMatrix();
+            return;
+        }
         final ItemStack stack = machineStacks.computeIfAbsent(source.id(), PowerPorts::machineStack);
         if (stack != null) Hyb.item(stack, x + (w - ICON) / 2f, y + (h - ICON) / 2f, ICON, z);
         else bolt(x + w / 2f - 3, y + h / 2f - 5, AMBER);
@@ -390,18 +398,6 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
         return x;
     }
 
-    /** The custom rate card's key, from its left edge; returns its right edge. */
-    private int customKey(final int left, final int y, final Hit hover) {
-        final String label = "Custom rate";
-        final int kw = 5 + 9 + 4 + Hyb.width(label) + 6;
-        final boolean hot = hover != null && hover.kind() == Kind.CUSTOM;
-        Hyb.bevel(left, y, kw, 16, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
-        gauge(left + 5, y + 4, hot ? Hyb.GOLD : Hyb.INK);
-        Hyb.text(label, left + 18, y + 4, Hyb.INK);
-        hits.add(new Hit(Kind.CUSTOM, left, y, left + kw, y + 16, null));
-        return left + kw;
-    }
-
     /** A pixel gauge, 9 x 8: a dial's arc with its needle up and right, the website's Gauge. */
     public static void gauge(final float x, final float y, final int color) {
         final int[][] runs = { { 2, 0, 5 }, { 1, 1, 1 }, { 7, 1, 1 }, { 0, 2, 1 }, { 6, 2, 1 }, { 8, 2, 1 },
@@ -431,6 +427,19 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
     /** The machines the search and filters leave, in the catalog's order. */
     private List<PowerSearch.Hit> found() {
         final List<PowerSearch.Hit> out = new ArrayList<>();
+        // The planning cards first, by name or what they do; they have no tier.
+        final String q = query.trim()
+            .toLowerCase(Locale.ROOT);
+        if (tierFilter == null && (groupFilter == null || groupFilter == PowerGroup.OTHER))
+            for (final PowerSource other : PowerRegistry.others()) {
+                if (q.isEmpty() || other.name()
+                    .toLowerCase(Locale.ROOT)
+                    .contains(q)
+                    || other.blurb()
+                        .toLowerCase(Locale.ROOT)
+                        .contains(q))
+                    out.add(new PowerSearch.Hit(other, null));
+            }
         for (final PowerSearch.Hit hit : PowerSearch.search(query)) {
             if (groupFilter != null && hit.source()
                 .group() != groupFilter) continue;
@@ -519,15 +528,23 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
                 Hyb.click();
                 close.run();
             }
-            case CUSTOM -> {
-                Hyb.click();
-                close.run();
-                session.addCustomRate();
-            }
             case TILE -> {
                 Hyb.click();
                 final PowerSearch.Hit picked = (PowerSearch.Hit) hit.data();
                 close.run();
+                // The planning cards start empty, taking what is wired to them.
+                if (com.gtnhplanner.power.CustomRate.ID.equals(
+                    picked.source()
+                        .id())) {
+                    session.addCustomRate();
+                    return Result.SUCCESS;
+                }
+                if (com.gtnhplanner.power.FluidTank.ID.equals(
+                    picked.source()
+                        .id())) {
+                    session.addFluidTank();
+                    return Result.SUCCESS;
+                }
                 // The settings last changed on this source, then what the search picked over them.
                 session.addPower(
                     picked.source()
@@ -630,10 +647,6 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
             case GROUP -> Tip.of("Filter by type");
             case TIER -> Tip.of("Filter by unlock tier");
             case CLOSE -> Tip.of("Close (Esc)");
-            case CUSTOM -> Tip.of("Custom rate")
-                .muted(
-                    "Supplies or drains any resource at a rate you set. Wire any port to it and it takes that resource.")
-                .action(Tip.Input.LEFT, "Add to the plan");
             default -> null;
         };
     }

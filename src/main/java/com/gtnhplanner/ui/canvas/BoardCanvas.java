@@ -804,11 +804,13 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     /** Whether a port on this card, on that side, would take the wire being dragged. */
     public boolean acceptsDrag(final UUID nodeId, final boolean output, final String key) {
-        // A custom rate card's socket takes any resource from a port on the other side, of any other card.
+        // An empty holder's socket (a custom rate card's, a fluid tank's) takes what it can from a port on the other
+        // side, of any other card: the custom rate card anything, the tank a cell or a fluid with cells.
         if (portDrag != null && portDrag.socket()) return key != null && !key.isEmpty()
             && !nodeId.equals(portDrag.nodeId())
             && output != portDrag.output()
-            && !com.gtnhplanner.power.CustomRate.is(session.graph().nodes.get(nodeId));
+            && !com.gtnhplanner.power.Holders.is(session.graph().nodes.get(nodeId))
+            && holderTakes(portDrag.nodeId(), key, portDrag.output());
         final String dragging = dragResource();
         return dragging != null && !dragging.isEmpty()
             && !nodeId.equals(portDrag.nodeId())
@@ -847,6 +849,26 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             && p.index() == index;
     }
 
+    /**
+     * Whether a holder card (custom rate, fluid tank) would take {@code key} on that side ({@code supply}: give it).
+     */
+    private boolean holderTakes(final UUID holder, final String key, final boolean supply) {
+        final Node n = graph().nodes.get(holder);
+        return n != null && com.gtnhplanner.power.Holders.canTake(n, key, supply);
+    }
+
+    /**
+     * Whether a port's wire in hand would go to a holder card (a custom rate card, a fluid tank) by being dropped on
+     * it:
+     * it takes the port's resource, from a card that is no holder itself.
+     */
+    private boolean holderTakesDrag(final UUID cardId) {
+        if (portDrag == null || portDrag.socket()
+            || !com.gtnhplanner.power.Holders.is(graph().nodes.get(cardId))
+            || com.gtnhplanner.power.Holders.is(graph().nodes.get(portDrag.nodeId()))) return false;
+        return holderTakes(cardId, dragResource(), !portDrag.output());
+    }
+
     /** Whether any recipe on a card would take the wire being dragged (the card is outlined green). */
     public boolean cardAcceptsDrag(final UUID cardId) {
         if (drawerWire != null) {
@@ -855,6 +877,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         if (portDrag == null || portDrag.nodeId()
             .equals(cardId)) return false;
+        if (holderTakesDrag(cardId)) return true;
         for (final UUID section : session.sectionsOf(cardId)) {
             final CardModel m = portModel(section);
             if (m == null) continue;
@@ -1540,6 +1563,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             final CardModel m = card.model();
             if (m == null || !inside(m.node.x, m.node.y, CardLayout.W, card.layout().height, wx, wy)) continue;
             if (card.nodeId.equals(portDrag.nodeId())) return null;
+            if (holderTakesDrag(card.nodeId)) return card.nodeId;
             for (final UUID section : session.sectionsOf(card.nodeId)) {
                 final CardModel sm = portModel(section);
                 if (sm == null) continue;
@@ -1587,7 +1611,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             if (card.model() == null || card.nodeId.equals(drag.nodeId())
                 || !inside(card.model().node.x, card.model().node.y, CardLayout.W, card.layout().height, wx, wy))
                 continue;
-            final int[] hit = com.gtnhplanner.power.CustomRate.is(card.model().node) ? null
+            final int[] hit = com.gtnhplanner.power.Holders.is(card.model().node) ? null
                 : card.portAt(!supply, wy - card.model().node.y);
             final CardModel m = hit == null ? null : card.modelOf(hit[0]);
             final String key = m == null ? null
@@ -1597,7 +1621,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 Sfx.DENY.play();
                 return;
             }
-            session.holdAndWire(custom, key, supply, card.sectionId(hit[0]), hit[1]);
+            if (!session.holdAndWire(custom, key, supply, card.sectionId(hit[0]), hit[1])) Sfx.DENY.play();
             return;
         }
         for (final DrawerCard drawer : drawers.values()) {
@@ -1605,8 +1629,9 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             final Drawer d = drawer.model().drawer;
             if (!inside(d.getX(), d.getY(), DrawerCard.W, DrawerCard.H, wx, wy)) continue;
             if (d.getKind()
-                .linksInputs() != supply) session.holdAndLink(custom, d);
-            else Sfx.DENY.play();
+                .linksInputs() != supply) {
+                if (!session.holdAndLink(custom, d)) Sfx.DENY.play();
+            } else Sfx.DENY.play();
             return;
         }
         Sfx.DENY.play();

@@ -19,6 +19,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.properties.RecipeProperty;
+import com.gtnhplanner.importer.FfPlan;
 import com.gtnhplanner.importer.FfSettings;
 import com.gtnhplanner.power.CustomRate;
 import com.gtnhplanner.power.Energy;
@@ -194,6 +195,7 @@ public final class PlanExport {
 
     private static JsonObject recipe(final Node n, final String id, final World world, final Map<Port<?>, Res> res) {
         if (CustomRate.is(n)) return customRateRecipe(n, id, world, res);
+        if (com.gtnhplanner.power.FluidTank.is(n)) return tankRecipe(n, id, world, res);
         if (n.isPower()) return powerRecipe(n, id, world, res);
         final Crop crop = world.crop(n);
         if (crop != null) return cropRecipe(n, id, crop, world, res);
@@ -359,6 +361,40 @@ public final class PlanExport {
         return r;
     }
 
+    /**
+     * A fluid tank, as the website's own Tank (its free mirror of a fluid Canner recipe, map {@code planner.tank}): the
+     * same cell, fluid and empty cell, at no power, a tick a craft.
+     */
+    private static JsonObject tankRecipe(final Node n, final String id, final World world,
+        final Map<Port<?>, Res> res) {
+        final JsonObject r = new JsonObject();
+        final JsonArray inputs = ports(n.inputs, false, world, res), outputs = ports(n.outputs, true, world, res);
+        final JsonArray fluidSide = com.gtnhplanner.power.FluidTank.emptying(n) ? outputs : inputs;
+        String fluid = "";
+        for (final com.google.gson.JsonElement e : fluidSide) if ("fluid".equals(
+            e.getAsJsonObject()
+                .get("kind")
+                .getAsString()))
+            fluid = slotName(e.getAsJsonObject());
+        r.addProperty("id", id);
+        r.addProperty("name", fluid.isEmpty() ? "Tank" : "Tank: " + fluid);
+        r.addProperty("kind", "custom");
+        r.addProperty("machineType", "Tank");
+        r.addProperty("minimumTier", "NONE");
+        r.addProperty("durationTicks", 1);
+        r.addProperty("eut", 0);
+        r.add("inputs", inputs);
+        r.add("outputs", outputs);
+        final JsonObject from = new JsonObject();
+        from.addProperty("recipeMap", "Tank");
+        from.addProperty("sourceMod", "GTNH Planner");
+        r.add("source", from);
+        final JsonObject meta = new JsonObject();
+        meta.addProperty("recipeMapId", FfPlan.TANK_MAP);
+        r.add("metadata", meta);
+        return r;
+    }
+
     private static JsonArray ports(final List<Port<?>> ports, final boolean outputs, final World world,
         final Map<Port<?>, Res> res) {
         final JsonArray out = new JsonArray();
@@ -390,9 +426,11 @@ public final class PlanExport {
         final JsonObject o = new JsonObject();
         o.addProperty("id", n.id.toString());
         o.addProperty("recipeId", recipeId);
-        o.addProperty("machineCount", Math.max(0, world.machines(n)));
+        // A fluid tank runs a craft a second here, a tick there (its Tank map): the count is in its crafts.
+        final double count = Math.max(0, world.machines(n)) / (com.gtnhplanner.power.FluidTank.is(n) ? 20.0 : 1.0);
+        o.addProperty("machineCount", count);
         o.addProperty("parallel", 1);
-        o.addProperty("overclockTier", CustomRate.is(n) ? "NONE" : n.isPower() ? "LV" : world.tier(n));
+        o.addProperty("overclockTier", CustomRate.is(n) || com.gtnhplanner.power.FluidTank.is(n) ? "NONE" : n.isPower() ? "LV" : world.tier(n));
         o.addProperty("enabled", true);
         if (CustomRate.is(n)) {
             // The dial, where the site keeps it: a second's worth, and which way it runs.
@@ -400,7 +438,7 @@ public final class PlanExport {
             dial.addProperty("perSecond", CustomRate.perSecond(n));
             dial.addProperty("mode", CustomRate.supply(n) ? CustomRate.SUPPLY : CustomRate.REQUEST);
             o.add("customRate", dial);
-        } else if (n.isPower()) {
+        } else if (n.isPower() && !com.gtnhplanner.power.FluidTank.is(n)) {
             // A power card's settings, where the site keeps them.
             final JsonObject settings = new JsonObject();
             for (final Map.Entry<String, String> s : n.powerSettings.entrySet())
@@ -442,7 +480,7 @@ public final class PlanExport {
             if (!settings.entrySet()
                 .isEmpty()) o.add("machineConfigTiers", settings);
         }
-        if (n.isMachineCountFixed()) o.addProperty("solvePin", Math.max(0, world.machines(n)));
+        if (n.isMachineCountFixed()) o.addProperty("solvePin", count);
         o.add("position", position(n.x, n.y));
         return o;
     }

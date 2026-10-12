@@ -93,15 +93,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             for (int i = 0; i < m.inputs.size(); i++) child(new PortSlot(this, s, false, i));
             for (int i = 0; i < m.outputs.size(); i++) child(new PortSlot(this, s, true, i));
         }
-        if (emptyCustomRate()) {
+        if (emptyHolder()) {
             child(new SocketSlot(this, false));
             child(new SocketSlot(this, true));
         }
     }
 
-    /** A custom rate card holding nothing yet: it shows its two sockets instead of ports. */
-    public boolean emptyCustomRate() {
-        return model != null && com.gtnhplanner.power.CustomRate.is(model.node)
+    /** A custom rate card or fluid tank holding nothing yet: it shows its two sockets instead of ports. */
+    public boolean emptyHolder() {
+        return model != null && com.gtnhplanner.power.Holders.is(model.node)
             && model.inputs.isEmpty()
             && model.outputs.isEmpty();
     }
@@ -464,7 +464,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             CardPaint.circuitRow(m.circuit, layout.circuitRowY, z);
         }
         if (layout.powerRowY >= 0) drawPowerRow(m, hover == Part.POWER);
-        if (emptyCustomRate()) drawSockets();
+        if (emptyHolder()) drawSockets();
         drawStrip(m, z, hover);
     }
 
@@ -483,7 +483,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 && localY() < r[1] + r[3];
             Hyb.rect(r[0], r[1], r[2], r[3], inHand ? 0x30FFD257 : hot ? 0x26FFFFFF : 0x14FFFFFF);
             Hyb.dashed(r[0], r[1], r[2], r[3], inHand || hot ? Hyb.GOLD : 0xFF6A6D78);
-            final String label = supply ? "SUPPLY ANY" : "DRAIN ANY";
+            // A fluid tank takes cells and fluids only.
+            final boolean tank = com.gtnhplanner.power.FluidTank.is(model.node);
+            final String label = tank ? supply ? "GIVE CELL/FLUID" : "TAKE CELL/FLUID"
+                : supply ? "SUPPLY ANY" : "DRAIN ANY";
             Hyb.text(
                 label,
                 r[0] + (r[2] - Hyb.width(label)) / 2f,
@@ -664,7 +667,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             m.machineName,
             BAR_X,
             barRight() - (menu ? 12 : 0),
-            com.gtnhplanner.power.CustomRate.is(m.node) ? CUSTOM_RATE_INK : m.isPower() ? 0xFFFEF3C7 : Hyb.INK);
+            com.gtnhplanner.power.Holders.is(m.node) ? CUSTOM_RATE_INK : m.isPower() ? 0xFFFEF3C7 : Hyb.INK);
         if (menu) chevron(Math.round(end + 5), y + 9, hover == Part.MACHINE ? Hyb.INK : Hyb.MUTED);
     }
 
@@ -1036,7 +1039,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             ? pinnedNow ? "crops, pinned"
                 : session.unset(nodeId) ? CardPaint.SET_COUNT
                     : Math.round(machinesTotal()) == 1 ? "crop planted" : "crops planted"
-            : pinnedNow ? CardPaint.PINNED : session.unset(nodeId) ? CardPaint.SET_COUNT : null;
+            : pinnedNow ? CardPaint.PINNED
+                : session.unset(nodeId) ? CardPaint.SET_COUNT
+                    // A fluid tank's count is the cells it handles a second.
+                    : com.gtnhplanner.power.FluidTank.is(m.node) && !m.inputs.isEmpty() ? "cells a second" : null;
         CardPaint.count(
             countText(),
             machinesTotal() <= 0 && pendingCount <= 0,
@@ -1636,6 +1642,26 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     .row(pinned() ? "Pinned" : "Calculated", "×" + Fmt.machines(machinesTotal()));
     }
 
+    /** The fluid tank's name: what it empties or fills, and how much a cell holds. */
+    private Tip tankTip() {
+        final com.gtnhplanner.data.flowchart.Node n = model.node;
+        final Tip tip = Tip.of("Fluid Tank");
+        final com.gtnhplanner.power.FluidTank.Pair p = com.gtnhplanner.power.FluidTank
+            .pair(com.gtnhplanner.power.FluidTank.cell(n));
+        if (p == null)
+            return tip.muted("Wire a cell or a fluid to it: it empties cells, or fills them, free and instant.");
+        final String cell = p.cell()
+            .getDisplayName();
+        return (com.gtnhplanner.power.FluidTank.emptying(n) ? tip.sub("Empties " + cell) : tip.sub("Fills " + cell))
+            .muted("Free and instant: no machine to build.")
+            .row(
+                "Holds",
+                Fmt.compact(p.fluid().amount) + " L of "
+                    + p.fluid()
+                        .getLocalizedName())
+            .row("Cells a second", Fmt.machines(machinesTotal()));
+    }
+
     private Tip powerTip(final Part part) {
         final CardModel m = model;
         final com.gtnhplanner.power.PowerSource source = m.power.source();
@@ -1647,6 +1673,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 .action(Tip.Input.LEFT, "Clone, delete");
             case MACHINE -> {
                 if (com.gtnhplanner.power.CustomRate.is(m.node)) yield customRateTip();
+                if (com.gtnhplanner.power.FluidTank.is(m.node)) yield tankTip();
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
                         "Non-recipe machine"

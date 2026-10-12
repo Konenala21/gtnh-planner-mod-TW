@@ -61,12 +61,21 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   (`Energy`, key `power:eu`) that only drawers take, shown in EU/t; the overview shows power used, made and net.
   Power cards post to and import from the website as its power cards. `call power` checks every flow against the
   game (unmapped names, items or fluids this pack lacks).
-- The custom rate card (the picker's Custom rate key beside its title; `power/CustomRate`, the website's
-  custom-rate.ts) is a power card with source `custom-rate`, outside the catalog: a dial (Supply or Request, a rate a
-  second, EU/t for EU) and one port. Empty, it shows two sockets; a port dropped on it, or a socket dragged to a port,
-  makes it take that resource (`BoardSession.holdAndWire`), and every edit lets a card with nothing wired go of it
-  (`releaseCustomRates`). Pinned at one when placed, so the dial is the rate. The overview counts it as the plan's
-  edge (what it supplies is an input), never a machine. It posts and imports as the website's own custom rate card.
+- The picker's first column, Other (`PowerGroup.OTHER`, `PowerRegistry.others()`, never in the generator catalog), holds
+  the planning cards: the custom rate card and the fluid tank. Both are holders (`power/Holders`): empty, they show two
+  sockets; a port dropped on one, or a socket dragged to a port, makes it take that resource (`BoardSession.holdAndWire`),
+  and every edit lets a holder with nothing wired go of it (`releaseHolders`).
+- The custom rate card (`power/CustomRate`, the website's custom-rate.ts) is a power card with source `custom-rate`: a
+  dial (Supply or Request, a rate a second, EU/t for EU) and one port. Pinned at one when placed, so the dial is the
+  rate. The overview counts it as the plan's edge (what it supplies is an input), never a machine. It posts and imports
+  as the website's own custom rate card.
+- The fluid tank (`power/FluidTank`, source `fluid-tank`; the website's Tank, its free mirror of every fluid Canner
+  recipe) empties a filled cell into its fluid and the empty cell, or fills cells, free and instant, at the litres
+  Forge's fluid container registry gives (never a guessed 1000). What it is given decides: a cell given or a fluid asked
+  of it empties cells, a fluid given or a cell asked of it fills them. One craft a second, unpinned: its count is cells
+  a second, and the overview lists no machine for it. It posts as the website's Tank (map `planner.tank`, a tick a
+  craft, so the count goes over divided by 20), and the website's Tank cards and loose cell wires (a cell wired straight
+  into a fluid slot) import as fluid tanks.
 - Crops are ported (`machines/CropsNh`, the website's model, checked on its goldens; `data/provider/CropsNhProvider`
   reads CropsNH's NEI Crops page; `machines/game/CropCards` is the card): a card per crop, added from that page, its
   count crops planted, harvested by a Crop Manager or the Industrial Farm (the `cropHarvester` setting, the website's
@@ -234,7 +243,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 564 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 567 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.

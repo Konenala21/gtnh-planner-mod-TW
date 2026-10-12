@@ -165,14 +165,14 @@ public final class BoardSession {
 
     /**
      * One undoable edit: records the before state, runs the change, marks the plan changed and saves. The next tick
-     * re-solves and rebuilds the cards. Every custom rate card the change left with nothing wired lets go of its
-     * resource, in the same step.
+     * re-solves and rebuilds the cards. Every custom rate card or fluid tank the change left with nothing wired lets go
+     * of what it held, in the same step.
      */
     @SuppressWarnings("deprecation")
     public void edit(final Runnable change) {
         PlanAPI.recordEdit(graph, () -> {
             change.run();
-            releaseCustomRates();
+            releaseHolders();
             dropWiredTargets();
         });
         graph.touch();
@@ -334,7 +334,7 @@ public final class BoardSession {
      */
     public boolean dropPortOnCard(final UUID fromNode, final boolean output, final int port, final UUID toNode) {
         final Node to = graph.nodes.get(toNode);
-        if (com.gtnhplanner.power.CustomRate.is(to)) return dropPortOnCustomRate(fromNode, output, port, to);
+        if (com.gtnhplanner.power.Holders.is(to)) return dropPortOnHolder(fromNode, output, port, to);
         // A shared machine's recipes in turn: the first with a matching port takes the wire, as on the website.
         for (final UUID section : sectionsOf(toNode)) {
             if (!section.equals(fromNode) && dropPortOnRecipe(fromNode, output, port, section)) return true;
@@ -362,67 +362,88 @@ public final class BoardSession {
     }
 
     /**
-     * A port dropped on a custom rate card: the card takes the port's resource and is wired to it, supplying an input
-     * or
-     * draining an output.
+     * A port dropped on a custom rate card or a fluid tank: the card takes the port's resource and is wired to it,
+     * supplying an input or taking an output.
      */
-    private boolean dropPortOnCustomRate(final UUID fromNode, final boolean output, final int port, final Node card) {
+    private boolean dropPortOnHolder(final UUID fromNode, final boolean output, final int port, final Node card) {
         final Node src = graph.nodes.get(fromNode);
-        if (src == null || src == card || com.gtnhplanner.power.CustomRate.is(src)) return false;
+        if (src == null || src == card || com.gtnhplanner.power.Holders.is(src)) return false;
         final List<Port<?>> ports = output ? src.outputs : src.inputs;
         if (port < 0 || port >= ports.size()) return false;
         final String key = Resources.key(ports.get(port));
         if (key.isEmpty()) return false;
-        holdAndWire(card, key, !output, src.id, port);
-        return true;
+        return holdAndWire(card, key, !output, src.id, port);
     }
 
     /**
-     * Sets a custom rate card to a resource on a side and wires it to a port of another card ({@code supply}: the card
-     * feeds that input; else it drains that output). A different resource or side first drops the card's old wires.
-     * One undo step.
+     * Sets a custom rate card or a fluid tank to a resource on a side and wires it to a port of another card
+     * ({@code supply}: the card feeds that input; else it takes that output). One it does not hold yet first drops the
+     * card's old wires. One undo step; false, changing nothing, when the card cannot take it (a tank given an item that
+     * holds no fluid).
      */
-    public void holdAndWire(final Node card, final String key, final boolean supply, final UUID other,
+    public boolean holdAndWire(final Node card, final String key, final boolean supply, final UUID other,
         final int otherPort) {
+        if (holderPort(card, key, supply) < 0 && !com.gtnhplanner.power.Holders.canTake(card, key, supply))
+            return false;
         edit(() -> {
-            if (!key.equals(com.gtnhplanner.power.CustomRate.resource(card))
-                || supply != com.gtnhplanner.power.CustomRate.supply(card)) {
-                unwire(card.id);
-                com.gtnhplanner.power.CustomRate.hold(card, key, supply);
-                card.refresh();
-            }
-            // A resource this game lacks makes no port: nothing to wire.
-            if (card.inputs.isEmpty() && card.outputs.isEmpty()) return;
+            if (!holdOn(card, key, supply)) return;
+            final int own = holderPort(card, key, supply);
             final UUID from = supply ? card.id : other, to = supply ? other : card.id;
-            final int out = supply ? 0 : otherPort, in = supply ? otherPort : 0;
+            final int out = supply ? own : otherPort, in = supply ? otherPort : own;
             for (final Edge e : graph.getEdges()) if (e.sourceNodeId.equals(from) && e.sourceOutputIndex == out
                 && e.targetNodeId.equals(to)
                 && e.targetInputIndex == in) return;
             graph.addEdge(new Edge(UUID.randomUUID(), from, to, out, in));
         });
         Sfx.connect(key);
+        return true;
     }
 
     /**
-     * Sets a custom rate card to a drawer's resource, on the side the drawer links (a source drawer's resource is
-     * drained, a product drawer is supplied), and links them. One undo step.
+     * Sets a custom rate card or a fluid tank to a drawer's resource, on the side the drawer links (a source drawer's
+     * resource is taken in, a product drawer's given out), and links them. One undo step; false when it cannot.
      */
-    public void holdAndLink(final Node card, final Drawer drawer) {
+    public boolean holdAndLink(final Node card, final Drawer drawer) {
         final boolean supply = !drawer.getKind()
             .linksInputs();
         final String key = drawer.getResourceKey();
-        if (key == null || key.isEmpty()) return;
+        if (key == null || key.isEmpty()
+            || holderPort(card, key, supply) < 0 && !com.gtnhplanner.power.Holders.canTake(card, key, supply))
+            return false;
         edit(() -> {
-            if (!key.equals(com.gtnhplanner.power.CustomRate.resource(card))
-                || supply != com.gtnhplanner.power.CustomRate.supply(card)) {
-                unwire(card.id);
-                com.gtnhplanner.power.CustomRate.hold(card, key, supply);
-                card.refresh();
-            }
-            if (card.inputs.isEmpty() && card.outputs.isEmpty()) return;
-            graph.linkDrawer(drawer.getId(), new Drawer.Link(card.id, 0));
+            if (holdOn(card, key, supply))
+                graph.linkDrawer(drawer.getId(), new Drawer.Link(card.id, holderPort(card, key, supply)));
         });
         Sfx.connect(key);
+        return true;
+    }
+
+    /**
+     * Makes a holder card hold {@code key} on that side, dropping its old wires when it changes what it holds; whether
+     * it now has a port for it (a resource this game lacks makes none).
+     */
+    private boolean holdOn(final Node card, final String key, final boolean supply) {
+        if (holderPort(card, key, supply) < 0) {
+            unwire(card.id);
+            if (!com.gtnhplanner.power.Holders.take(card, key, supply)) return false;
+            card.refresh();
+        }
+        return holderPort(card, key, supply) >= 0;
+    }
+
+    /** The port holding {@code key} on a card's side ({@code supply}: its outputs), or -1. */
+    private static int holderPort(final Node card, final String key, final boolean supply) {
+        final List<Port<?>> ports = supply ? card.outputs : card.inputs;
+        for (int i = 0; i < ports.size(); i++) if (key.equals(Resources.key(ports.get(i)))) return i;
+        return -1;
+    }
+
+    /** Puts an empty fluid tank on the board, centred in view and selected: it takes the cell or fluid wired to it. */
+    public Node addFluidTank() {
+        return add(
+            Node.power(com.gtnhplanner.power.FluidTank.ID, com.gtnhplanner.power.FluidTank.fresh(), 0, 0),
+            true,
+            false);
     }
 
     /** Every wire and drawer link on a card, gone. */
@@ -433,13 +454,14 @@ public final class BoardSession {
     }
 
     /**
-     * Custom rate cards holding a resource with nothing wired to them let go of it (the website's releaseCustomRates).
+     * Custom rate cards and fluid tanks holding something with nothing wired to them let go of it (the website's
+     * releaseCustomRates).
      */
-    private void releaseCustomRates() {
+    private void releaseHolders() {
         for (final Node n : graph.nodes.values()) {
-            if (!com.gtnhplanner.power.CustomRate.is(n) || com.gtnhplanner.power.CustomRate.resource(n) == null
-                || wired(n.id)) continue;
-            com.gtnhplanner.power.CustomRate.release(n);
+            if (!com.gtnhplanner.power.Holders.is(n) || !com.gtnhplanner.power.Holders.holding(n) || wired(n.id))
+                continue;
+            com.gtnhplanner.power.Holders.release(n);
             n.refresh();
         }
     }
@@ -492,7 +514,7 @@ public final class BoardSession {
     @Nullable
     public PortRef dropTarget(final UUID fromNode, final boolean output, final int port, final UUID toNode) {
         final Node to = graph.nodes.get(toNode), src = graph.nodes.get(fromNode);
-        if (to == null || src == null || com.gtnhplanner.power.CustomRate.is(to)) return null;
+        if (to == null || src == null || com.gtnhplanner.power.Holders.is(to)) return null;
         for (final UUID section : sectionsOf(toNode)) {
             final Node dst = graph.nodes.get(section);
             if (dst == null || dst == src) continue;
@@ -2002,7 +2024,8 @@ public final class BoardSession {
             final double power = power(card);
             eu += power;
             euMade += card.madeEuPerTick();
-            if (card.machines > 0 || card.pinned) machines.add(
+            // A fluid tank is free and instant: nothing to build.
+            if ((card.machines > 0 || card.pinned) && !com.gtnhplanner.power.FluidTank.is(card.node)) machines.add(
                 new MachineLine(
                     card.node.id,
                     card.machineName,

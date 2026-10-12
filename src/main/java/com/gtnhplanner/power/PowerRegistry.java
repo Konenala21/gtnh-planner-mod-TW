@@ -46,13 +46,20 @@ public final class PowerRegistry {
 
     @Nullable
     public static PowerSource get(final String sourceId) {
-        // The custom rate card is placed from its own key, never from the catalog.
+        // The planning cards are listed apart from the generator catalog (others()).
         if (CustomRate.ID.equals(sourceId)) return CustomRate.SOURCE;
+        if (FluidTank.ID.equals(sourceId)) return FluidTank.SOURCE;
         sources();
         return byId.get(sourceId);
     }
 
+    /** The planning cards, the picker's Other column: never in {@link #sources()}, the generator catalog. */
+    public static List<PowerSource> others() {
+        return List.of(CustomRate.SOURCE, FluidTank.SOURCE);
+    }
+
     public static List<PowerSource> inGroup(final PowerGroup group) {
+        if (group == PowerGroup.OTHER) return others();
         final List<PowerSource> out = new ArrayList<>();
         for (final PowerSource source : sources()) {
             if (source.group() == group) out.add(source);

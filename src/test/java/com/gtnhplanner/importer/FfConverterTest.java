@@ -425,6 +425,71 @@ class FfConverterTest {
         assertTrue(has(r.report(), Kind.WIRE, "1 wire to cards that were left out"));
     }
 
+    /** A mixer making oxygen cells, a tank (FF's Tank map) emptying them, and a dryer taking the oxygen. */
+    private static final String CELLS = """
+        {"name": "Cells", "solveMode": true,
+         "recipes": [
+           {"id": "mix", "name": "Mixer: Oxygen Cell", "machineType": "Mixer", "durationTicks": 20, "eut": 8,
+            "inputs": [{"kind": "item", "id": "a:dust", "amount": 1}],
+            "outputs": [{"kind": "item", "id": "a:ocell", "amount": 1}]},
+           {"id": "dry", "name": "Dryer: Clay", "machineType": "Dryer", "durationTicks": 40, "eut": 8,
+            "inputs": [{"kind": "fluid", "id": "oxygen", "amount": 500}],
+            "outputs": [{"kind": "item", "id": "a:clay", "amount": 1}]},
+           {"id": "tank", "name": "Tank: Oxygen", "machineType": "Tank", "durationTicks": 1, "eut": 0,
+            "metadata": {"recipeMapId": "planner.tank"},
+            "inputs": [{"kind": "item", "id": "a:ocell", "amount": 1}],
+            "outputs": [{"kind": "fluid", "id": "oxygen", "amount": 1000}, {"kind": "item", "id": "a:cell", "amount": 1}]}],
+         "nodes": [
+           {"id": "m", "recipeId": "mix", "machineCount": 1, "parallel": 1, "overclockTier": "LV", "enabled": true,
+            "position": {"x": 0, "y": 0}},
+           {"id": "d", "recipeId": "dry", "machineCount": 1, "parallel": 1, "overclockTier": "LV", "enabled": true,
+            "position": {"x": 800, "y": 0}}%s],
+         "edges": [%s], "storages": []}
+        """;
+
+    @Test
+    void theWebsitesTankIsAFluidTank() {
+        final FakeGame game = new FakeGame();
+        game.cells.put("a:ocell", new String[] { "oxygen", "1000", "a:cell" });
+        final String tank = """
+            ,{"id": "t", "recipeId": "tank", "machineCount": 1, "parallel": 1, "overclockTier": "NONE",
+              "enabled": true, "position": {"x": 400, "y": 0}}""";
+        final String wires = """
+            {"id": "w1", "source": "m", "target": "t", "sourceHandle": "output:item:a%3Aocell",
+             "targetHandle": "input:item:a%3Aocell", "resourceKind": "item", "resourceId": "a:ocell"},
+            {"id": "w2", "source": "t", "target": "d", "sourceHandle": "output:fluid:oxygen",
+             "targetHandle": "input:fluid:oxygen", "resourceKind": "fluid", "resourceId": "oxygen"}""";
+        final Graph g = convert(CELLS.formatted(tank, wires), game).graph();
+        final Node t = g.nodes.values()
+            .stream()
+            .filter(n -> com.gtnhplanner.power.FluidTank.ID.equals(n.powerSource))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no fluid tank on the board"));
+        assertEquals(3, g.nodes.size(), "the mixer, the dryer and the tank: no Canner");
+        assertEquals(2, g.edges.size(), "cells into the tank, oxygen out of it");
+        assertFalse(t.isMachineCountFixed(), "free and instant: the plan sizes it");
+        for (final Edge e : g.getEdges()) assertTrue(e.sourceNodeId.equals(t.id) || e.targetNodeId.equals(t.id));
+    }
+
+    @Test
+    void aLooseCellWireGetsAFluidTankBetween() {
+        // FF wires the mixer's cells straight into the dryer's oxygen; its solver slips a free tank between.
+        final FakeGame game = new FakeGame();
+        game.cells.put("a:ocell", new String[] { "oxygen", "1000", "a:cell" });
+        final String wire = """
+            {"id": "w1", "source": "m", "target": "d", "sourceHandle": "output:item:a%3Aocell",
+             "targetHandle": "input:fluid:oxygen", "resourceKind": "item", "resourceId": "a:ocell",
+             "crossForm": {"litresPerCell": 1000}}""";
+        final FfConverter.Result r = convert(CELLS.formatted("", wire), game);
+        final Graph g = r.graph();
+        assertEquals(3, g.nodes.size(), "the mixer, the dryer and a tank between them");
+        assertEquals(2, g.edges.size());
+        assertTrue(has(r.report(), Kind.CONVERTED, "a fluid tank put between them, emptying the cells"));
+        // A game without tanks still says what it dropped.
+        final FfConverter.Result none = convert(CELLS.formatted("", wire), new FakeGame());
+        assertTrue(has(none.report(), Kind.WIRE, "loose cell wire"));
+    }
+
     @Test
     void aBuildPlansGeneratorsRunAtTheirCount() {
         // Build runs every card at its count: a generator comes over pinned, as recipe cards do, not left for the solve

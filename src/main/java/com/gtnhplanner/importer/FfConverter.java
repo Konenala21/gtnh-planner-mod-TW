@@ -208,6 +208,8 @@ public final class FfConverter {
                 placePower(card, recipe);
                 return;
             }
+            // FF's free Tank is a fluid tank card here; a game that builds none gets the Canner recipe it mirrors.
+            if (recipe.isPlannerTank() && placeTank(card, recipe)) return;
             final List<FfSection> sections = new ArrayList<>();
             sections.add(new FfSection(card.recipeId(), card.overrides()));
             sections.addAll(card.extraRecipes());
@@ -344,6 +346,69 @@ public final class FfConverter {
                 .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));
         }
 
+        /**
+         * FF's Tank card (its free mirror of a fluid Canner recipe) as a fluid tank card: emptying when the recipe
+         * takes the cell (its fluid comes out), filling when it takes the fluid. Its count is FF's crafts a second (a
+         * Tank craft is a tick), pinned only where FF pinned it. False when the game builds no tank for it.
+         */
+        boolean placeTank(final FfNode card, final FfRecipe recipe) {
+            boolean takesFluid = false;
+            for (final FfSlot in : recipe.inputs()) takesFluid |= "fluid".equals(in.kind());
+            final List<FfSlot> side = takesFluid ? recipe.outputs() : recipe.inputs();
+            FfSlot cell = null;
+            for (final FfSlot s : side) if ("item".equals(s.kind()) && cell == null) cell = s;
+            if (cell == null) return false;
+            final Node node = maker.makeTank(!takesFluid, cell.id());
+            if (node == null) return false;
+            node.x = px(card.x());
+            node.y = py(card.y());
+            final double perSecond = card.machineCount() * 20.0 / Math.max(1, recipe.durationTicks());
+            final Double pin = card.solvePin();
+            if (plan.solveMode() && pin != null && pin > 0) {
+                node.machineConfig.setMachineCount((int) Math.ceil(pin * 20.0 / Math.max(1, recipe.durationTicks())));
+                node.setMachineCountFixed(true);
+            } else node.machineConfig
+                .setMachineCount((int) Math.max(1, Math.min(Integer.MAX_VALUE, Math.ceil(perSecond))));
+            graph.addNode(node);
+            placed.computeIfAbsent(card.id(), k -> new HashMap<>())
+                .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));
+            return true;
+        }
+
+        /**
+         * A loose cell wire (FF wires a cell straight into a fluid slot, or a fluid into a cell slot, and its solver
+         * slips a free Tank between): a fluid tank card between them, wired to both. False when the game builds none.
+         */
+        boolean tankBetween(final FfEdge e, final Placed from, final Placed to) {
+            final FfHandle out = FfHandle.parse(e.sourceHandle()), in = FfHandle.parse(e.targetHandle());
+            if (out == null || in == null
+                || out.kind()
+                    .equals(in.kind()))
+                return false;
+            final boolean emptying = "item".equals(out.kind());
+            final Node tank = maker.makeTank(emptying, emptying ? out.resourceId() : in.resourceId());
+            if (tank == null) return false;
+            final int o = port(from, true, e.sourceHandle(), e, null), i = port(to, false, e.targetHandle(), e, null);
+            final int tankIn = findPort(tank, false, out.kind(), List.of(out.resourceId())),
+                tankOut = findPort(tank, true, in.kind(), List.of(in.resourceId()));
+            if (o < 0 || i < 0 || tankIn < 0 || tankOut < 0) return false;
+            tank.x = snap((from.node().x + to.node().x) / 2.0);
+            tank.y = snap((from.node().y + to.node().y) / 2.0);
+            graph.addNode(tank);
+            graph.addEdge(new Edge(UUID.randomUUID(), from.node().id, tank.id, o, tankIn));
+            graph.addEdge(new Edge(UUID.randomUUID(), tank.id, to.node().id, tankOut, i));
+            report.add(
+                Kind.CONVERTED,
+                e.resourceId(),
+                "a loose cell wire from " + from.name()
+                    + " to "
+                    + to.name()
+                    + ": a fluid tank put between them, "
+                    + (emptying ? "emptying" : "filling")
+                    + " the cells");
+            return true;
+        }
+
         void customRate(final FfNode card, final FfRecipe recipe) {
             final String name = "Custom rate card";
             if (!card.enabled()) {
@@ -448,10 +513,11 @@ public final class FfConverter {
                 return;
             }
             if (e.crossForm()) {
+                if (from.card() != null && to.card() != null && tankBetween(e, from.card(), to.card())) return;
                 report.add(
                     Kind.WIRE,
                     e.resourceId(),
-                    "a loose cell wire (cell into a fluid slot) dropped; GTNH Planner needs a Canner card there");
+                    "a loose cell wire (cell into a fluid slot) dropped; GTNH Planner needs a fluid tank there");
                 return;
             }
             if (from.card() != null && to.card() != null) {

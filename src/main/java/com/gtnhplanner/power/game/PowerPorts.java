@@ -39,6 +39,10 @@ public final class PowerPorts {
             com.gtnhplanner.power.CustomRate.build(node);
             return;
         }
+        if (com.gtnhplanner.power.FluidTank.is(node)) {
+            com.gtnhplanner.power.FluidTank.build(node);
+            return;
+        }
         node.inputs.clear();
         node.outputs.clear();
         node.properties.clear();
@@ -122,6 +126,8 @@ public final class PowerPorts {
     /** The machine item a source is drawn as, or null. */
     @Nullable
     public static ItemStack machineStack(final String sourceId) {
+        // The fluid tank is drawn as what it handles: an empty cell.
+        if (com.gtnhplanner.power.FluidTank.ID.equals(sourceId)) return item("IC2:itemCellEmpty");
         final PowerResources.Ref ref = PowerResources.machineIcon(sourceId);
         return ref == null ? null : item(ref.id);
     }

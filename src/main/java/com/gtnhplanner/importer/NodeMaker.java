@@ -52,6 +52,15 @@ public interface NodeMaker {
         return null;
     }
 
+    /**
+     * A fluid tank card ({@link com.gtnhplanner.power.FluidTank}) for a cell, by its FF id, at (0, 0): emptying it
+     * into its fluid, or filling it; null when the maker builds none or the item holds no fluid.
+     */
+    @Nullable
+    default Node makeTank(final boolean emptying, final String cellId) {
+        return null;
+    }
+
     /** What a port of a node made here holds. */
     PortInfo describe(Port<?> port);
 

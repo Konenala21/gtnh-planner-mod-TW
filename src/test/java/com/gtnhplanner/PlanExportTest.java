@@ -96,6 +96,84 @@ class PlanExportTest {
     }
 
     @Test
+    void aFluidTankPostsAsTheWebsitesTank() {
+        // Emptying oxygen cells: a cell in, its oxygen and the empty cell out, 40 cells a second.
+        final Graph g = new Graph("Tank");
+        final Node tank = new Node(java.util.UUID.randomUUID(), 0, 0);
+        tank.powerSource = com.gtnhplanner.power.FluidTank.ID;
+        tank.inputs.add(com.gtnhplanner.harness.TestIngredients.port("Oxygen Cell", 1));
+        tank.outputs.add(com.gtnhplanner.harness.TestIngredients.port("Oxygen", 1000));
+        tank.outputs.add(com.gtnhplanner.harness.TestIngredients.port("Empty Cell", 1));
+        g.addNode(tank);
+        final JsonObject p = PlanExport.project(g, "Tank", new PlanExport.World() {
+
+            @Override
+            public PlanExport.Res port(final Port<?> port) {
+                final String name = port.getDisplayName();
+                return new PlanExport.Res(
+                    "Oxygen".equals(name) ? "fluid" : "item",
+                    "test:" + name.toLowerCase(Locale.ROOT)
+                        .replace(' ', '_'),
+                    name);
+            }
+
+            @Override
+            public PlanExport.Res resource(final String key) {
+                return WORLD.resource(key);
+            }
+
+            @Override
+            public String machine(final Node node) {
+                return "Fluid Tank";
+            }
+
+            @Override
+            public double machines(final Node node) {
+                return 40;
+            }
+
+            @Override
+            public String tier(final Node node) {
+                return "LV";
+            }
+        });
+        final JsonObject recipe = p.getAsJsonArray("recipes")
+            .get(0)
+            .getAsJsonObject();
+        assertEquals(
+            "Tank",
+            recipe.get("machineType")
+                .getAsString());
+        assertEquals(
+            "Tank: Oxygen",
+            recipe.get("name")
+                .getAsString());
+        assertEquals(
+            "planner.tank",
+            recipe.getAsJsonObject("metadata")
+                .get("recipeMapId")
+                .getAsString(),
+            "the site's own Tank map, which imports back as a fluid tank");
+        assertEquals(
+            1,
+            recipe.get("durationTicks")
+                .getAsInt());
+        assertEquals(
+            0,
+            recipe.get("eut")
+                .getAsInt());
+        assertEquals(
+            2.0,
+            p.getAsJsonArray("nodes")
+                .get(0)
+                .getAsJsonObject()
+                .get("machineCount")
+                .getAsDouble(),
+            1e-9,
+            "40 cells a second is 2 Tank crafts a tick");
+    }
+
+    @Test
     void aCropPostsAsTheWebsitesCropFarmCard() throws IOException {
         final Graph g = new Graph("Crops");
         final Node beet = new Node(java.util.UUID.randomUUID(), 0, 0);

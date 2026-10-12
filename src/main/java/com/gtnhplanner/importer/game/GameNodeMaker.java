@@ -122,6 +122,20 @@ public final class GameNodeMaker implements NodeMaker {
         return node.inputs.isEmpty() && node.outputs.isEmpty() ? null : node;
     }
 
+    @Override
+    public Node makeTank(final boolean emptying, final String cellId) {
+        final ItemStack cell = GameIds.stackOf(cellId);
+        if (cell == null) return null;
+        final String key = CardDefaults.itemKey(cell);
+        if (com.gtnhplanner.power.FluidTank.pair(key) == null) return null;
+        final Map<String, String> settings = new java.util.LinkedHashMap<>();
+        settings.put(
+            com.gtnhplanner.power.FluidTank.MODE,
+            emptying ? com.gtnhplanner.power.FluidTank.EMPTY : com.gtnhplanner.power.FluidTank.FILL);
+        settings.put(com.gtnhplanner.power.FluidTank.CELL, key);
+        return Node.power(com.gtnhplanner.power.FluidTank.ID, settings, 0, 0);
+    }
+
     /** Only the settings the node's machine profile has: a crafting card takes its machine count and nothing else. */
     @Override
     public void applySettings(final Node node, final Map<String, Object> settings) {

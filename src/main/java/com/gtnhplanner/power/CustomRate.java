@@ -49,7 +49,7 @@ public final class CustomRate {
     public static final PowerSource SOURCE = new PowerSource(
         ID,
         "Custom Rate",
-        PowerGroup.BURNERS,
+        PowerGroup.OTHER,
         null,
         "Supplies or drains any resource at a rate you set.",
         List.of(MODE_SETTING, RATE_SETTING),

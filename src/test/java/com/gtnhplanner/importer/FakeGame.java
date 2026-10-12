@@ -38,6 +38,30 @@ final class FakeGame implements RecipeIndex, NodeMaker {
     final Map<UUID, String> machines = new HashMap<>();
     /** Whether the game builds generators (power cards): a bare node naming its source. */
     boolean generators;
+    /** The cells the game knows, by FF id: {its fluid, its litres, its empty cell}. Fluid tanks are made for these. */
+    final Map<String, String[]> cells = new HashMap<>();
+
+    @Override
+    @Nullable
+    public Node makeTank(final boolean emptying, final String cellId) {
+        final String[] c = cells.get(cellId);
+        if (c == null) return null;
+        final Node node = new Node(UUID.randomUUID(), 0, 0);
+        node.powerSource = com.gtnhplanner.power.FluidTank.ID;
+        final Port<?> cell = TestIngredients.port("item|" + cellId, 1),
+            fluid = TestIngredients.port("fluid|" + c[0], Double.parseDouble(c[1])),
+            empty = TestIngredients.port("item|" + c[2], 1);
+        if (emptying) {
+            node.inputs.add(cell);
+            node.outputs.add(fluid);
+            node.outputs.add(empty);
+        } else {
+            node.inputs.add(fluid);
+            node.inputs.add(empty);
+            node.outputs.add(cell);
+        }
+        return node;
+    }
 
     FakeGame() {
         GtnhFlowLoader.ensureDefaultMachineProfile();

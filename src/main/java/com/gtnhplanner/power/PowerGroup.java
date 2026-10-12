@@ -3,6 +3,11 @@ package com.gtnhplanner.power;
 /** The picker's columns, in the website's order (registry.ts POWER_GROUPS). */
 public enum PowerGroup {
 
+    /**
+     * Not generators: the planning cards (the custom rate card, the fluid tank), first in the picker. Kept out of the
+     * generator catalog; {@link PowerRegistry#others()} lists them.
+     */
+    OTHER("other", "Other", "Planning cards: a rate you set, cells emptied or filled."),
     BURNERS("burners", "Generators", "Singleblocks: one amp of their tier from fuel."),
     ENGINES("engines", "Engines", "The big fuel burners: engines and fuel cells."),
     STEAM("steam", "Boilers and exchangers", "Everything that makes steam."),
