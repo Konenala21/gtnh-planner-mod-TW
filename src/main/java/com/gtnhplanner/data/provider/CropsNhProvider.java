@@ -155,15 +155,37 @@ public final class CropsNhProvider implements PropertyProvider {
     /** A crop card's recipe from its saved id: the crop on that page whose id matches. */
     @Nullable
     private static codechicken.nei.recipe.RecipeHandlerRef findAgain(final codechicken.nei.recipe.Recipe.RecipeId id) {
+        final NEICropsNHCropHandler crops = allCrops();
+        if (crops == null) return null;
+        for (int i = 0; i < crops.arecipes.size(); i++) if (codechicken.nei.recipe.Recipe.RecipeId.of(crops, i)
+            .equals(id)) return codechicken.nei.recipe.RecipeHandlerRef.of(crops, i);
+        return null;
+    }
+
+    /**
+     * The Crops page's recipe for the crop whose CropsNH id ({@code cropsnh:sugarBeet}) gives {@code matches}; null
+     * when no crop does.
+     */
+    @Nullable
+    public static codechicken.nei.recipe.RecipeHandlerRef crop(final java.util.function.Predicate<String> matches) {
+        final NEICropsNHCropHandler crops = allCrops();
+        if (crops == null) return null;
+        for (int i = 0; i < crops.arecipes.size(); i++) {
+            final ICropCard card = card(crops, i);
+            if (card != null && matches.test(card.getId())) return codechicken.nei.recipe.RecipeHandlerRef.of(crops, i);
+        }
+        return null;
+    }
+
+    @Nullable
+    private static NEICropsNHCropHandler allCrops() {
         if (allCrops == null) {
             final NEICropsNHCropHandler h = new NEICropsNHCropHandler();
             h.loadCraftingRecipes(h.getOverlayIdentifier());
             if (h.arecipes.isEmpty()) return null;
             allCrops = h;
         }
-        for (int i = 0; i < allCrops.arecipes.size(); i++) if (codechicken.nei.recipe.Recipe.RecipeId.of(allCrops, i)
-            .equals(id)) return codechicken.nei.recipe.RecipeHandlerRef.of(allCrops, i);
-        return null;
+        return allCrops;
     }
 
     @Nullable

@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 import net.minecraft.item.ItemStack;
 
 import com.gtnhplanner.Compat;
+import com.gtnhplanner.importer.FfIds;
 import com.gtnhplanner.importer.FfPlan.FfRecipe;
 import com.gtnhplanner.importer.FfPlan.FfSlot;
 import com.gtnhplanner.importer.RecipeIndex;
@@ -33,6 +34,7 @@ public final class NeiRecipeIndex implements RecipeIndex {
             .endsWith(" Crafting")) return byOutput(recipe, "crafting");
         if ("furnace".equals(recipe.category()) || "Furnace".equals(recipe.machineType()))
             return byOutput(recipe, "smelting");
+        if (recipe.isCrop()) return crop(recipe);
         if ("gregtech".equals(recipe.category()) || recipe.gameMapSlug() != null) {
             if (!Compat.GREGTECH.isLoaded) return Lookup.none("GregTech is not loaded");
             try {
@@ -44,6 +46,34 @@ public final class NeiRecipeIndex implements RecipeIndex {
         final String kind = (recipe.kind()
             .isEmpty() ? recipe.category() : recipe.kind()).replace('_', ' ');
         return Lookup.none("its " + (kind.isEmpty() ? recipe.machineType() : kind) + " cards have no recipe in game");
+    }
+
+    /** A CropsNH crop: its recipe on CropsNH's Crops page, found by the crop's id (FF's crop farm card names it). */
+    private static Lookup crop(final FfRecipe recipe) {
+        if (!Compat.CROPSNH.isLoaded) return Lookup.none("CropsNH is not in this game");
+        final String slug = recipe.cropSlug();
+        if (slug == null) return Lookup.none("an empty crop farm, with no crop picked");
+        final codechicken.nei.recipe.RecipeHandlerRef ref;
+        try {
+            ref = com.gtnhplanner.data.provider.CropsNhProvider.crop(
+                id -> FfIds.slug(id)
+                    .equals(slug));
+        } catch (final LinkageError e) {
+            return Lookup.none("CropsNH's crops could not be read (" + e + ")");
+        }
+        if (ref == null) return Lookup.none("no crop " + slug + " in this game");
+        return Lookup.of(
+            List.of(
+                new GameRecipe(
+                    ref.handler,
+                    ref.recipeIndex,
+                    ref.handler.getRecipeName()
+                        .trim(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    null,
+                    null)));
     }
 
     /** Every recipe on NEI's crafting (or smelting) pages that makes the recipe's first output. */

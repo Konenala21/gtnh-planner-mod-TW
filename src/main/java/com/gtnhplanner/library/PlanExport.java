@@ -70,7 +70,16 @@ public final class PlanExport {
         default String handlerId(final Node node) {
             return null;
         }
+
+        /** A crop card's crop; null on any other card. */
+        @Nullable
+        default Crop crop(final Node node) {
+            return null;
+        }
     }
+
+    /** A CropsNH crop: its id ({@code cropsnh:sugarBeet}) and the facts the website models it from. */
+    public record Crop(String id, com.gtnhplanner.machines.CropsNh.Stats stats) {}
 
     /** Factory Flow's cards are 380 wide to our 320, and taller (as the importer scales them the other way). */
     private static final double SCALE_X = 380.0 / 320.0, SCALE_Y = 1 / 0.6;
@@ -186,6 +195,8 @@ public final class PlanExport {
     private static JsonObject recipe(final Node n, final String id, final World world, final Map<Port<?>, Res> res) {
         if (CustomRate.is(n)) return customRateRecipe(n, id, world, res);
         if (n.isPower()) return powerRecipe(n, id, world, res);
+        final Crop crop = world.crop(n);
+        if (crop != null) return cropRecipe(n, id, crop, world, res);
         final JsonObject r = new JsonObject();
         r.addProperty("id", id);
         final String machine = world.machine(n);
@@ -207,6 +218,66 @@ public final class PlanExport {
         r.add("source", source);
         return r;
     }
+
+    /**
+     * A crop, as the website's crop farm cards carry it: the Crop Farm's recipe for that crop, its facts under
+     * {@code metadata.cropsNh} (getCropsNhStats reads them; the drops are its rates at the site's baseline, which the
+     * card's settings scale), and the crop's id where the site's own dataset keeps it.
+     */
+    private static JsonObject cropRecipe(final Node n, final String id, final Crop crop, final World world,
+        final Map<Port<?>, Res> res) {
+        final com.gtnhplanner.machines.CropsNh.Stats s = crop.stats();
+        final JsonObject r = new JsonObject();
+        r.addProperty("id", id);
+        r.addProperty(
+            "name",
+            "Crop Farm" + (n.outputs.isEmpty() ? ""
+                : ": " + n.outputs.get(0)
+                    .getDisplayName()));
+        r.addProperty("kind", "crop_produce");
+        r.addProperty("category", "cropsnh-crop");
+        r.addProperty("machineType", CROP_FARM);
+        r.addProperty("minimumTier", "NONE");
+        r.addProperty("durationTicks", Math.max(1, intProperty(n, "duration_ticks")));
+        r.addProperty("eut", 0);
+        r.add("inputs", new JsonArray());
+        r.add("outputs", ports(n.outputs, true, world, res));
+        final JsonObject source = new JsonObject();
+        source.addProperty("recipeMap", CROP_FARM);
+        source.addProperty("sourceMod", "GTNH Planner");
+        source.addProperty("rawRecipeId", "cropsnh:" + crop.id());
+        r.add("source", source);
+        final JsonObject stats = new JsonObject();
+        stats.addProperty("cropId", crop.id());
+        stats.addProperty("tier", s.tier());
+        stats.addProperty("growthPoints", s.growthPoints());
+        stats.addProperty("dropChance", s.dropChance());
+        stats.addProperty("growthCycleTicks", s.growthCycleTicks());
+        stats.addProperty("growthMultiplier", s.growthMultiplier());
+        if (s.machineOnly()) stats.addProperty("machineOnly", true);
+        if (s.minSeedBedTier() > 0) stats.addProperty("minSeedBedTier", s.minSeedBedTier());
+        if (s.subSoil() != null) {
+            final JsonArray requirements = new JsonArray();
+            requirements.add(new com.google.gson.JsonPrimitive(s.subSoil()));
+            stats.add("requirements", requirements);
+        }
+        final JsonArray drops = new JsonArray();
+        for (final com.gtnhplanner.machines.CropsNh.Drop d : s.drops()) {
+            final JsonObject drop = new JsonObject();
+            drop.addProperty("id", d.id());
+            drop.addProperty("stackSize", d.stackSize());
+            drop.addProperty("weight", d.weight());
+            drops.add(drop);
+        }
+        stats.add("drops", drops);
+        final JsonObject meta = new JsonObject();
+        meta.add("cropsNh", stats);
+        r.add("metadata", meta);
+        return r;
+    }
+
+    /** The website's crop farm: its recipe map and machine type, which mark a recipe as a crop's. */
+    private static final String CROP_FARM = "Crop Farm";
 
     /**
      * A generator, as the site's power cards carry it (buildPowerRecipe): a one-second custom recipe, flows per second
@@ -349,16 +420,18 @@ public final class PlanExport {
             if (cfg.get(FfSettings.COIL) instanceof final String coil && !coil.isEmpty()) o.addProperty("coilTier", coil);
             if (cfg.get(FfSettings.HATCH_TYPE) instanceof final String type && !type.isEmpty())
                 o.addProperty("energyHatchType", type);
-            final String handler = world.handlerId(n);
+            // A crop's harvester is the website's machine for it; our setting.
+            final boolean crop = world.crop(n) != null;
+            final String handler = crop ? cfg.get(com.gtnhplanner.machines.CropsNh.HARVESTER) instanceof final String h
+                && !h.isEmpty() ? h : com.gtnhplanner.machines.CropsNh.MANAGER : world.handlerId(n);
             if (handler != null) o.addProperty("machineHandlerId", handler);
             // The machine's options under the website's own ids: the modelled machines' (machines/) as they are kept,
             // every other machine's from machine:<id>.
             final JsonObject settings = new JsonObject();
             for (final Map.Entry<String, Object> s : cfg.entrySet()) {
                 if (!(s.getValue() instanceof final String v) || v.isEmpty()) continue;
-                final boolean modelled = com.gtnhplanner.machines.TreeGrowthSimulator.SETTING_KEYS.contains(s.getKey())
-                    || com.gtnhplanner.machines.BacterialVat.SETTING_KEYS.contains(s.getKey());
-                if (modelled) settings.addProperty(s.getKey(), v);
+                if (com.gtnhplanner.machines.CropsNh.HARVESTER.equals(s.getKey())) continue;
+                if (FfSettings.modelled(s.getKey())) settings.addProperty(s.getKey(), v);
                 else if (s.getKey()
                     .startsWith(FfSettings.MACHINE))
                     settings.addProperty(

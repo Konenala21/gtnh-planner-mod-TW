@@ -224,6 +224,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return total;
     }
 
+    /** Steam the card's steam machines burn, L/s, at the solved count. */
+    private double steamTotal() {
+        double total = 0;
+        for (final CardModel m : models) total += m.steamPerTick * 20 * m.machines;
+        return total;
+    }
+
     /** Whether the machine count is pinned: the node's, or a shared machine's own. */
     private boolean pinned() {
         final com.gtnhplanner.data.flowchart.MachineGroup g = session.sharedOf(nodeId);
@@ -265,7 +272,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /** Whether the head has a tier chip: a GregTech recipe's voltage, a generator's tier, or a crop's harvester's. */
     private boolean hasTier() {
-        return model != null && (model.gregtech || powerTier() != null || crop());
+        return model != null && (model.gregtech && !model.steam() || powerTier() != null || crop());
     }
 
     /** Whether the card grows a crop (its machine is a harvester, picked by a setting; CropCards). */
@@ -629,7 +636,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             1);
         keyIcon(false, GEAR_X + KEY_W / 2f, y + CHIP_H / 2f, coilTooCold() ? Hyb.RED_INK : Hyb.INK);
 
-        if (m.gregtech) {
+        if (m.gregtech && !m.steam()) {
             // Amps wear the tier's colours too: together they read as one figure, 16A UV.
             final Hyb.Tier tier = Hyb.tier(m.tier);
             if (m.multiblock) chip(
@@ -982,6 +989,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (y > CardLayout.RAILS_Y && !shared()) CardPaint.rowSeparator(false, y);
         if (shared()) CardPaint.hair(y - 3);
         if (hover) Hyb.rect(x, y, CardLayout.RAIL_W, CardLayout.ROW, 0x10FFFFFF);
+        if (m.steam()) {
+            // A steam machine burns steam, not EU: its row bills litres, as the website's steam cell.
+            final net.minecraftforge.fluids.FluidStack steam = net.minecraftforge.fluids.FluidRegistry
+                .getFluidStack("steam", 1000);
+            if (steam != null) Hyb.fluid(steam, CardLayout.iconX(false), y + CardLayout.ICON_Y, CardLayout.ICON, 0);
+            CardPaint.words(Fmt.compact(steamTotal()), " L/s", "Steam", Hyb.INK, false, y);
+            return;
+        }
         euIcon(CardLayout.iconX(false), y + CardLayout.ICON_Y, CardLayout.ICON);
         final double eu = powerTotal();
         final int tierIdx = CardDefaults.tierIndex(m.tier);
@@ -1466,9 +1481,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     .sub(m.multiblock ? "Multiblock" : "Machine")
                     .row(pinned() ? "Pinned machines" : "Required machines", "×" + Fmt.machines(machinesTotal()));
                 if (shared()) tip.row("Recipes", Integer.toString(models.size()));
-                if (m.gregtech) tip.row("Configured tier", m.tier);
-                tip.row("Time per operation", Fmt.compact(m.durationTicks / 20.0) + " s")
-                    .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
+                if (m.gregtech && !m.steam()) tip.row("Configured tier", m.tier);
+                tip.row("Time per operation", Fmt.compact(m.durationTicks / 20.0) + " s");
+                if (m.steam()) tip.row("Steam per machine", Fmt.compact(m.steamPerTick * 20) + " L/s");
+                else tip.row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
                 if (m.parallels > 1) tip.row("Parallel operations", Integer.toString(m.parallels));
                 if (shared()) tip.muted("One machine runs these recipes in turns.");
                 if (machineChoices().size() > 1)
@@ -1501,8 +1517,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
             case AMPS -> Tip.of("Energy hatch amps")
                 .row("Amps", Fmt.compact(m.amps) + "A");
-            case POWER -> Tip.of("Power")
-                .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t")
+            case POWER -> m.steam() ? Tip.of("Steam")
+                .row("Steam per machine", Fmt.compact(m.steamPerTick * 20) + " L/s")
+                .row("Steam for this card", Fmt.compact(steamTotal()) + " L/s")
+                .muted("Not wired in plans.")
+                : Tip.of("Power")
+                    .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t")
                 .row("Demand for this card", Fmt.power(session.power(m)) + " EU/t")
                 .muted("Not wired in plans.");
             case SETTINGS -> settingsTip();
@@ -1853,7 +1873,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             changeMachine(next.getKey(), next.getValue());
             return;
         }
-        if (!model.gregtech) return;
+        if (!model.gregtech || model.steam()) return;
         if (isSingle(model.machineStack)) {
             // Each tier of a single block is its own machine: step to the next one there is, and it brings its tier.
             final int now = GtMachines.of(model.machineStack)

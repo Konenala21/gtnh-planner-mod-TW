@@ -94,6 +94,29 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRe
             return TRASH_CAN_MACHINE.equals(machineType);
         }
 
+        /** A CropsNH crop (FF's crop farm card): its machine count is crops planted, its harvester a setting. */
+        public boolean isCrop() {
+            return "cropsnh-crop".equals(category) || "crop_produce".equals(kind);
+        }
+
+        /**
+         * A crop's CropsNH id ({@code cropsnh:sugarBeet}) slugged ({@code cropsnh-sugarbeet}), as FF's recipe ids end:
+         * from {@code source.rawRecipeId} (the mod's id, then the crop's), else the recipe id. Null on anything but a
+         * crop, and on an empty crop farm (no crop picked).
+         */
+        @Nullable
+        public String cropSlug() {
+            if (!isCrop()) return null;
+            if (rawRecipeId != null) {
+                final int colon = rawRecipeId.indexOf(':');
+                return FfIds.slug(
+                    colon > 0 && rawRecipeId.indexOf(':', colon + 1) > 0 ? rawRecipeId.substring(colon + 1)
+                        : rawRecipeId);
+            }
+            final String tail = id.substring(id.lastIndexOf(':') + 1);
+            return id.startsWith("oracle:") && !tail.isEmpty() ? tail : null;
+        }
+
         /** FF's Tank: a Canner recipe made free and instant. */
         public boolean isPlannerTank() {
             return TANK_MAP.equals(mapId()) || "planner-tank".equals(mapSlug());

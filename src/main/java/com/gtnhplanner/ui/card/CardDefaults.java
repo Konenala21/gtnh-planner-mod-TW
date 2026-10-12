@@ -120,14 +120,17 @@ public final class CardDefaults {
         return stacks.isEmpty() || stacks.get(0) == null ? null : stacks.get(0).item;
     }
 
-    /** Runs the recipe on {@code machine}: GregTech single blocks bring their tier, multiblocks their options. */
+    /**
+     * Runs the recipe on {@code machine}: GregTech single blocks bring their tier, multiblocks their options; a steam
+     * machine has no tier (its voltage is left as it was, and nothing reads it).
+     */
     public static void useMachine(final Node node, final ItemStack machine, final boolean gregtech) {
         node.machineName = itemKey(machine);
         if (!gregtech) return;
         final GtMachines.Kind kind = GtMachines.of(machine);
         if (kind == null) return;
         node.machineConfig.setBoolean("gt_multiblock", kind.multiblock());
-        if (!kind.multiblock() && kind.tier() >= 0 && kind.tier() < TIERS.length) {
+        if (!kind.multiblock() && !kind.steam() && kind.tier() >= 0 && kind.tier() < TIERS.length) {
             node.machineConfig.setString("voltage", TIERS[kind.tier()]);
         }
     }

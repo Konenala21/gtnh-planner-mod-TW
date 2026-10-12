@@ -39,19 +39,41 @@ public final class FfSettings {
 
     private static final int MAX_AMPS = 16_777_216;
     private static final int MAX_MACHINES = 4096;
+    /** A crop card counts crops planted: an Industrial Farm alone works over a thousand. */
+    private static final int MAX_CROPS = 1_000_000;
+
+    /**
+     * FF's isSteamMachineHandler: every machine named "Steam ..." or "High Pressure ..." burns steam, never EU, so it
+     * has no tier to run at.
+     */
+    private static final java.util.regex.Pattern STEAM = java.util.regex.Pattern
+        .compile("\\bsteam\\b|\\bhigh[ -]pressure\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /** Whether FF's machine (by its name, else its id) is one of the steam line's. */
+    public static boolean steam(@Nullable final String label, @Nullable final String handlerId) {
+        final String name = label != null ? label : handlerId;
+        return name != null && STEAM.matcher(name)
+            .find();
+    }
 
     /** The card settings for the website's coil, hatch type and machine options (machines/game/WebCards). */
     public static final String COIL = "coil", HATCH_TYPE = "energy_hatch_type", MACHINE = "machine:";
 
     /**
-     * @param settings     to put on the node
-     * @param machines     the machine count to put on the node
-     * @param pinned       whether that count is fixed (FF's Solve-mode pin)
-     * @param machineLabel the machine FF runs the recipe on, for picking it in game
-     * @param notes        what did not carry over exactly
+     * @param settings to put on the node
+     * @param machines the machine count to put on the node (crops planted, on a crop card)
+     * @param pinned   whether that count is fixed (FF's Solve-mode pin)
+     * @param machine  the machine FF runs the recipe on, for picking it in game
+     * @param notes    what did not carry over exactly
      */
-    public record Mapped(Map<String, Object> settings, int machines, boolean pinned, @Nullable String machineLabel,
-        List<String> notes) {}
+    public record Mapped(Map<String, Object> settings, int machines, boolean pinned, NodeMaker.Machine machine,
+        List<String> notes) {
+
+        @Nullable
+        public String machineLabel() {
+            return machine.label();
+        }
+    }
 
     private FfSettings() {}
 
@@ -66,10 +88,20 @@ public final class FfSettings {
         final List<String> notes = new ArrayList<>();
         final FfHandler handler = recipe.handler(node.machineHandlerId());
         final boolean multiblock = handler != null && handler.multiblock();
+        final String handlerId = handler != null ? handler.id() : node.machineHandlerId();
+        final NodeMaker.Machine machine = new NodeMaker.Machine(handlerId, handler == null ? null : handler.label());
+        final boolean crop = recipe.isCrop();
 
         int tier = -1;
         double amps = 1;
-        if (multiblock) {
+        if (crop) {
+            // A crop's harvester (a Crop Manager or the Industrial Farm) is FF's machine and our setting (CropsNh); it
+            // has no voltage of its own.
+            if (handlerId != null) s.put(com.gtnhplanner.machines.CropsNh.HARVESTER, handlerId);
+        } else if (steam(machine.label(), handlerId)) {
+            // Steam runs at no voltage (FF hides the tier chip): a tier the card still carries is left behind.
+            s.put(Settings.GT_MULTIBLOCK.key(), multiblock);
+        } else if (multiblock) {
             final Double budget = node.powerEuT();
             if ("eut".equals(node.powerInputMode()) && budget != null && budget > 0) {
                 tier = tierWithin(budget);
@@ -119,17 +151,16 @@ public final class FfSettings {
         // machine:<id> (machines/game/WebCards).
         for (final Map.Entry<String, String> option : node.machineConfigTiers()
             .entrySet()) {
-            final boolean modelled = com.gtnhplanner.machines.TreeGrowthSimulator.SETTING_KEYS.contains(option.getKey())
-                || com.gtnhplanner.machines.BacterialVat.SETTING_KEYS.contains(option.getKey());
-            s.put(modelled ? option.getKey() : MACHINE + option.getKey(), option.getValue());
+            s.put(modelled(option.getKey()) ? option.getKey() : MACHINE + option.getKey(), option.getValue());
         }
 
+        final int most = crop ? MAX_CROPS : MAX_MACHINES;
         int machines = 1;
         boolean pinned = false;
         if (solveMode) {
             final Double pin = pinnable ? node.solvePin() : null;
             if (pin != null && pin > 0) {
-                machines = (int) Math.max(1, Math.min(MAX_MACHINES, Math.round(pin)));
+                machines = (int) Math.max(1, Math.min(most, Math.round(pin)));
                 pinned = true;
                 if (Math.abs(machines - pin) > 1e-6)
                     notes.add("pinned " + fmt(pin) + " machines, rounded to " + machines);
@@ -139,10 +170,20 @@ public final class FfSettings {
         } else {
             // Build mode: the count is the build, and the plan's flows follow from it, so it comes over as a pin (left
             // as is, a board that solves counts would have nothing to solve for and show every rate at 0).
-            machines = (int) Math.max(1, Math.min(MAX_MACHINES, Math.ceil(node.machineCount() - 1e-9)));
+            machines = (int) Math.max(1, Math.min(most, Math.ceil(node.machineCount() - 1e-9)));
             pinned = pinnable;
         }
-        return new Mapped(s, machines, pinned, handler == null ? null : handler.label(), notes);
+        return new Mapped(s, machines, pinned, machine, notes);
+    }
+
+    /**
+     * Whether a machine option is one of the modelled machines' (machines/), kept under its own key; every other
+     * machine's goes under {@code machine:<id>}.
+     */
+    public static boolean modelled(final String key) {
+        return com.gtnhplanner.machines.TreeGrowthSimulator.SETTING_KEYS.contains(key)
+            || com.gtnhplanner.machines.BacterialVat.SETTING_KEYS.contains(key)
+            || com.gtnhplanner.machines.CropsNh.SETTING_KEYS.contains(key);
     }
 
     /** The tier's index, or -1 for "NONE", "DEMO" and anything else that is not a tier. */

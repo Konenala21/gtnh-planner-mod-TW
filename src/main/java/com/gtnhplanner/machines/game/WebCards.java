@@ -104,6 +104,37 @@ public final class WebCards {
         return mapId.startsWith("gt.recipe.") ? HandlerData.map("gtpp.recipe." + mapId.substring(10)) : null;
     }
 
+    /**
+     * The blocks the website's data lists for one of the card's map's machines, by its handler id ({@code extractor}:
+     * every tier's Extractor; {@code steam-extractor}: the bronze one); null asks for the map's first, the website's
+     * default. Empty when the data has no such machine.
+     */
+    public static List<String> handlerItems(final Node node, @Nullable final String handlerId) {
+        final HandlerData.MapEntry entry = entry(mapId(node));
+        if (entry == null) return List.of();
+        String id = handlerId;
+        if (id == null && entry.app != null && !entry.app.isEmpty()) id = entry.app.getFirst().id;
+        if (id == null && entry.handlers != null)
+            for (final HandlerData.Template t : entry.handlers) if (t.primary) id = t.id;
+        if (id == null) return List.of();
+        if (entry.app != null) for (final HandlerData.AppHandler a : entry.app)
+            if (a.id.equals(id) && a.items != null && !a.items.isEmpty()) return a.items;
+        if (entry.handlers != null) for (final HandlerData.Template t : entry.handlers)
+            if (t.id.equals(id) && t.items != null && !t.items.isEmpty()) return t.items;
+        return List.of();
+    }
+
+    /** The blocks of the website's machine {@code item} (a game item id) is one of: a single block's every tier. */
+    public static List<String> machineItems(final Node node, final String item) {
+        final HandlerData.MapEntry entry = entry(mapId(node));
+        if (entry == null) return List.of();
+        if (entry.app != null) for (final HandlerData.AppHandler a : entry.app)
+            if (a.items != null && a.items.contains(item)) return a.items;
+        if (entry.handlers != null) for (final HandlerData.Template t : entry.handlers)
+            if (t.items != null && t.items.contains(item)) return t.items;
+        return List.of();
+    }
+
     private static double number(@Nullable final Object value) {
         return value instanceof final Number n ? n.doubleValue() : 0;
     }
@@ -153,9 +184,21 @@ public final class WebCards {
                     String.valueOf(e.getValue()));
         n.machineConfigTiers = tiers;
         n.machineHandlerId = handlerId(node, recipe);
+        if (steam(recipe, n.machineHandlerId)) {
+            // Steam runs at no voltage (the card has no tier chip): a tier left in its settings overclocks nothing.
+            n.overclockTier = null;
+            n.hatchVoltageTier = null;
+        }
         n.parallel = 1.0;
         n.machineCount = 1.0;
         return n;
+    }
+
+    /** Whether the recipe's handler {@code id} (null: its first) is one of the steam line's (isSteamMachineHandler). */
+    private static boolean steam(final Web.Recipe recipe, @Nullable final String id) {
+        final List<Web.Handler> handlers = RecipeRules.machineHandlers(recipe);
+        for (final Web.Handler h : handlers) if (id == null || h.id.equals(id)) return RecipeRules.isSteamHandler(h);
+        return false;
     }
 
     @Nullable

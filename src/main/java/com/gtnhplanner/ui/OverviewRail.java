@@ -528,7 +528,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     && hover.data() == m || pinHot;
                 if (hot) Hyb.rect(0, y, w - 1, LINE_H, 0x1A22D3EE);
                 int cx = 23;
-                if (m.gregtech())
+                if (m.gregtech() && !m.tier()
+                    .isEmpty())
                     cx += Hyb.tierTag(m.tier(), m.multiblock() && m.amps() > 1 ? m.amps() + "A" : null, cx, y + 3) + 5;
                 // How many: as the card's count, the wheel and a click set it here too; a count being wheeled shows.
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());

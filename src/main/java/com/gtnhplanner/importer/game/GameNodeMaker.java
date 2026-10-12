@@ -18,14 +18,17 @@ import com.gtnhplanner.data.Settings;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.importer.FfIds;
+import com.gtnhplanner.importer.FfSettings;
 import com.gtnhplanner.importer.NodeMaker;
 import com.gtnhplanner.importer.RecipeIndex.GameRecipe;
+import com.gtnhplanner.machines.game.WebCards;
+import com.gtnhplanner.machines.web.RecipeRules;
 import com.gtnhplanner.ui.Resources;
 import com.gtnhplanner.ui.card.CardDefaults;
+import com.gtnhplanner.ui.card.CardModel;
+import com.gtnhplanner.ui.gt.GtMachines;
 
-import codechicken.nei.PositionedStack;
 import codechicken.nei.recipe.IRecipeHandler;
-import codechicken.nei.recipe.RecipeCatalysts;
 
 /**
  * Real nodes for the importer: built from the NEI recipe the way NEI's + builds them ({@link CardDefaults} included),
@@ -35,7 +38,7 @@ public final class GameNodeMaker implements NodeMaker {
 
     @Override
     @Nullable
-    public Node make(final GameRecipe recipe, @Nullable final String machineLabel) {
+    public Node make(final GameRecipe recipe, @Nullable final Machine machine) {
         if (!(recipe.handler() instanceof final IRecipeHandler handler)) return null;
         final Node node;
         try {
@@ -45,21 +48,54 @@ public final class GameNodeMaker implements NodeMaker {
             return null;
         }
         CardDefaults.apply(node);
-        if (machineLabel != null) pickMachine(node, handler, machineLabel);
+        pickMachine(node, machine == null ? new Machine(null, null) : machine);
         return node;
     }
 
-    /** The catalyst NEI lists for the recipe whose name is FF's machine, if there is one. */
-    private static void pickMachine(final Node node, final IRecipeHandler handler, final String label) {
-        final String want = FfIds.slug(label);
-        for (final PositionedStack ps : RecipeCatalysts.getRecipeCatalysts(handler)) {
-            if (ps == null || ps.item == null) continue;
-            final String name = EnumChatFormatting.getTextWithoutFormattingCodes(ps.item.getDisplayName());
-            if (name == null || !FfIds.slug(name)
-                .equals(want)) continue;
-            node.machineName = CardDefaults.itemKey(ps.item);
-            return;
+    /**
+     * The machine FF ran, among those NEI lists for the recipe: by the blocks the website's data gives its id (the
+     * GregTech single blocks' every tier, a steam machine, a multiblock), else by its name or its family's (each tier
+     * of a single block is named for its tier: "Advanced Extractor II" is an Extractor). Nothing found, a GregTech card
+     * keeps NEI's first machine unless that runs on steam, which FF only ever runs when it says so.
+     */
+    private static void pickMachine(final Node node, final Machine machine) {
+        final boolean gregtech = CardModel.GT_PROFILE.equals(node.machineConfig.profileId);
+        final List<ItemStack> catalysts = CardModel.catalystsOf(node);
+        ItemStack pick = null;
+        if (gregtech) {
+            final List<String> items = WebCards.handlerItems(node, machine.handlerId());
+            for (final ItemStack s : catalysts) if (items.contains(GameIds.itemId(s))) {
+                pick = s;
+                break;
+            }
         }
+        if (pick == null && machine.label() != null) {
+            final String want = FfIds.slug(machine.label());
+            final boolean steamWanted = FfSettings.steam(machine.label(), machine.handlerId());
+            for (final ItemStack s : catalysts) {
+                final String name = EnumChatFormatting.getTextWithoutFormattingCodes(s.getDisplayName());
+                if (name == null || gregtech && steam(s) != steamWanted) continue;
+                if (FfIds.slug(name)
+                    .equals(want)
+                    || gregtech && FfIds.slug(familyOf(s))
+                        .equals(want)) {
+                    pick = s;
+                    break;
+                }
+            }
+        }
+        if (pick == null && gregtech && steam(WebCards.machineStack(node))) {
+            for (final ItemStack s : catalysts) if (!steam(s)) {
+                pick = s;
+                break;
+            }
+        }
+        if (pick != null) CardDefaults.useMachine(node, pick, gregtech);
+    }
+
+    private static boolean steam(@Nullable final ItemStack machine) {
+        final GtMachines.Kind kind = GtMachines.of(machine);
+        return kind != null && kind.steam();
     }
 
     @Override
@@ -97,7 +133,49 @@ public final class GameNodeMaker implements NodeMaker {
         for (final Map.Entry<String, Object> e : settings.entrySet()) {
             if (known.contains(e.getKey())) cfg.settings.put(e.getKey(), e.getValue());
         }
+        if (CardModel.GT_PROFILE.equals(cfg.profileId)) retier(node);
         // What the settings decide at refresh (a modelled machine's multipliers, machines/game/MachineModels).
         node.refresh();
+    }
+
+    /**
+     * A GregTech single block's tier is its machine (each tier its own block, the tier chip steps between them, as on
+     * a card added from NEI): the block of its family at the card's tier, else the nearest above, else the highest,
+     * which then sets the tier.
+     */
+    private static void retier(final Node node) {
+        final ItemStack now = WebCards.machineStack(node);
+        if (!single(now)) return;
+        final int want = Math.max(0, CardDefaults.tierIndex(CardDefaults.stringSetting(node.machineConfig, "voltage")));
+        final List<String> family = WebCards.machineItems(node, GameIds.itemId(now));
+        final String name = familyOf(now);
+        ItemStack best = null;
+        int bestTier = -1;
+        for (final ItemStack s : CardModel.catalystsOf(node)) {
+            if (!single(s) || !(family.isEmpty() ? familyOf(s).equals(name) : family.contains(GameIds.itemId(s))))
+                continue;
+            final int t = GtMachines.of(s)
+                .tier();
+            final boolean better;
+            if (best == null) better = true;
+            else if (t >= want != bestTier >= want) better = t >= want;
+            else better = t >= want ? t < bestTier : t > bestTier;
+            if (better) {
+                best = s;
+                bestTier = t;
+            }
+        }
+        if (best != null) CardDefaults.useMachine(node, best, true);
+    }
+
+    private static String familyOf(final ItemStack machine) {
+        final String name = EnumChatFormatting.getTextWithoutFormattingCodes(machine.getDisplayName());
+        return RecipeRules.familyLabel(name == null ? "" : name);
+    }
+
+    /** One of GregTech's electric single blocks (not steam, not a multiblock), at a known tier. */
+    private static boolean single(@Nullable final ItemStack machine) {
+        final GtMachines.Kind kind = GtMachines.of(machine);
+        return kind != null && !kind.multiblock() && !kind.steam() && kind.tier() >= 0;
     }
 }

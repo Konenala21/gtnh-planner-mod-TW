@@ -425,6 +425,31 @@ class FfConverterTest {
     }
 
     @Test
+    void aBuildPlansGeneratorsRunAtTheirCount() {
+        // Build runs every card at its count: a generator comes over pinned, as recipe cards do, not left for the solve
+        // to size (which made one plan's 10 combustion engines 20.8).
+        final FakeGame game = new FakeGame();
+        game.generators = true;
+        final Node built = power(
+            convert(
+                SMALL.formatted("", SMALL_WIRES)
+                    .replace(
+                        "\"recipeId\": \"gen\", \"machineCount\": 1",
+                        "\"recipeId\": \"gen\", \"machineCount\": 10"),
+                game).graph());
+        assertEquals(10, built.machineConfig.getMachineCount());
+        assertTrue(built.isMachineCountFixed());
+        // In Solve, only a pin is a fixed count: an unpinned generator starts at its count.
+        final Node solved = power(convert(SMALL.formatted("\"solveMode\": true,", SMALL_WIRES), game).graph());
+        assertFalse(solved.isMachineCountFixed());
+    }
+
+    private static Node power(final Graph g) {
+        for (final Node n : g.nodes.values()) if (n.isPower()) return n;
+        throw new AssertionError("no generator on the board");
+    }
+
+    @Test
     void poolPlansWireEveryMakerToEveryUser() {
         // No wire between the mixer and the dryer: in a pool, sharing a resource is enough.
         final String wires = """

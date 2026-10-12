@@ -302,6 +302,122 @@ class FfSettingsTest {
     }
 
     @Test
+    void theMachinesIdGoesWithItsName() {
+        // The game finds FF's machine by its id among the website's machine data; the name is the fallback.
+        final FfRecipe extractor = recipe(
+            new FfHandler("extractor", "Extractor", "single", false),
+            new FfHandler("steam-extractor", "Steam Extractor", "single", false));
+        final FfSettings.Mapped m = FfSettings
+            .map(card("HV", null, null, null, null, 0, null), extractor, 7, true, true);
+        assertEquals(
+            "extractor",
+            m.machine()
+                .handlerId(),
+            "a card that names no machine runs the recipe's first, the website's default");
+        assertEquals("Extractor", m.machineLabel());
+        assertEquals(
+            "HV",
+            m.settings()
+                .get("voltage"));
+        // A plan that left the recipe's machines out still names the card's.
+        assertEquals(
+            "large-electric-compressor",
+            FfSettings.map(card("HV", "HV", 1.0, null, null, 0, "large-electric-compressor"), recipe(), 2, true, true)
+                .machine()
+                .handlerId());
+    }
+
+    @Test
+    void steamMachinesCarryNoTier() {
+        // FF hides a steam machine's tier chip, but the card keeps whatever tier it had: here HV, from when it ran on
+        // an
+        // electric Compressor. Steam runs at no voltage, so none comes over.
+        final FfRecipe compressor = recipe(
+            new FfHandler("compressor", "Compressor", "single", false),
+            new FfHandler("steam-compressor", "Steam Compressor", "single", false),
+            new FfHandler("steam-squasher", "Steam Squasher", "multiblock", false));
+        final FfSettings.Mapped single = FfSettings
+            .map(card("HV", null, null, null, null, 0, "steam-compressor"), compressor, 2, true, true);
+        assertNull(
+            single.settings()
+                .get("voltage"));
+        assertEquals(
+            false,
+            single.settings()
+                .get("gt_multiblock"));
+        final FfSettings.Mapped multi = FfSettings
+            .map(card("HV", "HV", 4.0, null, null, 0, "steam-squasher"), compressor, 2, true, true);
+        assertNull(
+            multi.settings()
+                .get("voltage"));
+        assertNull(
+            multi.settings()
+                .get("amp"));
+        assertEquals(
+            true,
+            multi.settings()
+                .get("gt_multiblock"));
+        assertTrue(FfSettings.steam("High Pressure Alloy Smelter", null));
+        assertTrue(FfSettings.steam(null, "high-pressure-steam-extractor"));
+        assertFalse(FfSettings.steam("Extractor", "extractor"));
+    }
+
+    @Test
+    void aCropsHarvesterAndSettingsComeOverAsTheCropCardsOwn() {
+        final FfRecipe crop = new FfRecipe(
+            "oracle:local-2.9.0-beta-2:cropsnh-crop:cropsnh:cropsnh-sugarbeet",
+            "Crop Farm: Sugar Beet",
+            "crop_produce",
+            "cropsnh-crop",
+            "Crop Farm",
+            "NONE",
+            1024,
+            0,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            "cropsnh:cropsnh:sugarBeet",
+            null);
+        assertTrue(crop.isCrop());
+        assertEquals("cropsnh-sugarbeet", crop.cropSlug());
+        final FfSettings.Mapped m = FfSettings.map(
+            card(
+                "MV",
+                null,
+                null,
+                null,
+                null,
+                0,
+                "crop-industrial-farm",
+                null,
+                1,
+                Map.of("cropBiome", "humid"),
+                9000,
+                null),
+            crop,
+            0,
+            false,
+            true);
+        assertEquals(
+            "crop-industrial-farm",
+            m.settings()
+                .get(com.gtnhplanner.machines.CropsNh.HARVESTER));
+        assertEquals(
+            "humid",
+            m.settings()
+                .get(com.gtnhplanner.machines.CropsNh.BIOME));
+        assertNull(
+            m.settings()
+                .get("voltage"),
+            "a harvester has no voltage of its own");
+        assertEquals(9000, m.machines(), "crops planted, past any machine count's cap");
+        assertTrue(m.pinned());
+    }
+
+    @Test
     void tiers() {
         assertEquals(1, FfSettings.recipeTier(30));
         assertEquals(1, FfSettings.recipeTier(32));

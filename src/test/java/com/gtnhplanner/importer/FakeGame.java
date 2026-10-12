@@ -36,9 +36,20 @@ final class FakeGame implements RecipeIndex, NodeMaker {
     final Set<String> missing = new HashSet<>();
     /** The machine each node was asked to run on. */
     final Map<UUID, String> machines = new HashMap<>();
+    /** Whether the game builds generators (power cards): a bare node naming its source. */
+    boolean generators;
 
     FakeGame() {
         GtnhFlowLoader.ensureDefaultMachineProfile();
+    }
+
+    @Override
+    @Nullable
+    public Node makePower(final String sourceId, final Map<String, String> settings) {
+        if (!generators) return null;
+        final Node node = new Node(UUID.randomUUID(), 0, 0);
+        node.powerSource = sourceId;
+        return node;
     }
 
     @Override
@@ -64,7 +75,8 @@ final class FakeGame implements RecipeIndex, NodeMaker {
     }
 
     @Override
-    public Node make(final GameRecipe recipe, @Nullable final String machineLabel) {
+    public Node make(final GameRecipe recipe, @Nullable final Machine machine) {
+        final String machineLabel = machine == null ? null : machine.label();
         final Node node = new Node(UUID.randomUUID(), 0, 0);
         node.machineName = recipe.handlerName();
         for (final Map.Entry<String, Double> e : merged(recipe.inputs(), true).entrySet())

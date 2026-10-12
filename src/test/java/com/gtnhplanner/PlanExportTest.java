@@ -96,6 +96,119 @@ class PlanExportTest {
     }
 
     @Test
+    void aCropPostsAsTheWebsitesCropFarmCard() throws IOException {
+        final Graph g = new Graph("Crops");
+        final Node beet = new Node(java.util.UUID.randomUUID(), 0, 0);
+        beet.outputs.add(com.gtnhplanner.harness.TestIngredients.port("Sugar Beet", 2.69));
+        beet.machineConfig.settings.put(com.gtnhplanner.machines.CropsNh.HARVESTER, "crop-industrial-farm");
+        beet.machineConfig.settings.put(com.gtnhplanner.machines.CropsNh.BIOME, "humid");
+        beet.machineConfig.settings.put(com.gtnhplanner.machines.CropsNh.SEED_BED_TIER, "4");
+        g.addNode(beet);
+        final com.gtnhplanner.machines.CropsNh.Stats stats = new com.gtnhplanner.machines.CropsNh.Stats(
+            4,
+            450,
+            0.81450623,
+            256,
+            1,
+            false,
+            2,
+            null,
+            List.of(new com.gtnhplanner.machines.CropsNh.Drop("cropsnh:berry@1", 1, 10000)));
+        final JsonObject p = PlanExport.project(g, "Crops", new PlanExport.World() {
+
+            @Override
+            public PlanExport.Res port(final Port<?> port) {
+                return WORLD.port(port);
+            }
+
+            @Override
+            public PlanExport.Res resource(final String key) {
+                return WORLD.resource(key);
+            }
+
+            @Override
+            public String machine(final Node node) {
+                return "Industrial Farm";
+            }
+
+            @Override
+            public double machines(final Node node) {
+                return 225;
+            }
+
+            @Override
+            public String tier(final Node node) {
+                return "LV";
+            }
+
+            @Override
+            public PlanExport.Crop crop(final Node node) {
+                return new PlanExport.Crop("cropsnh:sugarBeet", stats);
+            }
+        });
+        final JsonObject recipe = p.getAsJsonArray("recipes")
+            .get(0)
+            .getAsJsonObject();
+        assertEquals(
+            "crop_produce",
+            recipe.get("kind")
+                .getAsString());
+        assertEquals(
+            "cropsnh-crop",
+            recipe.get("category")
+                .getAsString());
+        assertEquals(
+            "Crop Farm",
+            recipe.get("machineType")
+                .getAsString(),
+            "the site knows a crop's recipe by its crop farm");
+        assertEquals(
+            "cropsnh:cropsnh:sugarBeet",
+            recipe.getAsJsonObject("source")
+                .get("rawRecipeId")
+                .getAsString());
+        final JsonObject crop = recipe.getAsJsonObject("metadata")
+            .getAsJsonObject("cropsNh");
+        assertEquals(
+            450,
+            crop.get("growthPoints")
+                .getAsInt());
+        assertEquals(
+            "cropsnh:berry@1",
+            crop.getAsJsonArray("drops")
+                .get(0)
+                .getAsJsonObject()
+                .get("id")
+                .getAsString());
+        final JsonObject node = p.getAsJsonArray("nodes")
+            .get(0)
+            .getAsJsonObject();
+        assertEquals(
+            "crop-industrial-farm",
+            node.get("machineHandlerId")
+                .getAsString(),
+            "the harvester is the site's machine");
+        assertEquals(
+            225,
+            node.get("machineCount")
+                .getAsInt(),
+            "crops planted");
+        final JsonObject settings = node.getAsJsonObject("machineConfigTiers");
+        assertEquals(
+            "humid",
+            settings.get("cropBiome")
+                .getAsString());
+        assertEquals(
+            "4",
+            settings.get("cropSeedBedTier")
+                .getAsString());
+        assertFalse(settings.has("cropHarvester"), "the harvester goes as the machine, not a setting");
+        final Path out = Path.of("build", "tmp", "gtnhplanner-export-crops.json");
+        Files.createDirectories(out.getParent());
+        Files.writeString(out, p.toString(), StandardCharsets.UTF_8);
+    }
+
+    @Test
     void aPlanBecomesAFactoryFlowProject() throws IOException {
         final Graph g = GtnhFlowLoader.load("mk1")
             .graph();

@@ -93,8 +93,9 @@ public final class CardLayout {
         final CardModel first = models.get(0);
         circuitAsInput = com.gtnhplanner.ui.PlannerSettings.circuitAsInput();
         final boolean circuitRow = !shared && !first.isPower() && first.circuit != null && circuitAsInput;
-        final boolean powerRow = !first.isPower()
-            && (first.euPerTick > 0 || com.gtnhplanner.machines.game.CropCards.isCrop(first.node));
+        // A steam machine's row bills its steam where an electric one's bills EU.
+        final boolean powerRow = !first.isPower() && (first.euPerTick > 0 || first.steamPerTick > 0
+            || com.gtnhplanner.machines.game.CropCards.isCrop(first.node));
         inRows = new int[sections];
         outRows = new int[sections];
         ruleY = new int[sections];

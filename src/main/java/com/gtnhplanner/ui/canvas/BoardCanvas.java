@@ -89,6 +89,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         boolean rebuild = builtStructure != session.structure();
         for (final RecipeCard card : cards.values()) rebuild |= card.shapeChanged();
         if (rebuild) rebuildCards();
+        if (graph().unstackPending() && !session.solving() && !cards.isEmpty()) unstack();
         if (editNote != null && notes.containsKey(editNote)) {
             notes.get(editNote)
                 .startEditing();
@@ -112,6 +113,40 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
             reveal = List.of();
             revealFocus = false;
         }
+    }
+
+    /**
+     * An imported plan's cards and drawers pulled apart where they lie on each other (layout/Unstack), once it has
+     * solved: a card's size is known only then (a flow out of or into the plan at a port is a row of its own).
+     */
+    private void unstack() {
+        graph().takeUnstack();
+        final List<UUID> ids = new ArrayList<>();
+        final List<int[]> boxes = new ArrayList<>();
+        final java.util.Set<RecipeCard> seen = new java.util.HashSet<>();
+        for (final RecipeCard card : cards.values()) {
+            // A shared machine is one card, found under each of its recipes.
+            if (!seen.add(card)) continue;
+            card.refresh();
+            if (card.model() == null || card.layout() == null) continue;
+            final Node n = card.model().node;
+            ids.add(n.id);
+            boxes.add(new int[] { n.x, n.y, CardLayout.W, card.layout().height });
+        }
+        for (final DrawerCard drawer : drawers.values()) {
+            if (drawer.model() == null) continue;
+            final Drawer d = drawer.model().drawer;
+            ids.add(d.getId());
+            boxes.add(new int[] { d.getX(), d.getY(), DrawerCard.W, DrawerCard.H });
+        }
+        final int[][] by = com.gtnhplanner.layout.Unstack.offsets(boxes);
+        final Map<UUID, int[]> at = new HashMap<>();
+        for (int i = 0; i < by.length; i++) if (by[i][0] != 0 || by[i][1] != 0)
+            at.put(ids.get(i), new int[] { boxes.get(i)[0] + by[i][0], boxes.get(i)[1] + by[i][1] });
+        if (at.isEmpty()) return;
+        place(at);
+        graph().touchLayout();
+        com.gtnhplanner.api.PlanAPI.save();
     }
 
     /** Brings cards and drawers just added into view once their widgets exist. */

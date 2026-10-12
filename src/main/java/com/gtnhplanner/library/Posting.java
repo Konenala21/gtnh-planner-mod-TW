@@ -339,5 +339,15 @@ public final class Posting {
             final com.gtnhplanner.machines.web.Web.Recipe recipe = com.gtnhplanner.machines.game.WebEffect.recipe(node);
             return recipe == null ? null : com.gtnhplanner.machines.game.WebCards.handlerId(node, recipe);
         }
+
+        @Override
+        @Nullable
+        public PlanExport.Crop crop(final Node node) {
+            final com.gtnhplanner.machines.CropsNh.Stats stats = com.gtnhplanner.machines.game.CropCards.stats(node);
+            return stats != null && node.properties.get(
+                com.gtnhplanner.machines.game.CropCards.CROP_ID) instanceof final String id && !id.isEmpty()
+                    ? new PlanExport.Crop(id, stats)
+                    : null;
+        }
     }
 }

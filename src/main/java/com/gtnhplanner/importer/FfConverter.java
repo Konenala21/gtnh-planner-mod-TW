@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.gtnhplanner.data.Settings;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
@@ -256,7 +257,17 @@ public final class FfConverter {
         Node placeSection(final FfNode card, final FfRecipe recipe, final Map<Integer, FfSlot> overrides,
             final int section, final String name) {
             final Lookup lookup = index.find(recipe);
-            final RecipeMatcher.Match match = RecipeMatcher.match(recipe, overrides, lookup.candidates());
+            // A crop is the crop it names: its drops are rates the card's settings scale, nothing to match by.
+            final RecipeMatcher.Match match = recipe.isCrop() ? lookup.candidates()
+                .isEmpty()
+                    ? new RecipeMatcher.Match(null, RecipeMatcher.Grade.NONE, "", 0)
+                    : new RecipeMatcher.Match(
+                        lookup.candidates()
+                            .getFirst(),
+                        RecipeMatcher.Grade.EXACT,
+                        "",
+                        1)
+                : RecipeMatcher.match(recipe, overrides, lookup.candidates());
             if (!match.accepted()) {
                 String why = match.detail();
                 if (why.isEmpty()) why = lookup.note() != null ? lookup.note() : "no recipe like it in game";
@@ -271,7 +282,7 @@ public final class FfConverter {
 
             final long eut = game.euPerTick() != null ? game.euPerTick() : Math.round(recipe.eut());
             final FfSettings.Mapped mapped = FfSettings.map(card, recipe, eut, plan.solveMode(), section == 0);
-            final Node node = maker.make(game, mapped.machineLabel());
+            final Node node = maker.make(game, mapped.machine());
             if (node == null) {
                 report.add(Kind.UNMATCHED, name, "the game could not build a card for it");
                 return null;
@@ -279,6 +290,15 @@ public final class FfConverter {
             node.x = px(card.x());
             node.y = py(card.y());
             maker.applySettings(node, mapped.settings());
+            // A single block's tier is its machine: where the game has none at the plan's tier, the card runs at the
+            // nearest it has.
+            final Object asked = mapped.settings()
+                .get(Settings.VOLTAGE.key()),
+                runs = node.machineConfig == null ? null : node.machineConfig.settings.get(Settings.VOLTAGE.key());
+            if (asked != null && runs != null && !asked.equals(runs)) report.add(
+                Kind.CONVERTED,
+                name,
+                "runs at " + runs + ", the nearest tier its machine comes in (the plan has " + asked + ")");
             node.machineConfig.setMachineCount(mapped.machines());
             node.setMachineCountFixed(mapped.pinned());
             for (final String note : mapped.notes()) report.add(Kind.CONVERTED, name, note);
@@ -299,7 +319,8 @@ public final class FfConverter {
 
         /**
          * A power card: the same generator at the same settings, which rebuilds its ports from the source as the site
-         * does on load. Its pin comes over as a pin in a Solve plan, else its count as a starting count.
+         * does on load. Its pin comes over as a pin in a Solve plan (an unpinned one's count as a starting count), its
+         * count pinned in a Build plan.
          */
         void placePower(final FfNode card, final FfRecipe recipe) {
             final Node node = maker.makePower(recipe.powerSource(), card.machineConfigTiers());
@@ -313,7 +334,11 @@ public final class FfConverter {
             if (plan.solveMode() && pin != null && pin > 0) {
                 node.machineConfig.setMachineCount((int) Math.ceil(pin - 1e-9));
                 node.setMachineCountFixed(true);
-            } else node.machineConfig.setMachineCount((int) Math.max(1, Math.ceil(card.machineCount() - 1e-9)));
+            } else {
+                node.machineConfig.setMachineCount((int) Math.max(1, Math.ceil(card.machineCount() - 1e-9)));
+                // Build runs every card at its count, generators too (as recipe cards come over: FfSettings).
+                if (!plan.solveMode()) node.setMachineCountFixed(true);
+            }
             graph.addNode(node);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())
                 .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));

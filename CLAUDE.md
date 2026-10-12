@@ -43,7 +43,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `docs/design/routing-and-arrange.md` has both designs and the benchmark they are tuned against.
 - `importer/` converts Factory Flow plans (JSON, plan codes, links) to graphs: a pure core plus `importer/game/`,
   the NEI and GregTech side. The "+" plan tab pastes one from the clipboard; `call 'importff?file=<path>'` does it
-  from the harness. Fixtures are in `src/test/resources/factory-flow/`.
+  from the harness. Fixtures are in `src/test/resources/factory-flow/`. A card's machine is found by the website's
+  handler id among the blocks `handlers.json` lists for it (`WebCards.handlerItems`; names alone never match a GT
+  single block, named per tier), a single block at the card's tier (the nearest it comes in, reported). Our cards are
+  sized differently, so the board pulls an imported plan's overlapping cards apart once it has solved
+  (`layout/Unstack`). Real plans to try it on: `POST /api/community/plans/<id>/download` gives a post's plan.
 - Shared machines (one card, several recipes time-sharing one machine; `docs/design/ff-shared-machine-spec.md`) are
   `MachineGroup`s with ordered `sections`: each recipe stays a node with its own ports and wires, the group draws as
   one card, its machine settings are copied to every recipe, and a pinned count is an exact solver pool.
@@ -63,7 +67,14 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   makes it take that resource (`BoardSession.holdAndWire`), and every edit lets a card with nothing wired go of it
   (`releaseCustomRates`). Pinned at one when placed, so the dial is the rate. The overview counts it as the plan's
   edge (what it supplies is an input), never a machine. It posts and imports as the website's own custom rate card.
-  The website's crop farm (its Farm key) is not ported: it needs CropsNH (GTNH 2.9), which the dev pack lacks.
+- Crops are ported (`machines/CropsNh`, the website's model, checked on its goldens; `data/provider/CropsNhProvider`
+  reads CropsNH's NEI Crops page; `machines/game/CropCards` is the card): a card per crop, added from that page, its
+  count crops planted, harvested by a Crop Manager or the Industrial Farm (the `cropHarvester` setting, the website's
+  `machineHandlerId`), its settings under the website's own keys. They import from and post to the website as its
+  crop farm cards (`metadata.cropsNh`). The full pack has CropsNH; the dev pack does not.
+- GregTech's steam machines (bronze and steel single blocks, the steam multiblocks: `GtMachines.Kind.steam`, the
+  website's "Steam ..." or "High Pressure ..." names) run at no voltage: no tier chip, a voltage left in their settings
+  is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report).
 - NEI's recipe pages carry a plan button above + and the star (`nei/PlanButton`, `nei/PlanMenu`, added through NEI's
   `UpdateRecipeButtonsEvent`): it asks which plan (most recently open first, `Plan.byRecency`) and which machine
   (`ui/card/MachineChoices`: GT single blocks are one choice at the recipe's tier), then opens the board on that plan
@@ -207,7 +218,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 541 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 550 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.

@@ -142,6 +142,28 @@ public class Graph {
     /** The solve version the solve caches above were built from. */
     private transient long solvedAt = -1;
 
+    /**
+     * An imported plan whose cards may lie on each other (sized differently where it was made): the board pulls them
+     * apart once it has solved and knows their sizes ({@link #takeUnstack}).
+     */
+    private transient boolean unstackPending;
+
+    /** Asks the board to pull the plan's cards and drawers apart where they overlap, the next time it shows it. */
+    public void unstackWhenShown() {
+        unstackPending = true;
+    }
+
+    /** Whether the board should pull the plan's cards apart now; asks only once. */
+    public boolean takeUnstack() {
+        final boolean pending = unstackPending;
+        unstackPending = false;
+        return pending;
+    }
+
+    public boolean unstackPending() {
+        return unstackPending;
+    }
+
     public Graph() {
         this.name = "";
     }

@@ -16,14 +16,23 @@ import com.gtnhplanner.importer.RecipeIndex.GameRecipe;
 public interface NodeMaker {
 
     /**
+     * The machine FF ran a card's recipe on.
+     *
+     * @param handlerId FF's id for it ("extractor", "steam-extractor", "large-chemical-reactor"), which the game's copy
+     *                  of the website's machine data lists with its blocks; null for the recipe's first machine
+     * @param label     its name ("Extractor", "Large Chemical Reactor"); null when the plan does not say
+     */
+    record Machine(@Nullable String handlerId, @Nullable String label) {}
+
+    /**
      * A node for the recipe, with the board's default settings for a new card applied, at (0, 0); null when the
      * game cannot build one.
      *
-     * @param machineLabel the machine FF ran the recipe on ("Large Chemical Reactor"), to pick that one of the
-     *                     recipe's machines when the game offers it; null for the default
+     * @param machine the machine FF ran the recipe on, to pick that one of the recipe's machines when the game offers
+     *                it; null for the default
      */
     @Nullable
-    Node make(GameRecipe recipe, @Nullable String machineLabel);
+    Node make(GameRecipe recipe, @Nullable Machine machine);
 
     /**
      * A power card (a generator) for one of the site's power sources at its settings, at (0, 0); null when the source

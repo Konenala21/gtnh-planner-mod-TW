@@ -94,6 +94,9 @@ public final class CardModel {
      * start; null on any other card, and on the Tree Growth Simulator and Bacterial Vat (their own models).
      */
     public final com.gtnhplanner.machines.web.NodeMath.Result web;
+    /** Steam one machine burns, L/t (the website's getNodeSteamReport); 0 on anything but a steam machine. */
+    public final double steamPerTick;
+    private final boolean steam;
 
     /**
      * A power card's source and its model at the card's settings, with the stat lines to show: the model's own, then
@@ -112,7 +115,8 @@ public final class CardModel {
         final boolean multiblock, final int coilHeat, final boolean usesHeat, final int parallels,
         final List<PortView> inputs, final List<PortView> outputs, final int durationTicks, final long euPerTick,
         final double machines, final boolean pinned, final ItemStack circuit, final int recipeHeat,
-        final PowerView power, final com.gtnhplanner.machines.web.NodeMath.Result web) {
+        final PowerView power, final com.gtnhplanner.machines.web.NodeMath.Result web, final double steamPerTick,
+        final boolean steam) {
         this.node = node;
         this.machineName = machineName;
         this.catalysts = catalysts;
@@ -134,10 +138,31 @@ public final class CardModel {
         this.recipeHeat = recipeHeat;
         this.power = power;
         this.web = web;
+        this.steamPerTick = steamPerTick;
+        this.steam = steam;
     }
 
     public boolean isPower() {
         return power != null;
+    }
+
+    /** A GregTech card on a steam machine: no voltage, so no tier ({@link #tier} is ""). */
+    public boolean steam() {
+        return steam;
+    }
+
+    private static boolean steam(final ItemStack machine) {
+        final com.gtnhplanner.ui.gt.GtMachines.Kind kind = com.gtnhplanner.ui.gt.GtMachines.of(machine);
+        return kind != null && kind.steam();
+    }
+
+    /** What one steam machine burns, L/t, by the website's steam bill; 0 when its maths do not cover the card. */
+    private static double steamPerTick(final Node node, final MachineConfig cfg) {
+        final com.gtnhplanner.machines.web.Web.Recipe recipe = com.gtnhplanner.machines.game.WebEffect.recipe(node);
+        if (recipe == null) return 0;
+        final com.gtnhplanner.machines.web.PowerReport.Steam s = com.gtnhplanner.machines.web.PowerReport
+            .steam(recipe, com.gtnhplanner.machines.game.WebCards.node(node, cfg, recipe));
+        return s == null ? 0 : s.drawSteamPerTick();
     }
 
     /**
@@ -226,6 +251,8 @@ public final class CardModel {
         final ItemStack machineStack = chosen != null ? chosen : catalysts.isEmpty() ? null : catalysts.get(0);
         final String machineName = crop != null ? com.gtnhplanner.machines.game.CropCards.harvesterName(crop)
             : machineStack != null ? machineStack.getDisplayName() : node.machineName;
+        // A steam machine burns steam at no voltage: no tier, as the website has none on its card.
+        final boolean steam = gregtech && steam(machineStack);
 
         final double machines = balance == null ? 0 : balance.operations();
         final List<PortView> inputs = ports(node.inputs, false, balance, wired, extra);
@@ -237,7 +264,7 @@ public final class CardModel {
             catalysts,
             machineStack,
             gregtech,
-            gregtech ? CardDefaults.stringSetting(cfg, "voltage")
+            steam ? "" : gregtech ? CardDefaults.stringSetting(cfg, "voltage")
                 : crop != null ? com.gtnhplanner.machines.CropsNh.tierName(crop.tier()) : "",
             gregtech ? Math.max(1, CardDefaults.intSetting(cfg, "amp")) : 1,
             web != null ? com.gtnhplanner.machines.web.Power.isMultiblock(web.effectiveRecipe())
@@ -262,7 +289,9 @@ public final class CardModel {
                     ? h.intValue()
                     : 0,
             null,
-            web);
+            web,
+            steam && web != null ? steamPerTick(node, cfg) : 0,
+            steam);
     }
 
     /**
@@ -299,7 +328,9 @@ public final class CardModel {
             null,
             0,
             new PowerView(source, model, stats),
-            null);
+            null,
+            0,
+            false);
     }
 
     private static List<PortView> ports(final List<Port<?>> ports, final boolean output,
