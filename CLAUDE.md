@@ -255,8 +255,16 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   mod versions (`tools/dev/compat/manifests/`, GTNH's release lists from DreamAssemblerXXL; add the next build's there),
   and fails on any gap not in `tools/dev/compat/guarded.txt` (each with why it is safe). Run it after moving the pins
   and before a release. It cannot see an API that still exists but behaves differently: test in an older pack for that.
+- The next release's notes build up as work lands: `.changelogs/unreleased.md`. Any commit to main that a player would
+  notice adds or edits its line there, in the same commit (the owner, 2026-10-12: always ready to ship). How they read:
+  Discord-casual and in a player's words, short and not daunting. One line a change, grouped New / Better / Fixed; the
+  thing in bold only for a headline feature; no class names, settings keys, paths or numbers a player would not know;
+  never the website (pasted plans are "plan links and codes"). Fold small changes together rather than letting the
+  list grow; a change undone before release comes off the list.
 - Releases are pre-releases tagged `0.2.0-alpha.N` on main (annotated, "GTNH Planner <tag>"), notes in
-  `.changelogs/<tag>.md`. The fork's Actions have never run, so the tag builds nothing: run `./gradlew compatCheck`,
+  `.changelogs/<tag>.md`: rename `unreleased.md` to it, top it with the last release's short intro (alpha warning,
+  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The fork's Actions have
+  never run, so the tag builds nothing: run `./gradlew compatCheck`,
   smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
   `gh release create <tag> --prerelease --title "GTNH Planner <tag>" -F .changelogs/<tag>.md
   build/libs/gtnhplanner-<tag>.jar`.
