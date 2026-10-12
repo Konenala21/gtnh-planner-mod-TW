@@ -146,7 +146,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `POST /api/feedback`, which opens it as a public issue on this repo (labels "from game" and bug, enhancement or
   question) with the site's own token, so players need no GitHub account; the box then links the issue. The endpoint
   answers 503 until `GITHUB_FEEDBACK_TOKEN` (a fine-grained token, Issues read and write on this repo) is in the
-  droplet's `/opt/shared/env.local`. `client/CrashReports` puts the planner's state in every crash report and, on the
+  droplet's `/opt/shared/env.local`. The site guards it against spam (its `src/lib/server/feedback-guard.ts`, after a
+  flood on 2026-10-12): a report must carry the mod's `deviceId` and `versions` shapes (change them there first), and
+  there are limits per address and device, on the same words, and on issues site-wide. `client/CrashReports` puts the planner's state in every crash report and, on the
   next open, offers to send the newest report the planner was part of (`ui/popup/CrashOffer`: a planner frame in the
   error's stack, or a ModularUI frame with the planner open); asked once per crash. The mock answers
   `/api/feedback` too, writing each report to `build/dev-client/mock-feedback/`.
