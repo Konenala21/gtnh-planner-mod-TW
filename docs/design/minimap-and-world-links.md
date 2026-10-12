@@ -104,7 +104,7 @@ What shows is set in the gear's In the world, each also on a key held with sneak
 every one can be rebound; `PlannerKeys` reads them by key code, so a key shared with another binding, NEI's R recipe
 key say, works for both; GTNH runs every binding on a pressed key anyway):
 
-- **Focus** (Shift+U, "Card where you look", on by default): the card of the machine you look at (its ghost under the
+- **Cards** (Focus, Shift+U, on by default): the card of the machine you look at (its ghost under the
   crosshair, through blocks, or the card itself) pops up above it, growing from 60% of its size as it fades in
   (`PlanOverlay.attention`); no other card shows, and none while placing. Off, no cards show at all.
 - **Labels** (Shift+I, on by default): each machine's label in its ghost on the screen (`PlanOverlay.label`): its name
@@ -115,10 +115,11 @@ key say, works for both; GTNH runs every binding on a pressed key anyway):
   wire, only on the wires of the machine looked at (and the wire under the crosshair), or none.
 - **Machines**: See-through (the ghosts below), Solid (opaque blocks, hidden behind real blocks as real ones are), or
   Hidden (wires, labels and cards only). The machine being placed always shows as a ghost.
-- **Keys list in the corner**: the keys strip under the minimap, or not.
+- **Keys list**: the keys strip under the minimap, or not.
 
 With Focus, Labels and wire labels off, only the machines and the wires show. Wires show at 60%, more for the card
-looked at. The gear's In the world section says what each of these does, under its name, with its key; every key
+looked at. The gear's In the world section gives each its key and one plain line on what it does (the owner, 2026-10-12: one
+short sentence, no commas, no intro); every key
 that switches something has its setting there, and the Keys section opens Controls. Only the machine looked at is outlined.
 Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
 draws is multiplied by; items and fluids, which the game draws solid whatever the blending, drop out once a card is a

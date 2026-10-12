@@ -312,58 +312,46 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         out.add(
             new Section(
                 "In the world",
-                "The plan over the world while you play: what shows of the machines you placed and their wires. Each of"
-                    + " these is its own switch; with cards and labels off, only the machines and wires show.",
                 List.of(
                     toggle(
                         "Show the plan over the world",
                         PlannerKeys.label(PlannerKeys.AR),
                         PlannerSettings::arLens,
-                        PlannerSettings::setArLens).about("All of it, on or off."),
+                        PlannerSettings::setArLens).about("Shows or hides everything below."),
                     toggle(
                         "Cards",
                         PlannerKeys.held(PlannerKeys.FOCUS),
                         PlannerSettings::arFocus,
-                        PlannerSettings::setArFocus)
-                            .about("Focus: a machine's card pops up above it while you look at it, and only then."),
+                        PlannerSettings::setArFocus).about("Shows a machine's card when you look at it."),
                     toggle(
                         "Machine labels",
                         PlannerKeys.held(PlannerKeys.LABELS),
                         PlannerSettings::arLabels,
-                        PlannerSettings::setArLabels)
-                            .about("Name, tier, EU/t and count (or which of a group, 2/4) inside each machine."),
+                        PlannerSettings::setArLabels).about("Labels each machine with its name and power."),
                     choice(
                         "Wire labels",
                         null,
                         PlannerSettings.AR_WIRE_LABEL_NAMES,
                         PlannerSettings::arWireLabels,
-                        PlannerSettings::setArWireLabels)
-                            .about("What each wire carries and how much: on every wire, or the looked-at machine's."),
+                        PlannerSettings::setArWireLabels).about("Shows what each wire carries."),
                     choice(
                         "Machines",
                         null,
                         PlannerSettings.AR_GHOST_NAMES,
                         PlannerSettings::arGhosts,
-                        PlannerSettings::setArGhosts)
-                            .about("How the placed machines are drawn. The one you are placing is always see-through."),
+                        PlannerSettings::setArGhosts).about("Sets how placed machines are drawn."),
                     toggle("Keys list", null, PlannerSettings::arKeys, PlannerSettings::setArKeys)
-                        .about("The world's keys in the corner, by the minimap."),
-                    choice(
-                        "Range, in blocks",
-                        null,
-                        ranges,
-                        PlannerSettings::arRangeIndex,
-                        PlannerSettings::setArRangeIndex).about("How far away the plan shows."))));
+                        .about("Shows the key hints by the minimap."),
+                    choice("Range", "blocks", ranges, PlannerSettings::arRangeIndex, PlannerSettings::setArRangeIndex)
+                        .about("Hides machines farther away than this."))));
 
         out.add(
             new Section(
                 "Keys",
-                "Every key of the planner is in Minecraft's Controls, under GTNH Planner, and can be changed there. The"
-                    + " world's keys work with sneak held.",
-                List.of(new Row("Set them in Controls", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
+                List.of(new Row("Key bindings", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
                     final Minecraft mc = Minecraft.getMinecraft();
                     mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
-                }))));
+                }).about("Opens Minecraft's controls."))));
         return out;
     }
 
