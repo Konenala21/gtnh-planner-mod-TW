@@ -135,7 +135,9 @@ public final class Minimap {
 
     private void draw(final Minecraft mc, final ScaledResolution sr) {
         final int[] at = bounds(sr);
-        drawAt(at[0] + 2, at[1] + 2, PlannerSettings.minimapSize(), 1);
+        final int x0 = at[0] + 2, y0 = at[1] + 2, size = PlannerSettings.minimapSize(), f = sr.getScaleFactor();
+        // On the HUD the scissor is plain arithmetic: no asking GL for its matrices every frame.
+        drawAt(x0, y0, size, 1, new int[] { x0 * f, mc.displayHeight - (y0 + size) * f, size * f, size * f });
     }
 
     /**
@@ -143,11 +145,14 @@ public final class Minimap {
      * across, showing what the map in play shows.
      */
     public static void preview(final int x, final int y, final int size) {
-        INSTANCE.drawAt(x, y, size, size / (float) PlannerSettings.minimapSize());
+        INSTANCE.drawAt(x, y, size, size / (float) PlannerSettings.minimapSize(), null);
     }
 
-    /** The map at (x0, y0), {@code size} across, its plan {@code k} times as big as in play (where k is 1). */
-    private void drawAt(final int x0, final int y0, final int size, final float k) {
+    /**
+     * The map at (x0, y0), {@code size} across, its plan {@code k} times as big as in play (where k is 1), clipped by
+     * {@code scissor} in window pixels, or one found from the drawing space when null.
+     */
+    private void drawAt(final int x0, final int y0, final int size, final float k, @Nullable final int[] scissor) {
         final boolean circle = PlannerSettings.minimapCircle();
         final PlanSnapshot snap = PlanSnapshot.latest();
         GL11.glPushMatrix();
@@ -173,7 +178,7 @@ public final class Minimap {
         }
         final float z = zoom() * k;
         final float ox = x0 + size / 2f - centreX * z, oy = y0 + size / 2f - centreY * z;
-        clipBegin(x0, y0, size, circle);
+        clipBegin(x0, y0, size, circle, scissor);
         LABELS.clear();
         drawWires(snap.wires(), ox, oy, z, lit);
         if (zoom() > WHOLE_FROM) {
@@ -261,15 +266,14 @@ public final class Minimap {
     }
 
     /**
-     * Clips what follows to the map: the scissor for a square; for a circle the stencil buffer when the game has one
-     * (nothing else here touches it), else the depth buffer, written close to the eye outside the circle. Items turn
-     * the
-     * depth test off as they draw, so with the depth mask the map also leaves out icons centred outside the circle.
+     * Clips what follows to the map: the scissor for its square, from the drawing space as it is (the HUD's, or the
+     * settings' inside the planner, whose scissor comes back after); for a circle also ModularUI's stencil, which nests
+     * with any the planner has up and holds while items draw (the game's own stencil bits read 0 on its framebuffer,
+     * and a depth mask is undone by every item, which turns the depth test off).
      */
-    private static void clipBegin(final int x, final int y, final int size, final boolean circle) {
-        // The scissor in the window's pixels, from the drawing space as it is: the HUD's, or the settings' inside the
-        // planner (whose scissor, if any, comes back after).
-        final int[] win = window(x, y, size, size);
+    private static void clipBegin(final int x, final int y, final int size, final boolean circle,
+        @Nullable final int[] scissor) {
+        final int[] win = scissor != null ? scissor : window(x, y, size, size);
         GL11.glPushAttrib(GL11.GL_SCISSOR_BIT);
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(win[0], win[1], win[2], win[3]);
@@ -278,14 +282,7 @@ public final class Minimap {
         roundR = circle ? size / 2f : Float.MAX_VALUE;
         if (!circle) return;
         final float r = size / 2f, cx = x + r;
-        stencil = GL11.glGetInteger(GL11.GL_STENCIL_BITS) > 0;
-        if (stencil) {
-            GL11.glClearStencil(0);
-            GL11.glClear(GL11.GL_STENCIL_BUFFER_BIT);
-            GL11.glEnable(GL11.GL_STENCIL_TEST);
-            GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0xFF);
-            GL11.glStencilOp(GL11.GL_REPLACE, GL11.GL_REPLACE, GL11.GL_REPLACE);
-            GL11.glColorMask(false, false, false, false);
+        com.cleanroommc.modularui.drawable.Stencil.apply(() -> {
             Hyb.beginBatch();
             for (int row = 0; row < size; row++) {
                 final float dy = row + 0.5f - r;
@@ -293,31 +290,8 @@ public final class Minimap {
                 if (half > 0) Hyb.rect(cx - half, y + row, 2 * half, 1, 0xFF000000);
             }
             Hyb.endBatch();
-            GL11.glColorMask(true, true, true, true);
-            GL11.glStencilFunc(GL11.GL_EQUAL, 1, 0xFF);
-            GL11.glStencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_KEEP);
-            return;
-        }
-        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_ALWAYS);
-        GL11.glDepthMask(true);
-        GL11.glColorMask(false, false, false, false);
-        GL11.glPushMatrix();
-        GL11.glTranslatef(0, 0, 500);
-        Hyb.beginBatch();
-        for (int row = 0; row < size; row++) {
-            final float dy = row + 0.5f - r;
-            final float half = (float) Math.sqrt(Math.max(0, r * r - dy * dy));
-            Hyb.rect(x, y + row, cx - half - x, 1, 0xFF000000);
-            Hyb.rect(cx + half, y + row, x + size - cx - half, 1, 0xFF000000);
-        }
-        Hyb.endBatch();
-        GL11.glPopMatrix();
-        GL11.glColorMask(true, true, true, true);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
-        GL11.glDepthMask(false);
-        masked = true;
+        }, true);
+        rounded = true;
     }
 
     private static final java.nio.FloatBuffer MODELVIEW = org.lwjgl.BufferUtils.createFloatBuffer(16),
@@ -346,35 +320,19 @@ public final class Minimap {
         return new float[] { WINDOW.get(0), WINDOW.get(1) };
     }
 
-    /** The round map's centre and radius (no radius for a square), and whether it clips with the stencil. */
+    /** The round map's centre and radius (no radius for a square), and whether its stencil is up. */
     private static float roundX, roundY, roundR;
-    private static boolean stencil;
+    private static boolean rounded;
 
     /** Whether an icon centred here shows: inside the map, for a round one its circle. */
     private static boolean inMap(final float cx, final float cy) {
         return Math.hypot(cx - roundX, cy - roundY) <= roundR;
     }
 
-    /** Whether the round mask is up: drawing an item turns the depth test off, and the mask needs it back on. */
-    private static boolean masked;
-
-    private static void keepMask() {
-        if (!masked) return;
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
-        GL11.glDepthMask(false);
-    }
-
     private static void clipEnd(final boolean circle) {
+        if (rounded) com.cleanroommc.modularui.drawable.Stencil.remove();
+        rounded = false;
         GL11.glPopAttrib();
-        if (stencil) GL11.glDisable(GL11.GL_STENCIL_TEST);
-        if (masked) {
-            GL11.glDepthMask(true);
-            GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-        }
-        masked = false;
-        stencil = false;
         roundR = Float.MAX_VALUE;
     }
 
@@ -447,7 +405,6 @@ public final class Minimap {
         GL11.glScalef(z, z, 1);
         draw.run();
         GL11.glPopMatrix();
-        keepMask();
     }
 
     /** The names over cards and drawers, placed as the board places them zoomed out. */
@@ -468,7 +425,6 @@ public final class Minimap {
             if (side >= 6 && inMap(x + 2 + side / 2f, y + h / 2f)) {
                 if (b.power()) com.gtnhplanner.ui.card.RecipeCard.euIcon(x + 2, y + (h - side) / 2f, side);
                 else Hyb.icon(b.item(), b.fluid(), x + 2, y + (h - side) / 2f, side, 0);
-                keepMask();
             }
             final String sign = b.rate() <= 0 ? "" : b.source() ? "-" : "+";
             final int color = b.rate() <= 0 ? Hyb.MUTED
@@ -508,7 +464,6 @@ public final class Minimap {
                 } else if (c.machine() != null) {
                     final float s = Math.min(side, 32);
                     Hyb.item(c.machine(), x + (w - s) / 2f, y + (h - s) / 2f, s, 0);
-                    keepMask();
                 }
             }
             pill(

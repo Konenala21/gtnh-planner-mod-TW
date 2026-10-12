@@ -107,6 +107,19 @@ public final class IconShadows {
         GL11.glPopAttrib();
     }
 
+    /**
+     * Draws the icon itself from the atlas, as one textured quad, much cheaper than drawing the item; false (nothing
+     * drawn) until it is in the atlas, the frame after it is first asked for.
+     */
+    public static boolean icon(final ItemStack stack, final float x, final float y, final float size) {
+        if (failed || stack == null || stack.getItem() == null || !CELLS.containsKey(Key.of(stack))) {
+            draw(stack, x, y, size, 0);
+            return false;
+        }
+        draw(stack, x, y, size, 0xFFFFFFFF);
+        return true;
+    }
+
     /** The atlas as an image, for the dev harness: what the shadows are drawn from. Null before anything is in it. */
     public static java.awt.image.BufferedImage atlasImage() {
         if (atlas == null) return null;

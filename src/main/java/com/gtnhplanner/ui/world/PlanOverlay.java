@@ -154,6 +154,17 @@ public final class PlanOverlay {
 
     private PlanOverlay() {}
 
+    /** When the last timed part of a frame began, for the dev harness's perf ({@code call perf}). */
+    private static long lapAt;
+
+    /** Times the part since the last lap under {@code name} (none: only starts the clock), while perf is on. */
+    private static void lap(@Nullable final String name) {
+        if (!com.gtnhplanner.dev.DevPerf.on()) return;
+        final long now = System.nanoTime();
+        if (name != null) com.gtnhplanner.dev.DevPerf.time(name, now - lapAt);
+        lapAt = now;
+    }
+
     /** The placement lit gold by the plan over the world this frame, or null. */
     @Nullable
     static WorldLinks.Spot highlighted() {
@@ -276,6 +287,7 @@ public final class PlanOverlay {
         cameraKnown = true;
         final List<Placed> placed = placed(mc);
         if (placed.isEmpty()) return;
+        lap(null);
         WorldMarks.begin();
         // Each placed card's spot: the machine's ghost (unless the machine is built there), see-through, solid or not
         // shown as set; the one looked at outlined. Every multiblock's depth first, so each shows its outside alone and
@@ -293,6 +305,7 @@ public final class PlanOverlay {
                 .equals(lit)) WorldMarks.outline(p.box, Hyb.LIT & 0xFFFFFF, 0.012f, 1.5f, 0.6f);
         }
         WorldMarks.end();
+        lap("ar.ghosts");
     }
 
     /** Whether the card's machine is built on its block already: the block there is the machine. */
@@ -343,6 +356,7 @@ public final class PlanOverlay {
         final PlanSnapshot snap = PlanSnapshot.latest();
         if (snap == null) return;
         final ScaledResolution sr = event.resolution;
+        lap(null);
         final List<Placed> all = placed(mc);
         final float cx = sr.getScaledWidth() / 2f, cy = sr.getScaledHeight() / 2f;
         // Where each machine is on the screen, and how much its card is looked at.
@@ -366,6 +380,7 @@ public final class PlanOverlay {
         // The plan's wires, flat on the screen as the board draws them, and the one the crosshair is on.
         final List<Run> runs = runs(conns(all), seen, sr, mc, snap);
         layout(shown, runs, all, sr);
+        lap("ar.prep+layout");
         // What the crosshair is on: a wire's tag, else the nearest card it is over, else a spot (its ghost), else the
         // wire whose line is within reach.
         Run near = null;
@@ -415,11 +430,13 @@ public final class PlanOverlay {
         }
         Hyb.fadeOut = 0;
         Hyb.endBatch();
+        lap("ar.wires");
         // Each machine's label in its ghost, near to far, each clear of those before it.
         if (PlannerSettings.arLabels()) {
             final List<float[]> labels = new ArrayList<>();
             for (final Placed p : all) if (!p.preview) label(p, sr, mc, labels);
         }
+        lap("ar.labels");
         // Far to near, so nearer cards cover farther ones as objects do, the one looked at over the rest; the one the
         // crosshair is on over them all.
         Placed top = null;
@@ -436,6 +453,7 @@ public final class PlanOverlay {
             Hyb.fadeOut = 1 - solid(top.a);
             card(top, snap, true);
         }
+        lap("ar.cards");
         // Over the cards: what each wire carries, where a card it joins is looked at.
         final boolean always = PlannerSettings.arWireLabels() == PlannerSettings.WIRE_LABELS_ALWAYS;
         for (final Run r : runs) if (r.tag && !r.conn.same(hovered)) {
@@ -445,6 +463,7 @@ public final class PlanOverlay {
         Hyb.fadeOut = 1 - SOLID;
         if (near != null && PlannerSettings.arWireLabels() != PlannerSettings.WIRE_LABELS_OFF) tag(near, true);
         Hyb.fadeOut = 0;
+        lap("ar.tags");
         GL11.glColor4f(1, 1, 1, 1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
     }
@@ -964,13 +983,16 @@ public final class PlanOverlay {
         final PlanSnapshot.Flow f = r.conn.flow;
         if (f != null) {
             if (f.power()) RecipeCard.euIcon(4, 3, TAG_ICON);
-            else Hyb.icon(f.item(), f.fluid(), 4, 3, TAG_ICON, 0);
+            // An item from the icon atlas, one quad, not drawn as an item every frame.
+            else if (f.item() == null || !com.gtnhplanner.ui.theme.IconShadows.icon(f.item(), 4, 3, TAG_ICON))
+                Hyb.icon(f.item(), f.fluid(), 4, 3, TAG_ICON, 0);
             GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
         }
         final int text = 4 + TAG_ICON + 5;
-        Hyb.text(r.rate, text, 3, TAG_RATE, Hyb.INK);
-        Hyb.text(r.name, text, 3 + 8 * TAG_RATE + 2, Hyb.MUTED);
+        // No text shadows on the dark backing: each would draw the text twice, every frame.
+        Hyb.text(r.rate, text, 3, TAG_RATE, Hyb.INK, false);
+        Hyb.text(r.name, text, 3 + 8 * TAG_RATE + 2, 1f, Hyb.MUTED, false);
         GL11.glPopMatrix();
     }
 

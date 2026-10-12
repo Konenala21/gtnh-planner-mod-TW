@@ -333,7 +333,8 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
 - The user can press F2 in game to screenshot what they see; when they refer to "this" or "my screenshot", Read
   the newest file in `run/client/screenshots/`. Harness screenshots land there too, under the names you gave them.
 - Performance: `call 'perf?start=1'`, do something (drag, pan, open a plan), then `call perf` for FPS, frame-time
-  percentiles and per-part timings (cards, drawers, wires, overview, routing, solve). Wires route on the router's
+  percentiles and per-part timings (cards, drawers, wires, overview, routing, solve; over the world `ar.*`: ghosts,
+  wires, labels, cards, tags). Wires route on the router's
   thread (`layout/WireRouter`), incrementally: a drag, a new wire or a new card re-routes only what it touched, and
   the frame waits for a route expected back within 10 ms. They are drawn from a display list; keep per-frame drawing batched (`Hyb.beginBatch`). Dev runs keep
   each plan opened from the Library in `run/client/library-downloads/` for `call 'importff?file=...'`.

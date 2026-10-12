@@ -33,11 +33,31 @@ public final class MachineLabel {
      * it, or none. {@code nth} is which of the card's machines this is, from 1; 0 for none in particular. Returns
      * whether it drew.
      */
-    public static boolean draw(final PlanSnapshot.Card c, final int nth, final float cx, final float cy,
-        final float roomW, final float roomH, final float least, @Nullable final List<float[]> taken) {
+       /**
+        * A label measured: its words, and its levels of detail, most first, each {width, height, name lines, power,
+        * count}.
+        */
+    private record Layout(String count, String power, boolean makes, @Nullable String amps, int tierW,
+        List<String> name, int[][] levels) {}
+
+    /**
+     * Labels measured, by card (snapshots are replaced, never changed) and which machine; a frame measures none twice.
+     */
+    private static final java.util.Map<PlanSnapshot.Card, Layout[]> MEASURED = new java.util.IdentityHashMap<>();
+
+    private static Layout layout(final PlanSnapshot.Card c, final int nth) {
+        if (MEASURED.size() > 2048) MEASURED.clear();
+        final int of = (int) Math.ceil(c.machines() - 1e-9);
+        final int slot = of > 1 && nth > 0 ? Math.min(nth, 64) : 0;
+        final Layout[] known = MEASURED.computeIfAbsent(c, k -> new Layout[65]);
+        if (known[slot] == null) known[slot] = measure(c, slot);
+        return known[slot];
+    }
+
+    private static Layout measure(final PlanSnapshot.Card c, final int nth) {
         // One of several: which, "2/4"; a card of one machine, how many, "×1".
         final int of = (int) Math.ceil(c.machines() - 1e-9);
-        final String count = of > 1 && nth > 0 ? nth + "/" + of : "×" + Fmt.machines(c.machines());
+        final String count = nth > 0 ? nth + "/" + of : "×" + Fmt.machines(c.machines());
         final boolean makes = c.madeEuPerTick() > 0;
         final double eu = makes ? c.madeEuPerTick() : c.euPerTick();
         final String power = eu > 0 ? (makes ? "+" : "") + Fmt.power(eu) + " EU/t" : "";
@@ -49,10 +69,20 @@ public final class MachineLabel {
         final List<String> name = wrap(c.name(), Math.max(full, 70));
         int nameW = 0;
         for (final String s : name) nameW = Math.max(nameW, Hyb.width(s));
-        // Most first, each {width, height, name lines, power shown, count shown}.
         final int[][] levels = { { Math.max(nameW, full), 4 + name.size() * 10 + 15, name.size(), 1, 1 },
             { full, 17, 0, 1, 1 }, { tierW + (tierW > 0 ? 6 : 0) + countW, 17, 0, 0, 1 },
             { tierW > 0 ? tierW : countW, 17, 0, 0, tierW > 0 ? 0 : 1 } };
+        return new Layout(count, power, makes, amps, tierW, name, levels);
+    }
+
+    public static boolean draw(final PlanSnapshot.Card c, final int nth, final float cx, final float cy,
+        final float roomW, final float roomH, final float least, @Nullable final List<float[]> taken) {
+        final Layout lay = layout(c, nth);
+        final String count = lay.count(), power = lay.power(), amps = lay.amps();
+        final boolean makes = lay.makes();
+        final int tierW = lay.tierW();
+        final List<String> name = lay.name();
+        final int[][] levels = lay.levels();
         for (final int[] l : levels) {
             final int w = l[0] + 2 * PAD, h = l[1];
             final float scale = Math.min(Math.min(roomW / w, roomH / h), MOST);
@@ -69,15 +99,16 @@ public final class MachineLabel {
             GL11.glTranslatef(x0, y0, 0);
             GL11.glScalef(scale, scale, 1);
             Hyb.roundRect(0, 0, w, h, 3, 0xA8141518);
-            for (int i = 0; i < l[2]; i++) Hyb.text(name.get(i), PAD, 3 + 10 * i, Hyb.INK);
+            // No text shadows on the dark backing: each would draw the text twice, every frame.
+            for (int i = 0; i < l[2]; i++) Hyb.text(name.get(i), PAD, 3 + 10 * i, 1f, Hyb.INK, false);
             final float y = h - 13;
             float x = PAD;
             if (tierW > 0) {
                 Hyb.tierTag(c.tier(), amps, x, y);
                 x += tierW + 4;
             }
-            if (l[3] == 1 && !power.isEmpty()) Hyb.text(power, x, y, makes ? MADE : Hyb.MUTED);
-            if (l[4] == 1) Hyb.textRight(count, w - PAD, y, Hyb.INK);
+            if (l[3] == 1 && !power.isEmpty()) Hyb.text(power, x, y, 1f, makes ? MADE : Hyb.MUTED, false);
+            if (l[4] == 1) Hyb.text(count, w - PAD - Hyb.width(count), y, 1f, Hyb.INK, false);
             GL11.glPopMatrix();
             return true;
         }
