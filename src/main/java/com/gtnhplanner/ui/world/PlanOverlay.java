@@ -437,12 +437,13 @@ public final class PlanOverlay {
             card(top, snap, true);
         }
         // Over the cards: what each wire carries, where a card it joins is looked at.
+        final boolean always = PlannerSettings.arWireLabels() == PlannerSettings.WIRE_LABELS_ALWAYS;
         for (final Run r : runs) if (r.tag && !r.conn.same(hovered)) {
-            Hyb.fadeOut = 1 - solid(shown(r, seen));
+            Hyb.fadeOut = 1 - (always ? SOLID : solid(shown(r, seen)));
             if (Hyb.fadeOut < 0.99f) tag(r, false);
         }
         Hyb.fadeOut = 1 - SOLID;
-        if (near != null) tag(near, true);
+        if (near != null && PlannerSettings.arWireLabels() != PlannerSettings.WIRE_LABELS_OFF) tag(near, true);
         Hyb.fadeOut = 0;
         GL11.glColor4f(1, 1, 1, 1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -668,7 +669,10 @@ public final class PlanOverlay {
         for (final List<Conn> pair : pairs.values()) for (int i = 0; i < pair.size(); i++) {
             final Run r = run(pair.get(i), i - (pair.size() - 1) / 2f, clock, seen, sr, mc, snap);
             if (r == null) continue;
-            r.tag = shown(r, seen) > TAG_FROM || r.conn.same(hovered);
+            // Its tag: always, for the machine looked at (or the wire under the crosshair), or never, as set.
+            final int labels = PlannerSettings.arWireLabels();
+            r.tag = labels == PlannerSettings.WIRE_LABELS_ALWAYS
+                || labels == PlannerSettings.WIRE_LABELS_LOOKED && (shown(r, seen) > TAG_FROM || r.conn.same(hovered));
             out.add(r);
         }
         return out;

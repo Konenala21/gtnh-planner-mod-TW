@@ -208,6 +208,19 @@ public final class PlannerSettings {
         set("world.arLabels", on);
     }
 
+    /** What each wire over the world says it carries: on every wire, on the wires of the machine looked at, or none. */
+    public static final String[] AR_WIRE_LABEL_NAMES = { "Always", "Where you look", "Off" };
+
+    public static final int WIRE_LABELS_ALWAYS = 0, WIRE_LABELS_LOOKED = 1, WIRE_LABELS_OFF = 2;
+
+    public static int arWireLabels() {
+        return clamp(integer("world.arWireLabels", WIRE_LABELS_ALWAYS), AR_WIRE_LABEL_NAMES.length);
+    }
+
+    public static void setArWireLabels(final int i) {
+        set("world.arWireLabels", clamp(i, AR_WIRE_LABEL_NAMES.length));
+    }
+
     /**
      * How placed machines show in the world: see-through ghosts, solid blocks, or not at all (wires and labels only).
      */

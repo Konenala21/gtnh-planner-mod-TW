@@ -20,9 +20,12 @@ public final class PlannerKeys {
 
     private static final String CATEGORY = "key.categories.neiflowchart";
 
-    static final KeyBinding MINIMAP = new KeyBinding("key.gtnhplanner.minimap", Keyboard.KEY_N, CATEGORY);
-    static final KeyBinding ZOOM_IN = new KeyBinding("key.gtnhplanner.minimapZoomIn", Keyboard.KEY_RBRACKET, CATEGORY);
-    static final KeyBinding ZOOM_OUT = new KeyBinding(
+    public static final KeyBinding MINIMAP = new KeyBinding("key.gtnhplanner.minimap", Keyboard.KEY_N, CATEGORY);
+    public static final KeyBinding ZOOM_IN = new KeyBinding(
+        "key.gtnhplanner.minimapZoomIn",
+        Keyboard.KEY_RBRACKET,
+        CATEGORY);
+    public static final KeyBinding ZOOM_OUT = new KeyBinding(
         "key.gtnhplanner.minimapZoomOut",
         Keyboard.KEY_LBRACKET,
         CATEGORY);
@@ -33,7 +36,7 @@ public final class PlannerKeys {
     static final KeyBinding RECENTRE = new KeyBinding("key.gtnhplanner.minimapRecentre", Keyboard.KEY_NONE, CATEGORY);
     public static final KeyBinding AR = new KeyBinding("key.gtnhplanner.ar", Keyboard.KEY_Y, CATEGORY);
     static final KeyBinding LINK = new KeyBinding("key.gtnhplanner.link", Keyboard.KEY_L, CATEGORY);
-    static final KeyBinding PIN_LIST = new KeyBinding("key.gtnhplanner.pinList", Keyboard.KEY_NONE, CATEGORY);
+    public static final KeyBinding PIN_LIST = new KeyBinding("key.gtnhplanner.pinList", Keyboard.KEY_NONE, CATEGORY);
 
     /**
      * The keys held with sneak to adjust a placed machine and the plan over the world (R also turns the machine being
@@ -61,7 +64,7 @@ public final class PlannerKeys {
     }
 
     /** A binding's key as people say it. */
-    static String label(final KeyBinding binding) {
+    public static String label(final KeyBinding binding) {
         return keyLabel(binding.getKeyCode());
     }
 

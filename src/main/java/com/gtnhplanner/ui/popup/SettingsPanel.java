@@ -23,6 +23,7 @@ import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
+import com.gtnhplanner.ui.world.PlannerKeys;
 
 /**
  * The planner's settings (the top bar's gear): a box in the middle of the screen in the card's look, its sections down
@@ -47,9 +48,20 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
     /**
      * A setting: its name, a quiet hint after it (a key, a unit), its control, the names of its values, which one it
-     * has now and how to set one by its index.
+     * has now and how to set one by its index; and what it does, small under its name, when it says.
      */
-    public record Row(String label, @Nullable String hint, Kind kind, String[] names, IntSupplier at, IntConsumer to) {
+    public record Row(String label, @Nullable String hint, Kind kind, String[] names, IntSupplier at, IntConsumer to,
+        @Nullable String about) {
+
+        public Row(final String label, @Nullable final String hint, final Kind kind, final String[] names,
+            final IntSupplier at, final IntConsumer to) {
+            this(label, hint, kind, names, at, to, null);
+        }
+
+        /** The same setting, saying what it does under its name. */
+        Row about(final String text) {
+            return new Row(label, hint, kind, names, at, to, text);
+        }
 
         public String value() {
             return names[index()];
@@ -60,13 +72,22 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         }
     }
 
-    private record Section(String name, List<Row> rows) {}
+    /** A section: its name on the left, a line or two on what it is for (or none), and its settings. */
+    private record Section(String name, @Nullable String intro, List<Row> rows) {
+
+        Section(final String name, final List<Row> rows) {
+            this(name, null, rows);
+        }
+    }
 
     // The box: a title bar, the sections on the left, the settings on the right.
-    private static final int W = 340, TITLE = 22, SIDE = 96, SIDE_ROW = 18, ROW = 22, PAD = 6, MAX_ROWS = 7;
+    private static final int W = 380, TITLE = 22, SIDE = 96, SIDE_ROW = 18, ROW = 22, PAD = 6, MIN_ROWS = 7;
+    /** A setting's explanation: its size against the names', and its lines' height; a section intro's lines' height. */
+    private static final float ABOUT_SCALE = 0.75f;
+
+    private static final int ABOUT_LINE = 8, INTRO_LINE = 10;
     /** The settings box's panel, found again to centre it when the planner's size changes. */
     private static final String PANEL = "gtnhplanner_settings_panel";
-    private static final int H = TITLE + PAD + MAX_ROWS * ROW + PAD;
     // The controls, right-aligned in their row.
     private static final int RIGHT = W - 10, SWITCH_W = 22, SWITCH_H = 12, CHOICE_H = 16, TRACK_W = 96, VALUE_W = 30,
         SCREEN_W = 28, SCREEN_H = 18, CLOSE = 14;
@@ -83,14 +104,25 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     @Nullable
     private Row dragging;
 
+    /** The box's height: room for its tallest section. */
+    private final int h;
+
     private SettingsPanel(final List<Section> sections) {
         this.sections = sections;
-        size(W, H);
+        int most = MIN_ROWS * ROW;
+        for (final Section s : sections) {
+            int tall = introH(s);
+            for (final Row r : s.rows()) tall += rowH(r);
+            most = Math.max(most, tall);
+        }
+        h = TITLE + PAD + most + PAD;
+        size(W, h);
     }
 
     /** Opens the settings in the middle of the screen. */
     public static void open(final ModularPanel parent) {
         final SettingsPanel settings = new SettingsPanel(sections());
+        final int H = settings.h;
         final Popup popup = new Popup(PANEL, W, H) {
 
             @Override
@@ -118,6 +150,12 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             i -> set.accept(i == 1));
     }
 
+    /** A key as bound in Controls, for a setting's hint; null when it is bound to none. */
+    @Nullable
+    private static String key(final net.minecraft.client.settings.KeyBinding binding) {
+        return binding.getKeyCode() == 0 ? null : PlannerKeys.label(binding);
+    }
+
     private static Row choice(final String label, @Nullable final String hint, final String[] names,
         final IntSupplier at, final IntConsumer to) {
         return new Row(label, hint, Kind.CHOICE, names, at, to);
@@ -143,7 +181,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             .getOpenPanels()) {
             if (p.getName() == null || !p.getName()
                 .startsWith(PANEL + "_")) continue;
-            p.pos((PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 2);
+            p.pos((PlannerScale.width() - W) / 2, (PlannerScale.height() - p.getArea().height) / 2);
             p.scheduleResize();
         }
     }
@@ -205,7 +243,11 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             new Section(
                 "Minimap",
                 List.of(
-                    toggle("Show the minimap", null, PlannerSettings::minimap, PlannerSettings::setMinimap),
+                    toggle(
+                        "Show the minimap",
+                        key(PlannerKeys.MINIMAP),
+                        PlannerSettings::minimap,
+                        PlannerSettings::setMinimap),
                     choice(
                         "Size",
                         null,
@@ -228,7 +270,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         i -> PlannerSettings.setMinimapCorner(corners[i])),
                     new Row(
                         "Zoom",
-                        null,
+                        key(PlannerKeys.ZOOM_OUT) == null || key(PlannerKeys.ZOOM_IN) == null ? null
+                            : key(PlannerKeys.ZOOM_OUT) + " " + key(PlannerKeys.ZOOM_IN),
                         Kind.SLIDER,
                         zooms,
                         PlannerSettings::minimapZoomIndex,
@@ -250,7 +293,11 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             new Section(
                 "Pin list",
                 List.of(
-                    toggle("Show the pin list", null, PlannerSettings::pinList, PlannerSettings::setPinList),
+                    toggle(
+                        "Show the pin list",
+                        key(PlannerKeys.PIN_LIST),
+                        PlannerSettings::pinList,
+                        PlannerSettings::setPinList),
                     new Row(
                         "Position",
                         null,
@@ -265,39 +312,54 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         out.add(
             new Section(
                 "In the world",
+                "The plan over the world while you play: what shows of the machines you placed and their wires. Each of"
+                    + " these is its own switch; with cards and labels off, only the machines and wires show.",
                 List.of(
                     toggle(
                         "Show the plan over the world",
-                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.AR),
+                        PlannerKeys.label(PlannerKeys.AR),
                         PlannerSettings::arLens,
-                        PlannerSettings::setArLens),
+                        PlannerSettings::setArLens).about("All of it, on or off."),
                     toggle(
-                        "Card where you look",
-                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.FOCUS),
+                        "Cards",
+                        PlannerKeys.held(PlannerKeys.FOCUS),
                         PlannerSettings::arFocus,
-                        PlannerSettings::setArFocus),
+                        PlannerSettings::setArFocus)
+                            .about("Focus: a machine's card pops up above it while you look at it, and only then."),
                     toggle(
-                        "Labels on machines",
-                        com.gtnhplanner.ui.world.PlannerKeys.held(com.gtnhplanner.ui.world.PlannerKeys.LABELS),
+                        "Machine labels",
+                        PlannerKeys.held(PlannerKeys.LABELS),
                         PlannerSettings::arLabels,
-                        PlannerSettings::setArLabels),
+                        PlannerSettings::setArLabels)
+                            .about("Name, tier, EU/t and count (or which of a group, 2/4) inside each machine."),
+                    choice(
+                        "Wire labels",
+                        null,
+                        PlannerSettings.AR_WIRE_LABEL_NAMES,
+                        PlannerSettings::arWireLabels,
+                        PlannerSettings::setArWireLabels)
+                            .about("What each wire carries and how much: on every wire, or the looked-at machine's."),
                     choice(
                         "Machines",
                         null,
                         PlannerSettings.AR_GHOST_NAMES,
                         PlannerSettings::arGhosts,
-                        PlannerSettings::setArGhosts),
-                    toggle("Keys list in the corner", null, PlannerSettings::arKeys, PlannerSettings::setArKeys),
+                        PlannerSettings::setArGhosts)
+                            .about("How the placed machines are drawn. The one you are placing is always see-through."),
+                    toggle("Keys list", null, PlannerSettings::arKeys, PlannerSettings::setArKeys)
+                        .about("The world's keys in the corner, by the minimap."),
                     choice(
                         "Range, in blocks",
                         null,
                         ranges,
                         PlannerSettings::arRangeIndex,
-                        PlannerSettings::setArRangeIndex))));
+                        PlannerSettings::setArRangeIndex).about("How far away the plan shows."))));
 
         out.add(
             new Section(
                 "Keys",
+                "Every key of the planner is in Minecraft's Controls, under GTNH Planner, and can be changed there. The"
+                    + " world's keys work with sneak held.",
                 List.of(new Row("Set them in Controls", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
                     final Minecraft mc = Minecraft.getMinecraft();
                     mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
@@ -314,8 +376,47 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         return sections.get(shown);
     }
 
-    private static int rowY(final int i) {
-        return TITLE + PAD + i * ROW;
+    /** Where the showing section's {@code i}th setting starts: under its intro and the settings before it. */
+    private int rowY(final int i) {
+        final Section s = section();
+        int y = TITLE + PAD + introH(s);
+        for (int k = 0; k < i; k++) y += rowH(
+            s.rows()
+                .get(k));
+        return y;
+    }
+
+    /** A setting's height: a line, and its explanation's lines under it. */
+    private static int rowH(final Row row) {
+        return row.about() == null ? ROW : ROW + aboutLines(row).size() * ABOUT_LINE + 2;
+    }
+
+    private static List<String> aboutLines(final Row row) {
+        return wrap(row.about(), (W - SIDE - 20) / ABOUT_SCALE);
+    }
+
+    /** A section's intro's height, and its lines. */
+    private static int introH(final Section s) {
+        return s.intro() == null ? 0 : introLines(s).size() * INTRO_LINE + 6;
+    }
+
+    private static List<String> introLines(final Section s) {
+        return wrap(s.intro(), W - SIDE - 20);
+    }
+
+    /** Words in lines no wider than {@code room}. */
+    private static List<String> wrap(final String text, final float room) {
+        final List<String> lines = new ArrayList<>();
+        String line = "";
+        for (final String word : text.split(" ")) {
+            final String next = line.isEmpty() ? word : line + " " + word;
+            if (!line.isEmpty() && Hyb.width(next) > room) {
+                lines.add(line);
+                line = word;
+            } else line = next;
+        }
+        if (!line.isEmpty()) lines.add(line);
+        return lines;
     }
 
     private static int[] sideRect(final int i) {
@@ -391,7 +492,11 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     /** The GUI rectangle {x, y, w, h} of the showing setting whose name contains {@code label}; null for none. */
     public int[] rowRect(final String label) {
         final int i = rowIndex(label);
-        return i < 0 ? null : abs(new int[] { SIDE + 1, rowY(i), W - SIDE - 2, ROW });
+        return i < 0 ? null
+            : abs(
+                new int[] { SIDE + 1, rowY(i), W - SIDE - 2, rowH(
+                    section().rows()
+                        .get(i)) });
     }
 
     /** The GUI rectangle of one value's choice on a showing setting (a corner too); null for none. */
@@ -452,8 +557,15 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         Hyb.rect(1, TITLE, W - 2, 1, CardPaint.HAIR);
 
         // The sections, the one showing marked in gold.
-        Hyb.rect(1, TITLE + 1, SIDE - 1, H - TITLE - 2, SIDE_FILL);
-        Hyb.rect(SIDE, TITLE + 1, 1, H - TITLE - 2, CardPaint.HAIR);
+        Hyb.rect(1, TITLE + 1, SIDE - 1, h - TITLE - 2, SIDE_FILL);
+        Hyb.rect(SIDE, TITLE + 1, 1, h - TITLE - 2, CardPaint.HAIR);
+        // What the section is for, when it says.
+        final Section s = section();
+        if (s.intro() != null) {
+            final List<String> intro = introLines(s);
+            for (int i = 0; i < intro.size(); i++)
+                Hyb.text(intro.get(i), SIDE + 10, TITLE + PAD + 1 + i * INTRO_LINE, Hyb.MUTED);
+        }
         for (int i = 0; i < sections.size(); i++) {
             final int[] r = sideRect(i);
             final boolean picked = i == shown, hot = !picked && in(r, mx, my);
@@ -471,9 +583,15 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < rows.size(); i++) {
             final Row row = rows.get(i);
             final int y = rowY(i);
-            final boolean rowHot = mx > SIDE && my >= y && my < y + ROW && mx < W - 1;
-            if (rowHot) Hyb.rect(SIDE + 1, y, W - SIDE - 2, ROW, ROW_HOVER);
-            if (i > 0) Hyb.rect(SIDE + 8, y, W - SIDE - 16, 1, CardPaint.HAIR);
+            final int rh = rowH(row);
+            final boolean rowHot = mx > SIDE && my >= y && my < y + rh && mx < W - 1;
+            if (rowHot) Hyb.rect(SIDE + 1, y, W - SIDE - 2, rh, ROW_HOVER);
+            if (i > 0 || s.intro() != null) Hyb.rect(SIDE + 8, y, W - SIDE - 16, 1, CardPaint.HAIR);
+            if (row.about() != null) {
+                final List<String> about = aboutLines(row);
+                for (int k = 0; k < about.size(); k++)
+                    Hyb.text(about.get(k), SIDE + 10, y + ROW - 3 + k * ABOUT_LINE, ABOUT_SCALE, Hyb.MUTED);
+            }
             Hyb.text(row.label(), SIDE + 10, y + (ROW - 8) / 2f + 1, Hyb.INK);
             final int hintX = SIDE + 10 + Hyb.width(row.label()) + 5;
             if (row.hint() != null && hintX + Hyb.width(row.hint()) + 6 <= controlRect(row, y)[0])
@@ -576,7 +694,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < rows.size(); i++) {
             final Row row = rows.get(i);
             final int y = rowY(i);
-            if (my < y || my >= y + ROW || mx <= SIDE) continue;
+            if (my < y || my >= y + rowH(row) || mx <= SIDE) continue;
             final int[] c = controlRect(row, y);
             switch (row.kind()) {
                 // The whole row flips a switch.
@@ -643,7 +761,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < rows.size(); i++) {
             final Row row = rows.get(i);
             final int y = rowY(i);
-            if (my < y || my >= y + ROW || mx <= SIDE) continue;
+            if (my < y || my >= y + rowH(row) || mx <= SIDE) continue;
             final int n = row.names().length;
             switch (row.kind()) {
                 case SWITCH -> set(row, step > 0 ? 1 : 0);

@@ -111,12 +111,15 @@ key say, works for both; GTNH runs every binding on a pressed key anyway):
   (two lines when long), its tier chip, the EU/t it draws (or makes, green) and its card's machine count. It always fits
   inside the ghost: as the ghost gets small the name goes first, then the power, then the count, and with not even its
   tier fitting at a letter pixel a screen pixel there is none.
+- **Wire labels** (Always by default, Where you look, Off): each wire's tag, what it carries and how much: on every
+  wire, only on the wires of the machine looked at (and the wire under the crosshair), or none.
 - **Machines**: See-through (the ghosts below), Solid (opaque blocks, hidden behind real blocks as real ones are), or
   Hidden (wires, labels and cards only). The machine being placed always shows as a ghost.
 - **Keys list in the corner**: the keys strip under the minimap, or not.
 
-With Focus and Labels both off, only the machines and the wires show. Wires show at 60%, more for the card looked
-at, whose wires' tags show (and the tag of the wire under the crosshair). Only the machine looked at is outlined.
+With Focus, Labels and wire labels off, only the machines and the wires show. Wires show at 60%, more for the card
+looked at. The gear's In the world section says what each of these does, under its name, with its key; every key
+that switches something has its setting there, and the Keys section opens Controls. Only the machine looked at is outlined.
 Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
 draws is multiplied by; items and fluids, which the game draws solid whatever the blending, drop out once a card is a
 third faded.
