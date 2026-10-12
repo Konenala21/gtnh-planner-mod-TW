@@ -23,15 +23,22 @@ public final class CardLayout {
     public static final int HEAD_Y = 6;
     public static final int HEAD = 20;
     public static final int HEADER = HEAD_Y * 2 + HEAD;
-    /** A port row: its icon 24 px (one and a half times the game's, so its pixels stay whole) at the card's edge. */
-    public static final int ROW = 32;
-    public static final int ICON = 24;
-    public static final int ICON_X = 4;
+    /**
+     * A port row: its icon spanning it, 32 px (twice the game's, so its pixels stay whole), at the card's edge; its
+     * rate, its name and, under them, its rule key and rate box (as a drawer's).
+     */
+    public static final int ROW = 42;
+    public static final int ICON = 32;
+    public static final int ICON_X = 3;
     public static final int ICON_Y = (ROW - ICON) / 2;
     /** A side's column, and where a port's words start (from the side's outer edge) and how wide they may be. */
-    public static final int RAIL_W = 104;
-    public static final int TEXT_X = ICON_X + ICON + 6;
+    public static final int RAIL_W = 112;
+    public static final int TEXT_X = ICON_X + ICON + 4;
     public static final int TEXT_W = RAIL_W - TEXT_X - 2;
+    /** A port's rule key and rate box: their height, the key's width, the gap between them, and the box's width. */
+    public static final int CTRL_H = 10, CTRL_KEY = 10, CTRL_GAP = 2, CTRL_BOX = TEXT_W - CTRL_KEY - CTRL_GAP;
+    /** A striped row's box: the row less a pixel above and below, so rows on a card keep a hairline apart. */
+    public static final int BOX_Y = 1, BOX_H = ROW - 2;
     /** The machine's picture: square, in the middle column. */
     public static final int PICTURE = 88;
     /**
@@ -290,6 +297,20 @@ public final class CardLayout {
     /** Where a port's words start (an input) or end (an output, right aligned). */
     public static int textEdge(final boolean output) {
         return output ? OUT_RAIL_X + RAIL_W - TEXT_X : IN_RAIL_X + TEXT_X;
+    }
+
+    /** The top of a port's rule key and rate box, in the row starting at {@code rowY}. */
+    public static int ctrlY(final int rowY) {
+        return rowY + ROW - 4 - CTRL_H;
+    }
+
+    /** Where a port's rule key starts: at the words' edge, the box after it (right aligned on an output). */
+    public static int keyX(final boolean output) {
+        return output ? textEdge(true) - CTRL_BOX - CTRL_GAP - CTRL_KEY : textEdge(false);
+    }
+
+    public static int boxX(final boolean output) {
+        return keyX(output) + CTRL_KEY + CTRL_GAP;
     }
 
     public static int anchorX(final boolean output) {

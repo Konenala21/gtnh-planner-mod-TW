@@ -54,7 +54,13 @@ final class Rebuild {
 
     private record Next(Node node, Edge via) {}
 
-    static List<Beat> beats(final Graph plan, final long seed) {
+    /** Whether cards are found on NEI's page; without, they land straight from their port (sped up, pages flicker). */
+    private static boolean viaNei = true;
+    /** The zoom it builds at: half, a step further out than the cards' own size, still detailed. */
+    private static final float WORK_ZOOM = 0.5f;
+
+    static List<Beat> beats(final Graph plan, final long seed, final boolean nei) {
+        viaNei = nei;
         CARDS.clear();
         DRAWERS.clear();
         final Random rnd = new Random(seed);
@@ -64,9 +70,13 @@ final class Rebuild {
         for (int i = 0; i < order.size(); i++) {
             final Next n = order.get(i);
             final Beat b = beat(out);
-            if (i == 0) first(b, n.node(), rnd);
+            if (i == 0 && !nei) firstQuick(b, n.node(), rnd);
+            else if (i == 0) first(b, n.node(), rnd);
+            else if (n.node()
+                .isPower() && !nei) powerQuick(b, n.node(), rnd);
             else if (n.node()
                 .isPower()) power(b, n.node(), rnd);
+            else if (!nei) lookUpQuick(b, n, rnd);
             else if (n.via() == null) fromSearch(b, n.node(), rnd);
             else lookUp(b, n, rnd);
             before.add(n.node().id);
@@ -406,6 +416,114 @@ final class Rebuild {
             .pause(250 + rnd.nextInt(500));
     }
 
+    // region Without NEI's page
+
+    /**
+     * The plan's recipe put on the board as its plan button would, with no page: armed from a built card's port (so it
+     * lands beside it, wired), or placed on open board.
+     */
+    private static void place(final Node plan, final UUID builtFrom, final boolean output, final int port) {
+        final BoardSession s = session();
+        if (s == null || plan.recipeId == null) return;
+        final codechicken.nei.recipe.RecipeHandlerRef ref = codechicken.nei.recipe.RecipeHandlerRef.of(plan.recipeId);
+        if (ref == null || ref.handler == null) return;
+        if (builtFrom != null) s.armLookup(builtFrom, output, port);
+        s.addRecipe(ref.handler, ref.recipeIndex);
+    }
+
+    /** The board's view on a card, at a zoom, at once. */
+    private static void centreOn(final UUID built, final float zoom) {
+        final BoardScreen b = Targets.board();
+        if (b == null || built == null) return;
+        final Node n = b.session()
+            .graph().nodes.get(built);
+        if (n == null) return;
+        final Graph g = b.session()
+            .graph();
+        final int w = b.canvas()
+            .getArea().width,
+            h = b.canvas()
+                .getArea().height;
+        g.setZoom(zoom);
+        g.setPanX(w / 2f - (n.x + CardLayout.W / 2f) * zoom);
+        g.setPanY(h / 2f - (n.y + 80) * zoom);
+    }
+
+    /** The first card, no NEI: the planner, a new plan, the recipe on it, the view on it at the working zoom. */
+    private static void firstQuick(final Beat b, final Node plan, final Random rnd) {
+        final Set<UUID> before = new HashSet<>();
+        b.pause(300)
+            .run(() -> Director.openScene(Tour.Scene.BOARD))
+            .until(() -> Targets.board() != null, 3000)
+            .pause(500)
+            .run(() -> {
+                final BoardSession s = session();
+                if (s != null) s.addSlot();
+            })
+            .pause(600)
+            .run(() -> {
+                snapshot(before);
+                place(plan, null, false, 0);
+            })
+            .until(() -> fresh(before) != null, 3000)
+            .run(() -> adopt(plan, before))
+            .run(() -> centreOn(CARDS.get(plan.id), WORK_ZOOM))
+            .pause(600 + rnd.nextInt(400));
+    }
+
+    /**
+     * A card from a built card's port, no NEI: the cursor to the port, a moment, and the plan's recipe lands beside it,
+     * wired, as the plan button would put it. A card wired to nothing built yet lands on open board.
+     */
+    private static void lookUpQuick(final Beat b, final Next next, final Random rnd) {
+        final Node plan = next.node();
+        final Edge e = next.via();
+        final Set<UUID> before = new HashSet<>();
+        if (e == null) {
+            b.run(() -> {
+                snapshot(before);
+                place(plan, null, false, 0);
+            })
+                .until(() -> fresh(before) != null, 3000)
+                .run(() -> adopt(plan, before))
+                .run(() -> centreOn(CARDS.get(plan.id), WORK_ZOOM))
+                .pause(400 + rnd.nextInt(400));
+            return;
+        }
+        final boolean makes = e.sourceNodeId.equals(plan.id);
+        final UUID from = makes ? e.targetNodeId : e.sourceNodeId;
+        final int port = makes ? e.targetInputIndex : e.sourceOutputIndex;
+        final Target p = port(from, !makes, port);
+        b.move(p)
+            .pause(250 + rnd.nextInt(550))
+            .run(() -> {
+                snapshot(before);
+                place(plan, CARDS.get(from), !makes, port);
+            })
+            .until(() -> fresh(before) != null, 3000)
+            .run(() -> adopt(plan, before))
+            .pause(250 + rnd.nextInt(450));
+    }
+
+    // endregion
+
+    /**
+     * A generator, no picker: a moment, and it lands in the middle of the view, as the picker would put it (the picker
+     * flashing up for every generator spoils a time-lapse as NEI's pages did).
+     */
+    private static void powerQuick(final Beat b, final Node plan, final Random rnd) {
+        final Set<UUID> before = new HashSet<>();
+        b.pause(350 + rnd.nextInt(500))
+            .run(() -> {
+                snapshot(before);
+                final BoardSession s = session();
+                if (s != null) s.addPower(plan.powerSource, plan.powerSettings);
+            })
+            .until(() -> fresh(before) != null, 3000)
+            .run(() -> adopt(plan, before))
+            .pause(300 + rnd.nextInt(400));
+    }
+
     /** A generator: the non-recipe picker, its tile by name. */
     private static void power(final Beat b, final Node plan, final Random rnd) {
         final com.gtnhplanner.power.PowerSource src = com.gtnhplanner.power.PowerRegistry.get(plan.powerSource);
@@ -542,11 +660,13 @@ final class Rebuild {
                 Steps.seq(Steps.move(q), Steps.drag(q, drawerPart(d.getId(), DrawerCard.Part.BODY)), Steps.pause(200)))
                 .escIf(() -> Targets.recipePage() != null);
         }
-        // A product drawer switched to byproduct or trash, a press of its key for each.
-        final int presses = d.getKind() == Drawer.Kind.BYPRODUCT ? 1 : d.getKind() == Drawer.Kind.TRASH ? 2 : 0;
-        for (int i = 0; i < presses; i++) b.when(
+        // A product drawer switched to trash, from its rule key's menu.
+        if (d.getKind() == Drawer.Kind.TRASH) b.when(
             () -> DRAWERS.get(d.getId()) != null,
-            Steps.seq(Steps.click(drawerPart(d.getId(), DrawerCard.Part.CYCLE)), Steps.pause(250)));
+            Steps.seq(
+                Steps.clickOpens(drawerPart(d.getId(), DrawerCard.Part.RULE), 0),
+                Steps.click(Targets.popupRow(DrawerCard.TO_TRASH)),
+                Steps.pause(250)));
         b.pause(150 + rnd.nextInt(350));
     }
 
@@ -576,8 +696,9 @@ final class Rebuild {
     // endregion
 
     /**
-     * Zoomed out past where cards show their ports (the glance view), the board eases onto a card or drawer first, as a
-     * person zooms in on what they are about to work on.
+     * Zoomed out past where cards show their ports (the glance view), the board goes onto a card or drawer first, at
+     * the
+     * working zoom, as a person zooms in on what they are about to work on.
      */
     private static void closeIn(final Beat b, final Supplier<UUID> id) {
         b.when(() -> {
@@ -587,8 +708,12 @@ final class Rebuild {
                     .getZoom() <= RecipeCard.GLANCE_ZOOM + 0.001f;
         }, Steps.seq(Steps.run(() -> {
             final BoardScreen b2 = Targets.board();
-            if (b2 != null) b2.canvas()
-                .frame(List.of(id.get()));
+            if (b2 == null) return;
+            final UUID target = id.get();
+            if (b2.session()
+                .graph().nodes.containsKey(target)) centreOn(target, WORK_ZOOM);
+            else b2.canvas()
+                .frame(List.of(target));
         }), Steps.pause(500)));
     }
 

@@ -50,8 +50,12 @@ public final class Hyb {
     public static final int MENU_HOVER = 0xFF4E5058;
     public static final int RED_INK = 0xFFE05252;
     public static final int AMBER_INK = 0xFFE0A63A;
-    public static final int SOURCE_INK = 0xFFFFA2A2;
-    public static final int PRODUCT_INK = 0xFF5EE9B5;
+    /** What comes into the plan (inputs, sources): GregTech's blue for inputs, soft as the rest of the ramp. */
+    public static final int SOURCE_INK = 0xFF78B6F4;
+    /** What leaves the plan (outputs, products): GregTech's orange for outputs, soft, kept clear of the gold. */
+    public static final int PRODUCT_INK = 0xFFF59A5C;
+    /** All is well (power to spare, a saved picture): a mint, apart from the inputs' and outputs' colours. */
+    public static final int OK_INK = 0xFF5EE9B5;
 
     // NEI slots.
     public static final int SLOT_ITEM = 0xFF8B8B8B;

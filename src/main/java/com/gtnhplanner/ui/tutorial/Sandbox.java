@@ -4,9 +4,9 @@ import java.util.Properties;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.ScaledResolution;
 
 import com.gtnhplanner.api.PlanAPI;
+import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Serializer;
 import com.gtnhplanner.ui.Planner;
@@ -21,40 +21,30 @@ import codechicken.nei.LayoutManager;
  * Keeps the player's things safe while the tour runs: their plans are put aside for plans of the tour's own (never
  * saved), and everything else the tour touches is noted and put back when it ends: the minimap's settings, the
  * machine picked per NEI tab, the settings remembered per machine, NEI's search, the minimap's picture of the plan,
- * where the player was, NEI's item groups the tour opened, and the GUI scale (the tour plays at a scale that gives it
- * room; see {@link #roomyScale}).
+ * and NEI's item groups the tour opened. The game's GUI scale is left alone: the board takes a scale of its own with
+ * room for the tour's moves ({@link com.gtnhplanner.ui.PlannerScale}). It ends where the player is: the plan in front
+ * of them is theirs from then on, and the screen stays.
  */
 final class Sandbox {
 
     private boolean active;
-    /** Whether the planner was open when the tour started, so it opens again after. */
-    private boolean plannerWasOpen;
+    /** Whether the plan in front of the player when it ends becomes one of theirs (the tour's, not a film's). */
+    boolean keepPlan;
     private Properties picks, memory;
     private PlanSnapshot snapshot;
     private float viewX, viewY;
     private String search;
-    private boolean minimap, circle, follows;
+    private boolean minimap, circle, follows, pinList;
     private int size, zoom;
-    private PlannerSettings.Corner corner;
-    /** The player's GUI scale setting (0 is Auto). */
-    private int guiScale;
-
-    /** The GUI size the tour is made for: its moves and its saved starts are laid out on a GUI this big. */
-    private static final int ROOM_W = 960, ROOM_H = 540;
+    private PlannerSettings.Corner corner, pinCorner;
 
     void enter() {
         if (active) return;
         active = true;
         final GuiScreen screen = Minecraft.getMinecraft().currentScreen;
-        plannerWasOpen = Planner.isPlanner(screen);
         // The board closing saves the player's plan as it is.
         if (screen != null) Minecraft.getMinecraft()
             .displayGuiScreen(null);
-        final Minecraft mc = Minecraft.getMinecraft();
-        guiScale = mc.gameSettings.guiScale;
-        // With no screen open, the next one opens at the new scale.
-        final int roomy = roomyScale(mc);
-        if (roomy > 0) mc.gameSettings.guiScale = roomy;
         PlanAPI.save();
         picks = MachinePicks.copy();
         memory = SettingMemory.copy();
@@ -68,6 +58,8 @@ final class Sandbox {
         size = PlannerSettings.minimapSizeIndex();
         zoom = PlannerSettings.minimapZoomIndex();
         corner = PlannerSettings.minimapCorner();
+        pinList = PlannerSettings.pinList();
+        pinCorner = PlannerSettings.pinListCorner();
         Plan.enterSandbox();
     }
 
@@ -86,20 +78,26 @@ final class Sandbox {
         if (LayoutManager.searchField != null) LayoutManager.searchField.setText(search == null ? "" : search);
     }
 
-    /** Puts everything back and returns the player to where they were. */
+    /**
+     * Ends it where the player is. The plan in front of them, if the tour put anything on it, becomes one of theirs
+     * ("Tour plan"), the one shown; the screen stays (the board laid out again at their own size, the world out from
+     * under the tour's cover, NEI's page as it is). The settings the tour borrowed go back as they were.
+     */
     void leave() {
         if (!active) return;
         active = false;
         final Minecraft mc = Minecraft.getMinecraft();
-        // Off the tour's screens first: a board closing on the tour's plan must close while those plans stand in.
-        if (mc.currentScreen != null) mc.displayGuiScreen(null);
-        mc.gameSettings.guiScale = guiScale;
+        final boolean world = mc.theWorld != null;
+        // The world gone: nothing to stay in; off the tour's screens while its plans still stand in.
+        if (!world && mc.currentScreen != null) mc.displayGuiScreen(null);
+        final Graph tour = Plan.getActiveGraph();
+        final boolean keep = keepPlan && world
+            && tour != null
+            && !(tour.nodes.isEmpty() && tour.drawers.isEmpty() && tour.notes.isEmpty());
         Plan.leaveSandbox();
+        if (keep) adopt(tour);
         MachinePicks.restore(picks);
         SettingMemory.restore(memory);
-        PlanSnapshot.publish(snapshot);
-        PlanSnapshot.setView(viewX, viewY);
-        clearSearch();
         Targets.closeNeiGroups();
         PlannerSettings.setMinimap(minimap);
         PlannerSettings.setMinimapCircle(circle);
@@ -107,21 +105,37 @@ final class Sandbox {
         PlannerSettings.setMinimapSizeIndex(size);
         PlannerSettings.setMinimapZoomIndex(zoom);
         PlannerSettings.setMinimapCorner(corner);
-        if (plannerWasOpen && mc.theWorld != null) Planner.open();
+        PlannerSettings.setPinList(pinList);
+        PlannerSettings.setPinListCorner(pinCorner);
+        if (world) {
+            final GuiScreen screen = mc.currentScreen;
+            if (Planner.isPlanner(screen)) Planner.open();
+            else if (screen instanceof TourScreen) mc.displayGuiScreen(null);
+        }
+        // The minimap's picture: the kept plan's comes from the board; else the player's as it was.
+        if (!keep) {
+            PlanSnapshot.publish(snapshot);
+            PlanSnapshot.setView(viewX, viewY);
+        }
+        PlanAPI.save();
     }
 
-    /**
-     * A smaller GUI scale when the player's leaves the GUI under the tour's {@link #ROOM_W} by {@link #ROOM_H} (a large
-     * scale on a small window: GTNH ships scale 4): the largest that gives that room, or 1 when even 1 cannot. On a
-     * smaller GUI the tour's drags run out of board (a clone has nowhere to go, a wire drops off the canvas). 0 when
-     * the GUI already has the room. Never larger than the scale in use.
-     */
-    private static int roomyScale(final Minecraft mc) {
-        final int now = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight).getScaleFactor();
-        if (mc.displayWidth / now >= ROOM_W && mc.displayHeight / now >= ROOM_H) return 0;
-        int s = now - 1;
-        while (s > 1 && (mc.displayWidth / s < ROOM_W || mc.displayHeight / s < ROOM_H)) s--;
-        return Math.max(1, s);
+    /** The tour's plan, one of the player's now: named apart from theirs, in a tab, the one shown. */
+    private static void adopt(final Graph tour) {
+        final Plan plan = Plan.getInstance();
+        String name = "Tour plan";
+        for (int n = 2; named(plan, name); n++) name = "Tour plan " + n;
+        tour.setName(name);
+        plan.getGraphs()
+            .add(tour);
+        plan.setActiveIndex(
+            plan.getGraphs()
+                .size() - 1);
+    }
+
+    private static boolean named(final Plan plan, final String name) {
+        for (final Graph g : plan.getGraphs()) if (name.equals(g.getName())) return true;
+        return false;
     }
 
     boolean active() {

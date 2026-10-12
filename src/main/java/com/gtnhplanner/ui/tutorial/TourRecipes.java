@@ -47,14 +47,24 @@ final class TourRecipes {
         final GuiRecipe<?> page = Targets.recipePage();
         if (page == null) return null;
         for (final IRecipeHandler h : page.currenthandlers) {
-            if (!h.getRecipeName()
-                .toLowerCase(Locale.ROOT)
-                .contains(tab)) continue;
+            if (!tabIs(h, tab)) continue;
             for (int i = 0; i < h.numRecipes(); i++) {
                 if (has(h.getIngredientStacks(i), h.getOtherStacks(i), in) && makes(h, i, out)) return new Found(h, i);
             }
         }
         return null;
+    }
+
+    /**
+     * Whether a handler's tab is {@code tab}: a name with it in, ("=electrolyzer") exactly that name, or
+     * ("electroly!industrial") with the first in and not the second.
+     */
+    static boolean tabIs(final IRecipeHandler h, final String tab) {
+        final String name = h.getRecipeName()
+            .toLowerCase(Locale.ROOT);
+        final int not = tab.indexOf('!');
+        if (not >= 0) return name.contains(tab.substring(0, not)) && !name.contains(tab.substring(not + 1));
+        return tab.startsWith("=") ? name.equals(tab.substring(1)) : name.contains(tab);
     }
 
     /** The open page's tab for {@code tab}. */
@@ -85,8 +95,11 @@ final class TourRecipes {
         return false;
     }
 
+    /** Whether a slot holds {@code what}: a name with it in, or ("=water") exactly that name. */
     private static boolean named(final PositionedStack ps, final String what) {
-        for (final ItemStack s : ps.items) if (name(s).contains(what)) return true;
+        final boolean exact = what.startsWith("=");
+        final String want = exact ? what.substring(1) : what;
+        for (final ItemStack s : ps.items) if (exact ? name(s).equals(want) : name(s).contains(want)) return true;
         return false;
     }
 

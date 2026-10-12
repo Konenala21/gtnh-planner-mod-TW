@@ -44,9 +44,10 @@ import com.gtnhplanner.data.properties.RecipeProperty;
  * @param pools      the capped machine groups.
  * @param drawers    every drawer, in the graph's (id) order.
  * @param extentPins per-node extent pins in crafts per second, beyond what the nodes carry.
+ * @param spares     the plan's stored spare splits: per leftover, each bearer's share ({@link Spares}).
  */
 public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Machine> machines, List<EdgeIn> edges,
-    List<PoolIn> pools, List<DrawerIn> drawers, Map<UUID, Double> extentPins) {
+    List<PoolIn> pools, List<DrawerIn> drawers, Map<UUID, Double> extentPins, Map<String, Map<String, Double>> spares) {
 
     public SolveInput {
         machines = List.copyOf(machines);
@@ -54,6 +55,17 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
         pools = List.copyOf(pools);
         drawers = List.copyOf(drawers);
         extentPins = Collections.unmodifiableMap(new LinkedHashMap<>(extentPins));
+        final Map<String, Map<String, Double>> copy = new LinkedHashMap<>();
+        for (final Map.Entry<String, Map<String, Double>> e : spares.entrySet())
+            copy.put(e.getKey(), Collections.unmodifiableMap(new LinkedHashMap<>(e.getValue())));
+        spares = Collections.unmodifiableMap(copy);
+    }
+
+    /** A snapshot with no stored spare splits. */
+    public SolveInput(final BalanceMode mode, @Nullable final ChoiceKey choice, final List<Machine> machines,
+        final List<EdgeIn> edges, final List<PoolIn> pools, final List<DrawerIn> drawers,
+        final Map<UUID, Double> extentPins) {
+        this(mode, choice, machines, edges, pools, drawers, extentPins, Map.of());
     }
 
     /**
@@ -79,16 +91,39 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
      * @param machineCount      the configured machine count (the pin when {@code countFixed}).
      * @param targetOutputRates the node's target output rates, units/s by output index.
      * @param properties        the node's numeric recipe properties, for the per-run totals.
+     * @param targetInputRates  the node's target input rates, units/s by input index.
      */
     public record Machine(UUID id, String name, double durationTicks, double energyPerTick, int throughputFactor,
         List<PortIn> inputs, List<PortIn> outputs, boolean countFixed, int machineCount,
-        Map<Integer, Double> targetOutputRates, Map<RecipeProperty<?>, Number> properties) {
+        Map<Integer, Double> targetOutputRates, Map<RecipeProperty<?>, Number> properties,
+        Map<Integer, Double> targetInputRates) {
 
         public Machine {
             inputs = List.copyOf(inputs);
             outputs = List.copyOf(outputs);
             targetOutputRates = Collections.unmodifiableMap(new LinkedHashMap<>(targetOutputRates));
             properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+            targetInputRates = Collections.unmodifiableMap(new LinkedHashMap<>(targetInputRates));
+        }
+
+        /** A machine with no input targets. */
+        public Machine(final UUID id, final String name, final double durationTicks, final double energyPerTick,
+            final int throughputFactor, final List<PortIn> inputs, final List<PortIn> outputs, final boolean countFixed,
+            final int machineCount, final Map<Integer, Double> targetOutputRates,
+            final Map<RecipeProperty<?>, Number> properties) {
+            this(
+                id,
+                name,
+                durationTicks,
+                energyPerTick,
+                throughputFactor,
+                inputs,
+                outputs,
+                countFixed,
+                machineCount,
+                targetOutputRates,
+                properties,
+                Map.of());
         }
 
         public List<PortIn> ports(final boolean input) {
@@ -179,7 +214,7 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
                     drawer.getRate(),
                     drawer.getLinks()));
         }
-        return new SolveInput(mode, choice, machines, edges, pools, drawers, extentPins);
+        return new SolveInput(mode, choice, machines, edges, pools, drawers, extentPins, graph.spareShares);
     }
 
     private static Machine machineOf(final Node node, final Ingredients ingredients) {
@@ -203,9 +238,12 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
         for (final Map.Entry<RecipeProperty<?>, Object> e : node.properties.entrySet()) {
             if (e.getValue() instanceof final Number n) properties.put(e.getKey(), n);
         }
-        final Map<Integer, Double> targets = new LinkedHashMap<>();
+        final Map<Integer, Double> targets = new LinkedHashMap<>(), inputTargets = new LinkedHashMap<>();
         for (final Map.Entry<Integer, Double> t : node.targetOutputRates.entrySet()) {
             if (t.getKey() != null && t.getValue() != null) targets.put(t.getKey(), t.getValue());
+        }
+        for (final Map.Entry<Integer, Double> t : node.targetInputRates.entrySet()) {
+            if (t.getKey() != null && t.getValue() != null) inputTargets.put(t.getKey(), t.getValue());
         }
         // A non-recipe machine (a generator) runs one craft a second at its exact rates, draws through no overclock,
         // and its EU is an output port: nothing here for the effect to compute.
@@ -221,7 +259,8 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
             node.isMachineCountFixed(),
             cfg.getMachineCount(),
             targets,
-            properties);
+            properties,
+            inputTargets);
     }
 
     /** Numbers the ingredients of one snapshot: ports that connect share a number. */

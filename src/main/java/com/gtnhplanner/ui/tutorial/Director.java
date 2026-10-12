@@ -43,6 +43,15 @@ final class Director {
     private String noteText;
     private Target noteTarget;
     private long noteAt;
+    /** A note pointing at nothing, set at this fraction of the screen {x, y} (its middle); null for the middle. */
+    private float[] noteSpot;
+    /** The line of the note the tour is showing now, lit; -1 for none. */
+    private int noteLine = -1;
+    /**
+     * Whether the player may look round the board themselves now (pan and zoom, move a card; nothing else): the tour
+     * has let go of the mouse. Each beat starts without it.
+     */
+    private boolean freeLook;
 
     private long clock, lastReal = -1;
     /** Until then no step runs: a screen just opened is still building its cards and finding its view. */
@@ -116,6 +125,27 @@ final class Director {
         noteTarget = t;
         noteText = text;
         noteAt = System.currentTimeMillis();
+        noteSpot = null;
+        noteLine = -1;
+    }
+
+    /** A note that points at nothing, its middle at the fraction {@code fx, fy} of the screen. */
+    void noteAt(final String text, final float fx, final float fy) {
+        note(null, text);
+        noteSpot = new float[] { fx, fy };
+    }
+
+    /** Lights a line of the note (one of its paragraphs, split by new lines): what the tour is showing now. */
+    void noteLine(final int line) {
+        noteLine = line;
+    }
+
+    float[] noteSpot() {
+        return noteSpot;
+    }
+
+    int noteLine() {
+        return noteLine;
     }
 
     /** A step that cannot go on: noted, and the beat carries on without it. */
@@ -196,6 +226,9 @@ final class Director {
         spot(null);
         noteText = null;
         noteTarget = null;
+        noteSpot = null;
+        noteLine = -1;
+        freeLook = false;
         // The cursor shows when a step moves it, and stays hidden while catching up.
         if (fast) ghost.show(false);
         final Tour.Scene scene = settledScene();
@@ -244,6 +277,19 @@ final class Director {
             && !(s instanceof codechicken.nei.recipe.GuiRecipe)
             && !com.gtnhplanner.nei.PlanMenu.INSTANCE.isOpen()) return Tour.Scene.INVENTORY;
         return null;
+    }
+
+    boolean freeLook() {
+        return freeLook;
+    }
+
+    /** Hands the board's camera to the player: the pointer theirs, the tour's cursor hidden, until the next beat. */
+    void freeLook(final boolean on) {
+        freeLook = on;
+        if (!on) return;
+        VirtualInput.reset();
+        Pointer.release();
+        ghost.show(false);
     }
 
     /** Lets go of the mouse: the pointer back to the player, nothing held. */

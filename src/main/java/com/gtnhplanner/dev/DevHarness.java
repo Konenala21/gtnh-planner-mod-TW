@@ -359,6 +359,13 @@ public final class DevHarness {
                 });
             case "/board":
                 return onClient(DevBoard::board);
+            case "/pin":
+                // Pins card N (the board report's order) at a count, or unpins it with no count or 0: for setting up a
+                // plan to look at without clicking every card.
+                return onClient(() -> {
+                    DevBoard.pin(Integer.parseInt(q.get("card")), Double.parseDouble(q.getOrDefault("count", "0")));
+                    return ok();
+                });
             case "/view":
                 return onClient(() -> {
                     DevBoard.view(
@@ -377,7 +384,9 @@ public final class DevHarness {
                 });
             case "/rebuild":
                 // Filming: a finished plan (file=<plan JSON, code or link>, from the repo root) built again by the
-                // tour's cursor (ui/tutorial/Rebuild); seed= picks the take. Followed and stopped as the tour is.
+                // tour's cursor (ui/tutorial/Rebuild); seed= picks the take; nei=0 adds each card straight from its
+                // port,
+                // no NEI page (for time-lapses). Followed and stopped as the tour is.
                 requireWorld(); {
                 java.io.File f = new java.io.File(q.get("file"));
                 if (!f.isAbsolute()) f = new java.io.File(new java.io.File(mc.mcDataDir, "../.."), q.get("file"));
@@ -386,7 +395,7 @@ public final class DevHarness {
                 return onClient(() -> {
                     final com.gtnhplanner.importer.FfConverter.Result result = com.gtnhplanner.importer.game.FactoryFlowImport
                         .importFromText(text);
-                    com.gtnhplanner.ui.tutorial.Tutorial.startRebuild(result.graph(), seed);
+                    com.gtnhplanner.ui.tutorial.Tutorial.startRebuild(result.graph(), seed, !"0".equals(q.get("nei")));
                     return Map.of(
                         "plan",
                         result.graph()
@@ -586,9 +595,30 @@ public final class DevHarness {
                         "1".equals(q.get("uses")),
                         !"0".equals(q.get("planner")),
                         q.getOrDefault("tab", "")));
+            case "/update":
+                // The update offer: latest=<tag>[&url=] fakes the newest release and offers it again on the next open.
+                return onClient(() -> {
+                    if (q.containsKey("latest")) com.gtnhplanner.client.UpdateCheck.fake(
+                        new com.gtnhplanner.client.UpdateCheck.Release(
+                            q.get("latest"),
+                            q.getOrDefault(
+                                "url",
+                                "https://github.com/jackwrichards/gtnh-planner-mod/releases/tag/" + q.get("latest"))));
+                    if ("1".equals(q.get("clear"))) com.gtnhplanner.client.UpdateCheck.fake(null);
+                    if ("1".equals(q.get("reset"))) com.gtnhplanner.ui.PlannerSettings.setUpdateOffered("");
+                    if (!"1".equals(q.get("clear"))) com.gtnhplanner.ui.popup.UpdateOffer.again();
+                    final Map<String, Object> m = new LinkedHashMap<>();
+                    final com.gtnhplanner.client.UpdateCheck.Release r = com.gtnhplanner.client.UpdateCheck.newer();
+                    m.put("current", com.gtnhplanner.client.UpdateCheck.current());
+                    m.put("newer", r == null ? null : r.tag() + " " + r.url());
+                    m.put("offered", com.gtnhplanner.ui.PlannerSettings.updateOffered());
+                    return m;
+                });
             case "/tutorial":
                 requireWorld();
                 return onClient(() -> {
+                    // quiet=1: filming, no notes or spotlight drawn (quiet=0 back).
+                    if (q.containsKey("quiet")) com.gtnhplanner.ui.tutorial.Tutorial.quiet = "1".equals(q.get("quiet"));
                     if ("1".equals(q.get("stop"))) com.gtnhplanner.ui.tutorial.Tutorial.stop();
                     else if ("1".equals(q.get("next"))) com.gtnhplanner.ui.tutorial.Tutorial.nextBeat();
                     else if (q.containsKey("step"))

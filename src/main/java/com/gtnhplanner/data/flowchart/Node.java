@@ -54,6 +54,12 @@ public class Node {
     public final Map<Integer, Double> targetOutputRates = new LinkedHashMap<>();
 
     /**
+     * Target consumption rates by input port index, units per second: pins as the output targets are (the machine's
+     * extent is held so the input takes the rate exactly), the largest implied extent winning among all its targets.
+     */
+    public final Map<Integer, Double> targetInputRates = new LinkedHashMap<>();
+
+    /**
      * A non-recipe machine (a generator): its power source id ({@link com.gtnhplanner.power.PowerRegistry}), null on a
      * recipe card. Its ports come from the source's model at {@link #powerSettings}, not from NEI.
      */

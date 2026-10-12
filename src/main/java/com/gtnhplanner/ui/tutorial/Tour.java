@@ -36,6 +36,42 @@ final class Tour {
         }
 
         /** The callout: {@code text} beside {@code t} (null: the middle of the screen), framed in gold. */
+        Beat typeOf(final Supplier<Steps.Sink> sink, final Supplier<String> text) {
+            return add(Steps.typeOf(sink, text));
+        }
+
+        Beat noteBare(final Target t, final String text) {
+            return add(Steps.noteBare(t, text));
+        }
+
+        Beat wheelShown(final Target t, final int notches) {
+            return add(Steps.wheel(t, notches, true));
+        }
+
+        Beat mouseDrag(final int button, final Target from, final float dx, final float dy) {
+            return add(Steps.mouseDrag(button, from, dx, dy));
+        }
+
+        Beat mouseDrag(final int button, final Target from, final float dx, final float dy, final float speed) {
+            return add(Steps.mouseDrag(button, from, dx, dy, speed));
+        }
+
+        Beat noteAt(final String text, final float fx, final float fy) {
+            return add(Steps.noteAt(text, fx, fy));
+        }
+
+        Beat holdDown(final String label, final int code, final long ms) {
+            return add(Steps.holdDown(label, code, ms));
+        }
+
+        Beat press(final String label, final char c, final int code) {
+            return add(Steps.press(label, c, code));
+        }
+
+        Beat line(final int line) {
+            return add(Steps.noteLine(line));
+        }
+
         Beat note(final Target t, final String text) {
             return add(Steps.note(t, text));
         }

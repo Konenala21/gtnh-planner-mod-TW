@@ -73,6 +73,15 @@ public final class PlannerSettings {
         set("tour.offered", offered);
     }
 
+    /** The newest release the player was told of (and answered), so it is said once; "" for none. */
+    public static String updateOffered() {
+        return load().getProperty("update.offered", "");
+    }
+
+    public static void setUpdateOffered(final String tag) {
+        set("update.offered", tag);
+    }
+
     public static boolean zoomedOutNames() {
         return bool("board.zoomedOutNames", true);
     }

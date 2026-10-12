@@ -237,7 +237,7 @@ class DrawerRulesTest {
     @Test
     void byproductAndTrashReadWhatArrivesAndAskForNothing() {
         final LoadedChart chart = GtnhFlowLoader.load("light_fuel");
-        final Drawer oxygen = drawer(chart, Kind.BYPRODUCT, Rule.ANY, 0, 2, 1);
+        final Drawer oxygen = drawer(chart, Kind.PRODUCT, Rule.ANY, 0, 2, 1);
         final Drawer h2s = drawer(chart, Kind.TRASH, Rule.AT_LEAST, 1000, 0, 0); // stored rule is ignored
         final Drawer any = drawer(chart, Kind.PRODUCT, Rule.ANY, 0, 0, 1);
 

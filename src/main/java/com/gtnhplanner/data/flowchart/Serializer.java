@@ -257,6 +257,16 @@ public final class Serializer {
                 if (graph.nodes.containsKey(id)) pinList.add(new com.google.gson.JsonPrimitive(id.toString()));
             if (pinList.size() > 0) root.add("pinList", pinList);
         }
+        if (!graph.spareShares.isEmpty()) {
+            final JsonObject spares = new JsonObject();
+            for (final java.util.Map.Entry<String, java.util.Map<String, Double>> e : graph.spareShares.entrySet()) {
+                final JsonObject shares = new JsonObject();
+                for (final java.util.Map.Entry<String, Double> s : e.getValue()
+                    .entrySet()) shares.addProperty(s.getKey(), s.getValue());
+                spares.add(e.getKey(), shares);
+            }
+            root.add("spareShares", spares);
+        }
 
         final JsonArray nodesArray = new JsonArray();
         for (final Node node : graph.getNodes()) {
@@ -299,6 +309,13 @@ public final class Serializer {
                     targets.addProperty(String.valueOf(t.getKey()), t.getValue());
                 }
                 obj.add("targets", targets);
+            }
+            if (!node.targetInputRates.isEmpty()) {
+                final JsonObject targets = new JsonObject();
+                for (final Map.Entry<Integer, Double> t : node.targetInputRates.entrySet()) {
+                    targets.addProperty(String.valueOf(t.getKey()), t.getValue());
+                }
+                obj.add("inputTargets", targets);
             }
 
             obj.add("inputs", portListToJson(node.inputs));
@@ -418,6 +435,19 @@ public final class Serializer {
                 }
             }
             // Read independently of every other key.
+            if (obj.has("inputTargets")) {
+                for (final Map.Entry<String, JsonElement> t : obj.getAsJsonObject("inputTargets")
+                    .entrySet()) {
+                    try {
+                        node.targetInputRates.put(
+                            Integer.parseInt(t.getKey()),
+                            t.getValue()
+                                .getAsDouble());
+                    } catch (final NumberFormatException ignored) {
+                        // A malformed key loses one target, not the chart.
+                    }
+                }
+            }
             if (obj.has("targets")) {
                 for (final Map.Entry<String, JsonElement> t : obj.getAsJsonObject("targets")
                     .entrySet()) {
@@ -501,6 +531,27 @@ public final class Serializer {
                 try {
                     graph.pinList.add(UUID.fromString(id.getAsString()));
                 } catch (final IllegalArgumentException ignored) {}
+            }
+        }
+
+        if (root.has("spareShares") && root.get("spareShares")
+            .isJsonObject()) {
+            for (final java.util.Map.Entry<String, JsonElement> e : root.getAsJsonObject("spareShares")
+                .entrySet()) {
+                if (!e.getValue()
+                    .isJsonObject()) continue;
+                final java.util.Map<String, Double> shares = new java.util.TreeMap<>();
+                for (final java.util.Map.Entry<String, JsonElement> s : e.getValue()
+                    .getAsJsonObject()
+                    .entrySet()) {
+                    try {
+                        shares.put(
+                            s.getKey(),
+                            s.getValue()
+                                .getAsDouble());
+                    } catch (final RuntimeException ignored) {}
+                }
+                if (!shares.isEmpty()) graph.spareShares.put(e.getKey(), shares);
             }
         }
 

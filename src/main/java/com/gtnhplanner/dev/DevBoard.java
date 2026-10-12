@@ -168,7 +168,53 @@ final class DevBoard {
         for (final Notice n : screen.session()
             .notices()) notices.add(n.severity() + ": " + n.text());
         m.put("notices", notices);
+        // The leftovers and the places that could bear them, with their shares now.
+        final List<Map<String, Object>> spares = new ArrayList<>();
+        for (final com.gtnhplanner.ui.BoardSession.SpareLine line : screen.session()
+            .spares()) {
+            final Map<String, Object> s = new LinkedHashMap<>();
+            s.put("key", line.key());
+            s.put("importing", line.importing());
+            s.put(
+                "custom",
+                screen.session()
+                    .spareCustom(line));
+            final double[] shares = screen.session()
+                .spareShares(line);
+            final List<String> bearers = new ArrayList<>();
+            for (int k = 0; k < shares.length; k++) {
+                final com.gtnhplanner.ui.BoardSession.SpareBearer b = line.bearers()
+                    .get(k);
+                bearers.add(
+                    b.name() + " at "
+                        + b.machine()
+                        + ": "
+                        + Math.round(shares[k] * 1000) / 1000.0
+                        + " of "
+                        + b.max()
+                        + (b.solverPick() ? " (solver)" : ""));
+            }
+            s.put("bearers", bearers);
+            spares.add(s);
+        }
+        m.put("spares", spares);
         return m;
+    }
+
+    /** Pins card {@code index} (in the report's order) at {@code count} machines, or unpins it at 0. */
+    static void pin(final int index, final double count) {
+        final BoardScreen screen = screen();
+        if (screen == null) throw new IllegalStateException("the planner is not open");
+        int i = 0;
+        for (final CardModel model : screen.session()
+            .models()
+            .values()) {
+            if (i++ != index) continue;
+            screen.session()
+                .pin(model.node, count);
+            return;
+        }
+        throw new IllegalArgumentException("no card " + index);
     }
 
     /** Sets zoom and pan so tests start from a known view. */

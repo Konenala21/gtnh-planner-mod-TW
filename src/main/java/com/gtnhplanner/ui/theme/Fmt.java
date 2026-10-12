@@ -37,14 +37,20 @@ public final class Fmt {
 
     private Fmt() {}
 
+    /** Below this a number is the solver's round-off and is shown as 0. */
+    private static final double NOTHING = 1e-6;
+
     /**
-     * Compact number: exact 0 prints "0"; below 1 keeps 2 significant digits; otherwise 2 decimals (1 from 100,
-     * none from 1000 before the suffix steps in) with trailing zeros dropped, then k, M, G... e.g. 6930 -> "6.93k".
+     * Compact number: exact 0 (or round-off below a millionth) prints "0"; below 1 keeps 2 significant digits;
+     * otherwise 2 decimals (1 from 100, none from 1000 before the suffix steps in) with trailing zeros dropped, then
+     * k, M, G... e.g. 6930 -> "6.93k".
      */
     public static String compact(final double value) {
         if (value == 0 || Double.isNaN(value)) return "0";
         final String sign = value < 0 ? "-" : "";
         double v = Math.abs(value);
+        // Below a millionth is the solver's round-off, not a rate: it reads as nothing.
+        if (v < NOTHING) return "0";
         if (v < 1) return sign + strip(new BigDecimal(v).round(new java.math.MathContext(2)));
         int tier = 0;
         while (v >= 1000 && tier < SUFFIXES.length - 1) {
@@ -71,6 +77,8 @@ public final class Fmt {
         if (value == 0 || Double.isNaN(value)) return "0";
         final String sign = value < 0 ? "-" : "";
         double v = Math.abs(value);
+        // Below a millionth is the solver's round-off, not a rate: it reads as nothing.
+        if (v < NOTHING) return "0";
         if (v < 1) return sign + strip(new BigDecimal(v).round(new java.math.MathContext(2)));
         int tier = 0;
         // 999.5 and up rounds to 1000, which reads as the next suffix.

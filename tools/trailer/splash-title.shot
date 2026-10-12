@@ -1,0 +1,29 @@
+# The splash card in front of the trailer (its first frame): the name and a line under it on the board's own canvas
+# and dots, as the planner draws them.
+size 1920 1080
+fps 60
+bpm 112
+duration 2
+out build/trailer/splash-unused.mp4
+stilldir build/trailer/splash
+title GTNH Planner
+subtitle Plan your factory, in game.
+set wordscale 14
+set subscale 5
+set subgap 40
+set dotstep 40
+set dotsize 4
+set vignette 0
+set bloom 0
+set grain 0
+set blendframes 0
+
+shot 0 2 title
+  source build/trailer/splash/plan-blurred.png
+  key zoom 0 1
+  key endcard 0 1
+  key endsub 0 1
+  key endbg 0 1
+end
+
+still 1.0

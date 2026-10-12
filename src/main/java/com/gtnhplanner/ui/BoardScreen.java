@@ -658,8 +658,9 @@ public final class BoardScreen extends ModularScreen {
                 default -> 0;
             };
             if (zoom != 0 && codechicken.nei.LayoutManager.getInputFocused() == null) {
+                // A key the tour presses comes with no keyboard event of its own: each is a press.
                 final long event = org.lwjgl.input.Keyboard.getEventNanoseconds();
-                if (event != lastKeyEvent) {
+                if (event != lastKeyEvent || com.gtnhplanner.ui.tutorial.Pointer.typing) {
                     lastKeyEvent = event;
                     canvas.zoomKey(zoom);
                 }
@@ -736,8 +737,12 @@ public final class BoardScreen extends ModularScreen {
         session.reopen();
         session.disarmPending();
         // After a crash the planner had a hand in: whether to send the report (not over the tour's first offer).
-        if (PlannerSettings.tourOffered() && !com.gtnhplanner.ui.tutorial.Tutorial.active())
-            com.gtnhplanner.ui.popup.CrashOffer.offer(getMainPanel(), session, canvas);
+        // Else a newer release, once per version.
+        if (PlannerSettings.tourOffered() && !com.gtnhplanner.ui.tutorial.Tutorial.active()) {
+            if (com.gtnhplanner.client.CrashReports.pending() != null)
+                com.gtnhplanner.ui.popup.CrashOffer.offer(getMainPanel(), session, canvas);
+            else com.gtnhplanner.ui.popup.UpdateOffer.offer(getMainPanel());
+        }
     }
 
     @Override
@@ -813,6 +818,9 @@ public final class BoardScreen extends ModularScreen {
     private final Tip.Wait tipWait = new Tip.Wait();
 
     private void drawPortTooltip() {
+        // While something is in hand (a wire, a drawer picked up, a card carried) the board shows where it can go: no
+        // tips over it.
+        if (canvas.inHand()) return;
         final Object hovered = getContext().getHovered();
         // While a popup is open, only it explains itself: a tip from the board would cover it.
         final ModularPanel top = getPanelManager().getTopMostPanel();
@@ -839,7 +847,7 @@ public final class BoardScreen extends ModularScreen {
         } else if (hovered instanceof final PlanTabs tabs) {
             tip = Tip.ofLines(tabs.hoverLines());
         } else if (hovered instanceof final OverviewRail overview) {
-            final Tip railTip = Tip.ofLines(overview.hoverLines());
+            final Tip railTip = overview.hoverTip();
             if (railTip == null) return;
             // Beside the rail, so the tip never covers the row it is about.
             railTip.draw(
@@ -868,10 +876,82 @@ public final class BoardScreen extends ModularScreen {
         if (tip != null) tip.drawNear(mx, my, right, bottom);
     }
 
+    /**
+     * A port's spare row: what leaves (or comes in) there with no drawer, and where else it could; or that it has
+     * nowhere else.
+     */
+    private Tip spareTip(final PortSlot slot, final CardModel.PortView view) {
+        BoardSession.SpareLine found = null;
+        BoardSession.SpareBearer here = null;
+        for (final BoardSession.SpareLine line : session.spares())
+            for (final BoardSession.SpareBearer b : line.bearers())
+                for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : b.ports()) if (ref.nodeId()
+                    .equals(slot.node()) && ref.input() != view.output()
+                    && ref.portIndex() == view.index()) {
+                        found = line;
+                        here = b;
+                    }
+        // Its whole story, as the overview tells it: what was pinned, why it leaves or comes in, who else could.
+        if (found != null) return SpareTips.situation(
+            session,
+            found,
+            found.bearers()
+                .size() > 1 ? "Choose who takes it" : null,
+            found.bearers()
+                .size() > 1);
+        final Tip tip = Tip.of((view.output() ? "Forced output: " : "Forced input: ") + view.name())
+            .row(
+                view.output() ? "Ships out here" : "Comes in here",
+                Fmt.rate(view.extra(), session.rateUnit(), view.isFluid()));
+        if (found == null || found.bearers()
+            .size() < 2)
+            return tip
+                .muted(view.output() ? "Only this machine can ship it out." : "Only this machine can take it in.");
+        final StringBuilder others = new StringBuilder();
+        for (final BoardSession.SpareBearer b : found.bearers()) {
+            if (b == here) continue;
+            if (others.length() > 0) others.append(", ");
+            others.append(b.name())
+                .append(" at ")
+                .append(b.machine());
+        }
+        return tip.muted((view.output() ? "Could also ship out as " : "Could also come in as ") + others + ".")
+            .action(Tip.Input.LEFT, "Choose who takes it")
+            .action(Tip.Input.DRAG, "Hand it to another card");
+    }
+
     /** A port: what it is, its rate, NEI's own lines about the stack, and what the mouse and keys do with it. */
     private Tip portTip(final PortSlot slot) {
         final CardModel.PortView view = slot.view();
         if (view == null) return null;
+        if (view.hasExtra() && slot.overExtraRow()) return spareTip(slot, view);
+        if (slot.overKey()) {
+            final CardModel model = session.model(slot.node());
+            final boolean set = model != null && session.portTarget(model.node, view.output(), view.index()) != null;
+            return Tip.of(set ? "Exactly" : "Any")
+                .muted(
+                    set ? "Set: the machine runs so this " + (view.output() ? "output gives" : "input takes")
+                        + " exactly its rate."
+                        : "The plan decides this " + (view.output() ? "output's" : "input's") + " rate.")
+                .action(Tip.Input.LEFT, set ? "Let the plan decide" : "Set it to what it is now");
+        }
+        if (slot.overRate()) {
+            final CardModel model = session.model(slot.node());
+            final Double set = model == null ? null : session.portTarget(model.node, view.output(), view.index());
+            return Tip.of(view.name())
+                .sub(set != null ? "Rate set" : "Rate: the plan decides")
+                .row(view.output() ? "Gives" : "Takes", Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()))
+                .muted(
+                    "Set it and the machine runs so this " + (view.output() ? "output gives" : "input takes")
+                        + " exactly that.")
+                .action(Tip.Input.LEFT, set != null ? "Change its rate" : "Set its rate")
+                .action(Tip.Input.DRAG, "Connect");
+        }
+        // Unwired and running: a forced input or output, told as the overview's are.
+        if (RecipeCard.isOpen(view)) {
+            final CardModel model = session.model(slot.node());
+            return actions(SpareTips.open(session, slot.node(), model == null ? "" : model.machineName, view));
+        }
         final ItemStack stack = slot.stack();
         final boolean chanced = view.output() && view.chance() < 0.9999f;
         final Tip tip = Tip.of(view.name())
@@ -885,12 +965,11 @@ public final class BoardScreen extends ModularScreen {
             final List<String> nei = GuiContainerManager.itemDisplayNameMultiline(stack, null, true);
             for (int i = 1; i < Math.min(nei.size(), 5); i++) tip.note(nei.get(i), Tip.SUBTLE);
         }
-        if (!view.wired()) {
-            tip.note("Unconnected", Tip.WARN);
-            tip.muted(
-                view.output() ? "Wire it to a card, or drag it onto the board to add a drawer."
-                    : "Wire it to a card that makes it, or drag it onto the board to add a drawer.");
-        }
+        return actions(tip);
+    }
+
+    /** What the mouse does with a port. */
+    private static Tip actions(final Tip tip) {
         return tip.action(Tip.Input.LEFT, "Recipes: what makes it")
             .action(Tip.Input.RIGHT, "Uses: what uses it")
             .action(Tip.Input.DRAG, "Connect")

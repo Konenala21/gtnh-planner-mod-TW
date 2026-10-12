@@ -1,6 +1,7 @@
 package com.gtnhplanner.ui;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,14 +36,46 @@ import com.gtnhplanner.ui.theme.Hyb;
  * board; double-clicking flies to the cards that use it. Folds to a thin strip.
  */
 final class OverviewRail extends ParentWidget<OverviewRail>
-    implements Interactable, com.cleanroommc.modularui.integration.recipeviewer.RecipeViewerIngredientProvider {
+    implements Interactable, com.cleanroommc.modularui.integration.recipeviewer.RecipeViewerIngredientProvider,
+    com.cleanroommc.modularui.api.widget.IFocusedWidget {
+
+    /** The rate box or count field being typed into: one at a time. */
+    private final com.gtnhplanner.ui.popup.InlineNumber edit = new com.gtnhplanner.ui.popup.InlineNumber();
+
+    @Override
+    public boolean isFocused() {
+        return edit.active();
+    }
+
+    @Override
+    public void onFocus(final com.cleanroommc.modularui.screen.viewport.ModularGuiContext context) {}
+
+    /** Clicking anything else sets what was typed. */
+    @Override
+    public void onRemoveFocus(final com.cleanroommc.modularui.screen.viewport.ModularGuiContext context) {
+        edit.commit();
+    }
+
+    @Override
+    public Result onKeyPressed(final char typedChar, final int keyCode) {
+        if (!edit.active()) return Result.IGNORE;
+        edit.keyPressed(typedChar, keyCode);
+        if (!edit.active()) getContext().removeFocus();
+        return Result.SUCCESS;
+    }
 
     static final int W = 198;
     static final int W_FOLDED = 14;
 
     private static final int HEAD_H = 18, FILTER_Y = 20, FILTER_H = 14, LIST_Y = 38;
-    private static final int SECTION_H = 16, ROW_H = 18, DRAWER_H = 16, GROUP_H = 18, LINE_H = 14, GAP = 4;
-    private static final int TOGGLE_W = 34, PIN_W = 14;
+    private static final int SECTION_H = 12, ROW_H = 13, DRAWER_H = 12, GROUP_H = 18, LINE_H = 14, GAP = 4;
+    /** A resource row's icon: its size and left, and where its name starts (as the Spare section's lines). */
+    private static final int ICON = 10, ICON_X = 8, NAME_X = ICON_X + 13;
+    /** The line under the mouse: a faint gold, as a spare's lines have it. */
+    private static final int HOVER = 0x1AE8B34A;
+    private static final int TOGGLE_W = 30, PIN_W = 12;
+    /** The machine count field: a drawer's rate box, "Set" while it has none. */
+    private static final int COUNT_W = 38;
     private static final int INTERNAL_INK = 0xFFD4D4D4;
 
     private enum Kind {
@@ -55,13 +88,38 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         PEAK,
         GROUP,
         MACHINE,
-        /** A machine line's count: wheel it, or click to type a pinned count, as on the card. */
+        /** A machine line's count: click to type a pinned count, as on the card. */
         COUNT,
+        /** A machine line's rule key: Any (the plan decides) or = (pinned); a click switches. */
+        MACHINE_RULE,
         /** A machine's pin key: puts it on the pin list shown while playing, or takes it off. */
         PIN,
         /** The list's scroll bar: drag the thumb, or click the track to jump. */
-        SCROLLBAR
+        SCROLLBAR,
+        /** A leftover ({@link SpareBar}): its header, Split and Auto, and a line per place with its bar. */
+        SPARE,
+        /** A port set to a rate on its card ({@link PortPin}): its = key (a click lets the plan decide again). */
+        PORT_RULE,
+        /** A port's rate, set on its card: click to type it, the wheel steps it, as on the card. */
+        PORT_RATE,
+        /**
+         * A line's "~ Set" while nothing sets it: a rate typed there goes to its one open port (as on the card), or to
+         * a
+         * drawer for all of them.
+         */
+        LINE_SET
     }
+
+    /** A port of a line's resource with nothing wired to it and no drawer, and the machine it is on. */
+    private record OpenPort(com.gtnhplanner.data.flowchart.Node node, boolean output, int index, double perSecond,
+        String machine) {}
+
+    /**
+     * A machine's port with a rate set on its card (the machine runs so it takes or gives exactly that), where the
+     * plan's edge is: listed under its resource as a drawer is, with the same controls.
+     */
+    private record PortPin(com.gtnhplanner.data.flowchart.Node node, boolean output, int index, double rate,
+        String machine) {}
 
     /** Something clickable or hoverable, in rail coordinates, rebuilt every frame by the draw pass. */
     private record Hit(Kind kind, int x0, int y0, int x1, int y1, Object data) {
@@ -80,8 +138,6 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     private String filter = "";
     private int scroll;
     private int contentH;
-    private long lastClick;
-    private String lastClickKey;
     private final Map<String, Integer> flyIndex = new LinkedHashMap<>();
 
     OverviewRail(final BoardSession session, final BoardCanvas canvas) {
@@ -163,11 +219,24 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         if (!open) {
             drawFolded(h);
             session.setRailHoverKey(null);
+            hoverSpare(null, w);
             return;
         }
         final Hit hover = hitAtMouseFromLastFrame();
         session.setRailHoverKey(
             hover != null && hover.kind() == Kind.RESOURCE ? ((BoardSession.TotalLine) hover.data()).key() : null);
+        hoverSpare(hover, w);
+        final SpareBar held = dragging();
+        String keep = null;
+        if (held != null) {
+            for (final java.util.Map.Entry<String, SpareBar> e : spareBars.entrySet())
+                if (e.getValue() == held) keep = e.getKey();
+        } else if (hover != null && hover.kind() == Kind.SPARE) keep = ((BoardSession.SpareLine) hover.data()).key();
+        if (!java.util.Objects.equals(keep, anchorKey)) {
+            anchorKey = keep;
+            anchorAt = Integer.MIN_VALUE;
+        }
+        anchorShift = 0;
 
         // Heading: the title and the fold key.
         Hyb.rect(0, 0, w - 1, HEAD_H, Hyb.seeThrough(0xFF2A2D33, RAIL_FLOOR));
@@ -189,26 +258,47 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         // The list scrolls under the heading and filter.
         final float z = context.getCurrentDrawingZ();
         final int listY = LIST_Y;
-        Stencil.apply(0, listY, w - 1, h - listY, context);
-        int y = listY - scroll;
         final BoardSession.Totals t = session.totals();
         inputs.clear();
         inputs.addAll(t.inputs());
-        y = resources("INPUTS", t.inputs(), y, w, z, Hyb.SOURCE_INK, "-", "Nothing missing.", hover);
-        y = resources("OUTPUTS", t.outputs(), y, w, z, Hyb.PRODUCT_INK, "+", "Nothing coming out yet.", hover);
-        y = resources("INTERNAL", t.internal(), y, w, z, INTERNAL_INK, "", "Nothing internal.", hover);
-        y = machines(t, y, w, z, hover);
+        // When the plan's numbers change under the slider in hand (or under the mouse), lines above it can come or
+        // go: the list is laid out once unseen first (nothing reaches the screen), so it is drawn already scrolled to
+        // keep the slider where it was, never a frame out of place.
+        if (anchorKey != null && anchorAt != Integer.MIN_VALUE && (t != laidTotals || session.spares() != laidSpares)) {
+            final int before = hits.size();
+            GL11.glPushAttrib(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_SCISSOR_BIT);
+            GL11.glColorMask(false, false, false, false);
+            GL11.glDepthMask(false);
+            GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            GL11.glScissor(0, 0, 0, 0);
+            list(t, listY - scroll, w, z, hover);
+            GL11.glPopAttrib();
+            hits.subList(before, hits.size())
+                .clear();
+            scroll += anchorShift;
+            anchorShift = 0;
+        }
+        laidTotals = t;
+        laidSpares = session.spares();
+        Stencil.apply(0, listY, w - 1, h - listY, context);
+        final int y = list(t, listY - scroll, w, z, hover);
         contentH = y + scroll - listY;
+        // Where things sit in the list does not depend on the scroll, so one correction holds.
+        if (anchorShift != 0) scroll += anchorShift;
         Stencil.remove();
-        // Folding a section can leave the list scrolled past its end; a thin bar says when there is more.
+        // Folding a section, or a slider kept still while lines above it go, can leave the list scrolled past an end:
+        // once nothing is kept still it glides back (a quarter of the way a frame). A thin bar says when there is more.
         final int visible = h - listY, max = Math.max(0, contentH - visible);
-        if (scroll > max) scroll = max;
+        if (anchorKey == null) {
+            if (scroll > max) scroll = Math.max(max, scroll - Math.max(1, (scroll - max) / 4));
+            else if (scroll < 0) scroll = Math.min(0, scroll + Math.max(1, -scroll / 4));
+        }
         scrollMax = max;
         if (max > 0) {
             final int thumb = Math.max(14, visible * visible / contentH);
             barThumb = thumb;
             barTrack = visible - thumb;
-            final int top = listY + barTrack * scroll / max;
+            final int top = listY + barTrack * Math.max(0, Math.min(max, scroll)) / max;
             final boolean hot = draggingBar || hover != null && hover.kind() == Kind.SCROLLBAR;
             if (hot) Hyb.rect(w - BAR_W - 1, listY, BAR_W, visible, 0x40000000);
             Hyb.rect(w - BAR_W, top, BAR_W - 2, thumb, hot ? Hyb.INK : 0xFF6A6C74);
@@ -231,6 +321,24 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         lastHits.addAll(moved);
     }
 
+    /** The list under the heading and filter, from {@code y}: every section in turn. Returns where it ends. */
+    private int list(final BoardSession.Totals t, int y, final int w, final float z, final Hit hover) {
+        final Set<String> keys = new HashSet<>();
+        y = resources("INPUTS", t.inputs(), y, w, z, Hyb.SOURCE_INK, "-", "Nothing missing.", hover, keys);
+        y = resources("OUTPUTS", t.outputs(), y, w, z, Hyb.PRODUCT_INK, "+", "Nothing coming out yet.", hover, keys);
+        y = resources("INTERNAL", t.internal(), y, w, z, INTERNAL_INK, "", "Nothing internal.", hover, keys);
+        // A folded section keeps its sliders (a bar in hand among them keeps its place).
+        for (final BoardSession.SpareLine line : session.spares())
+            if (folded.contains(line.importing() ? "INPUTS" : "OUTPUTS")) keys.add(line.key());
+        // The bar in hand stays, even while a solve has its line away a moment.
+        final SpareBar inHand = dragging();
+        for (final Map.Entry<String, SpareBar> e : spareBars.entrySet())
+            if (e.getValue() == inHand) keys.add(e.getKey());
+        spareBars.keySet()
+            .retainAll(keys);
+        return machines(t, y, w, z, hover);
+    }
+
     /**
      * The GUI rectangle {x, y, w, h} of a row as last drawn, for the tour: "section:INPUTS", "resource:Hydrogen",
      * "machine:Large Chemical", "peak", "rate:Hydrogen", or "all" for the whole rail; null when it is not on screen.
@@ -238,6 +346,43 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     int[] rowRect(final String id) {
         final com.cleanroommc.modularui.widget.sizer.Area a = getArea();
         if ("all".equals(id)) return new int[] { a.x, a.y, a.width, a.height };
+        // A whole section, its header and every row under it ("block:MACHINES").
+        if (id.startsWith("block:")) {
+            final String title = id.substring(6);
+            int[] out = null;
+            boolean in = false;
+            for (final Hit h : lastHits) {
+                if (h.kind() == Kind.SECTION) {
+                    if (in) break;
+                    in = title.equals(h.data());
+                }
+                if (!in) continue;
+                final int x0 = a.x + h.x0(), y0 = a.y + h.y0(), x1 = a.x + h.x1(), y1 = a.y + h.y1();
+                out = out == null ? new int[] { x0, y0, x1, y1 }
+                    : new int[] { Math.min(out[0], x0), Math.min(out[1], y0), Math.max(out[2], x1), Math.max(out[3], y1) };
+            }
+            return out == null ? null : new int[] { out[0], out[1], out[2] - out[0], out[3] - out[1] };
+        }
+        // A leftover's block ("spare:Oxygen"), or a part of it ("sparebar:Oxygen:FILL:0", "sparebar:Oxygen:SPLIT:-1"):
+        // the first whose places have that name.
+        if (id.startsWith("spare:") || id.startsWith("sparebar:")) {
+            final String[] p = id.split(":");
+            for (final Hit h : lastHits) {
+                if (h.kind() != Kind.SPARE || !(h.data() instanceof final BoardSession.SpareLine line)) continue;
+                boolean named = false;
+                for (final BoardSession.SpareBearer b : line.bearers()) named |= b.name()
+                    .contains(p[1]);
+                if (!named) continue;
+                if (p.length < 4) return new int[] { a.x + h.x0(), a.y + h.y0(), h.x1() - h.x0(), h.y1() - h.y0() };
+                final SpareBar bar = spareBars.get(line.key());
+                final float[] r = bar == null ? null
+                    : bar.rectOf(SpareBar.Kind.valueOf(p[2]), Integer.parseInt(p[3]));
+                return r == null ? null
+                    : new int[] { Math.round(a.x + r[0]), Math.round(a.y + r[1]), Math.round(r[2] - r[0]),
+                        Math.round(r[3] - r[1]) };
+            }
+            return null;
+        }
         final int colon = id.indexOf(':');
         final String kind = colon < 0 ? id : id.substring(0, colon), what = colon < 0 ? "" : id.substring(colon + 1);
         for (final Hit h : lastHits) {
@@ -297,38 +442,95 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             Hyb.rect(0, y, w - 1, SECTION_H, 0xFF30333A);
         else Hyb.rect(0, y, w - 1, SECTION_H, Hyb.seeThrough(0xFF2A2D33, RAIL_FLOOR));
         // A small triangle: pointing right when folded, down when open.
-        if (isFolded) Hyb.triangle(6, y + 4, 6, y + 12, 10, y + 8, ink);
-        else Hyb.triangle(4, y + 6, 12, y + 6, 8, y + 10, ink);
-        Hyb.text(title, 14, y + 4, ink);
+        if (isFolded) Hyb.triangle(5, y + 3, 5, y + 9, 8, y + 6, ink);
+        else Hyb.triangle(4, y + 4, 10, y + 4, 7, y + 7, ink);
+        Hyb.text(title, 13, y + 2, ink);
         final String badge = filter.isBlank() ? Integer.toString(count) : shown + " / " + count;
-        final int bw = Hyb.width(badge) + 6;
-        Hyb.rect(14 + Hyb.width(title) + 5, y + 3, bw, 10, 0xFF353942);
-        Hyb.text(badge, 14 + Hyb.width(title) + 8, y + 4, 0xFFA3A3A3);
+        final int tw = Hyb.width(title), bw = Hyb.width(badge) + 6;
+        Hyb.rect(13 + tw + 4, y + 1, bw, 10, 0xFF353942);
+        Hyb.text(badge, 13 + tw + 7, y + 2, 0xFFA3A3A3);
         hits.add(new Hit(Kind.SECTION, 0, y, w - 1, y + SECTION_H, title));
         return y + SECTION_H;
     }
 
+    /** The rate unit at the end of the section bar just drawn above {@code y}, in the bar's type. */
+    private void unitAtBar(final int y, final int w) {
+        final String unit = session.rateUnit().suffix;
+        Hyb.textRight(unit, w - 6, y - SECTION_H + 2, Hyb.MUTED);
+    }
+
+    /**
+     * How much of each resource the plan's spares with a choice of place carry out ({@code importing} false) or in, by
+     * resource, as the last solve has it: the section's lines leave that to the spare's own block.
+     */
+    private Map<String, Double> spared(final boolean importing) {
+        final Map<String, Double> out = new HashMap<>();
+        for (final BoardSession.SpareLine l : session.spares()) {
+            if (l.importing() != importing || l.bearers()
+                .size() < 2) continue;
+            for (int i = 0; i < l.bearers()
+                .size(); i++) {
+                final BoardSession.SpareBearer b = l.bearers()
+                    .get(i);
+                out.merge(session.canonicalKey(b.resourceKey()), l.solvedShares()[i] * b.max(), Double::sum);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * What an input or output line shows: what goes in or out less what the plan's spares with a choice carry (they
+     * have blocks of their own); an internal line as it is.
+     */
+    private double railAmount(final BoardSession.TotalLine line) {
+        final boolean in = inputs.contains(line), out = !in && session.totals()
+            .outputs()
+            .contains(line);
+        if (!in && !out) return line.amount();
+        return Math.max(0, line.amount() - spared(in).getOrDefault(line.key(), 0.0));
+    }
+
     private int resources(final String title, final List<BoardSession.TotalLine> lines, int y, final int w,
-        final float z, final int ink, final String sign, final String empty, final Hit hover) {
+        final float z, final int ink, final String sign, final String empty, final Hit hover, final Set<String> keys) {
+        // What the plan's spares carry is theirs: a line left with nothing but that (and no drawer) is not listed here.
+        final boolean internal = title.equals("INTERNAL"), sources = title.equals("INPUTS");
+        final Map<String, Double> spared = internal ? Map.of() : spared(sources);
+        final List<BoardSession.TotalLine> kept = new ArrayList<>();
+        final Map<BoardSession.TotalLine, Double> amounts = new HashMap<>();
+        for (final BoardSession.TotalLine line : lines) {
+            final double left = Math.max(0, line.amount() - spared.getOrDefault(line.key(), 0.0));
+            if (!internal && left <= Math.max(1e-6, line.amount() * 1e-4)
+                && drawersFor(line, sources).isEmpty()
+                && pinsFor(line, sources).isEmpty()) continue;
+            kept.add(line);
+            amounts.put(line, internal ? line.amount() : left);
+        }
         final List<BoardSession.TotalLine> shown = new ArrayList<>();
-        for (final BoardSession.TotalLine line : lines) if (matches(line.label())) shown.add(line);
-        y = section(title, lines.size(), shown.size(), y, w, ink, hover);
-        final int rateRight = title.equals("INTERNAL") ? w - 6 : w - 6 - CONTROLS_W - 4;
+        for (final BoardSession.TotalLine line : kept) if (matches(line.label())) shown.add(line);
+        // The spares with a choice of place come after the lines, as blocks of their own.
+        final List<BoardSession.SpareLine> groups = internal ? List.of() : groups(sources);
+        y = section(title, kept.size() + groups.size(), shown.size() + groups.size(), y, w, ink, hover);
+        // Every section's numbers in one column, left of where the drawer controls sit (empty on internal lines).
+        final int rateRight = w - 6 - CONTROLS_W - 3;
         // The unit every rate below is in, at the header's end.
-        if (!folded.contains(title)) Hyb.textRight(session.rateUnit().suffix, w - 6, y - SECTION_H + 4, Hyb.MUTED);
+        if (!folded.contains(title)) unitAtBar(y, w);
         if (folded.contains(title)) return y + GAP;
-        if (shown.isEmpty()) {
-            Hyb.text(lines.isEmpty() ? empty : "No matches.", 8, y + 5, 0xFF6A6C74);
+        if (shown.isEmpty() && groups.isEmpty()) {
+            Hyb.text(kept.isEmpty() ? empty : "No matches.", 8, y + 3, 0xFF6A6C74);
             return y + ROW_H + GAP;
         }
         final Fmt.RateUnit unit = session.rateUnit();
         final int tint = Hyb.seeThrough(ink & 0x00FFFFFF | 0x0D000000);
         for (final BoardSession.TotalLine line : shown) {
-            final boolean hot = hover != null && hover.data() == line
-                && (hover.kind() == Kind.RESOURCE || hover.kind() == Kind.ADD);
-            final List<DrawerModel> drawers = title.equals("INTERNAL") ? List.of()
-                : drawersFor(line, title.equals("INPUTS"));
-            // One line per drawer: the resource's own line carries the first; any more get a short line each.
+            final boolean hot = hover != null && hover.data() == line && hover.kind() == Kind.RESOURCE;
+            final double amount = amounts.get(line);
+            // What sets it: its drawers, then the ports set to a rate on their cards.
+            final List<Object> drawers = new ArrayList<>();
+            if (!internal) {
+                drawers.addAll(drawersFor(line, sources));
+                drawers.addAll(pinsFor(line, sources));
+            }
+            // One line per drawer or port: the resource's own line carries the first; any more get a short line each.
             final int rows = Math.max(1, drawers.size());
             final int h = ROW_H + (rows - 1) * DRAWER_H;
             // Scrolled out of the list: nothing to draw (a long plan has hundreds of rows, and every icon costs).
@@ -336,48 +538,137 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 y += h;
                 continue;
             }
-            Hyb.rect(0, y, w - 1, h, hot ? 0x1A22D3EE : tint);
-            if (hot) {
-                Hyb.rect(0, y, w - 1, 1, 0x9922D3EE);
-                Hyb.rect(0, y + h - 1, w - 1, 1, 0x9922D3EE);
-            }
+            Hyb.rect(0, y, w - 1, h, hot ? HOVER : tint);
             final boolean eu = Resources.isPower(line.key());
-            if (eu) com.gtnhplanner.ui.card.RecipeCard.euIcon(4, y + 1, 16);
-            else if (line.isFluid()) Hyb.fluid(line.fluid(), 4, y + 1, 16, z);
-            else Hyb.item(line.item(), 4, y + 1, 16, z);
+            if (eu) com.gtnhplanner.ui.card.RecipeCard.euIcon(ICON_X, y + 1, ICON);
+            else Hyb.icon(line.item(), line.fluid(), ICON_X, y + 1, ICON, z);
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
             // What the plan moves, right-aligned against the controls so the numbers line up down the list.
-            final String number = (line.amount() > 0 ? sign : "")
-                + Fmt.compact(eu ? line.amount() / 20 : line.amount() * unit.perSecond);
-            // The time unit is the same on every line, so it is said once, in the section's header; EU is in EU/t.
-            final String suffix = eu ? " EU/t" : line.isFluid() ? " L" : "";
+            final String number = (amount > 0 ? sign : "") + Fmt.compact(eu ? amount / 20 : amount * unit.perSecond);
+            // The time unit is the same on every line, so it is said once, in the section's header; litres go without
+            // saying; EU is in EU/t.
+            final String suffix = eu ? " EU/t" : "";
             final int rateW = Hyb.width(number) + Hyb.width(suffix) + 1;
-            Hyb.text(Hyb.fit(line.label(), rateRight - rateW - 6 - 23), 23, y + 5, Hyb.INK);
-            Hyb.text(number, rateRight - rateW, y + 5, line.amount() > 0 ? ink : Hyb.MUTED);
-            Hyb.text(suffix, rateRight - Hyb.width(suffix), y + 5, Hyb.MUTED);
+            Hyb.text(Hyb.fit(line.label(), rateRight - rateW - 4 - NAME_X), NAME_X, y + 3, hot ? Hyb.GOLD : Hyb.INK);
+            Hyb.text(number, rateRight - rateW, y + 3, amount > 0 ? ink : Hyb.MUTED);
+            Hyb.text(suffix, rateRight - Hyb.width(suffix), y + 3, Hyb.MUTED);
+            if (drawers.isEmpty() && !internal && !eu && !openPorts(line, sources).isEmpty())
+                lineControls(line, y + 1, w, hover);
             if (!drawers.isEmpty()) {
-                drawerControls(drawers.get(0), y + 2, w, hover);
+                setterControls(drawers.get(0), y + 1, w, hover);
                 for (int i = 1; i < drawers.size(); i++) {
                     final int dy = y + ROW_H + (i - 1) * DRAWER_H;
                     // A branch from the resource down to each further drawer.
-                    Hyb.rect(11, y + ROW_H - 1, 1, dy - y - ROW_H + DRAWER_H / 2 + 1, Hyb.MUTED);
-                    Hyb.rect(11, dy + DRAWER_H / 2, 5, 1, Hyb.MUTED);
-                    drawerControls(drawers.get(i), dy + 1, w, hover);
+                    final int bx = ICON_X + ICON / 2;
+                    Hyb.rect(bx, y + ROW_H - 1, 1, dy - y - ROW_H + DRAWER_H / 2 + 1, Hyb.MUTED);
+                    Hyb.rect(bx, dy + DRAWER_H / 2, 5, 1, Hyb.MUTED);
+                    setterControls(drawers.get(i), dy, w, hover);
                 }
-            } else if (hot && !title.equals("INTERNAL")) {
-                // Hovered and without a drawer on this side: a "+" where the controls go, that makes one (a source
-                // for inputs, a product for outputs).
-                final int ax = w - 6 - CONTROLS_W + (CONTROLS_W - 12) / 2;
-                final boolean addHot = hover.kind() == Kind.ADD;
-                Hyb.bevel(ax, y + 3, 12, 12, addHot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
-                Hyb.rect(ax + 3, y + 8, 6, 2, ink);
-                Hyb.rect(ax + 5, y + 6, 2, 6, ink);
-                hits.add(new Hit(Kind.ADD, ax, y + 3, ax + 12, y + 15, line));
             }
             hits.add(new Hit(Kind.RESOURCE, 0, y, w - 1, y + h, line));
             y += h;
         }
+        if (!internal) y = spareGroups(sources, y, w, z, hover, keys);
         return y + GAP;
     }
+
+    // region Spare
+
+    /**
+     * The plan's spares with a choice of place in one direction ({@code importing}: those brought in, under INPUTS;
+     * else surpluses, under OUTPUTS), each a block of its own after the section's lines: a slim header ("Spare", Split,
+     * Auto) and a line per place with a bar of its share where the drawer controls sit ({@link SpareBar}). Hovering a
+     * place lights it on the board (and peeks there when it is off view). {@code keys} gathers the spares drawn.
+     */
+    private int spareGroups(final boolean importing, int y, final int w, final float z, final Hit hover,
+        final Set<String> keys) {
+        for (final BoardSession.SpareLine line : groups(importing)) {
+            y += 2;
+            // The slider the mouse is on (or dragging) stays where it is on screen while lines above it come and go:
+            // the list scrolls by as much as it moved.
+            if (line.key()
+                .equals(anchorKey)) {
+                final int at = y + scroll;
+                if (anchorAt != Integer.MIN_VALUE && at != anchorAt) anchorShift += at - anchorAt;
+                anchorAt = at;
+            }
+            keys.add(line.key());
+            final SpareBar bar = spareBars.computeIfAbsent(line.key(), k -> new SpareBar());
+            bar.barWidth(CONTROLS_W);
+            final boolean mine = hover != null && hover.kind() == Kind.SPARE && hover.data() == line;
+            final int h = SpareBar.height(line);
+            Hyb.rect(0, y, w - 1, h, Hyb.seeThrough(SpareBar.tint(line)));
+            bar.draw(session, line, SPARE_X, y, sliderW(w), z, mine ? bar.hitAt(localX(), localY()) : null);
+            hits.add(new Hit(Kind.SPARE, 0, y, w - 1, y + h, line));
+            y += h;
+        }
+        return y;
+    }
+
+    /** The spares with a choice of place in one direction that the filter lets through. */
+    private List<BoardSession.SpareLine> groups(final boolean importing) {
+        final List<BoardSession.SpareLine> out = new ArrayList<>();
+        for (final BoardSession.SpareLine line : session.spares()) {
+            if (line.importing() != importing || line.bearers()
+                .size() < 2) continue;
+            boolean match = false;
+            for (final BoardSession.SpareBearer b : line.bearers()) match |= matches(b.name());
+            if (match) out.add(line);
+        }
+        return out;
+    }
+
+    private static final int SPARE_X = 8;
+    /**
+     * The slider kept still on screen (the one under the mouse or being dragged), where it was, and how far it moved.
+     */
+    private String anchorKey;
+    /** When the wheel last scrolled the list (ms): while it is scrolling, fields it passes over do not take it. */
+    private long listWheelAt;
+    private int anchorAt = Integer.MIN_VALUE, anchorShift;
+    /** The numbers the list was last laid out with: new ones may move the slider kept still. */
+    private BoardSession.Totals laidTotals;
+    private List<BoardSession.SpareLine> laidSpares;
+    /** One slider per leftover, kept by its key: each remembers what it drew last (for hits) and an edge in hand. */
+    private final Map<String, SpareBar> spareBars = new LinkedHashMap<>();
+
+    /** How wide a spare's lines are: from the icons to where the drawer controls end. */
+    private static int sliderW(final int w) {
+        return w - 6 - SPARE_X;
+    }
+
+    /** The slider and what on it is under the mouse, for a hit on a leftover; null for anything else. */
+    private SpareBar.Hit spareHitAt(final Hit hit) {
+        if (hit == null || hit.kind() != Kind.SPARE) return null;
+        final SpareBar bar = spareBars.get(((BoardSession.SpareLine) hit.data()).key());
+        return bar == null ? null : bar.hitAt(localX(), localY());
+    }
+
+    /** The slider whose edge is in hand, if any. */
+    private SpareBar dragging() {
+        for (final SpareBar bar : spareBars.values()) if (bar.dragging()) return bar;
+        return null;
+    }
+
+    /**
+     * Tells the session which place the mouse is on (its card and rows light up on the board), and after a short rest
+     * peeks the board at it when it is off view. Leaving the overview onto the board keeps that view; leaving anywhere
+     * else puts the board back.
+     */
+    private void hoverSpare(final Hit hover, final int w) {
+        BoardSession.SpareLine line = null;
+        BoardSession.SpareBearer bearer = null;
+        final int place = SpareBar.place(spareHitAt(hover));
+        if (place >= 0) {
+            line = (BoardSession.SpareLine) hover.data();
+            bearer = line.bearers()
+                .get(place);
+        }
+        session.setSpareHover(line, bearer, getArea().x + w, getArea().y + localY());
+    }
+
+    // endregion
 
     /** The input rows drawn this frame, to tell an input's "+" (source) from an output's (product). */
     private final java.util.Set<Object> inputs = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -392,48 +683,174 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         for (final DrawerModel d : session.drawerModels()
             .values()) {
             if ((d.kind == Drawer.Kind.SOURCE) == sources && d.kind.hasRule()
-                && d.drawer.getResourceKey()
+                && session.canonicalKey(d.drawer.getResourceKey())
                     .equals(line.key()))
                 out.add(d);
         }
         return out;
     }
 
+    /**
+     * The ports on one side set to a rate on their cards and holding a resource (inputs for inputs, outputs for
+     * outputs), where nothing is wired to them: there it is the plan's edge, as a drawer is.
+     */
+    private List<PortPin> pinsFor(final BoardSession.TotalLine line, final boolean sources) {
+        final List<PortPin> out = new ArrayList<>();
+        final com.gtnhplanner.data.flowchart.Graph graph = session.graph();
+        for (final com.gtnhplanner.data.flowchart.Node n : graph.getNodes()) {
+            final Map<Integer, Double> rates = sources ? n.targetInputRates : n.targetOutputRates;
+            if (rates.isEmpty()) continue;
+            final List<com.gtnhplanner.data.flowchart.Port<?>> ports = sources ? n.inputs : n.outputs;
+            for (final Map.Entry<Integer, Double> r : rates.entrySet()) {
+                final int i = r.getKey();
+                if (r.getValue() == null || r.getValue() <= 0 || i < 0 || i >= ports.size()) continue;
+                if (!session.canonicalKey(Resources.key(ports.get(i)))
+                    .equals(line.key())) continue;
+                boolean wired = false;
+                for (final com.gtnhplanner.data.flowchart.Edge e : graph.getEdges())
+                    wired |= sources ? e.targetNodeId.equals(n.id) && e.targetInputIndex == i
+                        : e.sourceNodeId.equals(n.id) && e.sourceOutputIndex == i;
+                if (wired) continue;
+                final CardModel m = session.model(n.id);
+                out.add(new PortPin(n, !sources, i, r.getValue(), m != null ? m.machineName : n.machineName));
+            }
+        }
+        return out;
+    }
+
+    /** The ports of a line's resource on one side with nothing wired to them and no drawer. */
+    private List<OpenPort> openPorts(final BoardSession.TotalLine line, final boolean sources) {
+        final List<OpenPort> out = new ArrayList<>();
+        for (final CardModel m : session.models()
+            .values()) {
+            for (final CardModel.PortView p : sources ? m.inputs : m.outputs) {
+                if (p.wired() || session.graph()
+                    .drawerAt(m.node.id, p.index(), sources) != null) continue;
+                if (session.canonicalKey(p.key())
+                    .equals(line.key()))
+                    out.add(new OpenPort(m.node, !sources, p.index(), p.perSecond(), m.machineName));
+            }
+        }
+        return out;
+    }
+
+    /** A line nothing sets yet: the rule key on Any and a "Set" box, as a port's on the card. */
+    private void lineControls(final BoardSession.TotalLine line, final int y, final int w, final Hit hover) {
+        final int bx = w - 6 - BOX_W, rx = bx - 2 - RULE_W, h = 11;
+        final boolean hot = hover != null && hover.kind() == Kind.LINE_SET && hover.data() == line;
+        Hyb.rect(rx, y, RULE_W, h, 0xFF111317);
+        Hyb.rect(rx + 1, y + 1, RULE_W - 2, h - 2, 0xFF34373E);
+        Hyb.rect(rx + 1, y + 1, RULE_W - 2, 1, 0x1FFFFFFF);
+        DrawerCard.drawRuleMark(
+            Drawer.Rule.ANY,
+            rx + (RULE_W - Hyb.width(DrawerCard.ruleMark(Drawer.Rule.ANY)) + 1) / 2f,
+            y + 2,
+            Hyb.MUTED);
+        hits.add(new Hit(Kind.LINE_SET, rx, y, bx + BOX_W, y + h, line));
+        if (edit.editing(lineEditKey(line))) {
+            edit.drawBox(bx, y, BOX_W, h, y + 2);
+            return;
+        }
+        Hyb.rect(bx, y, BOX_W, h, hot ? Hyb.GOLD : 0xFF5A5E68);
+        Hyb.rect(bx + 1, y + 1, BOX_W - 2, h - 2, hot ? 0xFF15171C : 0xFF0F1114);
+        Hyb.rect(bx + 1, y + 1, BOX_W - 2, 1, 0xB3000000);
+        Hyb.textCentered("Set", bx + BOX_W / 2f, y + 2, 0xFF6F737C);
+    }
+
+    private String lineEditKey(final BoardSession.TotalLine line) {
+        return "line:" + (inputs.contains(line) ? "in:" : "out:") + line.key();
+    }
+
+    /** A drawer's controls, or a port's set on its card. */
+    private void setterControls(final Object setter, final int y, final int w, final Hit hover) {
+        if (setter instanceof final DrawerModel d) drawerControls(d, y, w, hover);
+        else if (setter instanceof final PortPin p) portControls(p, y, w, hover);
+    }
+
+    /** A port's rate set on its card, as a drawer's controls: its = key, and the rate in gold. */
+    private void portControls(final PortPin p, final int y, final int w, final Hit hover) {
+        final int bx = w - 6 - BOX_W, rx = bx - 2 - RULE_W, h = 11;
+        final boolean ruleHot = hover != null && hover.kind() == Kind.PORT_RULE && hover.data() == p;
+        final boolean rateHot = hover != null && hover.kind() == Kind.PORT_RATE && hover.data() == p;
+        Hyb.rect(rx, y, RULE_W, h, 0xFF111317);
+        Hyb.rect(rx + 1, y + 1, RULE_W - 2, h - 2, ruleHot ? 0xFF454952 : 0xFF34373E);
+        Hyb.rect(rx + 1, y + 1, RULE_W - 2, 1, 0x1FFFFFFF);
+        DrawerCard.drawRuleMark(
+            Drawer.Rule.EXACTLY,
+            rx + (RULE_W - Hyb.width(DrawerCard.ruleMark(Drawer.Rule.EXACTLY)) + 1) / 2f,
+            y + 2,
+            Hyb.GOLD);
+        hits.add(new Hit(Kind.PORT_RULE, rx, y, rx + RULE_W, y + h, p));
+        hits.add(new Hit(Kind.PORT_RATE, bx, y, bx + BOX_W, y + h, p));
+        if (edit.editing(portEditKey(p))) {
+            edit.drawBox(bx, y, BOX_W, h, y + 2);
+            return;
+        }
+        Hyb.rect(bx, y, BOX_W, h, rateHot ? Hyb.GOLD : 0xFF5A5E68);
+        Hyb.rect(bx + 1, y + 1, BOX_W - 2, h - 2, rateHot ? 0xFF15171C : 0xFF0F1114);
+        Hyb.rect(bx + 1, y + 1, BOX_W - 2, 1, 0xB3000000);
+        final Double wheeled = session.wheeledPortRate(p.node(), p.output(), p.index());
+        final double rate = wheeled != null ? wheeled : p.rate();
+        Hyb.textCentered(
+            Hyb.fit(Fmt.compact(rate * session.rateUnit().perSecond), BOX_W - 7),
+            bx + BOX_W / 2f,
+            y + 2,
+            Hyb.GOLD);
+    }
+
+    private static String portEditKey(final PortPin p) {
+        return "port:" + p.node().id + ":" + p.output() + ":" + p.index();
+    }
+
+    /** The wheel on a port's rate in the overview: as on the card (Ctrl x10, Shift x100). */
+    private void stepPortRate(final PortPin p, final int direction) {
+        final Fmt.RateUnit unit = session.rateUnit();
+        final boolean ctrl = org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_LCONTROL)
+            || org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_RCONTROL);
+        final boolean shift = org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_LSHIFT)
+            || org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_RSHIFT);
+        final Double wheeled = session.wheeledPortRate(p.node(), p.output(), p.index());
+        final double now = (wheeled != null ? wheeled : p.rate()) * unit.perSecond;
+        final double next = Math.max(0, Math.round(now) + direction * (shift ? 100 : ctrl ? 10 : 1));
+        session.wheelPortRate(p.node(), p.output(), p.index(), next / unit.perSecond);
+    }
+
     /** The rule key and the rate box, as the drawer card wears them, at the right of a line. */
-    private static final int RULE_W = 20, BOX_W = 50, CONTROLS_W = RULE_W + 2 + BOX_W;
+    private static final int RULE_W = 12, BOX_W = COUNT_W, CONTROLS_W = RULE_W + 2 + BOX_W;
 
     private void drawerControls(final DrawerModel d, final int y, final int w, final Hit hover) {
-        final int bx = w - 6 - BOX_W, rx = bx - 2 - RULE_W, h = 14;
+        final int bx = w - 6 - BOX_W, rx = bx - 2 - RULE_W, h = 11;
         final boolean ruleHot = hover != null && hover.kind() == Kind.RULE && hover.data() == d;
         final boolean rateHot = hover != null && hover.kind() == Kind.RATE && hover.data() == d;
-        // The rule: its mark in gold (muted for Any) and a chevron, on a small dark key.
+        // The rule: its mark in gold (muted for Any), in the middle of a small dark key.
         final int mark = d.rule == Drawer.Rule.ANY ? Hyb.MUTED : Hyb.GOLD;
         Hyb.rect(rx, y, RULE_W, h, 0xFF111317);
         Hyb.rect(rx + 1, y + 1, RULE_W - 2, h - 2, ruleHot ? 0xFF454952 : 0xFF34373E);
         Hyb.rect(rx + 1, y + 1, RULE_W - 2, 1, 0x1FFFFFFF);
-        DrawerCard.drawRuleMark(d.rule, rx + 4, y + 3, mark);
-        Hyb.rect(rx + RULE_W - 9, y + 6, 5, 1, mark);
-        Hyb.rect(rx + RULE_W - 8, y + 7, 3, 1, mark);
-        Hyb.rect(rx + RULE_W - 7, y + 8, 1, 1, mark);
-        // The rate: a dark box, the number in gold, its unit at the right; red when it cannot be reached.
+        DrawerCard.drawRuleMark(d.rule, rx + (RULE_W - Hyb.width(DrawerCard.ruleMark(d.rule)) + 1) / 2f, y + 2, mark);
+        hits.add(new Hit(Kind.RULE, rx, y, rx + RULE_W, y + h, d));
+        hits.add(new Hit(Kind.RATE, bx, y, bx + BOX_W, y + h, d));
+        // The rate: being typed into; or a dark box, the number in gold; red when it cannot be reached.
+        if (edit.editing("drawer:" + d.drawer.getId())) {
+            edit.drawBox(bx, y, BOX_W, h, y + 2);
+            return;
+        }
         Hyb.rect(bx, y, BOX_W, h, d.unmet ? 0xBFF87171 : rateHot ? Hyb.GOLD : 0xFF5A5E68);
         Hyb.rect(bx + 1, y + 1, BOX_W - 2, h - 2, rateHot ? 0xFF15171C : 0xFF0F1114);
         Hyb.rect(bx + 1, y + 1, BOX_W - 2, 1, 0xB3000000);
         final Double wheeled = session.wheeledRate(d.drawer.getId());
         final double target = wheeled != null ? wheeled : d.target;
         final boolean empty = wheeled != null ? wheeled <= 0 : d.rule == Drawer.Rule.ANY || d.target <= 0;
-        if (empty) Hyb.textCentered("Set rate", bx + BOX_W / 2f, y + 3, 0xFF6F737C);
+        if (empty) Hyb.textCentered("Set", bx + BOX_W / 2f, y + 2, 0xFF6F737C);
         else {
             final Fmt.RateUnit unit = session.rateUnit();
-            // In the line's own unit, as the number beside it.
-            Hyb.text(
+            // In the line's own unit, as the number beside it; centred in the box, as on the board.
+            Hyb.textCentered(
                 Hyb.fit(Fmt.compact(d.shown(target, unit)), BOX_W - 7),
-                bx + 4,
-                y + 3,
+                bx + BOX_W / 2f,
+                y + 2,
                 d.unmet ? 0xFFF87171 : Hyb.GOLD);
         }
-        hits.add(new Hit(Kind.RULE, rx, y, rx + RULE_W, y + h, d));
-        hits.add(new Hit(Kind.RATE, bx, y, bx + BOX_W, y + h, d));
     }
 
     private int machines(final BoardSession.Totals t, int y, final int w, final float z, final Hit hover) {
@@ -455,109 +872,141 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final boolean peakHot = hover != null && hover.kind() == Kind.PEAK;
         Hyb.bevel(
             px,
-            y - SECTION_H + 2,
+            y - SECTION_H + 1,
             TOGGLE_W,
-            12,
+            10,
             peakHot ? Hyb.KEY_HOVER : 0xFF202329,
             Hyb.KEY_HI,
             Hyb.KEY_LO,
             0,
             1);
-        Hyb.textCentered(session.peakPower() ? "Peak" : "Avg", px + TOGGLE_W / 2f, y - SECTION_H + 4, Hyb.INK);
-        hits.add(new Hit(Kind.PEAK, px, y - SECTION_H + 2, px + TOGGLE_W, y - 2, null));
+        final String peak = session.peakPower() ? "Peak" : "Avg";
+        Hyb.textCentered(peak, px + TOGGLE_W / 2f, y - SECTION_H + 2, Hyb.INK);
+        hits.add(new Hit(Kind.PEAK, px, y - SECTION_H + 1, px + TOGGLE_W, y - 1, null));
+        // What the machines draw, in the bar beside the key.
+        Hyb.textRight(Fmt.power(t.euPerTick()) + " EU/t", px - 5, y - SECTION_H + 2, Hyb.MUTED);
         if (folded.contains("MACHINES")) return y + GAP;
 
         if (t.euMade() > 0) {
-            // With generators on the board: what the machines use, what the generators make, and what is left.
+            // With generators on the board: what they make, and what is left (what the machines use is in the bar).
             final double net = t.euMade() - t.euPerTick();
-            Hyb.text("Used", 8, y + 4, Hyb.MUTED);
-            Hyb.textRight(Fmt.power(t.euPerTick()) + " EU/t", w - 6, y + 4, Hyb.INK);
-            y += LINE_H;
-            Hyb.text("Made", 8, y + 4, Hyb.MUTED);
-            Hyb.textRight(Fmt.power(t.euMade()) + " EU/t", w - 6, y + 4, 0xFFFCD34D);
-            y += LINE_H;
-            Hyb.text("Net", 8, y + 4, Hyb.MUTED);
+            Hyb.text("Made", 8, y + 3, Hyb.MUTED);
+            Hyb.textRight(Fmt.power(t.euMade()) + " EU/t", w - 6, y + 3, 0xFFFCD34D);
+            y += ROW_H;
+            Hyb.text("Net", 8, y + 3, Hyb.MUTED);
             Hyb.textRight(
                 (net >= 0 ? "+" : "-") + Fmt.power(Math.abs(net)) + " EU/t",
                 w - 6,
-                y + 4,
-                net >= 0 ? Hyb.PRODUCT_INK : Hyb.RED_INK);
-        } else {
-            Hyb.text("Total", 8, y + 4, Hyb.MUTED);
-            Hyb.textRight(Fmt.power(t.euPerTick()) + " EU/t", w - 6, y + 4, Hyb.INK);
+                y + 3,
+                net >= 0 ? Hyb.OK_INK : Hyb.RED_INK);
+            y += ROW_H + 2;
         }
-        y += LINE_H + 2;
         if (groups.isEmpty()) {
             Hyb.text(
                 t.machines()
                     .isEmpty() ? "No machines yet." : "No matches.",
                 8,
-                y + 4,
+                y + 3,
                 0xFF6A6C74);
-            return y + LINE_H + GAP;
+            return y + ROW_H + GAP;
         }
-        // One block per machine, as the resources have a row each: a faint band, the machine and how many to build,
-        // then under its name a line for each tier it runs at, the tier as a tag in its colour.
+        // One block per machine, as the resources have a line each: a faint band, the machine's name, then a line for
+        // each card it runs on: its tier, what it draws, how many it takes, and the count field (pinned, or not yet).
         final int band = Hyb.seeThrough(0x0DE8E9EE);
+        // The count field sits where a drawer's rate box does, with room for the rule key before it.
+        final int fieldX = w - 6 - COUNT_W, keyX = fieldX - 2 - RULE_W, numberRight = keyX - 3;
         for (final Map.Entry<String, List<BoardSession.MachineLine>> g : groups.entrySet()) {
             final List<BoardSession.MachineLine> lines = g.getValue();
             // A group scrolled out of the list: skip its drawing, keep its room.
-            final int groupH = GROUP_H + lines.size() * LINE_H + 1;
-            if (y + groupH <= LIST_Y || y >= getArea().height) {
-                y += groupH;
+            final int groupH = ROW_H + lines.size() * ROW_H;
+            if (y + groupH + 1 <= LIST_Y || y >= getArea().height) {
+                y += groupH + 1;
                 continue;
             }
-            Hyb.rect(0, y, w - 1, groupH - 1, band);
+            Hyb.rect(0, y, w - 1, groupH, band);
             final boolean groupHot = hover != null && hover.kind() == Kind.GROUP
                 && g.getKey()
                     .equals(hover.data());
-            if (groupHot) Hyb.rect(0, y, w - 1, GROUP_H, 0x1A22D3EE);
-            Hyb.item(
+            if (groupHot) Hyb.rect(0, y, w - 1, ROW_H, HOVER);
+            Hyb.icon(
                 lines.get(0)
                     .stack(),
-                4,
-                y + 1,
-                16,
+                null,
+                ICON_X,
+                y + 1.5f,
+                ICON,
                 z);
-            Hyb.text(Hyb.fit(g.getKey(), w - 30), 23, y + 5, Hyb.INK);
-            hits.add(new Hit(Kind.GROUP, 0, y, w - 1, y + GROUP_H, g.getKey()));
-            y += GROUP_H;
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            Hyb.text(Hyb.fit(g.getKey(), w - 6 - NAME_X), NAME_X, y + 3, Hyb.INK);
+            hits.add(new Hit(Kind.GROUP, 0, y, w - 1, y + ROW_H, g.getKey()));
+            y += ROW_H;
             for (final BoardSession.MachineLine m : lines) {
                 final boolean pinHot = hover != null && hover.kind() == Kind.PIN && hover.data() == m;
-                final boolean hot = hover != null && (hover.kind() == Kind.MACHINE || hover.kind() == Kind.COUNT)
-                    && hover.data() == m || pinHot;
-                if (hot) Hyb.rect(0, y, w - 1, LINE_H, 0x1A22D3EE);
-                int cx = 23;
-                if (m.gregtech() && !m.tier()
-                    .isEmpty())
-                    cx += Hyb.tierTag(m.tier(), m.multiblock() && m.amps() > 1 ? m.amps() + "A" : null, cx, y + 3) + 5;
-                // How many: as the card's count, the wheel and a click set it here too; a count being wheeled shows.
-                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
-                final long wheeled = card == null ? -1 : card.wheeledCount();
-                final String count = "×" + (wheeled > 0 ? Long.toString(wheeled) : Fmt.machines(m.machines()));
                 final boolean countHot = hover != null && hover.kind() == Kind.COUNT && hover.data() == m;
-                // Gold while pinned, or about to be; plain while unpinned, or about to be.
-                final boolean gold = wheeled > 0 || wheeled < 0 && m.pinned();
-                Hyb.text(count, cx, y + 3, gold ? Hyb.GOLD : Hyb.INK);
-                if (countHot)
-                    for (int dx = 0; dx < Hyb.width(count); dx += 3) Hyb.rect(cx + dx, y + 11, 1, 1, Hyb.MUTED);
-                if (card != null) hits.add(new Hit(Kind.COUNT, cx - 2, y, cx + Hyb.width(count) + 2, y + LINE_H, m));
-                // The pin key, as the card's: gold while the card is placed or on the pin list, else on hover.
-                final int pinX = w - 4 - PIN_W;
+                final boolean ruleHot = hover != null && hover.kind() == Kind.MACHINE_RULE && hover.data() == m;
+                final boolean hot = hover != null && hover.kind() == Kind.MACHINE && hover.data() == m || pinHot
+                    || countHot
+                    || ruleHot;
+                if (hot) Hyb.rect(0, y, w - 1, ROW_H, HOVER);
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+                // The pin key, under the machine's icon: gold while the card is placed or on the pin list, else on
+                // hover.
+                final int pinX = ICON_X + ICON / 2 - PIN_W / 2;
                 final boolean pinned = card != null && card.pinnedAnywhere();
                 if (card != null && (pinned || hot)) {
-                    if (pinHot) Hyb.rect(pinX, y, PIN_W, LINE_H, Hyb.KEY_HOVER);
+                    if (pinHot) Hyb.rect(pinX, y, PIN_W, ROW_H, Hyb.KEY_HOVER);
                     com.gtnhplanner.ui.card.RecipeCard
-                        .pinIcon(pinX + PIN_W / 2f, y + LINE_H / 2f, pinned ? Hyb.GOLD : pinHot ? Hyb.INK : Hyb.MUTED);
+                        .pinIcon(pinX + PIN_W / 2f, y + ROW_H / 2f, pinned ? Hyb.GOLD : pinHot ? Hyb.INK : Hyb.MUTED);
                 }
-                if (card != null) hits.add(new Hit(Kind.PIN, pinX, y, pinX + PIN_W, y + LINE_H, m));
-                final int er = pinX - 3;
-                if (m.tooLow()) Hyb.textRight("TIER!", er, y + 3, Hyb.RED_INK);
-                else if (m.madeEuPerTick() > 0)
-                    Hyb.textRight("+" + Fmt.power(m.madeEuPerTick()) + " EU/t", er, y + 3, 0xFFE0B04A);
-                else Hyb.textRight(Fmt.power(m.euPerTick()) + " EU/t", er, y + 3, Hyb.MUTED);
-                hits.add(new Hit(Kind.MACHINE, 0, y, w - 1, y + LINE_H, m));
-                y += LINE_H;
+                if (card != null) hits.add(new Hit(Kind.PIN, pinX, y, pinX + PIN_W, y + ROW_H, m));
+                int cx = NAME_X;
+                // A steam machine has no tier (CardModel.steam).
+                if (m.gregtech() && !m.tier()
+                    .isEmpty())
+                    cx += Hyb.tierTag(m.tier(), m.multiblock() && m.amps() > 1 ? m.amps() + "A" : null, cx, y + 2) + 4;
+                // How many it takes, then the count field: as the card's count, the wheel and a click set it here too;
+                // a count being wheeled shows in the field.
+                final long wheeled = card == null ? -1 : card.wheeledCount();
+                final String count = "×" + Fmt.machines(m.machines());
+                final int countW = Hyb.width(count);
+                Hyb.text(count, numberRight - countW, y + 3, Hyb.INK);
+                final boolean set = wheeled > 0 || wheeled < 0 && m.pinned();
+                // The count's rule, as a drawer's: Any (greyed) while the plan decides how many, = (gold) once pinned.
+                // A click switches: Any pins it at the whole machines it takes now, = lets the plan decide again.
+                final Drawer.Rule rule = set ? Drawer.Rule.EXACTLY : Drawer.Rule.ANY;
+                Hyb.rect(keyX, y + 1, RULE_W, 11, 0xFF111317);
+                Hyb.rect(keyX + 1, y + 2, RULE_W - 2, 9, ruleHot ? 0xFF454952 : 0xFF34373E);
+                Hyb.rect(keyX + 1, y + 2, RULE_W - 2, 1, 0x1FFFFFFF);
+                DrawerCard.drawRuleMark(
+                    rule,
+                    keyX + (RULE_W - Hyb.width(DrawerCard.ruleMark(rule)) + 1) / 2f,
+                    y + 3,
+                    set ? Hyb.GOLD : Hyb.MUTED);
+                if (card != null) hits.add(new Hit(Kind.MACHINE_RULE, keyX, y, keyX + RULE_W, y + ROW_H, m));
+                // The count field: being typed into; or the pinned count in gold, or "Set".
+                if (edit.editing("count:" + m.nodeId())) edit.drawBox(fieldX, y + 1, COUNT_W, 11, y + 3);
+                else {
+                    Hyb.rect(fieldX, y + 1, COUNT_W, 11, countHot ? Hyb.GOLD : 0xFF5A5E68);
+                    Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 9, countHot ? 0xFF15171C : 0xFF0F1114);
+                    Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 1, 0xB3000000);
+                    if (set) Hyb.textCentered(
+                        wheeled > 0 ? Long.toString(wheeled) : Fmt.machines(m.machines()),
+                        fieldX + COUNT_W / 2f,
+                        y + 3,
+                        Hyb.GOLD);
+                    else Hyb.textCentered("Set", fieldX + COUNT_W / 2f, y + 3, 0xFF6F737C);
+                }
+                if (card != null) hits.add(new Hit(Kind.COUNT, fieldX, y, fieldX + COUNT_W, y + ROW_H, m));
+                // What it draws, grey beside the tier (the unit dropped when there is no room for it).
+                final String eu = m.tooLow() ? "TIER!"
+                    : m.madeEuPerTick() > 0 ? "+" + Fmt.power(m.madeEuPerTick()) : Fmt.power(m.euPerTick());
+                final int euInk = m.tooLow() ? Hyb.RED_INK : m.madeEuPerTick() > 0 ? 0xFFE0B04A : Hyb.MUTED;
+                final int room = numberRight - countW - 4 - cx;
+                final String euText = m.tooLow() || Hyb.width(eu + " EU/t") > room ? eu : eu + " EU/t";
+                Hyb.text(Hyb.fit(euText, room), cx, y + 3, euInk);
+                hits.add(new Hit(Kind.MACHINE, 0, y, w - 1, y + ROW_H, m));
+                y += ROW_H;
             }
             y += 1;
         }
@@ -585,10 +1034,17 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     @Override
     public void onMouseDrag(final int mouseButton, final long timeSinceClick) {
         if (draggingBar) scrollBarTo(localMouseY() - barGrab);
+        final SpareBar edge = dragging();
+        if (edge != null) edge.drag(session, localX(), SPARE_X, sliderW(getArea().width));
     }
 
     @Override
     public boolean onMouseRelease(final int mouseButton) {
+        final SpareBar edge = dragging();
+        if (edge != null) {
+            edge.release(session);
+            return true;
+        }
         if (!draggingBar) return false;
         draggingBar = false;
         return true;
@@ -600,6 +1056,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     @Override
     public Result onMousePressed(final int mouseButton) {
+        // A press anywhere on the overview sets what was being typed.
+        edit.commit();
         final Hit hit = hitAtMouseFromLastFrame();
         if (hit == null) return open ? Result.SUCCESS : Result.IGNORE;
         if (hit.kind() == Kind.SCROLLBAR) {
@@ -609,6 +1067,49 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             barGrab = y >= top && y < top + barThumb ? y - top : barThumb / 2;
             draggingBar = true;
             scrollBarTo(y - barGrab);
+            return Result.SUCCESS;
+        }
+        // The middle button goes to what a line is about, anywhere in the overview (on a rule or a rate it clears it).
+        if (hit.kind() == Kind.LINE_SET) {
+            if (mouseButton != 0) return Result.SUCCESS;
+            final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
+            final boolean source = inputs.contains(line);
+            final Fmt.RateUnit unit = session.rateUnit();
+            Hyb.click();
+            edit.start(
+                lineEditKey(line),
+                railAmount(line) * unit.perSecond,
+                v -> session.setLineRate(line.key(), line.label(), source, v / unit.perSecond));
+            getContext().focus(this);
+            return Result.SUCCESS;
+        }
+        if (hit.kind() == Kind.PORT_RULE || hit.kind() == Kind.PORT_RATE) {
+            final PortPin p = (PortPin) hit.data();
+            if (mouseButton == 2 || mouseButton == 0 && hit.kind() == Kind.PORT_RULE) {
+                Hyb.click();
+                session.setPortTarget(p.node(), p.output(), p.index(), 0);
+            } else if (mouseButton == 0) {
+                Hyb.click();
+                final Fmt.RateUnit unit = session.rateUnit();
+                edit.start(
+                    portEditKey(p),
+                    p.rate() * unit.perSecond,
+                    v -> session.setPortTarget(p.node(), p.output(), p.index(), v / unit.perSecond));
+                getContext().focus(this);
+            }
+            return Result.SUCCESS;
+        }
+        if (mouseButton == 2 && hit.kind() != Kind.RULE && hit.kind() != Kind.RATE) {
+            if (focus(hit)) Hyb.click();
+            return Result.SUCCESS;
+        }
+        if (hit.kind() == Kind.SPARE) {
+            if (mouseButton != 0) return Result.SUCCESS;
+            final BoardSession.SpareLine line = (BoardSession.SpareLine) hit.data();
+            final SpareBar bar = spareBars.get(line.key());
+            final SpareBar.Hit at = spareHitAt(hit);
+            if (bar != null && !bar.press(session, line, at, localX(), SPARE_X, sliderW(getArea().width))
+                && bar.click(session, line, at)) Hyb.click();
             return Result.SUCCESS;
         }
         // Middle-click on a rule or rate clears the drawer back to "Set rate", as on the website.
@@ -640,17 +1141,6 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final String title = (String) hit.data();
                 if (!folded.remove(title)) folded.add(title);
             }
-            case RESOURCE -> {
-                final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
-                final long now = System.currentTimeMillis();
-                if (line.key()
-                    .equals(lastClickKey) && now - lastClick < 400) {
-                    Hyb.click();
-                    flyTo(line.key());
-                }
-                lastClick = now;
-                lastClickKey = line.key();
-            }
             case RULE -> {
                 final DrawerModel d = (DrawerModel) hit.data();
                 if (mouseButton == 1) {
@@ -658,7 +1148,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     session.setDrawerRule(d.drawer, rules[(d.rule.ordinal() + rules.length - 1) % rules.length]);
                 } else DrawerCard.openRules(getPanel(), session, d, sx, sy);
             }
-            case RATE -> DrawerCard.openRate(getPanel(), session, (DrawerModel) hit.data(), sx, sy);
+            case RATE -> {
+                final DrawerModel d = (DrawerModel) hit.data();
+                final Fmt.RateUnit unit = session.rateUnit();
+                edit.start(
+                    "drawer:" + d.drawer.getId(),
+                    d.rule == Drawer.Rule.ANY ? 0 : d.shown(d.target, unit),
+                    v -> session.setDrawerRate(d.drawer, v / d.shown(1, unit)));
+                getContext().focus(this);
+            }
             case PEAK -> session.togglePeakPower();
             case GROUP -> flyToGroup((String) hit.data());
             case PIN -> {
@@ -667,10 +1165,20 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 if (card != null) card.openPlaceMenu(sx, sy);
             }
             case MACHINE -> canvas.frame(List.of(((BoardSession.MachineLine) hit.data()).nodeId()));
+            case MACHINE_RULE -> {
+                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+                if (card != null && card.model() != null)
+                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(m.machines() - 1e-9)));
+            }
             case COUNT -> {
-                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
-                    ((BoardSession.MachineLine) hit.data()).nodeId());
-                if (card != null) card.openPin(sx, sy);
+                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+                if (card != null && card.model() != null) {
+                    final com.gtnhplanner.data.flowchart.Node node = card.model().node;
+                    edit.start("count:" + m.nodeId(), m.pinned() ? m.machines() : 0, v -> session.pin(node, v));
+                    getContext().focus(this);
+                }
             }
         }
         return Result.SUCCESS;
@@ -687,15 +1195,50 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         return null;
     }
 
-    /** Frames the next card that makes or uses a resource, cycling on each double-click. */
+    /**
+     * Goes to what a line is about: a resource's cards (the next each time), a spare's place's card, a machine's card
+     * (or, on its name, the next of its cards). False when there is nothing to go to.
+     */
+    private boolean focus(final Hit hit) {
+        switch (hit.kind()) {
+            case RESOURCE -> {
+                flyTo(((BoardSession.TotalLine) hit.data()).key());
+                return true;
+            }
+            case SPARE -> {
+                final int place = SpareBar.place(spareHitAt(hit));
+                if (place < 0) return false;
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
+                    ((BoardSession.SpareLine) hit.data()).bearers()
+                        .get(place)
+                        .node());
+                if (card == null) return false;
+                canvas.frame(List.of(card.nodeId));
+                return true;
+            }
+            case MACHINE, COUNT, MACHINE_RULE, PIN -> {
+                canvas.frame(List.of(((BoardSession.MachineLine) hit.data()).nodeId()));
+                return true;
+            }
+            case GROUP -> {
+                flyToGroup((String) hit.data());
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
+    /** Frames the next card that makes or uses a resource, cycling each time. */
     private void flyTo(final String key) {
         final List<UUID> using = new ArrayList<>();
         for (final CardModel card : session.models()
             .values()) {
             boolean uses = false;
-            for (final CardModel.PortView p : card.inputs) uses |= p.key()
+            for (final CardModel.PortView p : card.inputs) uses |= session.canonicalKey(p.key())
                 .equals(key);
-            for (final CardModel.PortView p : card.outputs) uses |= p.key()
+            for (final CardModel.PortView p : card.outputs) uses |= session.canonicalKey(p.key())
                 .equals(key);
             if (uses) using.add(card.node.id);
         }
@@ -718,14 +1261,48 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
         if (!open) return false;
-        // The wheel scrolls the list, even over a rule or a rate (stepping them while scrolling past was a trap).
-        final Hit hit = hitAtMouseFromLastFrame();
-        final int step = direction == UpOrDown.UP ? 1 : -1;
-        if (hit != null && hit.kind() == Kind.COUNT) {
-            final com.gtnhplanner.ui.card.RecipeCard card = cardOf(((BoardSession.MachineLine) hit.data()).nodeId());
-            if (card != null) card.wheelCount(step);
-            return true;
+        // A rate box or a machine's count takes the wheel, as on the cards; but a wheel that scrolled the list a
+        // moment ago keeps scrolling it, so scrolling past one never steps it by surprise.
+        final long now = System.currentTimeMillis();
+        if (now - listWheelAt > 400) {
+            final Hit hit = hitAtMouseFromLastFrame();
+            final int step = direction == UpOrDown.UP ? 1 : -1;
+            if (hit != null && hit.kind() == Kind.RATE) {
+                DrawerCard.stepRate(session, (DrawerModel) hit.data(), step);
+                return true;
+            }
+            if (hit != null && hit.kind() == Kind.RULE) {
+                DrawerCard.stepRule(session, (DrawerModel) hit.data(), step);
+                return true;
+            }
+            if (hit != null && hit.kind() == Kind.PORT_RATE) {
+                stepPortRate((PortPin) hit.data(), step);
+                return true;
+            }
+            if (hit != null && hit.kind() == Kind.LINE_SET) {
+                final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
+                final List<OpenPort> open = openPorts(line, inputs.contains(line));
+                if (open.size() == 1) {
+                    final OpenPort p = open.get(0);
+                    stepPortRate(new PortPin(p.node(), p.output(), p.index(), p.perSecond(), p.machine()), step);
+                }
+                return true;
+            }
+            if (hit != null && hit.kind() == Kind.COUNT) {
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
+                    ((BoardSession.MachineLine) hit.data()).nodeId());
+                if (card != null) card.wheelCount(step);
+                return true;
+            }
+            if (hit != null && hit.kind() == Kind.MACHINE_RULE) {
+                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+                if (card != null && card.model() != null)
+                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(m.machines() - 1e-9)));
+                return true;
+            }
         }
+        listWheelAt = now;
         final int max = Math.max(0, contentH - (getArea().height - LIST_Y));
         scroll = Math.max(0, Math.min(max, scroll + (direction == UpOrDown.UP ? -ROW_H : ROW_H)));
         return true;
@@ -751,6 +1328,44 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         };
     }
 
+    /**
+     * The tip for what the mouse is on: a spare's own (its whole story, with icons), or the lines of {@link
+     * #hoverLines}.
+     */
+    com.gtnhplanner.ui.popup.Tip hoverTip() {
+        final Hit hit = hitAtMouseFromLastFrame();
+        if (hit != null && hit.kind() == Kind.SPARE) {
+            final BoardSession.SpareLine line = (BoardSession.SpareLine) hit.data();
+            final SpareBar.Hit at = spareHitAt(hit);
+            final boolean choice = line.bearers()
+                .size() > 1;
+            if (at != null) switch (at.kind()) {
+                case HEAD -> {
+                    return SpareTips.situation(session, line, null, false);
+                }
+                case ROW -> {
+                    return SpareTips
+                        .situation(
+                            session,
+                            line,
+                            !choice ? null : line.importing() ? "Bring it all in here" : "Ship it all out here",
+                            false)
+                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Go to its card");
+                }
+                case FILL -> {
+                    return SpareTips.situation(session, line, "Fill the bar to here", false)
+                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Go to its card");
+                }
+                default -> {}
+            }
+        }
+        return com.gtnhplanner.ui.popup.Tip.ofLines(hoverLines());
+    }
+
+    /**
+     * What the mouse is on, as lines: the tip of most rows, and for every row what the tip waits on (it shows once
+     * these have stayed the same a moment).
+     */
     List<String> hoverLines() {
         final Hit hit = hitAtMouseFromLastFrame();
         if (hit == null) return null;
@@ -767,17 +1382,55 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
                 yield List.of(
                     line.label(),
-                    hint + Fmt.rate(line.amount(), unit, line.isFluid()),
-                    hint + "Double-click: show the cards that make or use it",
+                    hint + Fmt.rate(railAmount(line), unit, line.isFluid()),
+                    hint + "Middle click: go to the cards that make or use it",
                     hint + "Right-click: find public plans that make it",
                     hint + "R, U: its recipes and uses in NEI");
             }
-            case RULE -> List.of("Rule", hint + "Click: choose  Right-click: previous  Middle click: clear");
-            case RATE -> List.of("Rate", hint + "Click: type it  Middle click: clear");
+            case RULE -> List.of(
+                "Rule",
+                hint + "Click: choose  Right-click: previous  Middle click: clear",
+                hint + "Wheel: next or previous");
+            case RATE -> List.of(
+                "Rate",
+                hint + "Click: type it (2.5k, 1M, 1/3)  Middle click: clear",
+                hint + "Wheel: up or down (Ctrl x10, Shift x100)");
+            case LINE_SET -> {
+                final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
+                final List<OpenPort> open = openPorts(line, inputs.contains(line));
+                final String side = inputs.contains(line) ? "input" : "output";
+                yield open.size() == 1 ? List.of(
+                    "Rate: the plan decides",
+                    hint + "Sets the "
+                        + open.get(0)
+                            .machine()
+                        + "'s "
+                        + side
+                        + ", as on its card",
+                    hint + "Click: type it (2.5k, 1M, 1/3)",
+                    hint + "Wheel: up or down (Ctrl x10, Shift x100)")
+                    : List.of(
+                        "Rate: the plan decides",
+                        hint + "Makes a drawer for it, wired to the " + open.size() + " " + side + "s waiting for it",
+                        hint + "Click: type it (2.5k, 1M, 1/3)");
+            }
+            case PORT_RULE, PORT_RATE -> {
+                final PortPin p = (PortPin) hit.data();
+                final String side = p.output() ? "output" : "input";
+                yield hit.kind() == Kind.PORT_RULE
+                    ? List.of(
+                        "Set on the " + p.machine() + "'s " + side,
+                        hint + "The machine runs so this " + side + (p.output() ? " gives" : " takes") + " exactly it",
+                        hint + "Click: let the plan decide")
+                    : List.of(
+                        "Rate set on the " + p.machine() + "'s " + side,
+                        hint + "Click: type it (2.5k, 1M, 1/3)  Middle click: clear",
+                        hint + "Wheel: up or down (Ctrl x10, Shift x100)");
+            }
             case PEAK -> List.of(
                 session.peakPower() ? "Peak power: every machine running at once"
                     : "Average power: machines running only as much as the plan needs");
-            case GROUP -> List.of((String) hit.data(), hint + "Click: go to its cards one by one");
+            case GROUP -> List.of((String) hit.data(), hint + "Click or middle click: go to its cards one by one");
             case PIN -> {
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
                     ((BoardSession.MachineLine) hit.data()).nodeId());
@@ -785,15 +1438,45 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     ? List.of("Pin", hint + "Click: choose", hint + "Right-click: unpin it everywhere")
                     : List.of("Pin", hint + "Click: place it in the world, or list it on screen while playing");
             }
-            case COUNT -> List
-                .of("Machine count", hint + "Click: type a pinned count  Wheel: one more or fewer (below one unpins)");
+            case COUNT -> List.of(
+                "Machine count",
+                hint + "Click: type a pinned count",
+                hint + "Wheel: one more or fewer (below one unpins)");
+            case MACHINE_RULE -> {
+                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
+                yield m.pinned()
+                    ? List.of(
+                        "Exactly",
+                        hint + "Pinned at " + Fmt.machines(m.machines()),
+                        hint + "Click: let the plan decide")
+                    : List.of(
+                        "Any",
+                        hint + "The plan decides how many",
+                        hint + "Click: pin it at " + (long) Math.max(1, Math.ceil(m.machines() - 1e-9)));
+            }
+            case SPARE -> {
+                final SpareBar.Hit at = spareHitAt(hit);
+                final BoardSession.SpareLine line = (BoardSession.SpareLine) hit.data();
+                if (at == null) yield null;
+                yield switch (at.kind()) {
+                    case AUTO -> List.of("Auto", hint + "Click: back to the plan's own pick");
+                    case SPLIT -> List.of("Split", hint + "Click: share it evenly between them");
+                    // The tip itself is the leftover's story (hoverTip); this says what it waits on.
+                    case HEAD, ROW, FILL -> List.of(
+                        "Spare",
+                        line.key(),
+                        at.kind()
+                            .name(),
+                        Integer.toString(at.index()));
+                };
+            }
             case MACHINE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 yield List.of(
                     m.name(),
                     hint + Fmt.machines(m.machines()) + " machines" + (m.pinned() ? " (pinned)" : ""),
                     hint + Fmt.power(m.euPerTick()) + " EU/t " + (session.peakPower() ? "peak" : "average"),
-                    hint + "Click: go to the card");
+                    hint + "Click or middle click: go to the card");
             }
         };
     }

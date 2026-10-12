@@ -39,7 +39,8 @@ import codechicken.nei.recipe.GuiRecipe;
 /**
  * What the tour points at, by name rather than by pixel: looked up afresh every frame, so a target that moves (the
  * board panning, a menu opening) is followed, and one that is not there yet (a menu a tick from opening) is waited
- * for. Every rectangle is in GUI pixels.
+ * for. Every rectangle is in the game's GUI pixels, where the tour's pointer is: the board's own (its scale can be
+ * smaller, {@link com.gtnhplanner.ui.PlannerScale}) are converted ({@link #game}).
  */
 public final class Targets {
 
@@ -59,6 +60,20 @@ public final class Targets {
 
     static ScaledResolution resolution() {
         return new ScaledResolution(mc(), mc().displayWidth, mc().displayHeight);
+    }
+
+    /** A rectangle in the board's pixels, in the game's (where the pointer and the callout are). */
+    @Nullable
+    static Rect game(@Nullable final Rect r) {
+        final float f = com.gtnhplanner.ui.PlannerScale.ratio();
+        return r == null || f == 1f ? r : new Rect(r.x() * f, r.y() * f, r.w() * f, r.h() * f);
+    }
+
+    /** A rectangle in the game's pixels, in the board's. */
+    @Nullable
+    static Rect board(@Nullable final Rect r) {
+        final float f = com.gtnhplanner.ui.PlannerScale.ratio();
+        return r == null || f == 1f ? r : new Rect(r.x() / f, r.y() / f, r.w() / f, r.h() / f);
     }
 
     /** A fixed rectangle. */
@@ -229,11 +244,12 @@ public final class Targets {
         return b == null ? null : b.canvas();
     }
 
+    /** A widget of the board's screen, where it is. */
     @Nullable
     private static Rect area(final IWidget w) {
         if (w == null || !w.isValid() || !w.isEnabled()) return null;
         final Area a = w.getArea();
-        return a.width <= 0 ? null : new Rect(a.x, a.y, a.width, a.height);
+        return a.width <= 0 ? null : game(new Rect(a.x, a.y, a.width, a.height));
     }
 
     /** A key on the board's top bar, by its id (see {@link BoardScreen#key}). */
@@ -253,7 +269,7 @@ public final class Targets {
     public static Target world(final float x, final float y) {
         return () -> {
             final BoardCanvas c = canvas();
-            return c == null ? null : new Rect(c.screenX(x), c.screenY(y), 0, 0);
+            return c == null ? null : game(new Rect(c.screenX(x), c.screenY(y), 0, 0));
         };
     }
 
@@ -268,7 +284,7 @@ public final class Targets {
     static Rect worldRect(final BoardCanvas c, final float x, final float y, final float w, final float h) {
         final int x0 = c.screenX(x), y0 = c.screenY(y);
         final Rect r = new Rect(x0, y0, c.screenX(x + w) - x0, c.screenY(y + h) - y0);
-        if (quiet > 0 || inView(c, r)) return r;
+        if (quiet > 0 || inView(c, r)) return game(r);
         c.bringIntoView(Math.round(x) - 30, Math.round(y) - 30, Math.round(x + w) + 30, Math.round(y + h) + 30);
         return null;
     }
@@ -320,7 +336,7 @@ public final class Targets {
 
     private static Rect onScreen(final BoardCanvas c, final float x, final float y, final float w, final float h) {
         final int x0 = c.screenX(x), y0 = c.screenY(y);
-        return new Rect(x0, y0, c.screenX(x + w) - x0, c.screenY(y + h) - y0);
+        return game(new Rect(x0, y0, c.screenX(x + w) - x0, c.screenY(y + h) - y0));
     }
 
     /** The first card whose node {@code which} accepts. */
@@ -367,6 +383,71 @@ public final class Targets {
         };
     }
 
+    /**
+     * A port's rule key ({@code box} false) or rate box on a card, by its resource's name: an open end of the plan has
+     * them under its words.
+     */
+    public static Target portControl(final Predicate<Node> which, final boolean output, final String name,
+        final boolean box) {
+        return () -> {
+            final BoardCanvas c = canvas();
+            final RecipeCard card = card(which);
+            if (c == null || card == null || card.layout() == null) return null;
+            final CardModel m = card.model();
+            for (final CardModel.PortView p : output ? m.outputs : m.inputs) {
+                if (!p.name()
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .contains(name.toLowerCase(java.util.Locale.ROOT))) continue;
+                final int y = CardLayout.ctrlY(
+                    card.layout()
+                        .rowY(output, p.index()));
+                return box
+                    ? worldRect(
+                        c,
+                        m.node.x + CardLayout.boxX(output),
+                        m.node.y + y,
+                        CardLayout.CTRL_BOX,
+                        CardLayout.CTRL_H)
+                    : worldRect(
+                        c,
+                        m.node.x + CardLayout.keyX(output),
+                        m.node.y + y,
+                        CardLayout.CTRL_KEY,
+                        CardLayout.CTRL_H);
+            }
+            return null;
+        };
+    }
+
+    /**
+     * A port's Forced row on a card (what the plan has to bring in or send out there anyway), by the port's resource;
+     * null while it has none.
+     */
+    public static Target forcedRow(final Predicate<Node> which, final boolean output, final String name) {
+        return () -> {
+            final BoardCanvas c = canvas();
+            final RecipeCard card = card(which);
+            if (c == null || card == null || card.layout() == null) return null;
+            final CardModel m = card.model();
+            for (final CardModel.PortView p : output ? m.outputs : m.inputs) {
+                if (!p.name()
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .contains(name.toLowerCase(java.util.Locale.ROOT))) continue;
+                if (!card.layout()
+                    .hasExtra(0, output, p.index())) return null;
+                final int y = card.layout()
+                    .rowY(output, p.index()) + CardLayout.ROW;
+                return worldRect(
+                    c,
+                    m.node.x + CardLayout.railX(output) - 2,
+                    m.node.y + y,
+                    CardLayout.RAIL_W + 4,
+                    CardLayout.ROW);
+            }
+            return null;
+        };
+    }
+
     /** A point beside a card, in board units from its top-left corner. */
     public static Target nearCard(final Predicate<Node> which, final float dx, final float dy) {
         return () -> {
@@ -374,14 +455,14 @@ public final class Targets {
             final RecipeCard card = card(which);
             if (c == null || card == null) return null;
             final Node n = card.model().node;
-            return new Rect(c.screenX(n.x + dx), c.screenY(n.y + dy), 0, 0);
+            return game(new Rect(c.screenX(n.x + dx), c.screenY(n.y + dy), 0, 0));
         };
     }
 
     /** The middle of a target moved by board units (scaled by the board's zoom), as a point. */
     public static Target shift(final Target t, final float dx, final float dy) {
         return () -> {
-            final Rect r = t.rect();
+            final Rect r = board(t.rect());
             final BoardScreen b = board();
             if (r == null) return null;
             final float z = b == null ? 1
@@ -390,7 +471,7 @@ public final class Targets {
                     .getZoom();
             final Rect at = new Rect(r.cx() + dx * z, r.cy() + dy * z, 0, 0);
             final BoardCanvas c = canvas();
-            if (c == null || quiet > 0 || inView(c, at.grow(12))) return at;
+            if (c == null || quiet > 0 || inView(c, at.grow(12))) return game(at);
             // A point off the visible board: the board pans to it first.
             final float wx = c.worldX(Math.round(at.x())), wy = c.worldY(Math.round(at.y()));
             c.bringIntoView(Math.round(wx) - 40, Math.round(wy) - 40, Math.round(wx) + 40, Math.round(wy) + 40);
@@ -452,8 +533,8 @@ public final class Targets {
                 }
             }
             if (best == Float.MAX_VALUE) return null;
-            if (fx < 0) return new Rect(c.screenX(bestX + 10), c.screenY(bestY + 10), 0, 0);
-            return new Rect(c.screenX(bestX + fx * w), c.screenY(bestY + fy * h), 0, 0);
+            if (fx < 0) return game(new Rect(c.screenX(bestX + 10), c.screenY(bestY + 10), 0, 0));
+            return game(new Rect(c.screenX(bestX + fx * w), c.screenY(bestY + fy * h), 0, 0));
         };
     }
 
@@ -465,7 +546,7 @@ public final class Targets {
         return () -> {
             final BoardScreen b = board();
             final BoardCanvas c = canvas();
-            final Rect p = port.rect();
+            final Rect p = board(port.rect());
             if (b == null || c == null || p == null) return null;
             final com.gtnhplanner.data.flowchart.Graph g = b.session()
                 .graph();
@@ -505,7 +586,7 @@ public final class Targets {
             }
             if (best == Float.MAX_VALUE) return null;
             final Rect at = new Rect(c.screenX(bestX), c.screenY(bestY), 0, 0);
-            if (quiet > 0 || inView(c, at.grow(12))) return at;
+            if (quiet > 0 || inView(c, at.grow(12))) return game(at);
             c.bringIntoView(
                 Math.round(bestX) - 60,
                 Math.round(bestY) - 40,
@@ -555,7 +636,7 @@ public final class Targets {
     public static Target boardPart(final String id) {
         return () -> {
             final BoardScreen b = board();
-            return b == null ? null : Rect.of(b.partRect(id));
+            return b == null ? null : game(Rect.of(b.partRect(id)));
         };
     }
 
@@ -574,11 +655,11 @@ public final class Targets {
                 for (final IWidget w : p.getChildren()) {
                     if (w instanceof final PickList list) {
                         final int[] r = list.rowRect(label);
-                        if (r != null) return Rect.of(r);
+                        if (r != null) return game(Rect.of(r));
                     }
                     if (w instanceof final com.gtnhplanner.ui.popup.SettingsPanel settings) {
                         final int[] r = settings.rowRect(label);
-                        if (r != null) return Rect.of(r);
+                        if (r != null) return game(Rect.of(r));
                     }
                 }
             }
@@ -610,7 +691,7 @@ public final class Targets {
     public static Target settingsSection(final String name) {
         return () -> {
             final com.gtnhplanner.ui.popup.SettingsPanel s = settings();
-            return s == null ? null : Rect.of(s.sectionRect(name));
+            return s == null ? null : game(Rect.of(s.sectionRect(name)));
         };
     }
 
@@ -618,7 +699,7 @@ public final class Targets {
     public static Target settingChoice(final String label, final String choice) {
         return () -> {
             final com.gtnhplanner.ui.popup.SettingsPanel s = settings();
-            return s == null ? null : Rect.of(s.choiceRect(label, choice));
+            return s == null ? null : game(Rect.of(s.choiceRect(label, choice)));
         };
     }
 

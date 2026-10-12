@@ -276,7 +276,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         if (picture != null && taking == null)
             Hyb.text(String.format("%,d x %,d pixels", picture.getWidth(), picture.getHeight()), col, infoY, Hyb.MUTED);
         if (status != null)
-            Hyb.text(Hyb.fit(status, right - col), col, infoY + 12, statusGood ? Hyb.PRODUCT_INK : Hyb.AMBER_INK);
+            Hyb.text(Hyb.fit(status, right - col), col, infoY + 12, statusGood ? Hyb.OK_INK : Hyb.AMBER_INK);
 
         // Copy, and Save in cyan.
         final boolean on = ready();

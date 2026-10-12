@@ -89,7 +89,8 @@ public final class FfDrawers {
         return switch (role) {
             case SOURCE -> Drawer.Kind.SOURCE;
             case PRODUCT -> Drawer.Kind.PRODUCT;
-            case BYPRODUCT -> Drawer.Kind.BYPRODUCT;
+            // A byproduct is a product with no rule (its target is none).
+            case BYPRODUCT -> Drawer.Kind.PRODUCT;
             case TRASH -> Drawer.Kind.TRASH;
             case BUFFER, IDLE -> null;
         };

@@ -165,7 +165,8 @@ class FfConverterTest {
 
         final Drawer iron = drawer(g, "item:gregtech:gt.metaitem.01:2032");
         assertNotNull(iron);
-        assertEquals(Drawer.Kind.BYPRODUCT, iron.getKind());
+        assertEquals(Drawer.Kind.PRODUCT, iron.getKind(), "a byproduct is a product with no rule");
+        assertEquals(Drawer.Rule.ANY, iron.getRule());
         assertEquals(
             3,
             iron.getLinks()
@@ -295,7 +296,7 @@ class FfConverterTest {
         assertFalse(biodiesel.machineConfig.settings.containsKey("voltage"), "a DEMO tier is no tier");
         final Node electrolyzer = node(g, "Electrolyzer");
         assertEquals(
-            Drawer.Kind.BYPRODUCT,
+            Drawer.Kind.PRODUCT,
             g.getDrawers()
                 .iterator()
                 .next()

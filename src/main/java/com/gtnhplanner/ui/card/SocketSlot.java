@@ -46,7 +46,8 @@ public final class SocketSlot extends Widget<SocketSlot> implements Interactable
     }
 
     private BoardCanvas canvas() {
-        return card.getParent() instanceof final BoardCanvas c ? c : null;
+        // A card the board has just rebuilt away has no parent to ask for (ModularUI throws): it is on no board.
+        return card.isValid() && card.getParent() instanceof final BoardCanvas c ? c : null;
     }
 
     @Override

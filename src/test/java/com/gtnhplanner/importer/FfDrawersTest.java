@@ -60,7 +60,7 @@ class FfDrawersTest {
     void rolesBecomePlanNhDrawerKinds() {
         assertEquals(Drawer.Kind.SOURCE, FfDrawers.kindOf(Role.SOURCE));
         assertEquals(Drawer.Kind.PRODUCT, FfDrawers.kindOf(Role.PRODUCT));
-        assertEquals(Drawer.Kind.BYPRODUCT, FfDrawers.kindOf(Role.BYPRODUCT));
+        assertEquals(Drawer.Kind.PRODUCT, FfDrawers.kindOf(Role.BYPRODUCT), "a byproduct is a product with no rule");
         assertEquals(Drawer.Kind.TRASH, FfDrawers.kindOf(Role.TRASH));
         assertNull(FfDrawers.kindOf(Role.BUFFER));
         assertNull(FfDrawers.kindOf(Role.IDLE));

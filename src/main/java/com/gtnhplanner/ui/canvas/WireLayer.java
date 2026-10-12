@@ -60,6 +60,63 @@ final class WireLayer {
     }
 
     /**
+     * A drawer in hand that is not on the plan yet (a port picked up off its card), with its link: routed and drawn as
+     * if it were, so its wire runs as it will once it is put down. Null for none.
+     */
+    @Nullable
+    private Drawer phantom;
+
+    void phantom(@Nullable final Drawer drawer) {
+        phantom = drawer;
+    }
+
+    /**
+     * A wire in hand snapped onto where it would go, as the edge, or the drawer's link, it would make: routed and drawn
+     * as if it were on the plan, so it looks as it will once let go. Null for none.
+     */
+    @Nullable
+    private Edge ghostEdge;
+    @Nullable
+    private UUID ghostDrawer;
+    @Nullable
+    private Drawer.Link ghostLink;
+
+    void ghost(@Nullable final Edge edge, @Nullable final UUID drawer, @Nullable final Drawer.Link link) {
+        ghostEdge = edge;
+        ghostDrawer = link == null ? null : drawer;
+        ghostLink = drawer == null ? null : link;
+    }
+
+    /** The plan's edges, and the one in hand. */
+    private java.util.Collection<Edge> edges() {
+        final java.util.Collection<Edge> all = session.graph()
+            .getEdges();
+        if (ghostEdge == null) return all;
+        final List<Edge> with = new ArrayList<>(all);
+        with.add(ghostEdge);
+        return with;
+    }
+
+    /** A drawer's links, and the one in hand if it is this drawer's. */
+    private List<Drawer.Link> linksOf(final Drawer d) {
+        if (ghostLink == null || !d.getId()
+            .equals(ghostDrawer)) return d.getLinks();
+        final List<Drawer.Link> with = new ArrayList<>(d.getLinks());
+        with.add(ghostLink);
+        return with;
+    }
+
+    /** The plan's drawers, and the one in hand. */
+    private java.util.Collection<Drawer> drawers() {
+        final java.util.Collection<Drawer> all = session.graph()
+            .getDrawers();
+        if (phantom == null) return all;
+        final List<Drawer> with = new ArrayList<>(all);
+        with.add(phantom);
+        return with;
+    }
+
+    /**
      * The wires, routed again when anything they depend on moved. {@code moving}: a card or drawer is being dragged,
      * so route quickly, and thoroughly once it lands. Routing happens on the router's thread; a route that comes back
      * within the frame is waited for, so a board that routes quickly never shows a wire out of place, and until a
@@ -181,12 +238,12 @@ final class WireLayer {
             if (card.layout() != null) sig = sig * 31 + card.layout().height;
         }
         for (final Node n : graph.getNodes()) sig = ((sig * 31 + n.id.hashCode()) * 31 + n.x) * 31 + n.y;
-        for (final Drawer d : graph.getDrawers()) {
+        for (final Drawer d : drawers()) {
             sig = ((sig * 31 + d.getId()
                 .hashCode()) * 31 + d.getX()) * 31 + d.getY();
-            for (final Drawer.Link l : d.getLinks()) sig = sig * 31 + l.hashCode();
+            for (final Drawer.Link l : linksOf(d)) sig = sig * 31 + l.hashCode();
         }
-        for (final Edge e : graph.getEdges())
+        for (final Edge e : edges())
             sig = ((sig * 31 + e.id.hashCode()) * 31 + e.sourceOutputIndex) * 31 + e.targetInputIndex;
         return sig;
     }
@@ -222,7 +279,8 @@ final class WireLayer {
             boxes.add(new WireRouter.Box(n.x, n.y, CardLayout.W, card.layout() == null ? 100 : card.layout().height));
         }
         final Map<UUID, Integer> drawerBox = new HashMap<>();
-        for (final Drawer d : graph.getDrawers()) {
+        final java.util.Collection<Drawer> drawerList = drawers();
+        for (final Drawer d : drawerList) {
             drawerBox.put(d.getId(), boxes.size());
             keys.add(d.getId());
             boxes.add(new WireRouter.Box(d.getX(), d.getY(), DrawerCard.W, DrawerCard.H));
@@ -232,7 +290,7 @@ final class WireLayer {
         final List<int[]> between = new ArrayList<>();
         final List<Wire> pending = new ArrayList<>();
         final BalanceResult result = session.result();
-        for (final Edge e : graph.getEdges()) {
+        for (final Edge e : edges()) {
             final Node src = graph.nodes.get(e.sourceNodeId), dst = graph.nodes.get(e.targetNodeId);
             if (src == null || dst == null
                 || e.sourceOutputIndex >= src.outputs.size()
@@ -254,11 +312,11 @@ final class WireLayer {
                     null,
                     Resources.key(port)));
         }
-        for (final Drawer d : graph.getDrawers()) {
+        for (final Drawer d : drawerList) {
             final boolean source = d.getKind()
                 .linksInputs();
             final int drawer = drawerBox.get(d.getId());
-            for (final Drawer.Link link : d.getLinks()) {
+            for (final Drawer.Link link : linksOf(d)) {
                 final Node n = graph.nodes.get(link.nodeId());
                 if (n == null) continue;
                 final List<Port<?>> ports = source ? n.inputs : n.outputs;
@@ -465,13 +523,13 @@ final class WireLayer {
         final Map<Wire, WireHops.Hopped> hopped = hops(wires, order);
         Hyb.beginBatch();
         if (!lit.isEmpty()) {
-            // A slow breath (1.6 s) on the halo, as Factory Flow's glow does.
-            final double phase = (System.currentTimeMillis() % 1600) / 1600.0 * 2 * Math.PI;
-            final int alpha = (int) (0x48 + 0x20 * Math.sin(phase));
-            final int halo = alpha << 24 | Hyb.LIT & 0xFFFFFF;
+            // Steady: a crisp gold edge just outside the casing, and a faint glow past it.
+            final int edge = 0xD8000000 | Hyb.LIT & 0xFFFFFF, glow = 0x2C000000 | Hyb.LIT & 0xFFFFFF;
             for (final Wire w : wires) {
-                if (lit.wire(w.edge(), w.drawer(), w.link(), w.resource()))
-                    drawHopped(hopped.get(w), w.width() + 5, halo, 0, 0);
+                if (!lit.wire(w.edge(), w.drawer(), w.link(), w.resource())) continue;
+                final float casing = w.width() + Math.max(2, 0.22f * w.width());
+                drawHopped(hopped.get(w), casing + 7, glow, 0, 0);
+                drawHopped(hopped.get(w), casing + 3, edge, 0, 0);
             }
         }
         Hyb.endBatch();

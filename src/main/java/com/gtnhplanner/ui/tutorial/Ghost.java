@@ -19,6 +19,11 @@ final class Ghost {
         "      ##" };
 
     private static final int FILL = 0xFFFFE7A0, OUTLINE = 0xFF17181C;
+    /** The small mouse's wheel, for {@link #mouse}. */
+    static final int WHEEL = -2;
+    /** The button the small mouse shows lit, or -1 when it does not show; when it went, to fade it. */
+    private int mouseButton = -1;
+    private long mouseAt = -1, mouseGone = -1;
 
     private record Ring(float x, float y, long at) {}
 
@@ -57,11 +62,24 @@ final class Ghost {
         wheelAt = System.currentTimeMillis();
     }
 
+    /** Shows a small mouse beside the pointer, {@code button} lit (0 left, 1 right, 2 middle, {@link #WHEEL}). */
+    void mouse(final int button) {
+        mouseButton = button;
+        mouseAt = System.currentTimeMillis();
+        mouseGone = -1;
+    }
+
+    /** The small mouse fades out. */
+    void mouseOff() {
+        if (mouseButton != -1 && mouseGone < 0) mouseGone = System.currentTimeMillis();
+    }
+
     void clear() {
         rings.clear();
         cap = null;
         downAt = -1;
         wheelAt = -1;
+        mouseButton = -1;
     }
 
     void draw(final float x, final float y, final float dt) {
@@ -114,6 +132,43 @@ final class Ghost {
             if (now > cap.until) cap = null;
             else drawCap(x + 16, y + 14, now);
         }
+        if (mouseButton != -1) drawMouse(x + 13, y + 15, now);
+    }
+
+    /**
+     * The small mouse: a rounded body, its two buttons split by the wheel, the button in use gold (the wheel's arrow
+     * shows it turning). It pops in and fades when let go.
+     */
+    private void drawMouse(final float x, final float y, final long now) {
+        final float in = Math.min(1, (now - mouseAt) / 140f);
+        final float out = mouseGone < 0 ? 1 : 1 - Math.min(1, (now - mouseGone) / 260f);
+        if (out <= 0) {
+            mouseButton = -1;
+            return;
+        }
+        final float a = in * out * alpha;
+        final int al = Math.round(255 * a);
+        final int edge = al << 24 | 0x17181C, body = al << 24 | 0xD9DAE0, dark = al << 24 | 0x9A9CA4,
+            gold = al << 24 | 0xFFD257;
+        final int w = 13, h = 19, split = 8;
+        Hyb.beginBatch();
+        Hyb.rect(x + 1.5f, y + 2, w, h, Math.round(70 * a) << 24);
+        // The body, its corners rounded a pixel.
+        Hyb.rect(x + 1, y, w - 2, h, edge);
+        Hyb.rect(x, y + 1, w, h - 2, edge);
+        Hyb.rect(x + 2, y + 1, w - 4, h - 2, body);
+        Hyb.rect(x + 1, y + 2, w - 2, h - 4, body);
+        // The buttons: left and right halves of the top, split by the wheel's slot; the line under them.
+        final int half = (w - 2) / 2;
+        if (mouseButton == 0) Hyb.rect(x + 1, y + 1, half, split - 1, gold);
+        if (mouseButton == 1) Hyb.rect(x + w - 1 - half, y + 1, half, split - 1, gold);
+        Hyb.rect(x + 1, y + split, w - 2, 1, edge);
+        Hyb.rect(x + w / 2f - 0.5f, y + 1, 1, split - 1, edge);
+        // The wheel, in its slot.
+        final boolean wheel = mouseButton == 2 || mouseButton == WHEEL;
+        Hyb.rect(x + w / 2f - 1.5f, y + 2, 3, split - 3, edge);
+        Hyb.rect(x + w / 2f - 0.5f, y + 2.5f, 1, split - 4, wheel ? gold : dark);
+        Hyb.endBatch();
     }
 
     /** The key being pressed, as a key cap: it pops in, dips once, and fades. */

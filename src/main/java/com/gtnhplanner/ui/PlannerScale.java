@@ -11,8 +11,9 @@ import com.gtnhplanner.ui.tutorial.Tutorial;
 /**
  * The board's own GUI scale: a step or two below the game's, which NEI's list beside it keeps (Size in the gear).
  * The board lays out at its scale and draws scaled down to the game's ({@link #ratio()}), so a planner pixel is still a
- * whole number of screen pixels and its text stays crisp. Off the board, and while the tour plays (its moves are laid
- * out on the game's scale), it is the game's.
+ * whole number of screen pixels and its text stays crisp. Off the board it is the game's; while the tour plays it is
+ * the game's, or smaller where the game's would leave the board under 960 by 540 (its moves are laid out on a board
+ * that big; GTNH ships scale 4, a 480 by 270 GUI at 1080p).
  */
 public final class PlannerScale {
 
@@ -27,8 +28,19 @@ public final class PlannerScale {
     /** The board's GUI scale factor, never below 1. */
     public static int board() {
         final int game = game();
-        if (Tutorial.active()) return game;
+        if (Tutorial.active()) return tourScale(game);
         return PlannerSettings.boardScale(game);
+    }
+
+    /** The board pixels the tour's moves are laid out on: it plays on a board at least this big. */
+    private static final int TOUR_W = 960, TOUR_H = 540;
+
+    /** The board's scale while the tour plays: the game's, or the largest below it with the tour's room. */
+    private static int tourScale(final int game) {
+        final Minecraft mc = Minecraft.getMinecraft();
+        int s = game;
+        while (s > 1 && (mc.displayWidth / s < TOUR_W || mc.displayHeight / s < TOUR_H)) s--;
+        return s;
     }
 
     /** The scale of whatever is open: the board's on the board, the game's anywhere else. */

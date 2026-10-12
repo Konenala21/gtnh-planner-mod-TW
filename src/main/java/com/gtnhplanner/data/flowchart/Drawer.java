@@ -9,15 +9,16 @@ import java.util.UUID;
 /**
  * A drawer on the board: one resource crossing the plan's boundary, with what the player wants of
  * it. A {@link Kind#SOURCE} supplies node inputs (Oil, Water, a dust from the ME system); a
- * {@link Kind#PRODUCT} takes node outputs and carries the target; a {@link Kind#BYPRODUCT} takes
- * whatever surplus arrives and asks for nothing; {@link Kind#TRASH} voids what arrives.
+ * {@link Kind#PRODUCT} takes node outputs and carries the target (or, with no rule, takes whatever
+ * arrives); {@link Kind#TRASH} voids what arrives. Older saves' byproducts load as products with no
+ * rule.
  *
  * <p>
  * The {@link Rule} and {@link #getRate() rate} constrain the total flow through the drawer's
  * {@link Link links}: for a product, what the linked outputs deliver to it; for a source, what it
- * supplies to the linked inputs. Only sources and products have a rule the solver honours; a
- * byproduct or trash keeps the rule it had (so cycling back restores it) but the solver treats it
- * as {@link Rule#ANY} - see {@link #effectiveRule()}.
+ * supplies to the linked inputs. Only sources and products have a rule the solver honours; trash
+ * keeps the rule it had (so cycling back restores it) but the solver treats it as {@link Rule#ANY}
+ * - see {@link #effectiveRule()}.
  *
  * <p>
  * Minecraft-free on purpose: the resource is remembered as an opaque {@link #getResourceKey() key}
@@ -40,7 +41,10 @@ public class Drawer extends GraphData {
         SOURCE,
         /** What the player wants. Links take output ports. */
         PRODUCT,
-        /** Takes surplus and never asks for more. Links take output ports. */
+        /**
+         * Older saves' and plans' "byproduct": a product with no rule, which is what it was to the solver. Read only;
+         * a drawer set to it becomes a product with no rule ({@link #setKind}, {@link #sanitize}).
+         */
         BYPRODUCT,
         /** Voids what arrives. Links take output ports. */
         TRASH;
@@ -56,14 +60,13 @@ public class Drawer extends GraphData {
         }
 
         /**
-         * The board's cycle key: product, byproduct, trash, then product again. A source has no
-         * cycle (its links are inputs) and stays a source.
+         * The board's cycle key: product, trash, then product again. A source has no cycle (its
+         * links are inputs) and stays a source.
          */
         public Kind next() {
             return switch (this) {
                 case SOURCE -> SOURCE;
-                case PRODUCT -> BYPRODUCT;
-                case BYPRODUCT -> TRASH;
+                case PRODUCT, BYPRODUCT -> TRASH;
                 case TRASH -> PRODUCT;
             };
         }
@@ -140,6 +143,7 @@ public class Drawer extends GraphData {
         this();
         this.kind = Objects.requireNonNull(kind, "kind");
         this.resourceKey = Objects.requireNonNull(resourceKey, "resourceKey");
+        byproductToProduct();
     }
 
     /** Only for tests and loaders that need a fixed id. */
@@ -147,6 +151,7 @@ public class Drawer extends GraphData {
         super(id);
         this.kind = Objects.requireNonNull(kind, "kind");
         this.resourceKey = Objects.requireNonNull(resourceKey, "resourceKey");
+        byproductToProduct();
     }
 
     @Override
@@ -167,6 +172,14 @@ public class Drawer extends GraphData {
         Objects.requireNonNull(kind, "kind");
         if (kind.linksInputs() != this.kind.linksInputs()) links.clear();
         this.kind = kind;
+        byproductToProduct();
+    }
+
+    /** A byproduct (an older save's, a plan's) is a product with no rule. */
+    private void byproductToProduct() {
+        if (kind != Kind.BYPRODUCT) return;
+        kind = Kind.PRODUCT;
+        rule = Rule.ANY;
     }
 
     public Rule getRule() {
@@ -257,6 +270,7 @@ public class Drawer extends GraphData {
     void sanitize() {
         if (kind == null) kind = Kind.PRODUCT;
         if (rule == null) rule = Rule.ANY;
+        byproductToProduct();
         if (!Double.isFinite(rate) || rate < 0) rate = 0;
         if (resourceKey == null) resourceKey = "";
         if (label == null) label = "";

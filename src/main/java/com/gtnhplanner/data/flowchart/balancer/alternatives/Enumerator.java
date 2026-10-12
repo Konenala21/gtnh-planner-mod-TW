@@ -48,8 +48,18 @@ public final class Enumerator {
      * floored answer was committed.
      */
     public static Alternatives enumerate(final SolveContext ctx) {
+        return enumerate(ctx, null);
+    }
+
+    /**
+     * As {@link #enumerate(SolveContext)}, also keeping each answer's whole point in {@code points}, by its key (the
+     * committed point under the default's key), so a split between answers can be made by mixing them
+     * ({@link com.gtnhplanner.data.flowchart.balancer.Spares}).
+     */
+    public static Alternatives enumerate(final SolveContext ctx, @Nullable final Map<ChoiceKey, StageOutcome> points) {
         final Set<Integer> incumbent = ctx.support();
         final ChoiceKey chosen = ctx.keyOf(incumbent);
+        if (points != null) points.put(chosen, ctx.point());
         final List<Alternative> options = new ArrayList<>();
         // One "this is what it does now" row per open gate, so every question in the list has its
         // current answer sitting at the top of its own group rather than one row standing for all
@@ -133,6 +143,7 @@ public final class Enumerator {
             if (s3Result.isRejected()) continue;
             final StageOutcome alt = Solver.canonicalize(ctx, open, s3Result.point());
             if (alt.support.size() != incumbent.size()) continue;
+            if (points != null) points.put(ctx.keyOf(alt.support), alt);
             options.add(
                 asAlternative(
                     ctx,

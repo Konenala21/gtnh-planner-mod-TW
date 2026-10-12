@@ -324,8 +324,9 @@ public final class PlanPicture {
         private static final int DESIGN = 900, PAD = 10, TITLE_H = 26, GAP = 8, INSET = 6, HEAD_H = 16, ROW_H = 18,
             COLUMN = 200, COLUMN_GAP = 14, MARK_H = 14;
         private static final int PLATE = 0xFF131417, EDGE = 0xFF2A2D33, BRAND = 0xFF22D3EE;
-        private static final int IN_FILL = 0x1AF87171, IN_EDGE = 0x55F87171, OUT_FILL = 0x1A34D399,
-            OUT_EDGE = 0x5534D399;
+        private static final int IN_FILL = 0x1A000000 | Hyb.SOURCE_INK & 0xFFFFFF,
+            IN_EDGE = 0x55000000 | Hyb.SOURCE_INK & 0xFFFFFF, OUT_FILL = 0x1A000000 | Hyb.PRODUCT_INK & 0xFFFFFF,
+            OUT_EDGE = 0x55000000 | Hyb.PRODUCT_INK & 0xFFFFFF;
 
         /** One resource's row: its line in the overview and its rate as written. */
         private record Row(BoardSession.TotalLine line, String rate) {}

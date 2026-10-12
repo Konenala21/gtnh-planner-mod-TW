@@ -67,6 +67,17 @@ public final class HoverScope {
         return s;
     }
 
+    /**
+     * Ports alone, without their wires (a leftover's place, which can sit on more than one port): only the rows glow,
+     * so nothing reads as a wire.
+     */
+    public static HoverScope portsOnly(final java.util.List<UUID> nodes, final java.util.List<Boolean> outputs,
+        final java.util.List<Integer> indices) {
+        final HoverScope s = new HoverScope(null);
+        for (int i = 0; i < nodes.size(); i++) s.ports.add(port(nodes.get(i), outputs.get(i), indices.get(i)));
+        return s;
+    }
+
     /** A drawer: it, its wires and the ports they reach. */
     public static HoverScope ofDrawer(final Drawer d) {
         final HoverScope s = new HoverScope(null);

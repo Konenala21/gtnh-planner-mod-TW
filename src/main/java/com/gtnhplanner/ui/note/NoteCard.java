@@ -81,7 +81,8 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
     }
 
     private BoardCanvas canvas() {
-        return getParent() instanceof final BoardCanvas c ? c : null;
+        // Once the board has rebuilt it away it has no parent to ask for (ModularUI throws): it is on no board.
+        return isValid() && getParent() instanceof final BoardCanvas c ? c : null;
     }
 
     /** The place and size last given to the widget, so it is only told again when the note changes. */

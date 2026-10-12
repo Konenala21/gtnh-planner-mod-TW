@@ -1,0 +1,25 @@
+# The splash card in front of the trailer (its first frame, its thumbnail): a finished plan tilted as the trailer's
+# pans are, blurred and dimmed behind the name. Two passes: the tilted plan (this file with "set pass plan"), blurred by
+# ffmpeg, then the name over it (splash-title.shot). See README.md.
+size 1920 1080
+fps 60
+bpm 112
+duration 2
+out build/trailer/splash-unused.mp4
+stilldir build/trailer/splash
+set vignette 0
+set bloom 0
+set grain 0
+set blendframes 0
+
+shot 0 2 plan
+  source run/client/screenshots/Plan_2_2026-10-10_16.44.22.png
+  key roll 0 -4
+  key yaw 0 12
+  key pitch 0 -9
+  key zoom 0 1.6
+  key cx 0 0.62
+  key cy 0 0.42
+end
+
+still 0.5

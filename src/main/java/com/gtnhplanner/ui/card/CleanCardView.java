@@ -92,6 +92,7 @@ public final class CleanCardView {
         CardPaint.count(
             "×" + Fmt.machines(c.machines()),
             c.machines() <= 0,
+            c.pinned(),
             c.pinned() ? CardPaint.PINNED : null,
             Hyb.MUTED,
             false,

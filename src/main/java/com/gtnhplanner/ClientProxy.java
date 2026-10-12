@@ -74,6 +74,8 @@ public class ClientProxy extends CommonProxy {
 
         // Crashes the planner had a hand in: offered for sending; and its section in every crash report.
         com.gtnhplanner.client.CrashReports.init();
+        // Whether a newer release is out, asked of GitHub in the background; the planner says so when it opens.
+        com.gtnhplanner.client.UpdateCheck.start();
 
         DevHarness.initIfDev();
     }

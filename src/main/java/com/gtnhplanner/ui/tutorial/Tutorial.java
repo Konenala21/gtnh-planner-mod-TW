@@ -39,12 +39,20 @@ public final class Tutorial {
 
     private Tutorial() {
         this(Script.beats());
+        // The tour's plan is the player's to keep when it ends (not a film's or a rebuild's).
+        sandbox.keepPlan = true;
     }
 
     private Tutorial(final java.util.List<Tour.Beat> beats) {
         director = new Director(beats, sandbox);
         callout = new Callout(director, Tutorial::stop);
     }
+
+    /**
+     * Filming (the dev harness's {@code tutorial?quiet=1}): the tour plays as ever, its cursor too, but draws no notes
+     * and lights nothing, so a video can say what it shows in its own words. Never set in play.
+     */
+    public static volatile boolean quiet;
 
     /** Whether the tour is running. */
     public static boolean active() {
@@ -75,9 +83,11 @@ public final class Tutorial {
      * The dev harness, filming: a finished plan built again by the tour's cursor ({@link Rebuild}), a take a seed (the
      * same seed, the same take). Stopped like the tour.
      */
-    public static void startRebuild(final com.gtnhplanner.data.flowchart.Graph plan, final long seed) {
+    public static void startRebuild(final com.gtnhplanner.data.flowchart.Graph plan, final long seed,
+        final boolean nei) {
         if (current != null || Minecraft.getMinecraft().theWorld == null) return;
-        begin(() -> new Tutorial(Rebuild.beats(plan, seed)), 0);
+        com.gtnhplanner.ui.popup.Tip.Wait.muted = !nei;
+        begin(() -> new Tutorial(Rebuild.beats(plan, seed, nei)), 0);
     }
 
     /** Starts the tour at a beat (the dev harness), or goes there when it is running. */
@@ -109,6 +119,7 @@ public final class Tutorial {
         final Tutorial t = current;
         if (t == null) return;
         current = null;
+        com.gtnhplanner.ui.popup.Tip.Wait.muted = false;
         t.director.release();
         try {
             t.sandbox.leave();
@@ -195,18 +206,31 @@ public final class Tutorial {
             t.draw();
         }
 
-        /** The player's mouse works the callout only; a click elsewhere hurries the beat to its callout. */
+        /**
+         * The player's mouse works the callout only; a click elsewhere hurries the beat to its callout. While a beat
+         * lets
+         * them look round ({@link Director#freeLook}), the board's camera takes their mouse too.
+         */
         @SubscribeEvent(priority = EventPriority.HIGHEST)
         public void onMouse(final MouseInputEvent.Pre e) {
             final Tutorial t = current;
             if (t == null) return;
-            e.setCanceled(true);
-            if (!Mouse.getEventButtonState() || Mouse.getEventButton() != 0) return;
             final Minecraft mc = Minecraft.getMinecraft();
             final ScaledResolution sr = Targets.resolution();
             final float x = Mouse.getEventX() * sr.getScaledWidth() / (float) mc.displayWidth;
             final float y = sr.getScaledHeight() - Mouse.getEventY() * sr.getScaledHeight() / (float) mc.displayHeight
                 - 1;
+            final boolean press = Mouse.getEventButtonState() && Mouse.getEventButton() == 0;
+            if (t.director.freeLook()) {
+                if (press && t.callout.click(x, y)) {
+                    e.setCanceled(true);
+                    return;
+                }
+                if (!FreeLook.lets()) e.setCanceled(true);
+                return;
+            }
+            e.setCanceled(true);
+            if (!press) return;
             if (!t.callout.click(x, y) && !t.director.waiting()) t.director.next();
         }
 
@@ -217,6 +241,8 @@ public final class Tutorial {
             final int key = Keyboard.getEventKey();
             // The function keys (screenshots, the debug screen) stay the game's.
             if (key >= Keyboard.KEY_F1 && key <= Keyboard.KEY_F12 || key == Keyboard.KEY_F13) return;
+            // Looking round, the camera's keys are the board's (the arrows pan, not page the tour).
+            if (t.director.freeLook() && FreeLook.cameraKey(key)) return;
             e.setCanceled(true);
             if (!Keyboard.getEventKeyState() || Keyboard.isRepeatEvent()) return;
             t.key(key);
@@ -263,8 +289,10 @@ public final class Tutorial {
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_BLEND);
         try {
-            director.spotlight.draw(sw, sh, dt);
-            callout.draw(sw, sh, mx, my);
+            if (!quiet) {
+                director.spotlight.draw(sw, sh, dt);
+                callout.draw(sw, sh, mx, my);
+            }
             director.ghost.draw(director.px(), director.py(), dt);
         } catch (final RuntimeException | LinkageError e) {
             GtnhPlanner.LOG.warn("[tutorial] drawing failed", e);

@@ -3,6 +3,9 @@ package com.gtnhplanner.ui.popup;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+
 import org.lwjgl.opengl.GL11;
 
 import com.gtnhplanner.ui.theme.Hyb;
@@ -27,7 +30,30 @@ public final class Tip {
 
     private record Row(String label, String value, int color) {}
 
-    private record Note(String text, int color) {}
+    /**
+     * A line of the body. {@code rich}: words between asterisks are drawn in gold, {@code gold} saying whether the line
+     * starts inside such a run (a run wrapped from the line before). With an item, a fluid or {@code eu}, an icon line:
+     * the icon, then the text.
+     */
+    private record Note(String text, int color, boolean rich, boolean gold, ItemStack item, FluidStack fluid,
+        boolean eu) {
+
+        Note(final String text, final int color) {
+            this(text, color, false, false, null, null, false);
+        }
+
+        boolean icon() {
+            return item != null || fluid != null || eu;
+        }
+
+        int width() {
+            return (icon() ? ICON_IN : 0) + (rich ? richWidth(text) : Hyb.width(text));
+        }
+
+        int height() {
+            return icon() ? ICON_LINE : text.isEmpty() ? GAP : LINE;
+        }
+    }
 
     private record Action(Input input, String label) {}
 
@@ -41,6 +67,10 @@ public final class Tip {
     public static final int RULE = 0xFF3A3B40;
     public static final int WARN = 0xFFFFD236;
     private static final int PAD_X = 6, PAD_Y = 5, LINE = 10, MAX_W = 220;
+    /** An icon line's height, its icon's size, and where its text starts. */
+    private static final int ICON_LINE = 12, ICON = 10, ICON_IN = 14;
+    /** An empty line between paragraphs. */
+    private static final int GAP = 4;
 
     private final String title;
     /** The title over as many lines as it takes at {@link #MAX_W}: a long one never runs out of the panel. */
@@ -75,6 +105,12 @@ public final class Tip {
      */
     public static final class Wait {
 
+        /**
+         * Filming (the dev harness's {@code rebuild?nei=0}): no tip shows anywhere, so a sped-up take has nothing
+         * flashing up as the cursor rests. Never set in play.
+         */
+        public static volatile boolean muted;
+
         private Object on;
         private long since;
 
@@ -84,7 +120,7 @@ public final class Tip {
                 on = target;
                 since = now;
             }
-            return target != null && now - since >= WAIT_MS;
+            return !muted && target != null && now - since >= WAIT_MS;
         }
 
         /** How long the mouse has been on the thing it is on now, in ms. */
@@ -168,6 +204,70 @@ public final class Tip {
         return note(text, SUBTLE);
     }
 
+    /** A little room between paragraphs of the body. */
+    public Tip gap() {
+        notes.add(new Note("", TEXT));
+        return this;
+    }
+
+    /** Body text with the words that matter in gold: written between asterisks ("you *pinned* it"). */
+    public Tip say(final String text) {
+        return say(text, TEXT);
+    }
+
+    public Tip say(final String text, final int color) {
+        final List<String> line = new ArrayList<>();
+        int lineW = 0;
+        boolean gold = false, lineGold = false;
+        final int space = Hyb.width(" ");
+        for (final String word : text.split(" ")) {
+            if (word.isEmpty()) continue;
+            final int w = richWidth(word);
+            if (!line.isEmpty() && lineW + space + w > MAX_W) {
+                notes.add(new Note(String.join(" ", line), color, true, lineGold, null, null, false));
+                line.clear();
+                lineW = 0;
+                lineGold = gold;
+            }
+            lineW += (line.isEmpty() ? 0 : space) + w;
+            line.add(word);
+            for (final char ch : word.toCharArray()) if (ch == '*') gold = !gold;
+        }
+        if (!line.isEmpty()) notes.add(new Note(String.join(" ", line), color, true, lineGold, null, null, false));
+        return this;
+    }
+
+    /**
+     * A line led by an item's or a fluid's icon (or EU's, with {@code eu}), its text as {@link #say} writes it, on one
+     * line.
+     */
+    public Tip icon(final ItemStack item, final FluidStack fluid, final boolean eu, final String text) {
+        notes.add(new Note(text, TEXT, true, false, item, fluid, eu));
+        return this;
+    }
+
+    private static int richWidth(final String text) {
+        return Hyb.width(text.replace("*", ""));
+    }
+
+    /** {@code text} from {@code x}, its runs between asterisks in gold. */
+    private static void drawRich(final String text, final float x, final float y, final int color, boolean gold) {
+        float at = x;
+        final StringBuilder run = new StringBuilder();
+        for (final char ch : (text + "*").toCharArray()) {
+            if (ch != '*') {
+                run.append(ch);
+                continue;
+            }
+            if (run.length() > 0) {
+                Hyb.text(run.toString(), at, y, gold ? Hyb.GOLD : color);
+                at += Hyb.width(run.toString());
+                run.setLength(0);
+            }
+            gold = !gold;
+        }
+    }
+
     public Tip action(final Input input, final String label) {
         actions.add(new Action(input, label));
         return this;
@@ -205,7 +305,7 @@ public final class Tip {
         for (final String line : titleLines) w = Math.max(w, Hyb.width(line));
         if (subtitle != null) w = Math.max(w, Hyb.width(subtitle));
         for (final Row r : rows) w = Math.max(w, Hyb.width(r.label) + 14 + Hyb.width(r.value));
-        for (final Note n : notes) w = Math.max(w, Hyb.width(n.text));
+        for (final Note n : notes) w = Math.max(w, n.width());
         int actionsW = 0;
         for (final Action a : actions) actionsW += (actionsW == 0 ? 0 : ACTION_GAP) + actionWidth(a);
         // Actions wrap rather than widen the panel past what the text needs, but never below one action.
@@ -223,7 +323,10 @@ public final class Tip {
         int h = LINE * titleLines.size();
         if (subtitle != null) h += LINE;
         if (!rows.isEmpty()) h += 3 + rows.size() * LINE;
-        if (!notes.isEmpty()) h += 3 + notes.size() * LINE;
+        if (!notes.isEmpty()) {
+            h += 3;
+            for (final Note n : notes) h += n.height();
+        }
         if (!actions.isEmpty()) h += 5 + 4 + actionLines(contentWidth()).size() * 12 - 2;
         return h + 2 * PAD_Y - 2;
     }
@@ -299,8 +402,16 @@ public final class Tip {
         if (!notes.isEmpty()) {
             ty += 3;
             for (final Note n : notes) {
-                Hyb.text(n.text, left, ty, n.color);
-                ty += LINE;
+                if (n.icon()) {
+                    if (n.eu) com.gtnhplanner.ui.card.RecipeCard.euIcon(left + 1, ty, ICON);
+                    else Hyb.icon(n.item, n.fluid, left + 1, ty, ICON, 0);
+                    GL11.glDisable(GL11.GL_LIGHTING);
+                    GL11.glDisable(GL11.GL_DEPTH_TEST);
+                }
+                final float tx = left + (n.icon() ? ICON_IN : 0), tyText = ty + (n.icon() ? 2 : 0);
+                if (n.rich) drawRich(n.text, tx, tyText, n.color, n.gold);
+                else Hyb.text(n.text, tx, tyText, n.color);
+                ty += n.height();
             }
         }
         if (!actions.isEmpty()) {

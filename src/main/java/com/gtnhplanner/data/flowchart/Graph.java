@@ -73,6 +73,20 @@ public class Graph {
      */
     public final java.util.LinkedHashSet<UUID> pinList = new java.util.LinkedHashSet<>();
 
+    /**
+     * How each leftover is split between the places that could bear it ({@code balancer/Spares}): per leftover (its
+     * bearers' keys, sorted and joined), each bearer's share. A leftover missing here is where the solver puts it.
+     * Saved with the plan; edit through {@link #setSpareSplit} so the plan re-solves.
+     */
+    public final java.util.Map<String, java.util.Map<String, Double>> spareShares = new java.util.TreeMap<>();
+
+    /** Sets one leftover's split (bearer key to share), or clears it back to the solver's own with null. */
+    public void setSpareSplit(final String leftover, @Nullable final java.util.Map<String, Double> shares) {
+        if (shares == null || shares.isEmpty()) spareShares.remove(leftover);
+        else spareShares.put(leftover, new java.util.TreeMap<>(shares));
+        touch();
+    }
+
     /** Whether the plan has a tab. A closed plan is still kept, in the library's My plans. Saved with the slot. */
     @Getter
     @Setter

@@ -22,8 +22,17 @@ public final class NumberPopup {
 
     public static Popup create(final String title, final String hint, final double current, final double min,
         final double max, final DoubleConsumer commit) {
-        final int width = Math.max(140, Hyb.width(title) + 16);
-        final Popup popup = new Popup("gtnhplanner_number", width, 44);
+        return create(title, hint, null, current, min, max, commit);
+    }
+
+    /**
+     * As above, with {@code note} (null for none) as a quiet line under the box: what can be typed, which the hint in
+     * the box cannot say once the box opens with the current number in it.
+     */
+    public static Popup create(final String title, final String hint, final String note, final double current,
+        final double min, final double max, final DoubleConsumer commit) {
+        final int width = Math.max(140, Math.max(Hyb.width(title), note == null ? 0 : Hyb.width(note)) + 16);
+        final Popup popup = new Popup("gtnhplanner_number", width, note == null ? 44 : 56);
         final String[] text = { format(current) };
         final boolean[] focused = { false };
         final TextFieldWidget field = new SelectAllField().value(new StringValue.Dynamic(() -> text[0], typed -> {
@@ -57,6 +66,11 @@ public final class NumberPopup {
                 .pos(6, 6)
                 .size(width - 12, 10));
         popup.child(field);
+        if (note != null) popup.child(
+            new TextWidget<>(IKey.str(note)).color(0xFF7A7D86)
+                .shadow(true)
+                .pos(6, 40)
+                .size(width - 12, 10));
         return popup;
     }
 

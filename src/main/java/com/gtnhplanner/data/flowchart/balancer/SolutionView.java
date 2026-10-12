@@ -42,6 +42,16 @@ public final class SolutionView {
     public final ChoiceKey key;
     /** Every drawer's total at this point, and which drawers' rules it does not keep. */
     public final DrawerReadout drawers;
+    /** The leftovers with more than one place that could bear them, and how each is split ({@link Spares}). */
+    private List<Spares.Leftover> spares = List.of();
+
+    public List<Spares.Leftover> spares() {
+        return spares;
+    }
+
+    void spares(final List<Spares.Leftover> spares) {
+        this.spares = spares;
+    }
 
     private SolutionView(final SolveContext ctx, final long wallMillis) {
         final ModelData model = ctx.model;

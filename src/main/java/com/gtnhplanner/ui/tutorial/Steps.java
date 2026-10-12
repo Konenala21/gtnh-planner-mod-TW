@@ -45,14 +45,14 @@ final class Steps {
                 final com.gtnhplanner.ui.BoardScreen b = Targets.board();
                 if (spot != null && b != null) {
                     final com.gtnhplanner.ui.canvas.BoardCanvas c = b.canvas();
-                    return new Rect(c.screenX(spot[0]), c.screenY(spot[1]), 0, 0);
+                    return Targets.game(new Rect(c.screenX(spot[0]), c.screenY(spot[1]), 0, 0));
                 }
                 final Rect r = t.rect();
                 if (r != null && pinned && b != null) {
                     final com.gtnhplanner.ui.canvas.BoardCanvas c = b.canvas();
-                    spot = new float[] { c.worldX(Math.round(r.x() + r.w() * fx)),
-                        c.worldY(Math.round(r.y() + r.h() * fy)) };
-                    return new Rect(c.screenX(spot[0]), c.screenY(spot[1]), 0, 0);
+                    final Rect on = Targets.board(new Rect(r.x() + r.w() * fx, r.y() + r.h() * fy, 0, 0));
+                    spot = new float[] { c.worldX(Math.round(on.x())), c.worldY(Math.round(on.y())) };
+                    return Targets.game(new Rect(c.screenX(spot[0]), c.screenY(spot[1]), 0, 0));
                 }
                 return r;
             }
@@ -161,27 +161,33 @@ final class Steps {
         }, pause(120), press(0), pause(70), release(), run(() -> Pointer.shift = false), pause(110));
     }
 
-    /** Clicks a target and waits for the popup it opens: a new one, not one still closing from before. */
+    /**
+     * Clicks a target and waits for the popup it opens (a new one, not one still closing from before), or for the box
+     * it starts typing into in place (a rate box).
+     */
     static Supplier<Step> clickOpens(final Target t, final int button) {
         return () -> {
             final java.util.Set<Object> before = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            final int[] started = { 0 };
             return seq(run(() -> {
                 before.clear();
                 before.addAll(Targets.popups());
+                started[0] = com.gtnhplanner.ui.popup.InlineNumber.starts();
             }), click(t, button), until(() -> {
+                if (com.gtnhplanner.ui.popup.InlineNumber.starts() > started[0]) return true;
                 for (final Object p : Targets.popups()) if (!before.contains(p)) return true;
                 return false;
             }, 2500)).get();
         };
     }
 
-    /** Presses Enter in a number box, and waits for it to close. */
+    /** Presses Enter in a number box, and waits for it to close (or for the box typed into in place to be set). */
     static Supplier<Step> enterCloses() {
         return seq(
             enter(),
             until(
                 () -> Targets.popups()
-                    .isEmpty(),
+                    .isEmpty() && com.gtnhplanner.ui.popup.InlineNumber.current() == null,
                 1500));
     }
 
@@ -228,10 +234,14 @@ final class Steps {
         return seq(move(t), pause(ms));
     }
 
-    /** Turns the wheel over a target, a notch at a time ({@code notches} up when positive). */
-    static Supplier<Step> wheel(final Target t, final int notches) {
+    /**
+     * Turns the wheel over a target, a notch at a time ({@code notches} up when positive); {@code mouse}: a small mouse
+     * shows by the pointer, its wheel lit.
+     */
+    static Supplier<Step> wheel(final Target t, final int notches, final boolean mouse) {
         final List<Supplier<Step>> parts = new ArrayList<>();
         parts.add(move(t));
+        if (mouse) parts.add(showMouse(Ghost.WHEEL));
         for (int i = 0; i < Math.abs(notches); i++) {
             parts.add(() -> d -> {
                 VirtualInput.scroll(Integer.signum(notches));
@@ -239,9 +249,87 @@ final class Steps {
                     .wheel(notches);
                 return true;
             });
-            parts.add(pause(150));
+            parts.add(pause(mouse ? 260 : 150));
         }
+        if (mouse) parts.add(hideMouse());
         return seq(parts);
+    }
+
+    static Supplier<Step> wheel(final Target t, final int notches) {
+        return wheel(t, notches, false);
+    }
+
+    /** Hands the board's camera to the player until the next beat (see {@link Director#freeLook}). */
+    static Supplier<Step> freeLook() {
+        return () -> d -> {
+            if (!d.hurrying()) d.freeLook(true);
+            return true;
+        };
+    }
+
+    /** Frames the whole plan, as Fit does, without the cursor going to the key. */
+    static Supplier<Step> fit() {
+        return run(() -> {
+            final com.gtnhplanner.ui.BoardScreen b = Targets.board();
+            if (b != null) b.canvas()
+                .frameAll();
+        });
+    }
+
+    /** A small mouse by the pointer, {@code button} lit (0 left, 2 middle, {@link Ghost#WHEEL} its wheel). */
+    static Supplier<Step> showMouse(final int button) {
+        return () -> d -> {
+            if (!d.hurrying()) d.ghost()
+                .mouse(button);
+            return true;
+        };
+    }
+
+    /** The small mouse goes, a moment after. */
+    static Supplier<Step> hideMouse() {
+        return () -> d -> {
+            d.ghost()
+                .mouseOff();
+            return true;
+        };
+    }
+
+    /**
+     * Drags with {@code button} from a target by {@code dx, dy} screen pixels, a small mouse showing which button: the
+     * drop point fixed on the screen when the drag starts (the board moving under the cursor must not move it).
+     */
+    static Supplier<Step> mouseDrag(final int button, final Target from, final float dx, final float dy) {
+        return mouseDrag(button, from, dx, dy, 0.55f);
+    }
+
+    /** As above, at {@code speed} (1 the tour's usual pace). */
+    static Supplier<Step> mouseDrag(final int button, final Target from, final float dx, final float dy,
+        final float speed) {
+        return () -> {
+            final float[] to = new float[2];
+            final boolean[] fixed = { false };
+            final Target dest = () -> {
+                if (!fixed[0]) {
+                    final Rect r = from.rect();
+                    if (r == null) return null;
+                    to[0] = r.cx() + dx;
+                    to[1] = r.cy() + dy;
+                    fixed[0] = true;
+                }
+                return new Rect(to[0], to[1], 0, 0);
+            };
+            return seq(
+                move(from),
+                showMouse(button),
+                pause(220),
+                press(button),
+                pause(120),
+                move(dest, 0.5f, 0.5f, speed),
+                pause(90),
+                release(),
+                hideMouse(),
+                pause(160)).get();
+        };
     }
 
     // endregion
@@ -328,7 +416,12 @@ final class Steps {
                 if (f != null && f.getElement() instanceof final com.cleanroommc.modularui.widgets.textfield.TextFieldWidget t)
                     field = t;
             }
-            if (field == null) return;
+            if (field == null) {
+                // A box typed into in place (a rate box).
+                final com.gtnhplanner.ui.popup.InlineNumber box = com.gtnhplanner.ui.popup.InlineNumber.current();
+                if (box != null) box.setText(text);
+                return;
+            }
             if (!field.isFocused()) field.getContext()
                 .focus(field);
             field.setText(text);
@@ -372,6 +465,27 @@ final class Steps {
         };
     }
 
+    /** Holds key {@code code} down for {@code ms}, as a player does, its cap ({@code label}) showing meanwhile. */
+    static Supplier<Step> holdDown(final String label, final int code, final long ms) {
+        return () -> new Step() {
+
+            private long t0 = -1;
+
+            @Override
+            public boolean frame(final Director d) {
+                if (t0 < 0) {
+                    t0 = d.now();
+                    Pointer.hold(code, true);
+                    if (!d.hurrying()) d.ghost()
+                        .key(label, ms + 150);
+                }
+                if (!d.hurrying() && d.now() - t0 < ms) return false;
+                Pointer.hold(code, false);
+                return true;
+            }
+        };
+    }
+
     /** Clicks a target until {@code done} holds, {@code max} times at most, a moment between clicks. */
     static Supplier<Step> clickUntil(final Target t, final BooleanSupplier done, final int max) {
         return () -> new Step() {
@@ -395,6 +509,11 @@ final class Steps {
     /** Presses a key on the open screen (Esc closing a menu, say), its cap showing. */
     static Supplier<Step> press(final String label, final char c, final int code) {
         return key(label, () -> VirtualInput.key(c, code));
+    }
+
+    /** As {@link #type}, the text worked out as the step starts (a count read off the board). */
+    static Supplier<Step> typeOf(final Supplier<Sink> sink, final Supplier<String> text) {
+        return () -> type(sink, text.get()).get();
     }
 
     /** Types {@code text} into a sink a letter at a time, at a typist's uneven pace. */
@@ -486,22 +605,47 @@ final class Steps {
     }
 
     /**
-     * Moves the pointer out of the way (so nothing it rests on shows a tip) and lets the cursor fade: to the board's
-     * bottom left corner, or the top of the screen elsewhere.
+     * Moves the pointer out of the way (so nothing it rests on shows a tip) and lets the cursor fade: off the right
+     * edge of the screen, where there is nothing to rest on.
      */
     static Supplier<Step> rest() {
         final Target spot = () -> {
-            final Rect board = Targets.canvasArea()
-                .rect();
             final net.minecraft.client.gui.ScaledResolution sr = Targets.resolution();
-            return board != null ? new Rect(board.x() + 14, board.bottom() - 14, 0, 0)
-                : new Rect(sr.getScaledWidth() / 2f, sr.getScaledHeight() * 0.12f, 0, 0);
+            return new Rect(sr.getScaledWidth() + 40, sr.getScaledHeight() * 0.5f, 0, 0);
         };
         return seq(move(spot, 0.5f, 0.5f, 1.6f), () -> d -> {
             d.ghost()
                 .show(false);
             return true;
         });
+    }
+
+    /** Shows a callout that points at nothing, its middle at the fraction {@code fx, fy} of the screen. */
+    static Supplier<Step> noteAt(final String text, final float fx, final float fy) {
+        return () -> d -> {
+            d.noteAt(text, fx, fy);
+            d.spot(null);
+            return true;
+        };
+    }
+
+    /** Lights a line of the note: the one the tour is showing now (-1: none). */
+    static Supplier<Step> noteLine(final int line) {
+        return () -> d -> {
+            d.noteLine(line);
+            return true;
+        };
+    }
+
+    /**
+     * Shows the callout beside {@code t} with nothing round it: the thing shows as it is (the first card, seen whole).
+     */
+    static Supplier<Step> noteBare(final Target t, final String text) {
+        return () -> d -> {
+            d.note(t, text);
+            d.spot(null);
+            return true;
+        };
     }
 
     /**

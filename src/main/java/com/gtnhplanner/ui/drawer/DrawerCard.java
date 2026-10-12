@@ -26,34 +26,40 @@ import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
- * A drawer on the board: what the player brings in (source) or wants (product), or where surplus goes (byproduct,
- * trash), drawn by {@link DrawerPaint} in its kind's shape. A header with its delete and kind keys and its name; the
- * resource beside the rate the plan moves through it; for sources and products the rule and its rate under that, the
- * rate's box filling as the plan reaches it.
+ * A drawer on the board: what the player brings in (source), what leaves the plan (product: a rate wanted, or with no
+ * rule whatever arrives), or what is voided (trash). It is a card's port row lifted off the card ({@link
+ * com.gtnhplanner.ui.card.CardPaint#drawerRow}): its resource, what the plan moves through it, its name, and under
+ * them its rule key and rate box (trash: what it does). The rule key's menu also turns a product into trash and back.
+ * It is moved by the thin bar along its top, where its delete key shows at the left; dragged anywhere else it draws a
+ * wire to a card's port, as a port row on a card does.
  */
 public final class DrawerCard extends Widget<DrawerCard> implements Interactable, IDraggable,
     com.cleanroommc.modularui.integration.recipeviewer.RecipeViewerIngredientProvider {
 
     public static final int W = DrawerPaint.W;
     public static final int H = DrawerPaint.H;
-    /** The resource's middle, level with the port a drawer is made for when it is placed beside a card. */
-    public static final int ANCHOR_Y = DrawerPaint.ICON_Y + DrawerPaint.ICON / 2;
+    /** The row's middle, level with the port a drawer is made for when it is placed beside a card. */
+    public static final int ANCHOR_Y = DrawerPaint.BAR + com.gtnhplanner.ui.card.CardLayout.BOX_H / 2;
+    /** The rule menu's rows that turn a product into trash, and trash back into a product. */
+    public static final String TO_TRASH = "Void it (trash)", TO_PRODUCT = "Keep it (product)";
 
     public enum Part {
         DELETE,
+        /** The bar along the top: it moves the drawer. */
+        BAR,
         CYCLE,
         RULE,
         RATE,
         BODY
     }
 
-    private static final int KEY = DrawerPaint.KEY, ROW_Y = DrawerPaint.ROW_Y, ROW_H = DrawerPaint.ROW_H;
-
     private final BoardSession session;
     public final UUID drawerId;
     private DrawerModel model;
 
     private boolean moving;
+    /** Whether the drag under way draws a wire (pressed below the bar) rather than moving the drawer. */
+    private boolean wiring;
 
     public DrawerCard(final BoardSession session, final UUID drawerId) {
         this.session = session;
@@ -94,7 +100,8 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     // region Geometry
 
     private BoardCanvas canvas() {
-        return getParent() instanceof final BoardCanvas c ? c : null;
+        // Once the board has rebuilt it away it has no parent to ask for (ModularUI throws): it is on no board.
+        return isValid() && getParent() instanceof final BoardCanvas c ? c : null;
     }
 
     private float localX() {
@@ -116,28 +123,49 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     }
 
     public Part partAt(final float x, final float y) {
-        // Far out the controls are not drawn, so nothing invisible answers a click or the wheel.
+        // Far out the controls are not drawn, so nothing invisible answers a click or the wheel: all of it moves it.
         if (session.graph()
-            .getZoom() <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM) return Part.BODY;
-        for (final Part part : new Part[] { Part.DELETE, Part.CYCLE, Part.RULE, Part.RATE }) {
+            .getZoom() <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM) return Part.BAR;
+        for (final Part part : new Part[] { Part.DELETE, Part.BAR, Part.CYCLE, Part.RULE, Part.RATE }) {
             final int[] r = partRect(part);
             if (r != null && in(x, y, r[0], r[1], r[2], r[3])) return part;
         }
         return Part.BODY;
     }
 
+    /** Whether it reads as an output's row (the resource on the right): a product or trash; a source as an input's. */
+    private boolean outputLook() {
+        return model.kind != Drawer.Kind.SOURCE;
+    }
+
+    /** Where the card's row starts on the drawer: under the bar, its box filling the rest, a pixel inside the row. */
+    private static final int ROW_Y = DrawerPaint.ROW_Y;
+
+    /** How far a card's coordinates move to put its row on the drawer. */
+    private int shiftX() {
+        return 2 - com.gtnhplanner.ui.card.CardLayout.railX(outputLook());
+    }
+
     /** Card-local rectangle of a part, or null when this kind has none; for the dev harness. */
     public int[] partRect(final Part part) {
         if (model == null) return null;
-        final int side = DrawerPaint.side(model.kind), textX = DrawerPaint.TEXT_X + side;
+        final boolean out = outputLook();
+        final int dx = shiftX(), cy = com.gtnhplanner.ui.card.CardLayout.ctrlY(ROW_Y),
+            h = com.gtnhplanner.ui.card.CardLayout.CTRL_H;
         return switch (part) {
-            case DELETE -> new int[] { DrawerPaint.KEY_IN + side, DrawerPaint.KEY_IN, KEY, KEY };
-            case CYCLE -> model.kind == Drawer.Kind.SOURCE ? null
-                : new int[] { W - DrawerPaint.KEY_IN - side - KEY, DrawerPaint.KEY_IN, KEY, KEY };
-            case RULE -> hasRule() ? new int[] { textX, ROW_Y, DrawerPaint.RULE_W, ROW_H } : null;
+            // At the bar's left end, whichever side the resource is on.
+            case DELETE -> new int[] { DrawerPaint.DELETE_IN, DrawerPaint.DELETE_IN, DrawerPaint.DELETE,
+                DrawerPaint.DELETE };
+            case BAR -> new int[] { 0, 0, W, DrawerPaint.GRAB };
+            // Product and trash take turns from the rule's menu now.
+            case CYCLE -> null;
+            case RULE -> hasRule() || model.kind == Drawer.Kind.TRASH
+                ? new int[] { com.gtnhplanner.ui.card.CardLayout.keyX(out) + dx, cy,
+                    com.gtnhplanner.ui.card.CardLayout.CTRL_KEY, h }
+                : null;
             case RATE -> hasRule()
-                ? new int[] { textX + DrawerPaint.RULE_W + 2, ROW_Y, W - 5 - side - (textX + DrawerPaint.RULE_W + 2),
-                    ROW_H }
+                ? new int[] { com.gtnhplanner.ui.card.CardLayout.boxX(out) + dx, cy,
+                    com.gtnhplanner.ui.card.CardLayout.CTRL_BOX, h }
                 : null;
             case BODY -> new int[] { 0, 0, W, H };
         };
@@ -193,9 +221,9 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         // Its shadow, its selection and its glow, all in its shape.
         Hyb.beginBatch();
         DrawerPaint.shadow(kind, board != null && board.isCarried(drawerId));
-        if (session.showsSelected(drawerId)) DrawerPaint.shape(kind, 0, 0, W, H, 2, Hyb.SELECTION, 1);
-        if (lit)
-            for (int i = 3; i >= 1; i--) DrawerPaint.shape(kind, 0, 0, W, H, i, 0x16000000 | Hyb.LIT & 0xFFFFFF, 1);
+        if (session.showsSelected(drawerId)) DrawerPaint.shape(kind, 0, 0, W, H, 2, Hyb.SELECTION, DrawerPaint.SCALE);
+        if (lit) for (int i = 3; i >= 1; i--)
+            DrawerPaint.shape(kind, 0, 0, W, H, i, 0x16000000 | Hyb.LIT & 0xFFFFFF, DrawerPaint.SCALE);
         // While a wire is in hand, a drawer that would take it is outlined green; brighter where it would go now.
         if (accepts) {
             final boolean there = drawerId.equals(board.dragSnappedTo());
@@ -207,7 +235,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                 H,
                 there ? 2 : 1,
                 there ? com.gtnhplanner.ui.card.CardPaint.ACCEPT : com.gtnhplanner.ui.card.CardPaint.ACCEPT_FAINT,
-                1);
+                DrawerPaint.SCALE);
         }
         final int edge = lit ? Hyb.mix(DrawerPaint.edge(kind), Hyb.LIT, 0.6f) : DrawerPaint.edge(kind);
         if (session.graph()
@@ -216,33 +244,69 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             drawGlance(m, z, edge);
             return;
         }
-        DrawerPaint.frame(kind, edge);
+        // The drawer: its striped box, and the bar it is moved by, lit under the mouse.
+        DrawerPaint.frame(kind, hover == Part.BAR || hover == Part.DELETE);
         Hyb.endBatch();
 
-        // The header: delete on the left, the kind's key on the right (a source has none), the name between.
-        final int[] del = partRect(Part.DELETE), cycle = partRect(Part.CYCLE);
-        key(del[0], del[1], hover == Part.DELETE, true);
-        Hyb.rect(del[0] + 3, del[1] + 5, KEY - 6, 2, Hyb.INK);
-        if (cycle != null) {
-            key(cycle[0], cycle[1], hover == Part.CYCLE, false);
-            cycleGlyph(cycle[0], cycle[1]);
-        }
-        DrawerPaint
-            .name(kind, m.label, del[0] + KEY + 3, cycle != null ? cycle[0] - 3 : W - 5 - DrawerPaint.side(kind));
-
-        // The body: the resource, what the plan moves through it, and the rule under that.
-        DrawerPaint.icon(kind, m.item, m.fluid, m.isPower(), z);
+        // The row, as it was on the card: the resource, what the plan moves through it, its name, and under them its
+        // rule key and rate box (trash: what it does).
         final Fmt.RateUnit unit = session.rateUnit();
-        DrawerPaint.rate(
+        final boolean out = outputLook(), trash = kind == Drawer.Kind.TRASH;
+        final int ink = m.rate <= 0 ? DrawerPaint.IDLE_INK
+            : trash ? DrawerPaint.TRASH_INK : Hyb.mix(DrawerPaint.tint(kind), Hyb.INK, 0.75f);
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glTranslatef(shiftX(), ROW_Y, 0);
+        com.gtnhplanner.ui.card.CardPaint.drawerRow(
             kind,
-            DrawerPaint.sign(kind, m.rate) + Fmt.compact(m.shown(m.rate, unit)),
+            m.item,
+            m.fluid,
+            m.isPower(),
+            Fmt.compact(m.shown(m.rate, unit)),
             m.suffix(unit, false),
-            DrawerPaint.rateInk(kind, m.rate),
-            hasRule(),
-            hasRule() ? null : kind == Drawer.Kind.TRASH ? "Voided" : "Surplus");
+            m.label,
+            ink,
+            true,
+            0,
+            z);
         if (hasRule()) {
-            drawRule(m, hover == Part.RULE);
-            drawRate(m, hover == Part.RATE, unit);
+            // A rate being wheeled shows at once, before it is set.
+            final Double wheeled = session.wheeledRate(m.drawer.getId());
+            final double target = wheeled != null ? wheeled : m.target;
+            final boolean empty = wheeled != null ? wheeled <= 0 : m.rule == Drawer.Rule.ANY || m.target <= 0;
+            com.gtnhplanner.ui.card.CardPaint.ruleControls(
+                out,
+                0,
+                m.rule,
+                null,
+                empty ? null : Fmt.compact(m.shown(target, unit)),
+                m.suffix(unit, true),
+                null,
+                hover == Part.RULE,
+                hover == Part.RATE,
+                m.unmet,
+                session.unset(drawerId),
+                board != null && board.edit()
+                    .editing(BoardCanvas.drawerEditKey(drawerId)) ? board.edit() : null);
+        } else if (trash) com.gtnhplanner.ui.card.CardPaint.ruleControls(
+            out,
+            0,
+            Drawer.Rule.ANY,
+            "×",
+            null,
+            "",
+            "Voided",
+            hover == Part.RULE,
+            false,
+            false,
+            false,
+            null);
+        org.lwjgl.opengl.GL11.glPopMatrix();
+        // The delete key, at the bar's left end, while the mouse is on the drawer or it is selected.
+        if (hover != null || session.showsSelected(drawerId)) {
+            final int[] del = partRect(Part.DELETE);
+            final int face = hover == Part.DELETE ? 0xFF9C3543 : Hyb.KEY;
+            Hyb.bevel(del[0], del[1], del[2], del[3], face, Hyb.KEY_HI, Hyb.KEY_LO, Hyb.KEY_EDGE, 1);
+            Hyb.rect(del[0] + 2, del[1] + (del[3] - 2) / 2, del[2] - 4, 2, Hyb.INK);
         }
     }
 
@@ -256,8 +320,8 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             .getZoom();
         final float rim = Math.min(6, Math.max(1.5f, 1 / zoom));
         Hyb.beginBatch();
-        DrawerPaint.shape(m.kind, 0, 0, W, H, 0, edge, 1);
-        DrawerPaint.shape(m.kind, 0, 0, W, H, -rim, DrawerPaint.fill(m.kind), 1);
+        DrawerPaint.shape(m.kind, 0, 0, W, H, 0, edge, DrawerPaint.SCALE);
+        DrawerPaint.shape(m.kind, 0, 0, W, H, -rim, DrawerPaint.fill(m.kind), DrawerPaint.SCALE);
         Hyb.endBatch();
         final int side = DrawerPaint.side(m.kind);
         final float size = H - 14;
@@ -277,27 +341,6 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         final BoardCanvas board = canvas();
         if (board != null)
             board.labelDrawer(m.label, m.drawer.getX(), m.drawer.getY(), W, H, m.kind == Drawer.Kind.SOURCE, m.rate);
-    }
-
-    /**
-     * A header key, as the card's: a dark face with a light and a dark band; the delete key reddens under the mouse.
-     */
-    private static void key(final int x, final int y, final boolean hover, final boolean delete) {
-        final int face = hover ? delete ? 0xFF9C3543 : Hyb.KEY_HOVER : Hyb.KEY;
-        Hyb.bevel(x + 1, y + 1, KEY - 2, KEY - 2, face, Hyb.KEY_HI, Hyb.KEY_LO, Hyb.KEY_EDGE, 1);
-    }
-
-    /** The website's repeat sign, two arrows round a loop: product, byproduct and trash take turns. */
-    private static void cycleGlyph(final int x, final int y) {
-        final int gx = x + 2, gy = y + 2;
-        // The top arrow, out to the right.
-        Hyb.rect(gx, gy + 1, 7, 1, Hyb.INK);
-        Hyb.rect(gx + 5, gy, 1, 3, Hyb.INK);
-        Hyb.rect(gx, gy + 1, 1, 3, Hyb.INK);
-        // The bottom arrow, back to the left.
-        Hyb.rect(gx + 1, gy + 6, 7, 1, Hyb.INK);
-        Hyb.rect(gx + 2, gy + 5, 1, 3, Hyb.INK);
-        Hyb.rect(gx + 7, gy + 4, 1, 3, Hyb.INK);
     }
 
     public static String ruleLabel(final Drawer.Rule rule) {
@@ -326,55 +369,6 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         };
     }
 
-    /** The rule: its mark in gold (muted for Any) and a chevron, on a key in the card's chip style. */
-    private void drawRule(final DrawerModel m, final boolean hover) {
-        final int[] r = partRect(Part.RULE);
-        Hyb.rect(r[0], r[1], r[2], r[3], hover ? 0xFF4A4D55 : com.gtnhplanner.ui.card.CardPaint.EDGE);
-        Hyb.rect(r[0] + 1, r[1] + 1, r[2] - 2, r[3] - 2, hover ? 0xFF33363C : 0xFF2A2C31);
-        final int markColor = m.rule == Drawer.Rule.ANY ? Hyb.MUTED : Hyb.GOLD;
-        drawRuleMark(m.rule, r[0] + 3, r[1] + 3, markColor);
-        final int cx = r[0] + r[2] - 8, cy = r[1] + 6;
-        Hyb.rect(cx, cy, 5, 1, markColor);
-        Hyb.rect(cx + 1, cy + 1, 3, 1, markColor);
-        Hyb.rect(cx + 2, cy + 2, 1, 1, markColor);
-    }
-
-    /**
-     * The rule's rate: a dark box, the number in gold and its unit at the right; red when it cannot be reached. A line
-     * along its foot fills as the plan gets there: green when met, red when it cannot be, slate for an upper bound;
-     * none for Any.
-     */
-    private void drawRate(final DrawerModel m, final boolean hover, final Fmt.RateUnit unit) {
-        final int[] r = partRect(Part.RATE);
-        final int x = r[0], y = r[1], w = r[2], h = r[3];
-        // A rate being wheeled shows at once, before it is set.
-        final Double wheeled = session.wheeledRate(m.drawer.getId());
-        final double target = wheeled != null ? wheeled : m.target;
-        final boolean empty = wheeled != null ? wheeled <= 0 : m.rule == Drawer.Rule.ANY || m.target <= 0;
-        Hyb.rect(x, y, w, h, m.unmet ? 0xBFF87171 : hover ? Hyb.GOLD : 0xFF4E525B);
-        Hyb.rect(x + 1, y + 1, w - 2, h - 2, hover ? 0xFF15171C : 0xFF0F1114);
-        Hyb.rect(x + 1, y + 1, w - 2, 1, 0xB3000000);
-        if (empty) {
-            // Gold and pulsing while the plan has nothing to solve for, so the empty box reads as the next thing to do.
-            final boolean idle = session.nothingToSolveFor();
-            Hyb.textCentered(
-                "Set rate",
-                x + w / 2f,
-                y + 3,
-                idle ? com.gtnhplanner.ui.card.CardPaint.prompt() : 0xFF6F737C);
-            return;
-        }
-        final String suffix = m.suffix(unit, true);
-        final String number = Fmt.compact(m.shown(target, unit));
-        Hyb.text(Hyb.fit(number, w - 10 - Hyb.width(suffix)), x + 4, y + 3, m.unmet ? 0xFFF87171 : Hyb.GOLD);
-        Hyb.textRight(suffix, x + w - 4, y + 3, 0xFF8A8E97);
-        if (m.rule == Drawer.Rule.ANY || m.target <= 0 || wheeled != null) return;
-        final float share = (float) Math.min(1, Math.abs(m.rate) / m.target);
-        if (share <= 0) return;
-        final int fill = m.unmet ? 0xFFCF3333 : m.rule == Drawer.Rule.AT_MOST ? 0xFF7B8B9C : 0xFF3FAE5C;
-        Hyb.rect(x + 1, y + h - 3, (w - 2) * share, 2, fill);
-    }
-
     /** The tooltip for the part under the mouse: what it is, its figures, what the mouse does. */
     public com.gtnhplanner.ui.popup.Tip tip() {
         if (model == null || !isHovering()) return null;
@@ -384,15 +378,19 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         return switch (part) {
             case DELETE -> com.gtnhplanner.ui.popup.Tip.of("Delete this drawer")
                 .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Delete");
-            case CYCLE -> com.gtnhplanner.ui.popup.Tip.of(kindName(m.kind))
-                .muted("Product: what you want. Byproduct: surplus. Trash: voided.")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Next kind");
-            case RULE -> com.gtnhplanner.ui.popup.Tip.of("Rule")
-                .sub(ruleLabel(m.rule))
-                .muted(ruleMeaning(m.kind, m.rule))
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Pick")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "Next")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Clear");
+            case BAR -> com.gtnhplanner.ui.popup.Tip.of(m.label)
+                .sub(kindName(m.kind))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Move")
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Select");
+            case RULE -> m.kind == Drawer.Kind.TRASH ? com.gtnhplanner.ui.popup.Tip.of("Trash")
+                .muted("It voids what comes in: it leaves the plan without being one of its outputs.")
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Keep it instead")
+                : com.gtnhplanner.ui.popup.Tip.of("Rule")
+                    .sub(ruleLabel(m.rule))
+                    .muted(ruleMeaning(m.kind, m.rule))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Pick")
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "Next")
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Clear");
             case RATE -> {
                 final com.gtnhplanner.ui.popup.Tip tip = com.gtnhplanner.ui.popup.Tip
                     .of(m.rule == Drawer.Rule.ANY ? "No rate yet" : "Target rate");
@@ -413,7 +411,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                         + m.rate(m.shortfall.target(), unit)
                         + " target",
                     Hyb.RED_INK);
-                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Move")
+                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Wire to a card")
                     .action(com.gtnhplanner.ui.popup.Tip.Input.KEY, "R, U");
             }
         };
@@ -434,7 +432,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         return switch (kind) {
             case SOURCE -> "Source";
             case PRODUCT -> "Product";
-            case BYPRODUCT -> "Byproduct";
+            case BYPRODUCT -> "Product";
             case TRASH -> "Trash";
         };
     }
@@ -463,15 +461,15 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             case DELETE -> {
                 if (mouseButton == 0) session.deleteDrawer(drawer);
             }
-            case CYCLE -> {
-                if (mouseButton == 0) session.cycleDrawer(drawer);
-            }
             case RULE -> {
-                if (mouseButton == 1) stepRule(-1);
+                if (mouseButton == 1 && hasRule()) stepRule(-1);
                 else openRules();
             }
             case RATE -> {
-                if (mouseButton == 0) openRate();
+                if (mouseButton == 0) {
+                    if (canvas() != null) canvas().editDrawerRate(model);
+                    else openRate();
+                }
             }
             default -> {
                 // The body: a click selects it (Shift adds); the right button is the board's.
@@ -489,7 +487,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         if (model == null) return false;
         final int step = direction == UpOrDown.UP ? 1 : -1;
         switch (partAt(localX(), localY())) {
-            case RULE -> stepRule(step);
+            case RULE -> {
+                if (!hasRule()) return false;
+                stepRule(step);
+            }
             case RATE -> stepRate(step);
             default -> {
                 return false;
@@ -531,18 +532,23 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     }
 
     private void openRules() {
-        openRules(getPanel(), session, model, screenX(partRect(Part.RULE)[0]), screenY(ROW_Y + ROW_H + 2));
+        final int[] r = partRect(Part.RULE);
+        openRules(getPanel(), session, model, screenX(r[0]), screenY(r[1] + r[3] + 2));
     }
 
     private void openRate() {
-        openRate(getPanel(), session, model, screenX(partRect(Part.RATE)[0]), screenY(ROW_Y + ROW_H + 2));
+        final int[] r = partRect(Part.RATE);
+        openRate(getPanel(), session, model, screenX(r[0]), screenY(r[1] + r[3] + 2));
     }
 
-    /** The rule list for a drawer; the overview's drawer rows open the same one. */
+    /**
+     * The rule list for a drawer, and under it the row that turns a product into trash (or trash back into a product);
+     * the overview's drawer rows open the same one.
+     */
     public static void openRules(final ModularPanel panel, final BoardSession session, final DrawerModel model,
         final int screenX, final int screenY) {
         final List<PickList.Entry> rows = new ArrayList<>();
-        for (final Drawer.Rule rule : Drawer.Rule.values()) {
+        if (model.kind.hasRule()) for (final Drawer.Rule rule : Drawer.Rule.values()) {
             rows.add(
                 new PickList.Entry(
                     null,
@@ -552,6 +558,14 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                     rule == model.rule,
                     () -> session.setDrawerRule(model.drawer, rule)));
         }
+        if (model.kind != Drawer.Kind.SOURCE) rows.add(
+            new PickList.Entry(
+                null,
+                model.kind == Drawer.Kind.TRASH ? TO_PRODUCT : TO_TRASH,
+                "",
+                Hyb.MUTED,
+                false,
+                () -> session.cycleDrawer(model.drawer)));
         Popup.open(panel, PickList.popup("gtnhplanner_rule", null, rows, false, 110), screenX, screenY);
     }
 
@@ -566,6 +580,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             NumberPopup.create(
                 "Rate in " + model.suffix(unit, true) + " (empty: no rule)",
                 "2.5k, 1/3",
+                "Type 2.5k, 1M or 1/3",
                 current,
                 0,
                 Double.MAX_VALUE,
@@ -581,22 +596,29 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     @Override
     public boolean onDragStart(final int button) {
         if (button != 0 || model == null || canvas() == null) return false;
-        // Pressed anywhere, it may be moved, with the rest of the selection when it is selected; let go first, it is a
-        // click on what was pressed.
-        canvas().beginMove(drawerId);
+        // Pressed on its bar it may be moved, with the rest of the selection when it is selected; anywhere else it
+        // draws a wire. Let go first, it is a click on what was pressed.
+        final Part part = pressed != null ? pressed : partAt(localX(), localY());
+        wiring = part != Part.BAR && part != Part.DELETE;
+        if (wiring) canvas().beginDrawerWire(drawerId);
+        else canvas().beginMove(drawerId);
         return true;
     }
 
     @Override
     public void onDrag(final int mouseButton, final long timeSinceLastClick) {
-        if (canvas() != null) canvas().dragMove();
+        if (canvas() != null && !wiring) canvas().dragMove();
     }
 
     @Override
     public void onDragEnd(final boolean successful) {
         final Part part = pressed;
         pressed = null;
-        if (canvas() == null || !canvas().endMove(successful) || part == null || model == null) return;
+        final boolean wire = wiring;
+        wiring = false;
+        if (canvas() == null) return;
+        final boolean click = wire ? canvas().endDrawerWire(successful) : canvas().endMove(successful);
+        if (!click || part == null || model == null) return;
         act(part, 0);
     }
 

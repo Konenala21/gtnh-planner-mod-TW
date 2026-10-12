@@ -59,6 +59,8 @@ public final class BoardSession {
     private Map<UUID, DrawerModel> drawerModels = Collections.emptyMap();
     private List<Notice> notices = List.of();
     private boolean nothingToSolveFor;
+    /** The recipes and drawers in parts of the plan nothing sets ({@link Unanchored}), as of the last solve. */
+    private java.util.Set<UUID> unset = java.util.Set.of();
     /** Bumped when the set of cards changes, so the canvas knows to rebuild its widgets. */
     private int structure;
     /** The sticky notes the widgets were last built for. */
@@ -136,6 +138,8 @@ public final class BoardSession {
      * overview, a resource everywhere it flows (that wins while set).
      */
     public HoverScope lit() {
+        if (spareMenuLive()) return spareMenuScope;
+        if (spareHover != null) return spareHoverScope;
         return railHoverKey != null ? railHover : hover;
     }
 
@@ -169,9 +173,34 @@ public final class BoardSession {
         PlanAPI.recordEdit(graph, () -> {
             change.run();
             releaseCustomRates();
+            dropWiredTargets();
         });
         graph.touch();
         PlanAPI.save();
+    }
+
+    /**
+     * A port's own rate is for an open end of the plan only: one wired to a card, or to a drawer, takes its rate from
+     * what it is wired to, so a rate left on it goes.
+     */
+    private void dropWiredTargets() {
+        final Set<String> wired = new HashSet<>();
+        for (final Edge e : graph.getEdges()) {
+            wired.add(portKey(e.sourceNodeId, true, e.sourceOutputIndex));
+            wired.add(portKey(e.targetNodeId, false, e.targetInputIndex));
+        }
+        for (final Drawer d : graph.getDrawers()) for (final Drawer.Link l : d.getLinks()) wired.add(
+            portKey(
+                l.nodeId(),
+                !d.getKind()
+                    .linksInputs(),
+                l.portIndex()));
+        for (final Node n : graph.getNodes()) {
+            n.targetOutputRates.keySet()
+                .removeIf(i -> wired.contains(portKey(n.id, true, i)));
+            n.targetInputRates.keySet()
+                .removeIf(i -> wired.contains(portKey(n.id, false, i)));
+        }
     }
 
     /** An undoable change that only moves things: saved, but no re-solve. */
@@ -432,9 +461,17 @@ public final class BoardSession {
         final String key = Resources.key((output ? node.outputs : node.inputs).get(port));
         if (!key.equals(drawer.getResourceKey())) return false;
         final boolean linked = drawer.isLinked(node.id, port);
+        final Double rate = portTarget(node, output, port);
         edit(() -> {
             if (linked) graph.unlinkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
-            else graph.linkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
+            else {
+                graph.linkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
+                // A rate set on the port goes to a drawer with none; the port's own goes (it is wired now).
+                if (rate != null && drawer.effectiveRule() == Drawer.Rule.ANY
+                    && drawer.getKind()
+                        .hasRule())
+                    drawer.setTarget(Drawer.Rule.EXACTLY, rate);
+            }
         });
         if (linked) Sfx.cut(key);
         else Sfx.connect(key);
@@ -491,18 +528,60 @@ public final class BoardSession {
         final int worldY) {
         final Node node = graph.nodes.get(fromNode);
         if (node == null || portHasDrawer(fromNode, output, port)) return false;
-        final Port<?> p = (output ? node.outputs : node.inputs).get(port);
-        final Drawer drawer = new Drawer(output ? Drawer.Kind.PRODUCT : Drawer.Kind.SOURCE, Resources.key(p));
-        drawer.setLabel(p.getDisplayName());
-        drawer.setX(output ? worldX : worldX - DrawerCard.W);
         // Dropped nearly level with the port: make it level, so the wire runs straight instead of jogging.
         final CardModel card = models.get(fromNode);
         final int portY = card == null ? worldY : node.y + new CardLayout(card, graph()).anchorY(output, port);
-        drawer.setY((Math.abs(worldY - portY) <= 24 ? portY : worldY) - DrawerCard.ANCHOR_Y);
-        edit(() -> {
-            graph.addDrawer(drawer);
-            graph.linkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
-        });
+        return dropPortAsDrawer(
+            fromNode,
+            output,
+            port,
+            output ? worldX : worldX - DrawerCard.W,
+            (Math.abs(worldY - portY) <= 24 ? portY : worldY) - DrawerCard.ANCHOR_Y);
+    }
+
+    /**
+     * A port picked up off its card and put down as a drawer, its top left at {@code x, y}: a source for an input, a
+     * product for an output, linked to the port, taking the rate set on the port (whose own goes: it is wired now).
+     */
+    public boolean dropPortAsDrawer(final UUID fromNode, final boolean output, final int port, final int x,
+        final int y) {
+        final Drawer drawer = portDrawer(fromNode, output, port);
+        return drawer != null && placePortDrawer(drawer, x, y);
+    }
+
+    /**
+     * The drawer a port would make, linked to it but not on the plan yet (what the board carries while a port is picked
+     * up off its card): a source for an input, a product for an output; null when the port has a drawer already.
+     */
+    @Nullable
+    public Drawer portDrawer(final UUID fromNode, final boolean output, final int port) {
+        final Node node = graph.nodes.get(fromNode);
+        if (node == null || port < 0
+            || port >= (output ? node.outputs : node.inputs).size()
+            || portHasDrawer(fromNode, output, port)) return null;
+        final Port<?> p = (output ? node.outputs : node.inputs).get(port);
+        final Drawer drawer = new Drawer(output ? Drawer.Kind.PRODUCT : Drawer.Kind.SOURCE, Resources.key(p));
+        drawer.setLabel(p.getDisplayName());
+        drawer.addLink(new Drawer.Link(node.id, port));
+        return drawer;
+    }
+
+    /** Puts a drawer from {@link #portDrawer} on the plan, its top left at {@code x, y}. */
+    public boolean placePortDrawer(final Drawer drawer, final int x, final int y) {
+        if (drawer.getLinks()
+            .isEmpty()) return false;
+        final Drawer.Link link = drawer.getLinks()
+            .get(0);
+        final boolean output = !drawer.getKind()
+            .linksInputs();
+        final Node node = graph.nodes.get(link.nodeId());
+        if (node == null || portHasDrawer(node.id, output, link.portIndex())) return false;
+        drawer.setX(x);
+        drawer.setY(y);
+        // A rate set on the port goes with it, to the drawer; the port's own goes (it is wired now).
+        final Double rate = portTarget(node, output, link.portIndex());
+        if (rate != null) drawer.setTarget(Drawer.Rule.EXACTLY, rate);
+        edit(() -> graph.addDrawer(drawer));
         Sfx.connect(drawer.getResourceKey());
         return true;
     }
@@ -511,7 +590,33 @@ public final class BoardSession {
      * A drawer for a resource from the overview: a source left of the first card that uses it, or a product right of
      * the first card that makes it, linked to every port waiting for it.
      */
+    /**
+     * A rate typed on an overview line with no drawer: on its one open port (nothing wired, no drawer) it is that
+     * port's rate, as typed on the card; on several, one drawer takes them all at that rate.
+     */
+    public void setLineRate(final String key, final String label, final boolean source, final double perSecond) {
+        if (!(perSecond > 0)) return;
+        Node only = null;
+        int at = -1, open = 0;
+        for (final Node n : graph.getNodes()) {
+            final List<Port<?>> ports = source ? n.inputs : n.outputs;
+            for (int i = 0; i < ports.size(); i++) {
+                if (!canonicalKey(Resources.key(ports.get(i))).equals(key) || isWired(n, !source, i)) continue;
+                open++;
+                only = n;
+                at = i;
+            }
+        }
+        if (open == 1) setPortTarget(only, !source, at, perSecond);
+        else if (open > 1) addDrawerFor(key, label, source, perSecond);
+    }
+
     public void addDrawerFor(final String key, final String label, final boolean source) {
+        addDrawerFor(key, label, source, 0);
+    }
+
+    /** As {@link #addDrawerFor(String, String, boolean)}, set to {@code perSecond} (none for 0). */
+    public void addDrawerFor(final String key, final String label, final boolean source, final double perSecond) {
         int x = 40, y = 40;
         search: for (final CardModel card : models.values()) {
             final List<CardModel.PortView> ports = source ? card.inputs : card.outputs;
@@ -530,12 +635,21 @@ public final class BoardSession {
             x = d.getX();
             break;
         }
-        addDrawer(source ? Drawer.Kind.SOURCE : Drawer.Kind.PRODUCT, key, label, x, y);
+        addDrawer(source ? Drawer.Kind.SOURCE : Drawer.Kind.PRODUCT, key, label, x, y, true, perSecond);
     }
 
-    /** A new, unlinked drawer for a resource at a world point (from an NEI drag). */
+    /** A new, unlinked drawer for a resource at a world point (from an NEI drag): it is wired by hand. */
     public void addDrawer(final Drawer.Kind kind, final String resourceKey, final String label, final int x,
         final int y) {
+        addDrawer(kind, resourceKey, label, x, y, false, 0);
+    }
+
+    /**
+     * A new drawer for a resource at a world point, kept clear of everything; {@code takeWaiting}: linked to every port
+     * of that resource with no wire yet (the overview's drawer for a resource), else unlinked.
+     */
+    private void addDrawer(final Drawer.Kind kind, final String resourceKey, final String label, final int x,
+        final int y, final boolean takeWaiting, final double perSecond) {
         final Drawer drawer = new Drawer(kind, resourceKey);
         drawer.setLabel(label);
         drawer.setX(x);
@@ -544,13 +658,18 @@ public final class BoardSession {
         for (int tries = 0; tries < 100
             && NewCards.overlapsAnything(graph, x, clear, DrawerCard.W, DrawerCard.H, null); tries++) clear += 20;
         drawer.setY(clear);
+        // A rate set as it is made: exactly for a source, at least for a product, as typing one on "Any" does.
+        if (perSecond > 0)
+            drawer.setTarget(kind == Drawer.Kind.SOURCE ? Drawer.Rule.EXACTLY : Drawer.Rule.AT_LEAST, perSecond);
         edit(() -> {
             graph.addDrawer(drawer);
+            if (!takeWaiting) return;
             // Take the ports already waiting for this resource.
+            final String want = canonicalKey(resourceKey);
             for (final Node n : graph.getNodes()) {
                 final List<Port<?>> ports = kind.linksInputs() ? n.inputs : n.outputs;
                 for (int i = 0; i < ports.size(); i++) {
-                    if (!resourceKey.equals(Resources.key(ports.get(i))) || isWired(n, !kind.linksInputs(), i))
+                    if (!canonicalKey(Resources.key(ports.get(i))).equals(want) || isWired(n, !kind.linksInputs(), i))
                         continue;
                     graph.linkDrawer(drawer.getId(), new Drawer.Link(n.id, i));
                 }
@@ -597,7 +716,7 @@ public final class BoardSession {
         Sfx.REMOVE.play();
     }
 
-    /** Product, byproduct, trash, product again; a source stays a source. */
+    /** Product, trash, product again; a source stays a source. */
     public void cycleDrawer(final Drawer drawer) {
         edit(
             () -> drawer.setKind(
@@ -1542,7 +1661,62 @@ public final class BoardSession {
             }
             node.machineConfig.setMachineCount(Math.max(1, (int) Math.round(count)));
             node.setMachineCountFixed(true);
+            // A pinned count is the machine's run: a port rate set before gives way to it.
+            node.targetOutputRates.clear();
+            node.targetInputRates.clear();
         });
+    }
+
+    /**
+     * Sets the rate a machine's port runs at (units a second): the machine runs so that this input takes, or this
+     * output gives, exactly that. One per machine: setting it clears the machine's other port rates and its pinned
+     * count; zero or less clears it and lets the plan decide.
+     */
+    public void setPortTarget(final Node node, final boolean output, final int index, final double perSecond) {
+        (perSecond > 0 ? Sfx.PIN : Sfx.UNPIN).play();
+        edit(() -> {
+            node.targetOutputRates.clear();
+            node.targetInputRates.clear();
+            if (perSecond <= 0) return;
+            (output ? node.targetOutputRates : node.targetInputRates).put(index, perSecond);
+            node.setMachineCountFixed(false);
+        });
+    }
+
+    /** Port rates being wheeled (per second), by the port, with the node they are on; null for none. */
+    private Map<String, Object[]> wheeledPorts;
+    private long portWheelAt;
+
+    /**
+     * A port's rate from the wheel: shown at once, set (one edit, one solve) once the wheel has been still a moment.
+     */
+    public void wheelPortRate(final Node node, final boolean output, final int index, final double perSecond) {
+        if (wheeledPorts == null) wheeledPorts = new HashMap<>();
+        final Double was = wheeledPortRate(node, output, index);
+        final Double set = was != null ? was : portTarget(node, output, index);
+        Sfx.TICK.play(perSecond >= (set == null ? 0 : set) ? 1.12f : 0.9f);
+        wheeledPorts.put(portKey(node.id, output, index), new Object[] { node, output, index, perSecond });
+        portWheelAt = System.currentTimeMillis();
+    }
+
+    /** The rate a port is being wheeled to, a second; null when it is not. */
+    @Nullable
+    public Double wheeledPortRate(final Node node, final boolean output, final int index) {
+        final Object[] w = wheeledPorts == null ? null : wheeledPorts.get(portKey(node.id, output, index));
+        return w == null ? null : (Double) w[3];
+    }
+
+    private void commitWheeledPorts() {
+        if (wheeledPorts == null || wheeledPorts.isEmpty() || System.currentTimeMillis() - portWheelAt < 500) return;
+        final List<Object[]> rates = new ArrayList<>(wheeledPorts.values());
+        wheeledPorts.clear();
+        for (final Object[] w : rates) setPortTarget((Node) w[0], (Boolean) w[1], (Integer) w[2], (Double) w[3]);
+    }
+
+    /** The rate a machine's port is set to, a second; null when the plan decides it. */
+    @Nullable
+    public Double portTarget(final Node node, final boolean output, final int index) {
+        return (output ? node.targetOutputRates : node.targetInputRates).get(index);
     }
 
     /** Deletes a card: every recipe on it, when it is a shared machine. */
@@ -1553,21 +1727,23 @@ public final class BoardSession {
     }
 
     /**
-     * A copy of the card beside it, with the same machine and settings, not wired; a shared machine with its recipes.
+     * A copy of the card on the nearest clear spot to just under it (in line with it), with the same machine and
+     * settings, not wired; a shared machine with its recipes. The board brings it into view.
      */
     public void cloneNode(final Node node) {
+        final int[] at = clearSpotUnder(node);
         final List<Node> copies = new ArrayList<>();
         for (final UUID s : sectionsOf(node.id)) {
             final Node from = graph.nodes.get(s);
             if (from != null && from.isPower()) {
-                final Node copy = Node.power(from.powerSource, from.powerSettings, node.x + 24, node.y + 24);
+                final Node copy = Node.power(from.powerSource, from.powerSettings, at[0], at[1]);
                 copy.machineConfig.copySettingsFrom(from.machineConfig);
                 copies.add(copy);
                 continue;
             }
             final RecipeHandlerRef ref = from == null ? null : com.gtnhplanner.nei.RecipeRefs.of(from.recipeId);
             if (ref == null) return;
-            final Node copy = new Node(ref.handler, ref.recipeIndex, node.x + 24, node.y + 24);
+            final Node copy = new Node(ref.handler, ref.recipeIndex, at[0], at[1]);
             copy.machineConfig.copySettingsFrom(from.machineConfig);
             copy.machineName = from.machineName;
             copies.add(copy);
@@ -1583,7 +1759,38 @@ public final class BoardSession {
             g.setPinned(shared.isPinned());
             graph.groups.put(g.getId(), g);
         });
+        if (!copies.isEmpty()) {
+            justAdded = copies.get(0).id;
+            focusAdded = false;
+        }
         Sfx.CLONE.play();
+    }
+
+    /**
+     * The clear spot nearest to just under a card (a gap below it, in line with it): on rings of grid steps round
+     * there, nearest first, clear of every card and drawer by a margin; none within reach, there itself.
+     */
+    private int[] clearSpotUnder(final Node node) {
+        final CardModel model = models.get(node.id);
+        final int h = model == null ? 150 : new CardLayout(model, graph()).height;
+        final int x0 = node.x, y0 = node.y + h + 40, step = 20;
+        if (!NewCards.overlapsAnything(graph, x0, y0, CardLayout.W, h, null)) return new int[] { x0, y0 };
+        for (int r = 1; r <= 40; r++) {
+            int[] best = null;
+            double bestD = Double.MAX_VALUE;
+            for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+                final int x = x0 + dx * step, y = y0 + dy * step;
+                if (NewCards.overlapsAnything(graph, x, y, CardLayout.W, h, null)) continue;
+                final double d = Math.hypot(dx, dy);
+                if (d < bestD) {
+                    bestD = d;
+                    best = new int[] { x, y };
+                }
+            }
+            if (best != null) return best;
+        }
+        return new int[] { x0, y0 };
     }
 
     // endregion
@@ -1623,6 +1830,7 @@ public final class BoardSession {
 
     private void tickBoard() {
         commitWheeledRates();
+        commitWheeledPorts();
         if (disarmOnTick) {
             disarmOnTick = false;
             pendingLookup = null;
@@ -1677,6 +1885,7 @@ public final class BoardSession {
         drawerModels = nextDrawers;
         notices = buildNotices(next);
         totals = buildTotals(next);
+        spareLines = buildSpares(next);
         if (answered) heardRunning(next);
     }
 
@@ -1737,7 +1946,40 @@ public final class BoardSession {
     /** Below this a rate (per second) is solver noise, not a flow worth a line. */
     private static final double EPS = 1e-6;
 
+    /**
+     * Resource keys a wire joins to another: the key an input asks for, to the key of what is wired into it (a recipe
+     * asking for any sand, fed the sand a card makes). From the last model; null before the first.
+     */
+    private Map<String, String> sameKeys;
+
+    /**
+     * The key the overview counts a resource under: what is wired into a port asking for it, when that differs (two
+     * keys a wire joins are one resource).
+     */
+    public String canonicalKey(final String key) {
+        final Map<String, String> same = sameKeys;
+        if (same == null || key == null) return key;
+        String at = key;
+        for (int i = 0; i < 16 && same.containsKey(at); i++) at = same.get(at);
+        return at;
+    }
+
+    private static String keyAt(final List<CardModel.PortView> ports, final int index) {
+        for (final CardModel.PortView p : ports) if (p.index() == index) return p.key();
+        return null;
+    }
+
     private Totals buildTotals(final Map<UUID, CardModel> cards) {
+        // Two ports wired together carry one resource even when their keys differ: counted as one, under the key of
+        // the side that makes it.
+        final Map<String, String> same = new HashMap<>();
+        for (final Edge e : graph.getEdges()) {
+            final CardModel from = cards.get(e.sourceNodeId), to = cards.get(e.targetNodeId);
+            if (from == null || to == null) continue;
+            final String made = keyAt(from.outputs, e.sourceOutputIndex), used = keyAt(to.inputs, e.targetInputIndex);
+            if (made != null && used != null && !made.equals(used)) same.putIfAbsent(used, made);
+        }
+        sameKeys = same;
         final Map<String, double[]> flow = new LinkedHashMap<>();
         final Map<String, Look> looks = new HashMap<>();
         double eu = 0, euMade = 0;
@@ -1747,12 +1989,15 @@ public final class BoardSession {
             // and what it drains leaves (an output). It is no machine to build.
             if (com.gtnhplanner.power.CustomRate.is(card.node)) continue;
             for (final CardModel.PortView p : card.outputs) {
-                flow.computeIfAbsent(p.key(), k -> new double[2])[0] += p.perSecond();
-                looks.putIfAbsent(p.key(), new Look(p.name(), p.item(), p.fluid()));
+                final String key = canonicalKey(p.key());
+                flow.computeIfAbsent(key, k -> new double[2])[0] += p.perSecond();
+                looks.putIfAbsent(key, new Look(p.name(), p.item(), p.fluid()));
             }
             for (final CardModel.PortView p : card.inputs) {
-                flow.computeIfAbsent(p.key(), k -> new double[2])[1] += p.perSecond();
-                looks.putIfAbsent(p.key(), new Look(p.name(), p.item(), p.fluid()));
+                final String key = canonicalKey(p.key());
+                flow.computeIfAbsent(key, k -> new double[2])[1] += p.perSecond();
+                // Named as what makes it, where something does.
+                if (key.equals(p.key())) looks.putIfAbsent(key, new Look(p.name(), p.item(), p.fluid()));
             }
             final double power = power(card);
             eu += power;
@@ -1777,8 +2022,8 @@ public final class BoardSession {
         }
         // What trash voids leaves the plan without being an output of it.
         final Map<String, Double> trashed = new HashMap<>();
-        for (final DrawerModel d : drawerModels.values())
-            if (d.kind == Drawer.Kind.TRASH) trashed.merge(d.drawer.getResourceKey(), Math.max(0, d.rate), Double::sum);
+        for (final DrawerModel d : drawerModels.values()) if (d.kind == Drawer.Kind.TRASH)
+            trashed.merge(canonicalKey(d.drawer.getResourceKey()), Math.max(0, d.rate), Double::sum);
         final List<TotalLine> in = new ArrayList<>(), out = new ArrayList<>(), internal = new ArrayList<>();
         for (final Map.Entry<String, double[]> e : flow.entrySet()) {
             final double made = e.getValue()[0], used = e.getValue()[1];
@@ -1794,7 +2039,7 @@ public final class BoardSession {
         // A resource with a drawer stays listed at 0, so its rule and rate can be set from here.
         for (final DrawerModel d : drawerModels.values()) {
             if (d.kind == Drawer.Kind.TRASH) continue;
-            final String key = d.drawer.getResourceKey();
+            final String key = canonicalKey(d.drawer.getResourceKey());
             final List<TotalLine> side = d.kind == Drawer.Kind.SOURCE ? in : out;
             if (side.stream()
                 .noneMatch(
@@ -1849,6 +2094,354 @@ public final class BoardSession {
         }
         return out;
     }
+
+    // region Spare
+
+    /**
+     * One place a leftover can be borne, as the overview shows it: its resource (the anchor port's), the card it is
+     * on, what it carries when it bears all of it, and the ports the leftover crosses there (the anchor alone when it
+     * bears none now).
+     */
+    public record SpareBearer(String key, UUID node, boolean output, int port, String name, String resourceKey,
+        ItemStack item, net.minecraftforge.fluids.FluidStack fluid, String machine, double max, boolean solverPick,
+        List<com.gtnhplanner.data.flowchart.balancer.PortRef> ports) {
+
+        public boolean isFluid() {
+            return fluid != null;
+        }
+    }
+
+    /**
+     * One leftover with more than one place that could bear it, and the shares the last solve gave it ({@link
+     * #spareShares} reads the stored ones first, so an edit shows before the solve catches up).
+     */
+    public record SpareLine(String key, boolean importing, List<SpareBearer> bearers, double[] solvedShares) {}
+
+    private List<SpareLine> spareLines = List.of();
+
+    /** The plan's leftovers that have a choice, from the last solve. */
+    public List<SpareLine> spares() {
+        return spareLines;
+    }
+
+    /**
+     * One thing the player pinned, as a spare's tooltip lists it: its words (what matters between asterisks) and its
+     * icon.
+     */
+    public record Pin(String text, ItemStack item, net.minecraftforge.fluids.FluidStack fluid, boolean eu) {}
+
+    /**
+     * What the player pinned that a leftover follows from: the pinned machines, the cards' pinned output rates and the
+     * drawers' set rates among the cards wired (or sharing a drawer) with the places that could bear it.
+     */
+    public List<Pin> pinsBehind(final SpareLine line) {
+        final List<UUID> places = new ArrayList<>();
+        for (final SpareBearer b : line.bearers()) places.add(b.node());
+        return pinsBehind(places);
+    }
+
+    /** As above, for what is wired (or shares a drawer) with any of {@code start}. */
+    public List<Pin> pinsBehind(final java.util.Collection<UUID> start) {
+        final Map<UUID, List<UUID>> near = new HashMap<>();
+        for (final Edge e : graph.getEdges()) {
+            near.computeIfAbsent(e.sourceNodeId, k -> new ArrayList<>())
+                .add(e.targetNodeId);
+            near.computeIfAbsent(e.targetNodeId, k -> new ArrayList<>())
+                .add(e.sourceNodeId);
+        }
+        for (final Drawer d : graph.getDrawers()) {
+            final List<Drawer.Link> links = d.getLinks();
+            for (int i = 1; i < links.size(); i++) {
+                near.computeIfAbsent(
+                    links.get(0)
+                        .nodeId(),
+                    k -> new ArrayList<>())
+                    .add(
+                        links.get(i)
+                            .nodeId());
+                near.computeIfAbsent(
+                    links.get(i)
+                        .nodeId(),
+                    k -> new ArrayList<>())
+                    .add(
+                        links.get(0)
+                            .nodeId());
+            }
+        }
+        final Set<UUID> reach = new HashSet<>();
+        final java.util.ArrayDeque<UUID> next = new java.util.ArrayDeque<>();
+        for (final UUID n : start) if (reach.add(n)) next.add(n);
+        while (!next.isEmpty())
+            for (final UUID to : near.getOrDefault(next.poll(), List.of())) if (reach.add(to)) next.add(to);
+        final List<Pin> out = new ArrayList<>();
+        final Fmt.RateUnit unit = rateUnit();
+        for (final MachineLine m : totals.machines()) if (m.pinned() && reach.contains(m.nodeId()))
+            out.add(new Pin(m.name() + " *×" + Fmt.machines(m.machines()) + "*", m.stack(), null, false));
+        for (final Node n : graph.getNodes()) {
+            if (!reach.contains(n.id) || n.targetOutputRates.isEmpty() && n.targetInputRates.isEmpty()) continue;
+            final CardModel card = models.get(n.id);
+            if (card == null) continue;
+            for (final boolean output : new boolean[] { true, false })
+                for (final Map.Entry<Integer, Double> t : (output ? n.targetOutputRates : n.targetInputRates)
+                    .entrySet())
+                    for (final CardModel.PortView p : output ? card.outputs : card.inputs)
+                        if (p.index() == t.getKey()) out.add(
+                            new Pin(
+                                p.name() + ", *" + pinRate(p.key(), t.getValue(), p.isFluid(), unit) + "*",
+                                p.item(),
+                                p.fluid(),
+                                Resources.isPower(p.key())));
+        }
+        for (final DrawerModel d : drawerModels.values()) {
+            if (!d.kind.hasRule() || d.rule == Drawer.Rule.ANY || d.rule != Drawer.Rule.AT_MOST && d.target <= 0)
+                continue;
+            boolean linked = false;
+            for (final Drawer.Link l : d.drawer.getLinks()) linked |= reach.contains(l.nodeId());
+            if (!linked) continue;
+            final String rule = switch (d.rule) {
+                case AT_LEAST -> "at least ";
+                case AT_MOST -> "at most ";
+                default -> "";
+            };
+            final String key = d.drawer.getResourceKey();
+            out.add(
+                new Pin(
+                    d.label + ", " + rule + "*" + pinRate(key, d.target, d.fluid != null, unit) + "*",
+                    d.item,
+                    d.fluid,
+                    Resources.isPower(key)));
+        }
+        return out;
+    }
+
+    private static String pinRate(final String key, final double perSecond, final boolean fluid,
+        final Fmt.RateUnit unit) {
+        return Resources.isPower(key) ? Fmt.compact(perSecond / 20) + " EU/t" : Fmt.rate(perSecond, unit, fluid);
+    }
+
+    /** Whether a leftover is split by hand rather than left where the solver puts it. */
+    public boolean spareCustom(final SpareLine line) {
+        return graph.spareShares.containsKey(line.key());
+    }
+
+    /** A leftover's shares, one per bearer, summing to one: the stored split, else the solve's. */
+    public double[] spareShares(final SpareLine line) {
+        final Map<String, Double> stored = graph.spareShares.get(line.key());
+        if (stored == null) return line.solvedShares()
+            .clone();
+        final double[] out = new double[line.bearers()
+            .size()];
+        double total = 0;
+        for (int i = 0; i < out.length; i++) {
+            out[i] = Math.max(
+                0,
+                stored.getOrDefault(
+                    line.bearers()
+                        .get(i)
+                        .key(),
+                    0.0));
+            total += out[i];
+        }
+        if (total <= 0) return line.solvedShares()
+            .clone();
+        for (int i = 0; i < out.length; i++) out[i] /= total;
+        return out;
+    }
+
+    /** Sets a leftover's split (one share per bearer), as one undoable edit. */
+    public void setSpareShares(final SpareLine line, final double[] shares) {
+        final Map<String, Double> split = spareMap(line, shares);
+        edit(() -> graph.setSpareSplit(line.key(), split));
+    }
+
+    /** Puts a leftover back where the solver puts it, as one undoable edit. */
+    public void clearSpare(final SpareLine line) {
+        edit(() -> graph.setSpareSplit(line.key(), null));
+    }
+
+    /**
+     * A split shown while it is still being dragged: the plan re-solves with it, but it is no edit yet (no undo step,
+     * not saved). {@code null} puts back what was stored before the drag.
+     */
+    public void previewSpareShares(final SpareLine line, @Nullable final double[] shares,
+        @Nullable final Map<String, Double> before) {
+        graph.setSpareSplit(line.key(), shares == null ? before : spareMap(line, shares));
+    }
+
+    private static Map<String, Double> spareMap(final SpareLine line, final double[] shares) {
+        final Map<String, Double> split = new LinkedHashMap<>();
+        for (int i = 0; i < shares.length; i++) split.put(
+            line.bearers()
+                .get(i)
+                .key(),
+            Math.max(0, shares[i]));
+        return split;
+    }
+
+    /** The bearer the overview's mouse is on, and where on the overview's edge its line starts (GUI pixels). */
+    private SpareLine spareHoverLine;
+    private SpareBearer spareHover;
+    private int spareHoverX, spareHoverY;
+    private HoverScope spareHoverScope = HoverScope.NONE;
+
+    public void setSpareHover(@Nullable final SpareLine line, @Nullable final SpareBearer bearer, final int x,
+        final int y) {
+        spareHoverX = x;
+        spareHoverY = y;
+        if (bearer == spareHover && line == spareHoverLine) return;
+        spareHoverLine = line;
+        spareHover = bearer;
+        if (bearer == null) {
+            spareHoverScope = HoverScope.NONE;
+            return;
+        }
+        final List<UUID> nodes = new ArrayList<>();
+        final List<Boolean> outputs = new ArrayList<>();
+        final List<Integer> ports = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : bearer.ports()) {
+            nodes.add(ref.nodeId());
+            outputs.add(!ref.input());
+            ports.add(ref.portIndex());
+        }
+        spareHoverScope = HoverScope.portsOnly(nodes, outputs, ports);
+    }
+
+    /** The place a spare menu's entry under the mouse names; it wins over the overview's while set. */
+    private SpareLine spareMenuLine;
+    private SpareBearer spareMenuHover;
+    private HoverScope spareMenuScope = HoverScope.NONE;
+
+    /** When a spare menu last said what is under the mouse: it says so every frame it is open, so silence is closed. */
+    private long spareMenuAt;
+
+    public void setSpareMenuHover(@Nullable final SpareLine line, @Nullable final SpareBearer bearer) {
+        spareMenuAt = System.currentTimeMillis();
+        if (bearer == spareMenuHover && line == spareMenuLine) return;
+        spareMenuLine = line;
+        spareMenuHover = bearer;
+        spareMenuScope = bearer == null ? HoverScope.NONE : scopeOf(bearer);
+    }
+
+    private static HoverScope scopeOf(final SpareBearer bearer) {
+        final List<UUID> nodes = new ArrayList<>();
+        final List<Boolean> outputs = new ArrayList<>();
+        final List<Integer> ports = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : bearer.ports()) {
+            nodes.add(ref.nodeId());
+            outputs.add(!ref.input());
+            ports.add(ref.portIndex());
+        }
+        return HoverScope.portsOnly(nodes, outputs, ports);
+    }
+
+    /** Whether a spare menu's entry is under the mouse now (the menu said so within the last few frames). */
+    private boolean spareMenuLive() {
+        return spareMenuHover != null && System.currentTimeMillis() - spareMenuAt < 250;
+    }
+
+    @Nullable
+    public SpareBearer spareHover() {
+        return spareMenuLive() ? spareMenuHover : spareHover;
+    }
+
+    @Nullable
+    public SpareLine spareHoverLine() {
+        return spareMenuLive() ? spareMenuLine : spareHoverLine;
+    }
+
+    /** Where the hovered bearer's line leaves the overview, {x, y} in GUI pixels. */
+    public int[] spareHoverFrom() {
+        return new int[] { spareHoverX, spareHoverY };
+    }
+
+    /**
+     * How far each card is from where the plan starts, along its wires: the cards nothing is wired into are 0, the
+     * cards they feed 1, and so on (the nearest way, so a loop does not run on). A card no wire reaches from a start is
+     * left out.
+     */
+    private Map<UUID, Integer> depths() {
+        final Map<UUID, List<UUID>> feeds = new HashMap<>();
+        final Set<UUID> fed = new HashSet<>();
+        for (final Edge e : graph.getEdges()) {
+            feeds.computeIfAbsent(e.sourceNodeId, k -> new ArrayList<>())
+                .add(e.targetNodeId);
+            fed.add(e.targetNodeId);
+        }
+        final Map<UUID, Integer> depth = new HashMap<>();
+        final java.util.ArrayDeque<UUID> next = new java.util.ArrayDeque<>();
+        for (final Node n : graph.getNodes()) if (!fed.contains(n.id)) {
+            depth.put(n.id, 0);
+            next.add(n.id);
+        }
+        while (!next.isEmpty()) {
+            final UUID at = next.poll();
+            for (final UUID to : feeds.getOrDefault(at, List.of())) if (!depth.containsKey(to)) {
+                depth.put(to, depth.get(at) + 1);
+                next.add(to);
+            }
+        }
+        return depth;
+    }
+
+    /** The leftovers on the last solve, as the overview lists them (bearers named by the cards they sit on). */
+    private List<SpareLine> buildSpares(final Map<UUID, CardModel> cards) {
+        if (!(result instanceof final BalanceResult.Solved solved) || solved.auto() == null) return List.of();
+        final Map<UUID, Integer> depth = depths();
+        final List<SpareLine> out = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.balancer.Spares.Leftover leftover : solved.auto()
+            .spares()) {
+            final List<SpareBearer> bearers = new ArrayList<>();
+            final double[] shares = new double[leftover.bearers()
+                .size()];
+            int i = 0;
+            for (final com.gtnhplanner.data.flowchart.balancer.Spares.Bearer b : leftover.bearers()) {
+                final com.gtnhplanner.data.flowchart.balancer.PortRef anchor = b.anchor();
+                final CardModel card = cards.get(anchor.nodeId());
+                final List<CardModel.PortView> side = card == null ? List.of()
+                    : anchor.input() ? card.inputs : card.outputs;
+                if (anchor.portIndex() < 0 || anchor.portIndex() >= side.size()) break;
+                final CardModel.PortView port = side.get(anchor.portIndex());
+                final List<com.gtnhplanner.data.flowchart.balancer.PortRef> ports = new ArrayList<>();
+                for (final com.gtnhplanner.data.flowchart.balancer.External e : b.flows()) ports.add(e.port());
+                if (ports.isEmpty()) ports.add(anchor);
+                bearers.add(
+                    new SpareBearer(
+                        b.key(),
+                        anchor.nodeId(),
+                        !anchor.input(),
+                        anchor.portIndex(),
+                        port.name(),
+                        port.key(),
+                        port.item(),
+                        port.fluid(),
+                        card.machineName,
+                        b.max(),
+                        b.solverPick(),
+                        List.copyOf(ports)));
+                shares[i++] = b.share();
+            }
+            if (bearers.size() != leftover.bearers()
+                .size()) continue;
+            // Most upstream first: a place leaving after a card sits just past it, one coming in just before it.
+            final Integer[] order = new Integer[bearers.size()];
+            for (int k = 0; k < order.length; k++) order[k] = k;
+            java.util.Arrays.sort(
+                order,
+                java.util.Comparator.comparingDouble(k -> depth.getOrDefault(bearers.get(k)
+                    .node(), Integer.MAX_VALUE / 2) + (bearers.get(k)
+                        .output() ? 0.5 : -0.5)));
+            final List<SpareBearer> sorted = new ArrayList<>(bearers.size());
+            final double[] sortedShares = new double[shares.length];
+            for (int k = 0; k < order.length; k++) {
+                sorted.add(bearers.get(order[k]));
+                sortedShares[k] = shares[order[k]];
+            }
+            out.add(new SpareLine(leftover.key(), leftover.importing(), List.copyOf(sorted), sortedShares));
+        }
+        return List.copyOf(out);
+    }
+
+    // endregion
 
     /** Every port with a wire or a drawer on it. */
     private Set<String> wiredPorts() {
@@ -1942,6 +2535,14 @@ public final class BoardSession {
     }
 
     /**
+     * Whether nothing sets the part of the plan this recipe or drawer is in (no pinned count or rate anywhere along its
+     * wires), so its count and rates ask for a number, however much of the rest of the plan is set.
+     */
+    public boolean unset(final UUID id) {
+        return nothingToSolveFor || unset.contains(id);
+    }
+
+    /**
      * The lines along the top of the board, as a player wants them: what is wrong in a few words, the thing it is about
      * named first, and "Show me" to find it. The solver's own sentences are for the log; problems of one kind share a
      * line.
@@ -1949,6 +2550,7 @@ public final class BoardSession {
     private List<Notice> buildNotices(final Map<UUID, CardModel> cards) {
         final List<Notice> out = new ArrayList<>();
         nothingToSolveFor = false;
+        unset = result == null ? java.util.Set.of() : com.gtnhplanner.data.flowchart.balancer.Unanchored.of(graph);
         if (result != null) {
             for (final Note note : result.notes()) {
                 if (note.message() == SolverMessage.NO_PIN) {
@@ -2015,33 +2617,9 @@ public final class BoardSession {
         } else if (lastResult != null && lastResult.errorNote() != null) {
             out.add(failure(lastResult.errorNote()));
         }
-        final List<UUID> unwiredCards = new ArrayList<>();
-        int unwired = 0, looseIn = 0, looseOut = 0;
-        for (final CardModel card : cards.values()) {
-            int here = 0;
-            for (final CardModel.PortView p : card.inputs) if (!p.wired()) {
-                here++;
-                looseIn++;
-            }
-            for (final CardModel.PortView p : card.outputs) if (!p.wired()) {
-                here++;
-                looseOut++;
-            }
-            if (here > 0) unwiredCards.add(card.node.id);
-            unwired += here;
-        }
-        if (unwired > 0)
-            out.add(new Notice(Severity.WARN, loose(looseIn, looseOut) + " no wire or drawer yet", unwiredCards));
+        // A port with no wire or drawer is no problem: what it takes comes in from outside the plan, what it makes
+        // leaves it (the card draws it so).
         return out;
-    }
-
-    /** "2 inputs and 1 output have", "1 input has": the ports with nothing on them. */
-    private static String loose(final int inputs, final int outputs) {
-        final String in = inputs + (inputs == 1 ? " input" : " inputs"),
-            out = outputs + (outputs == 1 ? " output" : " outputs");
-        if (outputs == 0) return in + (inputs == 1 ? " has" : " have");
-        if (inputs == 0) return out + (outputs == 1 ? " has" : " have");
-        return in + " and " + out + " have";
     }
 
     /** An output made past its target, said in full. */

@@ -141,5 +141,6 @@ final class VirtualInput {
     static void reset() {
         held = -1;
         Pointer.shift = false;
+        Pointer.letGo();
     }
 }

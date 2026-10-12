@@ -235,10 +235,28 @@ public final class Balancer {
                     DrawerReadout.unsolved(ctx));
             }
         }
-        final SolutionView view = SolutionView.of(ctx, System.currentTimeMillis() - start);
-        final Alternatives alternatives = mode.supportsAlternatives() ? Enumerator.enumerate(ctx)
-            : new Alternatives(ctx.keyOf(ctx.support()), List.of(), true, List.of());
+        SolutionView view = SolutionView.of(ctx, System.currentTimeMillis() - start);
+        if (!mode.supportsAlternatives()) {
+            return new Answer.Solved(view, new Alternatives(ctx.keyOf(ctx.support()), List.of(), true, List.of()));
+        }
+        final int notesBefore = ctx.notes.size(), stageNotesBefore = ctx.stageNotes.size();
+        final Map<ChoiceKey, StageOutcome> points = new HashMap<>();
+        final Alternatives alternatives = Enumerator.enumerate(ctx, points);
+        final StageOutcome own = ctx.point();
+        final List<Spares.Leftover> spares = Spares.apply(ctx, alternatives, points, input.spares());
+        if (ctx.point() != own) {
+            // A stored split moved the point: the view is read again over the mix, saying what the solve said.
+            trim(ctx.notes, notesBefore);
+            trim(ctx.stageNotes, stageNotesBefore);
+            view = SolutionView.of(ctx, System.currentTimeMillis() - start);
+        }
+        view.spares(spares);
         return new Answer.Solved(view, alternatives);
+    }
+
+    private static void trim(final List<Note> notes, final int size) {
+        if (notes.size() > size) notes.subList(size, notes.size())
+            .clear();
     }
 
     /** A solved chart plus the other answers it could have had, or the failure that prevented both. */

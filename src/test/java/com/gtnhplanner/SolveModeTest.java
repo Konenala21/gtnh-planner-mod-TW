@@ -175,12 +175,12 @@ class SolveModeTest {
     }
 
     @Test
-    void anExactProductLeavesAPinnedFeedersSurplusAtItsByproductDrawer() {
+    void anExactProductLeavesAPinnedFeedersSurplusAtAProductDrawerWithNoRule() {
         // Four lathes make 8 gear/s; exactly 2 kits/s takes two assemblers eating 2 of them, and the
-        // other 6 leave at the lathe, where the byproduct drawer reads them.
+        // other 6 leave at the lathe, where the product drawer with no rule reads them.
         final LoadedChart chart = chart("pin and product", gearLine(", number: 4", ""));
         final Drawer kit = drawer(chart, Kind.PRODUCT, Rule.EXACTLY, 2, 1, 0);
-        final Drawer spare = drawer(chart, Kind.BYPRODUCT, Rule.ANY, 0, 0, 0);
+        final Drawer spare = drawer(chart, Kind.PRODUCT, Rule.ANY, 0, 0, 0);
 
         final SolutionView s = solved(chart);
 
@@ -197,7 +197,7 @@ class SolveModeTest {
         // at least 2.
         final LoadedChart chart = chart("pin and minimum", gearLine(", number: 4", ""));
         final Drawer kit = drawer(chart, Kind.PRODUCT, Rule.AT_LEAST, 2, 1, 0);
-        final Drawer spare = drawer(chart, Kind.BYPRODUCT, Rule.ANY, 0, 0, 0);
+        final Drawer spare = drawer(chart, Kind.PRODUCT, Rule.ANY, 0, 0, 0);
 
         final SolutionView s = solved(chart);
 
@@ -209,16 +209,27 @@ class SolveModeTest {
     }
 
     @Test
-    void aByproductsDormantRateAsksForNothing() {
+    void anInputTargetSetsTheMachinesRun() {
+        // Five ore a second into one-ore, one-second lathes: five lathes, as a product of five gear would.
+        final LoadedChart chart = chart("input target", "- {m: lathe, dur: 1, I: {ore: 1}, O: {gear: 1}}");
+        chart.graph()
+            .getNodes()
+            .iterator()
+            .next().targetInputRates.put(0, 5.0);
+        assertEquals(5, count(solved(chart), chart, 0), EPS);
+    }
+
+    @Test
+    void aTrashDrawersDormantRateAsksForNothing() {
         // Typed while the drawer was a product and kept for the flip back: as a product it runs
-        // five lathes, as a byproduct it must not run any.
+        // five lathes, as trash it must not run any.
         final LoadedChart asProduct = chart("dormant", "- {m: lathe, dur: 1, I: {ore: 1}, O: {gear: 1}}");
         drawer(asProduct, Kind.PRODUCT, Rule.AT_LEAST, 5, 0, 0);
         assertEquals(5, count(solved(asProduct), asProduct, 0), EPS, "the number is live on a product");
 
         final LoadedChart chart = chart("dormant", "- {m: lathe, dur: 1, I: {ore: 1}, O: {gear: 1}}");
         final Drawer gear = drawer(chart, Kind.PRODUCT, Rule.AT_LEAST, 5, 0, 0);
-        gear.setKind(Kind.BYPRODUCT);
+        gear.setKind(Kind.TRASH);
 
         final Answer answer = solve(chart.graph());
 

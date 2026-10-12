@@ -7,10 +7,15 @@ says what it is. Placing machines in the world is not in it (that will be a vide
 ## How it looks and feels
 
 - **Steps, not a show.** Each step acts something out at a brisk pace (the cursor clicks, drags, types), then stops on
-  a note and waits. Nothing moves on until the player says so. Twenty-six steps, about a minute and a half of action
-  in all; the rest is the player's reading.
-- **The note** (`Callout`): a small dark box with a gold edge beside the thing it is about, a tip pointing at it, and
-  the thing framed in gold. Its words are short and plain; the words that matter most are gold (written between
+  a note and waits. Nothing moves on until the player says so. Thirty-seven steps; the rest is the player's reading. Two of them hand the
+  board's camera to the player instead (`freeLook`, below).
+- **The note** (`Callout`): a dark box with a gold edge beside the thing it is about, a tip pointing at it, and
+  the thing framed in gold (the first card shows bare, so it is seen as it is: `noteBare`). It is drawn a size up
+  from the game's text, one more screen pixel to each pixel of the font, so it reads easily and stays crisp. A note
+  can also point at nothing (`noteAt`, placed on the screen): split into lines by new lines, a small mouse at the
+  start of a line ({M}, {W}, {L}) in a column of its own, the line the tour is showing lit (`line`). Words can be
+  the inputs' blue or the outputs' orange ({b:Blue}, {o:Orange}). A note whose target never shows says its piece in
+  the middle after a moment rather than leave the tour waiting. Its words are short and plain; the words that matter most are gold (written between
   asterisks in the script). It sits where it covers least of the board's cards, drawers, notes, popups and the
   overview: below the thing if there is room, else above, right or left, slid along that side, and off the tour's
   cursor. The note fades and slides in.
@@ -19,7 +24,9 @@ says what it is. Placing machines in the world is not in it (that will be a vide
   While a step plays, next (or a click anywhere) hurries it to its note. The function keys stay the game's.
 - **No chapters, no titles, no counts.** The tour starts at once from the "?" key.
 - **The tour's cursor**: a gold arrow (so it never passes for the player's) that glides on gentle arcs, dips and
-  leaves a ring when it clicks, and fades when it steps aside. Keys it presses show as key caps beside it (R, Shift,
+  leaves a ring when it clicks, and fades when it steps aside (off the right edge of the screen, so it rests on
+  nothing). A small mouse beside it shows the button it uses when that is the point (the middle button's pan, the
+  wheel, a left drag). Keys it presses show as key caps beside it (R, Shift,
   Esc, the minimap's keys), a wheel turn as a small arrow. Key names come from the player's own bindings (NEI's R and
   U, the minimap's keys).
 
@@ -28,19 +35,26 @@ says what it is. Placing machines in the world is not in it (that will be a vide
 - The "?" key on the top bar: **Take the tour** and **Controls and shortcuts**.
 - The first time the planner opens, an offer along the bottom of the board: **Take the tour** or **Not now** (either
   puts it away for good; `tour.offered` in the settings file).
+- The tour plays on the planner: it opens it when it is not open, and starts from NEI's search under it.
 - Dev harness: `call 'tutorial?start=1'`, `call 'tutorial?step=N'` (start or jump there), `call 'tutorial?next=1'`,
-  `call 'tutorial?stop=1'`, `call 'tutorial?export=1'`; every call returns where the tour is ("step 5 of 25 waiting:
+  `call 'tutorial?stop=1'`, `call 'tutorial?export=1'`; every call returns where the tour is ("step 5 of 35 waiting:
   ...").
+- The game's GUI scale is left alone. The board takes a scale of its own while the tour plays
+  (`PlannerScale`): the game's, or smaller where that would leave the board under 960 by 540, the room its moves are
+  laid out on (GTNH ships scale 4, a 480 by 270 GUI at 1080p). `Targets` gives every board rectangle in the game's
+  pixels, where the tour's pointer is.
 
 ## Safe to run
 
 `Sandbox` keeps the player's things apart:
 
 - **Plans**: the player's are put aside (`Plan.enterSandbox`) for plans of the tour's own, which `PlanAPI.save`
-  never writes. Leaving puts the player's back exactly as they were, and a world closing mid-tour does too.
+  never writes. Leaving puts the player's back as they were, and the plan in front of them, if the tour put anything
+  on it, joins them as "Tour plan", the one shown. A world closing mid-tour keeps nothing.
 - **What else it touches** is copied first and put back: the machine picked per NEI tab, the settings remembered per
-  machine, NEI's search, the minimap's picture of the plan and its view, the minimap's settings.
-- **Where the player was**: the planner opens again if it was open, else the tour leaves them in the world.
+  machine, the minimap's settings and the pin list's, and NEI's item groups it opened. NEI's search stays as it is.
+- **It ends where the player is**: the board stays open (laid out again at their own size), NEI's page stays, and
+  from the world steps they are left playing.
 - **The Library** is only browsed; nothing is signed into, posted or opened into My plans.
 
 ## How it drives the game
@@ -78,35 +92,73 @@ says what it is. Placing machines in the world is not in it (that will be a vide
 
 ## The steps (`Script`)
 
-1. The planner's button on the inventory.
-2. NEI: hydrochloric acid searched, R, the Large Chemical Reactor's page: the plan button.
-3. A new plan, the reactor: the card, not running (nothing wired).
-4. Drawers dragged out of its ports: still nothing runs.
-5. The machine count pinned to 1: everything else worked out.
-6. The pin cleared, 1000 L/s asked of the acid's drawer: the machine count follows.
-7. The tier stepped to MV and 2 amps.
-8. Power (shown, never wired) and the circuit.
-9. The settings panel; pinned settings show on the card.
-10. Clone.
-11. The card and its clone selected (a click, a Shift-click) and merged: two recipes on one machine.
-12. Undo, back to the one card; redo beside it.
-13. The overview.
-14. The rate, power and average keys turned round: how numbers are shown.
-15. Benzene dragged in from NEI's list as a product.
-16. R on its drawer, the distillation tower added and wired: the planner works like NEI.
-17. The tower's first other output (creosote) dragged out to a product drawer and switched with its kind key to a
-    byproduct: surplus, never calculated for.
-18. Switched again, to trash: it voids what comes in and leaves the overview's outputs.
-19. Non-recipe machines.
-20. A gas turbine at HV on the tower's benzene, every other flow given a drawer (wood tar in, phenol, toluene,
-    dimethylbenzene and the turbine's EU out; the trashed output keeps its bin), the tower pinned to one: how many
+From NEI to a card:
+
+1. NEI's search: "iron plate", R, the bending machine's page: the plan button.
+2. A new plan with the bender on it, shown bare: a recipe that does nothing yet.
+3. Getting around with the mouse, as a note pointing at nothing (middle mouse, scroll, left click), the plan framed
+   first; then the player tries it.
+4. The same with the keys (W A S D or the arrows, Page Up and Page Down or + and -); the player tries it, and the
+   next step frames the plan again.
+
+Numbers to solve for:
+
+5. 10/s typed into the plates' rate box: pin a number and it works out the others.
+6. Back to Any, the machine count pinned instead.
+7. The count cleared, the ingots' rate set instead.
+8. The tier.
+9. Power (shown, never wired) and the circuit.
+10. The settings panel; pinned settings show on the card.
+
+Drawers:
+
+11. Clone (the clone lands on the nearest clear spot under its card, and Fit).
+12. The plates dragged out into a drawer.
+13. Iron ingots dragged in from NEI's list as a source drawer.
+14. The clone's plates wired to the plate drawer, the ingot drawer dragged to both machines, the plates set to 20/s and
+    one machine pinned: drag from a drawer to wire it; a drawer's rate applies to every machine wired to it.
+15. Arrange and Fit.
+
+The overview:
+
+16. The overview.
+17. Blue is always coming in, orange always leaving.
+18. The machines in it.
+19. Shift-click to select both, merge: two recipes on one machine.
+20. Undo, the merge undone; redo beside it.
+21. The rate, power and average keys turned round.
+
+Forced inputs and outputs:
+
+22. Sulfuric acid from NEI added to the same plan (the reactor's water, oxygen and sulfur recipe), set to 20/s.
+23. A click on its oxygen input: NEI's page of what makes it; the plain electrolyzer's water recipe added, landing
+    wired in.
+24. The electrolyzer pinned to one: it cannot keep up, and the reactor's oxygen shows its Forced row: a forced input.
+25. A right-click on the acid output: NEI's page of what uses it; the mixer's sugar and acid recipe added, wired in.
+26. The mixer pinned to one and the electrolyzer high: more oxygen made than used, the excess leaving the plan as a
+    forced output (the overview's Forced block).
+27. Its slider: a click on each place's bar (all as oxygen, all as acid, then half each): where the excess leaves.
+
+Products, trash and power:
+
+28. The distillation tower from NEI; its first side output dragged out and made trash from its rule key's menu.
+29. Back to a product.
+30. Non-recipe machines.
+31. A gas turbine at HV on the tower's benzene, every other flow given a drawer, the tower pinned to one: how many
     turbines it runs.
-21. Arrange and Fit.
-22. A sticky note: added, written on, moved, resized, coloured, its text bigger.
-23. The + menu: a new plan.
-24. The Library's public setups, searched.
-25. The minimap set up large, square, top right; over the world, moved and zoomed with its keys.
-26. Back on the board at the Discord key: that's everything, and where issues, feedback and ideas go.
+
+Plans, the Library and notes:
+
+32. The + menu: a new plan.
+33. The Library's public setups, searched.
+34. A sticky note (after Fit, for room): added, written on, moved, resized, coloured, its text bigger.
+
+In the world:
+
+35. A card's pin key: Place in the world, and Pin to the screen.
+36. Pinned to the screen; the minimap set up large, square, top right, the pin list bottom right; over the world, the
+    minimap moved and zoomed with its keys.
+37. Back on the board at the Feedback key: that's everything.
 
 ## Open
 

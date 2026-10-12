@@ -34,7 +34,7 @@ public final class ModelData {
 
         final double[] inQty;
         final double[] outQty;
-        /** Extent implied by the node's target output rates, or zero when there is none. */
+        /** Extent implied by the node's target output and input rates, or zero when there is none. */
         final double targetExtent;
         /** Extent implied by the node's fixed machine count, or null when unfixed. */
         final @Nullable Double fixedExtent;
@@ -58,7 +58,7 @@ public final class ModelData {
                     .get(i);
                 outQty[i] = Math.max(0, s.amount()) * s.chance() * s.multiplier() * tf;
             }
-            this.targetExtent = targetExtent(spec, outQty);
+            this.targetExtent = targetExtent(spec, inQty, outQty);
             this.fixedExtent = spec.countFixed() ? spec.machineCount() * (double) Numerics.TICKS_PER_SECOND / durTicks
                 : null;
         }
@@ -78,20 +78,25 @@ public final class ModelData {
         }
 
         /**
-         * The extent implied by the node's target output rates: rate divided by per-craft quantity,
-         * largest target winning (parallel outputs share one extent, so only the tightest can be hit
-         * exactly). Targets on stale ports are skipped the same way stale edges are.
+         * The extent implied by the node's target rates, outputs' and inputs': rate divided by per-craft quantity,
+         * largest target winning (a recipe's ports share one extent, so only the tightest can be hit exactly).
+         * Targets on stale ports are skipped the same way stale edges are.
          */
-        private static double targetExtent(final SolveInput.Machine spec, final double[] outQty) {
+        private static double targetExtent(final SolveInput.Machine spec, final double[] inQty, final double[] outQty) {
+            final double extent = Math
+                .max(extentFor(spec.targetOutputRates(), outQty), extentFor(spec.targetInputRates(), inQty));
+            return extent > 0 ? extent : 0;
+        }
+
+        private static double extentFor(final Map<Integer, Double> targets, final double[] qty) {
             double extent = 0;
-            for (final Map.Entry<Integer, Double> t : spec.targetOutputRates()
-                .entrySet()) {
+            for (final Map.Entry<Integer, Double> t : targets.entrySet()) {
                 if (t.getValue() == null || t.getValue() <= 0) continue;
                 final int i = t.getKey();
-                if (i < 0 || i >= outQty.length || outQty[i] <= 0) continue;
-                extent = Math.max(extent, t.getValue() / outQty[i]);
+                if (i < 0 || i >= qty.length || qty[i] <= 0) continue;
+                extent = Math.max(extent, t.getValue() / qty[i]);
             }
-            return extent > 0 ? extent : 0;
+            return extent;
         }
     }
 

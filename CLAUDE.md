@@ -93,15 +93,22 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   clear spot nearest the mouse (`BoardCanvas.nearestClear`, the website's ring search), so they hug what is in the way
   and come out its far side past its middle; notes pass over. Hovering a port, drawer or wire lights only it, its
   wires and what they reach (`ui/HoverScope`, the website's flow scope); an overview row lights its resource
-  everywhere. A wire in hand outlines green every card and drawer that would take it, snaps onto the port it would
-  be wired to, and is green where letting go wires or makes a drawer, red where it does nothing (a port has one
+  everywhere. A wire in hand makes every card that would take it glow green, its outline and its whole face, and
+  every port that would take it, all breathing (`RecipeCard.acceptGlow`); it snaps onto the port it would be wired to
+  (that port and card steady and brighter), and is green where letting go wires or makes a drawer, red where it does
+  nothing. A port picked up off its card snaps home when carried back over it, shown just as it was (no green: only
+  other places glow), and letting go there puts it back; no tips show while something is in hand (a port has one
   drawer at most: "Drawer already exists"). Every tooltip (board, overview, tabs, top bar, Library, the non-recipe
   picker) waits until the mouse has rested on its thing for 0.8 s (`Tip.Wait`); moving about on it keeps the wait,
   leaving resets it. Tier chips everywhere (the card's header, the overview's machine lines, the non-recipe picker,
   the Library, the power panel) are flat in the tier's colours with a black or white label and no shadow
   (`RecipeCard.chip`, `Hyb.tierTag`); the card's label is sized to whole screen pixels at any zoom. The overview's
-  machine lines take the wheel and a click on their count as the card's count does; trash leaves its outputs. While the plan has nothing set,
-  every unpinned count says "(set count)" and every empty drawer "Set rate", pulsing gold together (`CardPaint.prompt`);
+  machine lines take the wheel and a click on their count as the card's count does; trash leaves its outputs. A
+  port set to a rate on its card with nothing wired to it is listed under its resource there, as a drawer is
+  (`OverviewRail.PortPin`); a line nothing sets has a "~ Set" whose rate goes to its one open port, or to a drawer
+  wired to all of them (`BoardSession.setLineRate`). Wherever nothing sets a part of the plan (no pinned count or rate anywhere along its wires:
+  `balancer/Unanchored`, `BoardSession.unset`), its unpinned counts say "(set count)" and its empty drawers "Set rate",
+  pulsing gold together (`CardPaint.prompt`), however much of the rest is set;
   the count keeps its place, a line kept under it. Scrolling a pinned count below one unpins it. The gear's See-through slider (0 to 100%) fades
   the board, its dots and the overview (`Hyb.seeThrough`) down to nothing; cards and text stay solid. The gear opens
   `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
@@ -113,18 +120,22 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   They are Factory Flow's text annotations (`kind: "text"`, its colour tags and font sizes), so they come in with an
   imported plan and go out with a posted one; they take no part in the solve, the wiring or Arrange.
 - The tour (`ui/tutorial/`, `docs/design/tutorial.md`): the "?" key's Take the tour, or the first-run offer (`TourOffer`:
-  a note over the dimmed board the first time the planner opens, asked once). Twenty-six steps: each acts something out on the real UI, then a note (`Callout`) beside what it did says what it
-  is (gold words between asterisks in `Script`) and waits for next; no autoplay, no chapters. It drives the UI with
+  a note over the dimmed board the first time the planner opens, asked once). Thirty-seven steps, on the planner from NEI to the world: each acts something out on the real UI, then a
+  note (`Callout`) beside what it did says what it is (gold words between asterisks in `Script`) and waits for next; no
+  autoplay, no chapters. It drives the UI with
   a cursor of its own (`Pointer`, through mixins on the mouse position screens and NEI read and on Shift;
   `VirtualInput` delivers presses, drags and keys to the open screen), in plans of its own (`Plan.enterSandbox`,
-  never saved; `Sandbox` puts everything back). `Targets` finds what steps point at by name, `Director` plays them
+  never saved; leaving it, from any step, keeps the player where they are: the plan in front of them joins theirs as
+  "Tour plan" and the screen stays, and `Sandbox` puts back the settings it borrowed). `Targets` finds what steps point at by name, `Director` plays them
   (Back restores a step's saved start). Text that names a key reads the player's bindings. `call 'tutorial?step=N'`
   starts or jumps to a step, `call tutorial` says where it is; every step's start ships in
   `assets/gtnhplanner/tutorial/starts.json` (`call 'tutorial?export=1'` after a full run rewrites it, needed when a
   script change alters a step's start). Hurrying must never outrun the game: the pointer settles on screen draws, not
-  frames (the GUI does not draw every frame, and hover is found as it draws). It plays at a GUI scale with room for it
-  (960x540: GTNH ships scale 4, a 480x270 GUI at 1080p where its drags run out of board) and opens NEI's folded item
-  groups (the pack folds every fluid into one) as it looks for items; `Sandbox` puts both back. After a script change,
+  frames (the GUI does not draw every frame, and hover is found as it draws). It leaves the game's GUI scale alone: the
+  board takes one of its own with room for the tour's moves (`PlannerScale`: 960x540 board pixels; GTNH ships scale 4,
+  a 480x270 GUI at 1080p where its drags run out of board), and `Targets` converts board rectangles to the game's
+  pixels. It opens NEI's folded item groups (the pack folds every fluid into one) as it looks for items; `Sandbox` puts
+  them back. After a script change,
   walk every step and check the log for `[tutorial]` warnings.
 - The Library (top bar; the + tab menu; right-click on an overview row: setups that make it) has two shelves: My
   plans, and Factory Flow's public setups from gtnhplanner.com (`library/CommunityApi`, `LibraryFeed`;
@@ -163,6 +174,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   next open, offers to send the newest report the planner was part of (`ui/popup/CrashOffer`: a planner frame in the
   error's stack, or a ModularUI frame with the planner open); asked once per crash. The mock answers
   `/api/feedback` too, writing each report to `build/dev-client/mock-feedback/`.
+- Updates: `client/UpdateCheck` asks this repo's GitHub releases once a game, in the background (pre-releases too;
+  tags compared as `0.2.0-alpha.N`, a dev build counting as its tag). When a newer one is out the board says so once
+  per version as it opens (`ui/popup/UpdateOffer`, after any crash offer), with a key to that release's page; either
+  answer is remembered (`update.offered` in the settings). `call 'update?latest=<tag>'` fakes one; `clear=1&reset=1`
+  puts it back.
 - While playing (`ui/world/`, `docs/design/minimap-and-world-links.md`): the minimap of the plan last open
   (`Minimap`, from the board's `PlanSnapshot`), and the plan over the world: a card's place key (or L on a block)
   places it on a spot, the imaginary block in front of the face looked at (`LinkPicker`, `LinkTarget`,
@@ -218,7 +234,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 550 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 564 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.
@@ -275,7 +291,7 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
   below the game's, never below 2; Large is the game's): it lays out in its own pixels and draws scaled to the game's,
   while NEI's list beside it keeps the game's. Two mixins carry the mouse (`GuiContextMixin`) and NEI's hidden slots
   (`MuiNeiHandlerMixin`) across; NEI's drop converts in `FlowchartGuiHandler`. Anything measuring the screen on the
-  board uses `PlannerScale`, not `ScaledResolution`. The tour plays at the game's scale.
+  board uses `PlannerScale`, not `ScaledResolution`. While the tour plays the board's scale is the game's, or smaller where that leaves it under 960x540.
 - Input endpoints and `shot` crops take GUI coordinates (960x540), not screen pixels: the game's, also on the board
   (`call board` and `widgets` report the board's parts converted to them). On the board, act on a card
   control by name: `mc.sh part 1 MACHINES` (from `call board`, which also returns each card's state). Elsewhere

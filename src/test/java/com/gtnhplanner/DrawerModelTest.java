@@ -199,8 +199,7 @@ class DrawerModelTest {
 
     @Test
     void kindsCycleAndOnlySourcesAndProductsKeepTheirRule() {
-        assertEquals(Kind.BYPRODUCT, Kind.PRODUCT.next());
-        assertEquals(Kind.TRASH, Kind.BYPRODUCT.next());
+        assertEquals(Kind.TRASH, Kind.PRODUCT.next());
         assertEquals(Kind.PRODUCT, Kind.TRASH.next());
         assertEquals(Kind.SOURCE, Kind.SOURCE.next());
 
@@ -208,8 +207,8 @@ class DrawerModelTest {
         drawer.setTarget(Rule.AT_LEAST, 10);
         drawer.addLink(new Link(UUID.randomUUID(), 2));
         assertTrue(drawer.isAnchor());
-        drawer.setKind(Kind.BYPRODUCT);
-        assertEquals(Rule.ANY, drawer.effectiveRule(), "a byproduct asks for nothing");
+        drawer.setKind(Kind.TRASH);
+        assertEquals(Rule.ANY, drawer.effectiveRule(), "trash asks for nothing");
         assertEquals(Rule.AT_LEAST, drawer.getRule(), "but remembers the rule for the way back");
         assertFalse(drawer.isAnchor());
         assertEquals(
@@ -222,6 +221,20 @@ class DrawerModelTest {
             drawer.getLinks()
                 .isEmpty(),
             "a source's links are inputs, so the output links go");
+    }
+
+    @Test
+    void anOlderByproductIsAProductWithNoRule() {
+        final Drawer made = new Drawer(Kind.BYPRODUCT, "fluid:x");
+        assertEquals(Kind.PRODUCT, made.getKind());
+        assertEquals(Rule.ANY, made.getRule());
+
+        final Drawer set = new Drawer(Kind.PRODUCT, "fluid:x");
+        set.setTarget(Rule.AT_LEAST, 10);
+        set.setKind(Kind.BYPRODUCT);
+        assertEquals(Kind.PRODUCT, set.getKind());
+        assertEquals(Rule.ANY, set.getRule(), "what a byproduct asked for, nothing");
+        assertFalse(set.isAnchor());
     }
 
     private static JsonObject unpack(final String encoded) {

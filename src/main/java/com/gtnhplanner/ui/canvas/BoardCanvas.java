@@ -30,6 +30,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.card.CardLayout;
 import com.gtnhplanner.ui.card.CardModel;
+import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.card.RecipeCard;
 import com.gtnhplanner.ui.drawer.DrawerCard;
 import com.gtnhplanner.ui.drawer.DrawerModel;
@@ -42,7 +43,8 @@ import com.gtnhplanner.ui.theme.Hyb;
  * The board: pans by dragging empty space (left or middle button), zooms with the wheel around the cursor, and holds
  * one {@link RecipeCard} per recipe in world space. Zoom moves in whole steps so the game font stays sharp.
  */
-public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Interactable, IViewport, IDraggable {
+public final class BoardCanvas extends ParentWidget<BoardCanvas>
+    implements Interactable, IViewport, IDraggable, com.cleanroommc.modularui.api.widget.IFocusedWidget {
 
     /**
      * Wheel steps, as on the website: a fifth of a doubling each (2^0.2, about 15%), from a sixteenth (so a big plan
@@ -252,6 +254,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         collectArrange();
         stepGlide();
         stepMoveGlide();
+        stepLift();
+        stepGhostWire();
         tickArrange();
         session.setHover(hoveredScope());
         final Area a = getArea();
@@ -290,7 +294,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
      * and the ports they reach; a wire and its two ends. Nothing while a wire is in hand.
      */
     private com.gtnhplanner.ui.HoverScope hoveredScope() {
-        if (portDrag != null || moveStarted) return com.gtnhplanner.ui.HoverScope.NONE;
+        if (portDrag != null || drawerWire != null || moveStarted) return com.gtnhplanner.ui.HoverScope.NONE;
         final com.cleanroommc.modularui.api.widget.IWidget hovered = getContext().getHovered();
         if (hovered instanceof final com.gtnhplanner.ui.card.PortSlot slot) {
             final CardModel.PortView view = slot.view();
@@ -349,10 +353,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         }
         final boolean timed = com.gtnhplanner.dev.DevPerf.on();
         final long started = timed ? System.nanoTime() : 0;
-        routed = wires.wires(cards, drawers, moveStart != null || glideStart >= 0);
+        routed = wires.wires(cards, drawers, moveStart != null || glideStart >= 0 || lifting);
         final long drawing = timed ? System.nanoTime() : 0;
         wires.draw(routed, session.lit());
-        publishSnapshot(routed);
+        // A port in hand is not on the plan yet: the minimap and the world see it once it is put down.
+        if (!lifting) publishSnapshot(routed);
         if (timed) {
             com.gtnhplanner.dev.DevPerf.time("wires.route", drawing - started);
             com.gtnhplanner.dev.DevPerf.time("wires.draw", System.nanoTime() - drawing);
@@ -365,7 +370,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
             // Over the cards: the names when zoomed out, the wire in hand and the selection box.
             if (com.gtnhplanner.ui.PlannerSettings.zoomedOutNames()) labels.draw(graph().getZoom());
             if (PlanPicture.drawing()) return;
-            if (portDrag != null) drawPortDrag();
+            // Only once the press has moved: a click on a port (its rate, its key, NEI's keys) shows no wire.
+            if (portDrag != null && dragHeard) drawPortDrag();
+            if (drawerWire != null) drawDrawerWire();
+            drawSpareHover();
+            if (carry != null) drawSpareCarry();
             drawBox();
         } else Stencil.remove();
     }
@@ -373,7 +382,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
     /** The wires as last drawn. */
     private List<WireLayer.Wire> routed = List.of();
 
-    BoardSession session() {
+    public BoardSession session() {
         return session;
     }
 
@@ -526,6 +535,12 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         carried = obstacles = null;
         moveUndo = com.gtnhplanner.api.PlanAPI.undoHistory()
             .beginEdit(graph());
+    }
+
+    /** Whether something is in hand: a port's wire or drawer, a drawer's wire, or a card or drawer carried. */
+    public boolean inHand() {
+        return portDrag != null && dragHeard || drawerWire != null && drawerWireHeard
+            || moveStart != null && moveStarted;
     }
 
     /** Whether a card or drawer is being carried by a move right now (it draws lifted). */
@@ -775,6 +790,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
 
     /** The resource a wire being dragged carries, or null when no port is being dragged. */
     public String dragResource() {
+        if (drawerWire != null) {
+            final Drawer d = graph().getDrawer(drawerWire.drawerId());
+            return d == null ? null : d.getResourceKey();
+        }
         if (portDrag == null || portDrag.socket()) return null;
         final CardModel m = portModel(portDrag.nodeId());
         if (m == null) return null;
@@ -797,8 +816,43 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
             && dragging.equals(key);
     }
 
+    /**
+     * Whether a port would take what is in hand now: a port's wire or drawer picked up (once it has left its port), or
+     * a drawer's wire. It glows green.
+     */
+    public boolean portTakesDrag(final UUID node, final boolean output, final int index, final String key) {
+        if (drawerWire != null) {
+            final Drawer d = graph().getDrawer(drawerWire.drawerId());
+            return d != null && drawerWireHeard
+                && output == !d.getKind()
+                    .linksInputs()
+                && d.getResourceKey()
+                    .equals(key)
+                && !d.isLinked(node, index);
+        }
+        return portDrag != null && dragHeard && acceptsDrag(node, output, key);
+    }
+
+    /** The port what is in hand would go to if let go now: green and brighter. */
+    @Nullable
+    private BoardSession.PortRef snapPort;
+
+    /** Whether what is in hand would go to this port if let go now (never its own: home, it just shows as it was). */
+    public boolean portSnapped(final UUID node, final boolean output, final int index) {
+        final BoardSession.PortRef p = snapPort;
+        return p != null && (portDrag != null || drawerWire != null)
+            && p.node()
+                .equals(node)
+            && p.output() == output
+            && p.index() == index;
+    }
+
     /** Whether any recipe on a card would take the wire being dragged (the card is outlined green). */
     public boolean cardAcceptsDrag(final UUID cardId) {
+        if (drawerWire != null) {
+            final Drawer d = graph().getDrawer(drawerWire.drawerId());
+            return d != null && drawerWireTarget(d, cardId, Float.NaN) != null;
+        }
         if (portDrag == null || portDrag.nodeId()
             .equals(cardId)) return false;
         for (final UUID section : session.sectionsOf(cardId)) {
@@ -813,11 +867,194 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
     /** The card or drawer the wire in hand is over and would go to, or null: it is outlined brighter. */
     @Nullable
     public UUID dragSnappedTo() {
-        return portDrag == null ? null : snappedTo;
+        return portDrag == null && drawerWire == null ? null : snappedTo;
+    }
+
+    // region Wiring by dragging a drawer
+
+    /** A wire being dragged out of a drawer (pressed below its bar), and where the press was, in screen pixels. */
+    private record DrawerWire(UUID drawerId, int startX, int startY) {}
+
+    @Nullable
+    private DrawerWire drawerWire;
+    private boolean drawerWireHeard;
+
+    /** Called by a drawer pressed below its bar when the press starts to drag: a wire comes out of it. */
+    public void beginDrawerWire(final UUID drawerId) {
+        drawerWire = new DrawerWire(drawerId, getContext().getAbsMouseX(), getContext().getAbsMouseY());
+        drawerWireHeard = false;
+        snappedTo = null;
+    }
+
+    /**
+     * Ends a drawer's wire where the mouse is: on a card with a port that takes it (the one under the mouse, else the
+     * first not linked to it yet), the drawer is linked to that port; anywhere else nothing. True when it never left
+     * the drawer: a click on what was pressed.
+     */
+    public boolean endDrawerWire(final boolean successful) {
+        final DrawerWire w = drawerWire;
+        drawerWire = null;
+        snappedTo = null;
+        if (w == null) return false;
+        final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+        if (Math.abs(mx - w.startX()) + Math.abs(my - w.startY()) < 4) return true;
+        final Drawer d = graph().getDrawer(w.drawerId());
+        if (!successful || d == null) return false;
+        final float wx = worldX(mx), wy = worldY(my);
+        final RecipeCard over = cardAt(wx, wy);
+        final BoardSession.PortRef to = over == null ? null : drawerWireTarget(d, over.nodeId, wy);
+        if (to == null || !session.dropPortOnDrawer(to.node(), to.output(), to.index(), d)) Sfx.DENY.play();
+        return false;
+    }
+
+    /**
+     * The port on a card a drawer's wire would go to: the one at board height {@code wy} when it takes the drawer's
+     * resource on the drawer's side (a source feeds inputs, the rest take outputs) and is not linked to it yet, else
+     * the first on the card that is; null for none. {@code wy} NaN: any.
+     */
+    @Nullable
+    private BoardSession.PortRef drawerWireTarget(final Drawer d, final UUID cardId, final float wy) {
+        final RecipeCard card = cards.get(cardId);
+        if (card == null || card.model() == null || card.layout() == null) return null;
+        final boolean output = !d.getKind()
+            .linksInputs();
+        final String key = d.getResourceKey();
+        if (!Float.isNaN(wy)) {
+            final int[] hit = card.portAt(output, wy - card.model().node.y);
+            final CardModel m = hit == null ? null : card.modelOf(hit[0]);
+            final List<CardModel.PortView> ports = m == null ? null : output ? m.outputs : m.inputs;
+            if (ports != null && hit[1] < ports.size()
+                && key.equals(
+                    ports.get(hit[1])
+                        .key())
+                && !d.isLinked(card.sectionId(hit[0]), hit[1]))
+                return new BoardSession.PortRef(card.sectionId(hit[0]), output, hit[1]);
+        }
+        for (final UUID section : session.sectionsOf(card.nodeId)) {
+            final CardModel m = portModel(section);
+            if (m == null) continue;
+            final List<CardModel.PortView> ports = output ? m.outputs : m.inputs;
+            for (int i = 0; i < ports.size(); i++) if (key.equals(
+                ports.get(i)
+                    .key())
+                && !d.isLinked(section, i)) return new BoardSession.PortRef(section, output, i);
+        }
+        return null;
+    }
+
+    /** The card under a board point, or null. */
+    @Nullable
+    private RecipeCard cardAt(final float wx, final float wy) {
+        for (final RecipeCard card : new java.util.LinkedHashSet<>(cards.values())) {
+            final CardModel m = card.model();
+            if (m != null && card.layout() != null
+                && inside(m.node.x, m.node.y, CardLayout.W, card.layout().height, wx, wy)) return card;
+        }
+        return null;
+    }
+
+    /**
+     * The wire in hand out of a drawer: from the side it wires on to the mouse, onto the port it would go to when it is
+     * over a card that takes it (green), red over a card or another drawer that does not, else dotted in the drawer's
+     * colour.
+     */
+    private void drawDrawerWire() {
+        final Drawer d = graph().getDrawer(drawerWire.drawerId());
+        if (d == null) return;
+        final int smx = getContext().getAbsMouseX(), smy = getContext().getAbsMouseY();
+        if (!drawerWireHeard) {
+            if (Math.abs(smx - drawerWire.startX()) + Math.abs(smy - drawerWire.startY()) < 4) return;
+            drawerWireHeard = true;
+            Sfx.WIRE_GRAB.play();
+        }
+        final boolean source = d.getKind()
+            .linksInputs();
+        final int ax = source ? d.getX() + DrawerCard.W : d.getX(), ay = d.getY() + DrawerCard.ANCHOR_Y;
+        final float wx = worldX(smx), wy = worldY(smy);
+        final RecipeCard over = cardAt(wx, wy);
+        final BoardSession.PortRef to = over == null ? null : drawerWireTarget(d, over.nodeId, wy);
+        snapPort = to;
+        final UUID snap = to == null ? null : over.nodeId;
+        if (snap != null && !snap.equals(snappedTo)) Sfx.WIRE_SNAP.play();
+        snappedTo = snap;
+        int ex = Math.round(wx), ey = Math.round(wy);
+        if (to != null) {
+            final Node n = over.model().node;
+            ex = n.x + CardLayout.anchorX(to.output());
+            ey = n.y + over.anchorY(to.node(), to.output(), to.index());
+        }
+        // The bend stays on the drawer's wiring side, so the wire leaves it the way its wires do.
+        final int bend = source ? Math.max(ax + 16, (ax + ex) / 2) : Math.min(ax - 16, (ax + ex) / 2);
+        final List<int[]> path = source
+            ? List.of(new int[] { ax, ay }, new int[] { bend, ay }, new int[] { bend, ey }, new int[] { ex, ey })
+            : List.of(new int[] { ex, ey }, new int[] { bend, ey }, new int[] { bend, ay }, new int[] { ax, ay });
+        boolean refused = to == null && over != null;
+        if (to == null && !refused) for (final DrawerCard other : drawers.values()) {
+            if (other.model() == null || other.drawerId.equals(d.getId())) continue;
+            final Drawer o = other.model().drawer;
+            if (inside(o.getX(), o.getY(), DrawerCard.W, DrawerCard.H, wx, wy)) refused = true;
+        }
+        if (!ghostWired) WireLayer.drawWire(
+            path,
+            to != null ? WIRE_GO : refused ? WIRE_NO : com.gtnhplanner.ui.drawer.DrawerPaint.tint(d.getKind()),
+            3,
+            to != null || refused);
+    }
+
+    // endregion
+
+    /** Whether the wire in hand is snapped onto where it would go, and so drawn as the board's own wire. */
+    private boolean ghostWired;
+
+    /**
+     * A wire in hand snapped onto the port or drawer it would go to, each frame before the wires are routed: given to
+     * the wires as the edge or link it would make, routed and drawn as it will be once let go (its resource's colour,
+     * its arrows), not as a line in hand.
+     */
+    private void stepGhostWire() {
+        Edge edge = null;
+        UUID drawer = null;
+        Drawer.Link link = null;
+        final float wx = worldX(getContext().getAbsMouseX()), wy = worldY(getContext().getAbsMouseY());
+        if (portDrag != null && dragHeard && !portDrag.socket() && !lifting) {
+            final UUID over = dragTargetAt(Math.round(wx), Math.round(wy));
+            if (over != null && cards.get(over) != null) {
+                final BoardSession.PortRef t = session
+                    .dropTarget(portDrag.nodeId(), portDrag.output(), portDrag.port(), over);
+                if (t != null) {
+                    final UUID from = portDrag.output() ? portDrag.nodeId() : t.node(),
+                        to = portDrag.output() ? t.node() : portDrag.nodeId();
+                    final int out = portDrag.output() ? portDrag.port() : t.index(),
+                        in = portDrag.output() ? t.index() : portDrag.port();
+                    edge = new Edge(
+                        UUID.nameUUIDFromBytes(
+                            ("ghost:" + from + ":" + out + ":" + to + ":" + in)
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        from,
+                        to,
+                        out,
+                        in);
+                }
+            } else if (over != null && graph().getDrawer(over) != null) {
+                drawer = over;
+                link = new Drawer.Link(portDrag.nodeId(), portDrag.port());
+            }
+        } else if (drawerWire != null && drawerWireHeard) {
+            final Drawer d = graph().getDrawer(drawerWire.drawerId());
+            final RecipeCard over = d == null ? null : cardAt(wx, wy);
+            final BoardSession.PortRef to = over == null ? null : drawerWireTarget(d, over.nodeId, wy);
+            if (to != null) {
+                drawer = d.getId();
+                link = new Drawer.Link(to.node(), to.index());
+            }
+        }
+        ghostWired = edge != null || link != null;
+        wires.ghost(edge, drawer, link);
     }
 
     /** Whether a drawer would take the wire being dragged: same resource, on the matching side. */
     public boolean drawerAcceptsDrag(final Drawer drawer) {
+        if (drawerWire != null) return false;
         if (portDrag != null && portDrag.socket()) return drawer.getKind()
             .linksInputs() != portDrag.output();
         final String dragging = dragResource();
@@ -882,11 +1119,415 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
             "§8Right click: add a drawer here, or delete it");
     }
 
+    // region Carrying a leftover
+
+    /**
+     * A leftover being carried from where it leaves the plan to another place that could bear it (a card's Surplus or
+     * Imported row, dragged): the leftover, the place it came from, the port it was picked up at and the shares then.
+     */
+    private record SpareCarry(com.gtnhplanner.ui.BoardSession.SpareLine line, int from, UUID node, boolean output,
+        int port, double[] shares) {}
+
+    @Nullable
+    private SpareCarry carry;
+    /** How much of the leftover is in hand, as a share of it. */
+    private double carryPortion;
+    /** Where on the board it was picked up: the row in hand moves by as much as the mouse has since. */
+    private float carryGrabX, carryGrabY;
+    /** Where the press was on screen, and whether the mouse has moved off it (else letting go is a click). */
+    private int carryStartX, carryStartY;
+    private boolean carryMoved;
+    /** The place it would go if let go now, and the card it is on; -1 / null for none. */
+    private int carryTarget = -1;
+    @Nullable
+    private UUID carryTargetCard;
+
+    public boolean carryingSpare() {
+        return carry != null;
+    }
+
+    /**
+     * Picks up the leftover a port's extra row stands for (all of it there, or half with {@code half}). Every press on
+     * the row comes here, as a press on a port starts its wire: let go without moving, it is a click, which opens the
+     * row's spare menu. False when the port bears no leftover, so the press is the port's own.
+     */
+    public boolean beginSpareCarry(final UUID node, final boolean output, final int port, final boolean half) {
+        for (final com.gtnhplanner.ui.BoardSession.SpareLine line : session.spares()) {
+            for (int i = 0; i < line.bearers()
+                .size(); i++) {
+                for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : line.bearers()
+                    .get(i)
+                    .ports()) {
+                    if (!ref.nodeId()
+                        .equals(node) || ref.input() == output || ref.portIndex() != port) continue;
+                    final double[] shares = session.spareShares(line);
+                    carry = new SpareCarry(line, i, node, output, port, shares);
+                    carryStartX = getContext().getAbsMouseX();
+                    carryStartY = getContext().getAbsMouseY();
+                    carryMoved = false;
+                    carryPortion = half ? shares[i] / 2 : shares[i];
+                    carryGrabX = worldX(getContext().getAbsMouseX());
+                    carryGrabY = worldY(getContext().getAbsMouseY());
+                    carryTarget = -1;
+                    carryTargetCard = null;
+                    edgePanAt = 0;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Lets the leftover go: on a card that could bear it, that much moves there; anywhere else it goes back where it
+     * was. Only moves spare: a drawer for it is the spare menu's (a click on the row).
+     */
+    public void endSpareCarry(final boolean successful) {
+        final SpareCarry c = carry;
+        carry = null;
+        if (c != null && !carryMoved) {
+            // A click on the row: its spare menu.
+            carryTarget = -1;
+            carryTargetCard = null;
+            openSpareMenu(c.node(), c.output(), c.port());
+            return;
+        }
+        final int target = carryTarget;
+        carryTarget = -1;
+        carryTargetCard = null;
+        if (c == null || !successful || target < 0) return;
+        final double[] shares = c.shares()
+            .clone();
+        final double moved = Math.min(carryPortion, shares[c.from()]);
+        shares[c.from()] -= moved;
+        shares[target] += moved;
+        session.setSpareShares(c.line(), shares);
+        Sfx.WIRE_SNAP.play();
+    }
+
+    /**
+     * How much of what leaves (or comes in) at a port is in hand now, in its own units; 0 when nothing is carried from
+     * it. Its row shows the rest, or lies empty.
+     */
+    public double carriedFrom(final UUID node, final boolean output, final int port) {
+        if (carry == null || !carryMoved
+            || !carry.node()
+                .equals(node)
+            || carry.output() != output
+            || carry.port() != port) return 0;
+        return carryPortion * carry.line()
+            .bearers()
+            .get(carry.from())
+            .max();
+    }
+
+    /**
+     * What a click on a port's extra row opens: its leftover as a slider with labels
+     * ({@link com.gtnhplanner.ui.SparePopup},
+     * the same as the overview's Spare section), with a key for a drawer to take it at this port instead.
+     */
+    public void openSpareMenu(final UUID node, final boolean output, final int port) {
+        for (final com.gtnhplanner.ui.BoardSession.SpareLine line : session.spares()) {
+            for (final com.gtnhplanner.ui.BoardSession.SpareBearer b : line.bearers()) {
+                for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : b.ports()) {
+                    if (!ref.nodeId()
+                        .equals(node) || ref.input() == output || ref.portIndex() != port) continue;
+                    // Nowhere else to go: nothing to choose (the row's tooltip says so).
+                    if (line.bearers()
+                        .size() < 2) return;
+                    com.gtnhplanner.ui.SparePopup.open(
+                        getPanel(),
+                        session,
+                        line,
+                        b.key(),
+                        () -> drawerFor(node, output, port),
+                        getContext().getAbsMouseX(),
+                        getContext().getAbsMouseY() + 4);
+                    return;
+                }
+            }
+        }
+    }
+
+    /** A drawer beside a card's port, wired to it, to take what leaves (or bring in what comes in) there. */
+    private void drawerFor(final UUID node, final boolean output, final int port) {
+        final RecipeCard card = cardHolding(node);
+        if (card == null || card.model() == null) return;
+        final Node n = card.model().node;
+        final int y = n.y + card.anchorY(node, output, port) - DrawerCard.ANCHOR_Y;
+        final int x = output ? n.x + CardLayout.W + 60 : n.x - 60 - DrawerCard.W;
+        if (!session.dropPortOnBoard(node, output, port, x + DrawerCard.W / 2, y + DrawerCard.H / 2)) Sfx.DENY.play();
+    }
+
+    /** While carrying: the wheel takes a tenth of the leftover more or less into hand (Shift: a fiftieth). */
+    private void wheelSpareCarry(final int steps) {
+        final double have = carry.shares()[carry.from()];
+        final double step = (net.minecraft.client.gui.GuiScreen.isShiftKeyDown() ? 0.02 : 0.1) * steps;
+        carryPortion = Math.max(Math.min(0.02, have), Math.min(have, carryPortion + step));
+        Sfx.TICK.play(steps > 0 ? 1.12f : 0.9f);
+    }
+
+    /** Whether a card would take the leftover in hand (one of its places is on it). */
+    public boolean cardTakesSpare(final UUID cardNode) {
+        if (carry == null || !carryMoved || carry.shares()[carry.from()] <= 0.004) return false;
+        final RecipeCard card = cards.get(cardNode);
+        if (card == null) return false;
+        for (int i = 0; i < carry.line()
+            .bearers()
+            .size(); i++) {
+            if (i == carry.from()) continue;
+            for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : carry.line()
+                .bearers()
+                .get(i)
+                .ports()) if (card.sectionOf(ref.nodeId()) >= 0 || card.nodeId.equals(ref.nodeId())) return true;
+        }
+        return false;
+    }
+
+    /** The card the leftover in hand would go to now; null for none. */
+    @Nullable
+    public UUID spareTargetCard() {
+        return carryTargetCard;
+    }
+
+    /**
+     * The leftover in hand: a striped chip at the mouse saying how much of what, and at each place it could go, what it
+     * would take there (the one under the mouse in gold). Where it was picked up, its row lies empty (the card draws
+     * that).
+     */
+    private void drawSpareCarry() {
+        final SpareCarry c = carry;
+        if (!carryMoved) {
+            if (Math.abs(getContext().getAbsMouseX() - carryStartX)
+                + Math.abs(getContext().getAbsMouseY() - carryStartY) < 4) return;
+            carryMoved = true;
+            Sfx.WIRE_GRAB.play();
+        }
+        // Nothing there to carry (it bears none now): the press can only be a click.
+        if (c.shares()[c.from()] <= 0.004) return;
+        edgePan();
+        final RecipeCard from = cardHolding(c.node());
+        if (from == null || from.model() == null || from.layout() == null) return;
+        final float zoom = graph().getZoom(), s = 1 / zoom;
+        final float mx = worldX(getContext().getAbsMouseX()), my = worldY(getContext().getAbsMouseY());
+        // Which place is under the mouse: on a card holding several, the one whose port is nearest.
+        carryTarget = -1;
+        carryTargetCard = null;
+        float best = Float.MAX_VALUE;
+        for (int i = 0; i < c.line()
+            .bearers()
+            .size(); i++) {
+            if (i == c.from()) continue;
+            for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : c.line()
+                .bearers()
+                .get(i)
+                .ports()) {
+                final RecipeCard card = cardHolding(ref.nodeId());
+                if (card == null || card.model() == null || card.layout() == null) continue;
+                final Node n = card.model().node;
+                if (!inside(n.x, n.y, CardLayout.W, card.layout().height, mx, my)) continue;
+                final float d = Math.abs(n.y + card.anchorY(ref.nodeId(), !ref.input(), ref.portIndex()) - my);
+                if (d < best) {
+                    best = d;
+                    carryTarget = i;
+                    carryTargetCard = card.nodeId;
+                }
+            }
+        }
+        // What each place would take.
+        for (int i = 0; i < c.line()
+            .bearers()
+            .size(); i++) {
+            if (i == c.from()) continue;
+            final com.gtnhplanner.ui.BoardSession.SpareBearer b = c.line()
+                .bearers()
+                .get(i);
+            final com.gtnhplanner.data.flowchart.balancer.PortRef ref = b.ports()
+                .get(0);
+            final RecipeCard card = cardHolding(ref.nodeId());
+            if (card == null || card.model() == null || card.layout() == null) continue;
+            final Node n = card.model().node;
+            final boolean output = !ref.input();
+            final float py = n.y + card.anchorY(ref.nodeId(), output, ref.portIndex());
+            final String what = "+" + spareRate(b, carryPortion);
+            final float w = (Hyb.width(what) + 8) * s, h = 13 * s;
+            final float lx = output ? n.x + CardLayout.W + 6 * s : n.x - 6 * s - w;
+            final boolean hot = i == carryTarget;
+            Hyb.rect(lx, py - h / 2, w, h, 0xE6121417);
+            Hyb.ring(lx, py - h / 2, w, h, s, hot ? Hyb.GOLD : CardPaint.ACCEPT_FAINT);
+            Hyb.text(what, lx + 4 * s, py - h / 2 + 3 * s, s, hot ? Hyb.GOLD : CardPaint.ACCEPT);
+            offView(b, n.x + CardLayout.anchorX(output), py, what, s);
+        }
+        // The row itself in hand: as it is on the card, the part carried, moved by as much as the mouse has moved since
+        // it was picked up (it does not jump to the mouse). No line back to where it came from: a line on the board is
+        // a wire.
+        final CardModel model = session.model(c.node());
+        final List<CardModel.PortView> side = model == null ? List.of() : c.output() ? model.outputs : model.inputs;
+        if (c.port() >= side.size()) return;
+        final CardModel.PortView p = side.get(c.port());
+        final double carried = carryPortion * c.line()
+            .bearers()
+            .get(c.from())
+            .max();
+        final CardModel.PortView held = new CardModel.PortView(
+            p.index(),
+            p.output(),
+            p.item(),
+            p.fluid(),
+            p.name(),
+            p.chance(),
+            p.perSecond(),
+            p.wired(),
+            p.key(),
+            carried);
+        final Node fn = from.model().node;
+        final int section = Math.max(0, from.sectionOf(c.node()));
+        final int rowY = from.layout()
+            .rowY(section, c.output(), c.port()) + CardLayout.ROW;
+        final float dx = mx - carryGrabX, dy = my - carryGrabY;
+        final int rx = CardLayout.railX(c.output()) - 2;
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glTranslatef(fn.x + dx, fn.y + dy, 0);
+        // Lifted: a soft shadow under it, as a carried card has.
+        Hyb.rect(rx + 4, rowY + 5, CardLayout.RAIL_W + 4, CardLayout.ROW - 4, 0x50000000);
+        Hyb.rect(rx, rowY + 2, CardLayout.RAIL_W + 4, CardLayout.ROW - 4, 0xFF23252A);
+        CardPaint.extraRow(held, session.rateUnit(), rowY, getContext().getCurrentDrawingZ());
+        org.lwjgl.opengl.GL11.glPopMatrix();
+        // What to do with it, as a tip beside it, at its size on screen whatever the zoom.
+        // Nowhere else could take it: said plainly, so carrying it about is not a puzzle.
+        final List<com.gtnhplanner.ui.BoardSession.SpareBearer> bearers = c.line()
+            .bearers();
+        final com.gtnhplanner.ui.popup.Tip tip = carryTarget >= 0 ? com.gtnhplanner.ui.popup.Tip.of("Move it here")
+            .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Let go")
+            : bearers.size() < 2 ? com.gtnhplanner.ui.popup.Tip.of("Nowhere else to put it")
+                .titleColor(0xFFF87171)
+                .muted(
+                    "Only the " + bearers.get(0)
+                        .machine()
+                        + (c.line()
+                            .importing() ? " can take it in." : " can ship it out."))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Let go: it stays here")
+                : com.gtnhplanner.ui.popup.Tip.of("Hand it to another machine")
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Drop on a green card")
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "Change amount");
+        final float tx = fn.x + dx + (c.output() ? CardLayout.W + 6 : rx - 6 - tip.width() * s);
+        final float ty = fn.y + dy + rowY;
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glTranslatef(tx, ty, 0);
+        org.lwjgl.opengl.GL11.glScalef(s, s, 1);
+        tip.draw(0, 0);
+        org.lwjgl.opengl.GL11.glPopMatrix();
+    }
+
+    /** How near the board's edge (GUI pixels) a carried spare moves the board, and how fast at the very edge. */
+    private static final float EDGE_ZONE = 28, EDGE_SPEED = 700;
+    /** When the board last moved for a spare held at its edge (0: not since it was picked up). */
+    private long edgePanAt;
+
+    /**
+     * A spare held near the board's edge moves the board that way, faster the nearer the edge (and fastest past it),
+     * so a place off view can be reached without letting go.
+     */
+    private void edgePan() {
+        final long now = System.nanoTime();
+        final float dt = edgePanAt == 0 ? 0 : Math.min(0.05f, (now - edgePanAt) / 1e9f);
+        edgePanAt = now;
+        final Area a = getArea();
+        final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+        final float vx = push(mx - a.x) - push(a.x + a.width - 1 - mx);
+        final float vy = push(my - a.y) - push(a.y + a.height - 1 - my);
+        if (vx == 0 && vy == 0) return;
+        graph().setPanX(graph().getPanX() + vx * EDGE_SPEED * dt);
+        graph().setPanY(graph().getPanY() + vy * EDGE_SPEED * dt);
+    }
+
+    /** How hard an edge {@code d} pixels away pushes: nothing outside the zone, easing in to 1 at the edge. */
+    private static float push(final float d) {
+        if (d >= EDGE_ZONE) return 0;
+        final float f = 1 - Math.max(0, d) / EDGE_ZONE;
+        return f * f;
+    }
+
+    /**
+     * A place off view, for the spare in hand: a chip at the board's edge, on the way from its middle to the place,
+     * with the place's icon and what it would take, and an arrow pointing on to it. Drawn on the board at
+     * {@code s} (one screen pixel); {@code wx, wy} is the place's port.
+     */
+    private void offView(final com.gtnhplanner.ui.BoardSession.SpareBearer b, final float wx, final float wy,
+        final String what, final float s) {
+        final Area a = getArea();
+        final float margin = 16;
+        final float sx = a.x + graph().getPanX() + wx * graph().getZoom();
+        final float sy = a.y + graph().getPanY() + wy * graph().getZoom();
+        if (sx >= a.x + margin && sx < a.x + a.width - margin && sy >= a.y + margin && sy < a.y + a.height - margin)
+            return;
+        final float cx = a.x + a.width / 2f, cy = a.y + a.height / 2f;
+        final float len = (float) Math.hypot(sx - cx, sy - cy);
+        if (len < 1) return;
+        final float ux = (sx - cx) / len, uy = (sy - cy) / len;
+        final float w = 10 + 3 + Hyb.width(what) + 8, h = 14, arrow = 7;
+        // The chip's middle: as far toward the place as the board allows, with room for the arrow.
+        final float hw = a.width / 2f - w / 2f - arrow - 6, hh = a.height / 2f - h / 2f - arrow - 6;
+        final float t = Math.min(
+            Math.abs(ux) > 1e-4 ? hw / Math.abs(ux) : Float.MAX_VALUE,
+            Math.abs(uy) > 1e-4 ? hh / Math.abs(uy) : Float.MAX_VALUE);
+        final float px = cx + ux * t, py = cy + uy * t;
+        // Back onto the board, where this is drawn.
+        final float bx = (px - a.x - graph().getPanX()) / graph().getZoom();
+        final float by = (py - a.y - graph().getPanY()) / graph().getZoom();
+        final float x = bx - w * s / 2, y = by - h * s / 2;
+        Hyb.rect(x, y, w * s, h * s, 0xE6121417);
+        Hyb.ring(x, y, w * s, h * s, s, CardPaint.ACCEPT_FAINT);
+        Hyb.icon(b.item(), b.fluid(), x + 3 * s, y + 2 * s, 10 * s, getContext().getCurrentDrawingZ());
+        org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
+        org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_DEPTH_TEST);
+        Hyb.text(what, x + 16 * s, y + 3 * s, s, CardPaint.ACCEPT);
+        // The arrow, just past the chip's edge, pointing on to the place.
+        final float r = Math.min(
+            Math.abs(ux) > 1e-4 ? w / 2 / Math.abs(ux) : Float.MAX_VALUE,
+            Math.abs(uy) > 1e-4 ? h / 2 / Math.abs(uy) : Float.MAX_VALUE);
+        final float tipX = bx + ux * (r + arrow) * s, tipY = by + uy * (r + arrow) * s;
+        final float baseX = bx + ux * (r + 2) * s, baseY = by + uy * (r + 2) * s;
+        Hyb.triangle(
+            tipX,
+            tipY,
+            baseX - uy * 4 * s,
+            baseY + ux * 4 * s,
+            baseX + uy * 4 * s,
+            baseY - ux * 4 * s,
+            CardPaint.ACCEPT);
+    }
+
+    /** What a place carries at a share of its leftover, in the plan's unit. */
+    private String spareRate(final com.gtnhplanner.ui.BoardSession.SpareBearer b, final double share) {
+        return com.gtnhplanner.ui.theme.Fmt.compact(share * b.max() * session.rateUnit().perSecond)
+            + (b.isFluid() ? " L" : "")
+            + session.rateUnit().suffix;
+    }
+
+    // endregion
+
     /** Called by a port slot when the mouse goes down on it and starts to drag. */
     public void beginPortDrag(final UUID nodeId, final boolean output, final int port) {
+        beginPortDrag(nodeId, output, port, 0);
+    }
+
+    /**
+     * As above, {@code onRate} 1 when the press was on the port's rule key, 2 on its rate box: a click there switches
+     * the rule, or sets the rate.
+     */
+    public void beginPortDrag(final UUID nodeId, final boolean output, final int port, final int onRate) {
+        portDragOnRate = onRate;
         portDrag = new PortDrag(nodeId, output, port, getContext().getAbsMouseX(), getContext().getAbsMouseY());
+        liftGrabX = worldX(getContext().getAbsMouseX());
+        liftGrabY = worldY(getContext().getAbsMouseY());
+        liftDrawer = session.portDrawer(nodeId, output, port);
+        liftFree = false;
+        liftHome = false;
+        lifting = false;
         dragHeard = false;
         snappedTo = null;
+        snapPort = null;
     }
 
     /** Whether the wire in hand has made its pick-up sound, and what it last snapped over (for the snap sound). */
@@ -919,6 +1560,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
     /** Called by an empty custom rate card's socket when a drag starts on it: its supply socket, or its drain. */
     public void beginSocketDrag(final UUID nodeId, final boolean supply) {
         portDrag = new PortDrag(nodeId, supply, -1, getContext().getAbsMouseX(), getContext().getAbsMouseY());
+        liftDrawer = null;
+        lifting = false;
         dragHeard = false;
         snappedTo = null;
     }
@@ -975,18 +1618,37 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
      */
     public void endPortDrag(final boolean successful) {
         final PortDrag drag = portDrag;
+        final Drawer lifted = lifting ? liftDrawer : null;
+        final boolean free = liftFree && !liftHome;
+        final int[] at = liftAt;
         portDrag = null;
+        lifting = false;
+        liftFree = false;
+        liftHome = false;
+        liftAt = null;
+        liftDrawer = null;
+        wires.phantom(null);
         if (drag == null) return;
         final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
         if (Math.abs(mx - drag.startX()) + Math.abs(my - drag.startY()) < 4) {
-            // A (left) click, not a drag: NEI's recipes for the port's resource (a socket has none).
-            if (!drag.socket()) lookUpPort(drag, false);
+            // A (left) click, not a drag: on the port's rule key, Any or =; on its box, its rate; elsewhere NEI's
+            // recipes for its resource (a socket has none).
+            if (drag.socket()) return;
+            if (portDragOnRate == 1) togglePortRule(drag);
+            else if (portDragOnRate == 2) editPortRate(drag);
+            else lookUpPort(drag, false);
             return;
         }
         if (!successful) return;
         final float wx = worldX(mx), wy = worldY(my);
         if (drag.socket()) {
             endSocketDrag(drag, wx, wy);
+            return;
+        }
+        // Put down where it was carried, as the drawer it was (the same one, so its wire stays as it ran); let go of
+        // while still on its card, it goes back to being the port.
+        if (lifted != null) {
+            if (free && at != null && !session.placePortDrawer(lifted, at[0], at[1])) Sfx.DENY.play();
             return;
         }
         for (final RecipeCard card : cards.values()) {
@@ -1012,6 +1674,89 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
     /** A click on a port, as NEI's own: left its recipes (what makes it), right its uses. */
     public void clickPort(final UUID nodeId, final boolean output, final int port, final boolean uses) {
         lookUpPort(new PortDrag(nodeId, output, port, 0, 0), uses);
+    }
+
+    /** Where the press of the wire in hand was: 0 the port, 1 its rule key, 2 its rate box. */
+    private int portDragOnRate;
+
+    /**
+     * The port's rule menu, as a drawer's: Any (the plan decides), or Exactly (the rate it runs at now, until one is
+     * typed).
+     */
+    private void togglePortRule(final PortDrag drag) {
+        final RecipeCard card = cardHolding(drag.nodeId());
+        final CardModel model = portModel(drag.nodeId());
+        if (card == null || model == null) return;
+        final List<CardModel.PortView> ports = drag.output() ? model.outputs : model.inputs;
+        if (drag.port() >= ports.size()) return;
+        final boolean set = session.portTarget(model.node, drag.output(), drag.port()) != null;
+        final double now = ports.get(drag.port())
+            .perSecond();
+        final List<PickList.Entry> rows = List.of(
+            new PickList.Entry(
+                null,
+                com.gtnhplanner.ui.drawer.DrawerCard.ruleLabel(Drawer.Rule.ANY),
+                "",
+                Hyb.INK,
+                !set,
+                () -> session.setPortTarget(model.node, drag.output(), drag.port(), 0)),
+            new PickList.Entry(
+                null,
+                com.gtnhplanner.ui.drawer.DrawerCard.ruleLabel(Drawer.Rule.EXACTLY),
+                "",
+                Hyb.INK,
+                set,
+                () -> { if (!set) session.setPortTarget(model.node, drag.output(), drag.port(), now); }));
+        final Node n = card.model().node;
+        final int rowY = card.layout() == null ? 0
+            : card.layout()
+                .rowY(Math.max(0, card.sectionOf(drag.nodeId())), drag.output(), drag.port());
+        Popup.open(
+            getPanel(),
+            PickList.popup("gtnhplanner_rule", null, rows, false, 110),
+            screenX(n.x + CardLayout.keyX(drag.output())),
+            screenY(n.y + CardLayout.ctrlY(rowY) + CardLayout.CTRL_H) + 2);
+    }
+
+    /**
+     * A port's rate, typed straight into its box in the plan's unit (empty lets the plan decide): the machine runs so
+     * the port takes or gives exactly that.
+     */
+    private void editPortRate(final PortDrag drag) {
+        final CardModel model = portModel(drag.nodeId());
+        if (model == null) return;
+        final com.gtnhplanner.ui.theme.Fmt.RateUnit unit = session.rateUnit();
+        final Double set = session.portTarget(model.node, drag.output(), drag.port());
+        edit.start(
+            portEditKey(drag.nodeId(), drag.output(), drag.port()),
+            set == null ? 0 : set * unit.perSecond,
+            v -> session.setPortTarget(model.node, drag.output(), drag.port(), v / unit.perSecond));
+        getContext().focus(this);
+    }
+
+    /** As {@link #editPortRate}, in a box of its own (kept for a port with no box on the card). */
+    private void openPortRate(final PortDrag drag) {
+        final RecipeCard card = cardHolding(drag.nodeId());
+        final CardModel model = portModel(drag.nodeId());
+        if (card == null || model == null) return;
+        final List<CardModel.PortView> ports = drag.output() ? model.outputs : model.inputs;
+        if (drag.port() >= ports.size()) return;
+        final CardModel.PortView p = ports.get(drag.port());
+        final com.gtnhplanner.ui.theme.Fmt.RateUnit unit = session.rateUnit();
+        final Double set = session.portTarget(model.node, drag.output(), drag.port());
+        final Node n = card.model().node;
+        Popup.open(
+            getPanel(),
+            com.gtnhplanner.ui.popup.NumberPopup.create(
+                p.name() + " rate in " + (p.isFluid() ? "L" : "") + unit.suffix + " (empty: the plan decides)",
+                "2.5k, 1/3",
+                "Type 2.5k, 1M or 1/3",
+                set == null ? 0 : set * unit.perSecond,
+                0,
+                Double.MAX_VALUE,
+                v -> session.setPortTarget(model.node, drag.output(), drag.port(), v / unit.perSecond)),
+            screenX(n.x + CardLayout.anchorX(drag.output())) + (drag.output() ? 4 : -164),
+            screenY(n.y + card.anchorY(drag.nodeId(), drag.output(), drag.port())));
     }
 
     /**
@@ -1108,15 +1853,18 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
             : card.anchorY(portDrag.nodeId(), portDrag.output(), portDrag.port()));
         final int mouseX = Math.round(worldX(getContext().getAbsMouseX()));
         final int mouseY = Math.round(worldY(getContext().getAbsMouseY()));
-        if (!dragHeard && Math.abs(getContext().getAbsMouseX() - portDrag.startX())
-            + Math.abs(getContext().getAbsMouseY() - portDrag.startY()) >= 4) {
-            dragHeard = true;
-            Sfx.WIRE_GRAB.play();
-        }
         final UUID over = dragTargetAt(mouseX, mouseY);
         if (over != null && !over.equals(snappedTo)) Sfx.WIRE_SNAP.play();
         snappedTo = over;
+        snapPort = over == null || portDrag.socket() || cards.get(over) == null ? null
+            : session.dropTarget(portDrag.nodeId(), portDrag.output(), portDrag.port(), over);
         final Verdict verdict = verdictAt(mouseX, mouseY);
+        // Picked up as the drawer it would make (see stepLift), unless it is over a card or drawer that takes it: then
+        // it wires in, as a wire in hand does.
+        if (lifting) {
+            drawLiftedDrawer();
+            return;
+        }
         final int[] snap = over == null ? null : snapEnd(over);
         final int mx = snap != null ? snap[0] : mouseX, my = snap != null ? snap[1] : mouseY;
         // The bend stays on the port's own side, so the wire in hand never cuts back across its card.
@@ -1127,12 +1875,214 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         // Green that it will go (solid onto a port, dotted where it makes a drawer), red that it will not.
         final boolean go = verdict == Verdict.CONNECT || verdict == Verdict.SPAWN;
         final boolean solid = verdict == Verdict.CONNECT || verdict == Verdict.REFUSE;
-        WireLayer.drawWire(path, go ? WIRE_GO : WIRE_NO, 3, solid);
+        if (!ghostWired) WireLayer.drawWire(path, go ? WIRE_GO : WIRE_NO, 3, solid);
         if (verdict == Verdict.DEAD && !portDrag.socket()) {
             // Said by the mouse, at the board's text size whatever the zoom.
             final float s = 1 / graph().getZoom();
             Hyb.text("Drawer already exists", mouseX + 8 * s, mouseY + 6 * s, s, WIRE_NO);
         }
+    }
+
+    /** Whether a drawer put down at {@code x, y} would lie on a card or another drawer. */
+    private boolean liftOverlaps(final int x, final int y) {
+        for (final RecipeCard card : cards.values()) {
+            if (card.model() == null || card.layout() == null) continue;
+            final Node n = card.model().node;
+            if (x < n.x + CardLayout.W && x + DrawerCard.W > n.x
+                && y < n.y + card.layout().height
+                && y + DrawerCard.H > n.y) return true;
+        }
+        for (final DrawerCard drawer : drawers.values()) {
+            if (drawer.model() == null) continue;
+            final Drawer d = drawer.model().drawer;
+            if (x < d.getX() + DrawerCard.W && x + DrawerCard.W > d.getX()
+                && y < d.getY() + DrawerCard.H
+                && y + DrawerCard.H > d.getY()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * A port picked up off its card: the drawer it would make (linked to it, not on the plan until it is put down),
+     * whether it is shown as that drawer now (not over a card or drawer that takes it), whether it has been clear of
+     * its
+     * card yet, where it would land, and where it is drawn (gliding there).
+     */
+    @Nullable
+    private Drawer liftDrawer;
+    private boolean lifting, liftFree;
+    /** Whether the port picked up is back over its own card: home again, put back if let go there. */
+    private boolean liftHome;
+    @Nullable
+    private int[] liftAt;
+    private float liftGX, liftGY;
+    private long liftNanos;
+    /** Where on the board the port was pressed: the drawer moves by as much as the mouse has from there. */
+    private float liftGrabX, liftGrabY;
+
+    /**
+     * Whether a port is picked up off its card as a drawer just now: its row then shows as it will be, wired (no
+     * stripes, no rate box).
+     */
+    public boolean lifted(final UUID node, final boolean output, final int port) {
+        return lifting && !liftHome
+            && portDrag != null
+            && portDrag.nodeId()
+                .equals(node)
+            && portDrag.output() == output
+            && portDrag.port() == port;
+    }
+
+    /**
+     * Where a port picked up off its card is, each frame before the wires are routed. It is lifted from where its row
+     * is and carried by as much as the mouse has moved (level with the row while near it); once clear of its card it is
+     * carried as a drawer on the board is (to the clear grid spot nearest the mouse, never onto a card or drawer,
+     * gliding there), and its wire is routed with the board's, as it will run once put down. Over a card or drawer that
+     * takes it, it is a wire in hand instead.
+     */
+    private void stepLift() {
+        final boolean was = lifting;
+        lifting = false;
+        if (portDrag == null) return;
+        if (!dragHeard && Math.abs(getContext().getAbsMouseX() - portDrag.startX())
+            + Math.abs(getContext().getAbsMouseY() - portDrag.startY()) >= 4) {
+            dragHeard = true;
+            Sfx.WIRE_GRAB.play();
+        }
+        final RecipeCard card = cards.get(portDrag.nodeId());
+        final float mx = worldX(getContext().getAbsMouseX()), my = worldY(getContext().getAbsMouseY());
+        lifting = dragHeard && liftDrawer != null
+            && card != null
+            && card.model() != null
+            && verdictAt(Math.round(mx), Math.round(my)) != Verdict.CONNECT;
+        if (!lifting) {
+            wires.phantom(null);
+            return;
+        }
+        final boolean output = portDrag.output();
+        final Node n = card.model().node;
+        final float dx = mx - liftGrabX, dy = my - liftGrabY;
+        final int ox = n.x + CardLayout.railX(output) - 2,
+            oy = n.y + card.anchorY(portDrag.nodeId(), output, portDrag.port()) - DrawerCard.ANCHOR_Y;
+        final long now = System.nanoTime();
+        if (!liftFree) {
+            // Still on its card: it follows the mouse exactly, its wire not shown.
+            final int x = Math.round(ox + dx), y = Math.abs(dy) <= 12 ? oy : Math.round(oy + dy);
+            final int h = card.layout() == null ? CardLayout.ROW : card.layout().height;
+            liftAt = new int[] { x, y };
+            liftGX = x;
+            liftGY = y;
+            liftNanos = now;
+            // Off it once the mouse is, or the drawer is wholly.
+            liftFree = !inside(n.x, n.y, CardLayout.W, h, mx, my) || x >= n.x + CardLayout.W
+                || x + DrawerCard.W <= n.x
+                || y >= n.y + h
+                || y + DrawerCard.H <= n.y;
+            if (!liftFree) {
+                wires.phantom(null);
+                return;
+            }
+        }
+        // Carried back over its own card, it snaps home: its row shows as it was, and letting go puts it back.
+        final int cardH = card.layout() == null ? CardLayout.ROW : card.layout().height;
+        final boolean home = inside(n.x, n.y, CardLayout.W, cardH, mx, my);
+        if (home != liftHome) {
+            liftHome = home;
+            if (home) Sfx.WIRE_SNAP.play();
+        }
+        if (home) {
+            wires.phantom(null);
+            return;
+        }
+        liftAt = liftClear(ox + BoardSession.snap(dx), Math.abs(dy) <= 12 ? oy : oy + BoardSession.snap(dy));
+        if (!was) liftNanos = now;
+        final float dt = Math.min(0.05f, (now - liftNanos) / 1e9f);
+        liftNanos = now;
+        final float k = 1 - (float) Math.exp(-dt / MOVE_EASE_SECONDS);
+        liftGX += (liftAt[0] - liftGX) * k;
+        liftGY += (liftAt[1] - liftGY) * k;
+        if (Math.abs(liftAt[0] - liftGX) < 0.5f) liftGX = liftAt[0];
+        if (Math.abs(liftAt[1] - liftGY) < 0.5f) liftGY = liftAt[1];
+        liftDrawer.setX(Math.round(liftGX));
+        liftDrawer.setY(Math.round(liftGY));
+        wires.phantom(liftDrawer);
+    }
+
+    /**
+     * The clear spot nearest {@code wantX, wantY} for the drawer in hand: it if clear, else the first clear grid step
+     * round it, as a carried drawer finds one; none within reach, it itself.
+     */
+    private int[] liftClear(final int wantX, final int wantY) {
+        if (!liftBlocked(wantX, wantY)) return new int[] { wantX, wantY };
+        for (int r = 1; r <= MOVE_SEARCH; r++) for (final int[] o : ring(r)) {
+            final int x = wantX + o[0] * MOVE_STEP, y = wantY + o[1] * MOVE_STEP;
+            if (!liftBlocked(x, y)) return new int[] { x, y };
+        }
+        return new int[] { wantX, wantY };
+    }
+
+    /** How far the drawer in hand keeps from its own card: room for its wire to run straight between them. */
+    private static final int LIFT_GAP = 20;
+
+    /** Whether the drawer in hand may not be at {@code x, y}: on a card or drawer, or nearer its card than the gap. */
+    private boolean liftBlocked(final int x, final int y) {
+        if (liftOverlaps(x, y)) return true;
+        final RecipeCard card = portDrag == null ? null : cards.get(portDrag.nodeId());
+        if (card == null || card.model() == null || card.layout() == null) return false;
+        final Node n = card.model().node;
+        return x < n.x + CardLayout.W + LIFT_GAP && x + DrawerCard.W > n.x - LIFT_GAP
+            && y < n.y + card.layout().height + LIFT_GAP
+            && y + DrawerCard.H > n.y - LIFT_GAP;
+    }
+
+    /**
+     * The drawer a port picked up off its card would make, where it is carried (see {@link #stepLift}), drawn as it
+     * will be: a source or a product, what it would take, the rate set on the port carried over. Its wire is the
+     * board's.
+     */
+    private void drawLiftedDrawer() {
+        // Home again: nothing in hand to draw, its row is back on the card.
+        if (liftHome) return;
+        final CardModel model = portModel(portDrag.nodeId());
+        if (model == null) return;
+        final List<CardModel.PortView> ports = portDrag.output() ? model.outputs : model.inputs;
+        if (portDrag.port() >= ports.size()) return;
+        final CardModel.PortView p = ports.get(portDrag.port());
+        final boolean output = portDrag.output();
+        final Drawer.Kind kind = output ? Drawer.Kind.PRODUCT : Drawer.Kind.SOURCE;
+        final int x = Math.round(liftGX), y = Math.round(liftGY);
+        // The drawer, lifted: its shadow, then the row it is.
+        final com.gtnhplanner.ui.theme.Fmt.RateUnit unit = session.rateUnit();
+        final double takes = !p.wired() ? p.perSecond() : p.extra();
+        final Double set = session.portTarget(model.node, output, portDrag.port());
+        final String suffix = p.isPower() ? " EU/t" : (p.isFluid() ? " L" : "") + unit.suffix;
+        final String number = p.isPower() ? com.gtnhplanner.ui.theme.Fmt.power(takes / 20)
+            : com.gtnhplanner.ui.theme.Fmt.compact(takes * unit.perSecond);
+        final int ink = takes <= 0 ? com.gtnhplanner.ui.drawer.DrawerPaint.IDLE_INK
+            : Hyb.mix(com.gtnhplanner.ui.drawer.DrawerPaint.tint(kind), Hyb.INK, 0.75f);
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        org.lwjgl.opengl.GL11.glTranslatef(x, y, 0);
+        com.gtnhplanner.ui.drawer.DrawerPaint.shadow(kind, true);
+        com.gtnhplanner.ui.drawer.DrawerPaint.frame(kind, false);
+        org.lwjgl.opengl.GL11
+            .glTranslatef(2 - CardLayout.railX(output), com.gtnhplanner.ui.drawer.DrawerPaint.ROW_Y, 0);
+        final float z = getContext().getCurrentDrawingZ();
+        com.gtnhplanner.ui.card.CardPaint
+            .drawerRow(kind, p.item(), p.fluid(), p.isPower(), number, suffix, p.name(), ink, true, 0, z);
+        com.gtnhplanner.ui.card.CardPaint.ruleControls(
+            output,
+            0,
+            set != null ? Drawer.Rule.EXACTLY : Drawer.Rule.ANY,
+            null,
+            set != null ? com.gtnhplanner.ui.theme.Fmt.compact(set * unit.perSecond) : null,
+            suffix,
+            null,
+            false,
+            false,
+            false,
+            false,
+            null);
+        org.lwjgl.opengl.GL11.glPopMatrix();
     }
 
     // endregion
@@ -1585,6 +2535,33 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
         frame(ids);
     }
 
+    /** The card a recipe is on: its own, or the shared machine it is a recipe of. */
+    @Nullable
+    private RecipeCard cardHolding(final UUID node) {
+        final RecipeCard own = cards.get(node);
+        if (own != null) return own;
+        for (final RecipeCard card : cards.values()) if (card.sectionOf(node) >= 0) return card;
+        return null;
+    }
+
+    /**
+     * The place a spare line names (the overview's slider, or a card's spare popup, under the mouse), picked out on the
+     * board: a thin gold ring round its card. Its rows glow with the hover scope; nothing else is drawn, and no line
+     * runs to it (a line on the board is a wire).
+     */
+    private void drawSpareHover() {
+        final com.gtnhplanner.ui.BoardSession.SpareBearer bearer = session.spareHover();
+        if (bearer == null) return;
+        final float s = 1 / graph().getZoom();
+        final java.util.Set<UUID> ringed = new java.util.HashSet<>();
+        for (final com.gtnhplanner.data.flowchart.balancer.PortRef ref : bearer.ports()) {
+            final RecipeCard card = cardHolding(ref.nodeId());
+            if (card == null || card.model() == null || card.layout() == null || !ringed.add(card.nodeId)) continue;
+            final Node n = card.model().node;
+            Hyb.ring(n.x - 3 * s, n.y - 3 * s, CardLayout.W + 6 * s, card.layout().height + 6 * s, 1.5f * s, Hyb.GOLD);
+        }
+    }
+
     /** Pans and zooms so the given cards and drawers fill the view, at the largest whole zoom step that fits. */
     public void frame(final List<UUID> ids) {
         final int[] box = box(ids);
@@ -1706,12 +2683,67 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
 
     @Override
     public Result onMousePressed(final int mouseButton) {
+        // A press anywhere on the board sets what was being typed.
+        edit.commit();
         if (mouseButton == 1) {
             if (!openWireMenu()) openBoardMenu();
             return Result.SUCCESS;
         }
         return mouseButton == 0 ? Result.ACCEPT : Result.IGNORE;
     }
+
+    // region Typing into a box
+
+    /** The box being typed into, on a card's port or a drawer: one at a time. */
+    private final com.gtnhplanner.ui.popup.InlineNumber edit = new com.gtnhplanner.ui.popup.InlineNumber();
+
+    public com.gtnhplanner.ui.popup.InlineNumber edit() {
+        return edit;
+    }
+
+    /** The key of a card port's rate box. */
+    public static String portEditKey(final UUID node, final boolean output, final int port) {
+        return "port:" + node + (output ? ":o:" : ":i:") + port;
+    }
+
+    /** The key of a drawer's rate box. */
+    public static String drawerEditKey(final UUID drawer) {
+        return "drawer:" + drawer;
+    }
+
+    /** Starts typing into a drawer's rate box, in the board's unit; empty clears its rule. */
+    public void editDrawerRate(final com.gtnhplanner.ui.drawer.DrawerModel m) {
+        final com.gtnhplanner.ui.theme.Fmt.RateUnit unit = session.rateUnit();
+        edit.start(
+            drawerEditKey(m.drawer.getId()),
+            m.rule == Drawer.Rule.ANY ? 0 : m.shown(m.target, unit),
+            v -> session.setDrawerRate(m.drawer, v / m.shown(1, unit)));
+        getContext().focus(this);
+    }
+
+    @Override
+    public boolean isFocused() {
+        return edit.active();
+    }
+
+    @Override
+    public void onFocus(final ModularGuiContext context) {}
+
+    /** Clicking anything else sets what was typed. */
+    @Override
+    public void onRemoveFocus(final ModularGuiContext context) {
+        edit.commit();
+    }
+
+    @Override
+    public Result onKeyPressed(final char typedChar, final int keyCode) {
+        if (!edit.active()) return Result.IGNORE;
+        edit.keyPressed(typedChar, keyCode);
+        if (!edit.active()) getContext().removeFocus();
+        return Result.SUCCESS;
+    }
+
+    // endregion
 
     // region Pan glide
 
@@ -1809,7 +2841,9 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
     }
 
     private static boolean held(final int key, final int alt) {
-        return org.lwjgl.input.Keyboard.isKeyDown(key) || org.lwjgl.input.Keyboard.isKeyDown(alt);
+        return org.lwjgl.input.Keyboard.isKeyDown(key) || org.lwjgl.input.Keyboard.isKeyDown(alt)
+            || com.gtnhplanner.ui.tutorial.Pointer.held(key)
+            || com.gtnhplanner.ui.tutorial.Pointer.held(alt);
     }
 
     // endregion
@@ -1862,6 +2896,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas> implements Inte
 
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
+        if (carry != null) {
+            wheelSpareCarry(direction == UpOrDown.UP ? 1 : -1);
+            return true;
+        }
         zoomStep(
             direction == UpOrDown.UP ? 1 : -1,
             getContext().getAbsMouseX() - getArea().x,

@@ -287,7 +287,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     private BoardCanvas canvas() {
-        return getParent() instanceof final BoardCanvas c ? c : null;
+        // Once the board has rebuilt it away it has no parent to ask for (ModularUI throws): it is on no board.
+        return isValid() && getParent() instanceof final BoardCanvas c ? c : null;
     }
 
     /** The mouse in card coordinates (GUI pixels at zoom 1), from the absolute mouse. */
@@ -419,17 +420,27 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             Hyb.rect(5, 7, w, h, 0x50000000);
             Hyb.rect(3, 4, w, h, 0x40000000);
         } else Hyb.dropShadow(0, 0, w, h);
-        boolean unwired = false;
-        for (final CardModel each : models) unwired |= anyUnwired(each);
-        if (unwired && !com.gtnhplanner.ui.canvas.PlanPicture.drawing()) drawUnwiredRing();
         if (session.showsSelected(nodeId)) Hyb.ring(-2, -2, w + 4, h + 4, 2, Hyb.SELECTION);
-        // While a wire is in hand, a card that would take it is outlined green; brighter where it would go now.
+        // While a wire is in hand, a card that would take it glows green, its outline and its whole face, breathing;
+        // steady and brighter where it would go now.
         final BoardCanvas board = canvas();
-        if (board != null && board.cardAcceptsDrag(nodeId)) {
-            final boolean there = nodeId.equals(board.dragSnappedTo());
-            Hyb.ring(0, 0, w, h, there ? 2 : 1, there ? CardPaint.ACCEPT : CardPaint.ACCEPT_FAINT);
+        final boolean accepts = board != null && (board.cardAcceptsDrag(nodeId) || board.cardTakesSpare(nodeId));
+        final boolean there = accepts
+            && (nodeId.equals(board.dragSnappedTo()) || nodeId.equals(board.spareTargetCard()));
+        final float breath = there ? 1
+            : 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 1000.0 * Math.PI * 1.4);
+        if (accepts) {
+            Hyb.ring(0, 0, w, h, there ? 2 : 1, there ? CardPaint.ACCEPT : alpha(0x4ADE80, 0.75f * breath));
+            for (int i = 1; i <= 4; i++) Hyb.ring(
+                -i - (there ? 1 : 0),
+                -i - (there ? 1 : 0),
+                w + 2 * i + (there ? 2 : 0),
+                h + 2 * i + (there ? 2 : 0),
+                1,
+                alpha(0x4ADE80, (there ? 0.28f : 0.18f * breath) * (5 - i) / 5f));
         }
         CardPaint.surface(w, h);
+        if (accepts) Hyb.rect(1, 1, w - 2, h - 2, alpha(0x4ADE80, there ? 0.1f : 0.06f * breath));
         if (anyTierTooLow() || coilTooCold()) {
             // Can't run: the tier is below the recipe's (the power row says TIER!) or the coil is too cold (the gear
             // key
@@ -487,10 +498,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     static final int CUSTOM_RATE_INK = 0xFFAEBCEB;
 
     /**
-     * At this zoom and below the card shows the glance view instead: the first wheel step out from half size, past
-     * which the card's own text is less than a screen pixel per font pixel and breaks up.
+     * At this zoom and below the card shows the glance view instead: the second wheel step out from half size (the
+     * owner, 2026-10-10: one step later than the first, where the card's text is a little under a screen pixel per
+     * font pixel but still reads), past which it breaks up.
      */
-    public static final float GLANCE_ZOOM = 0.45f;
+    public static final float GLANCE_ZOOM = 0.42f;
 
     private boolean glance() {
         return session.graph()
@@ -566,7 +578,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return Math.round(v * 2) / 2f;
     }
 
-    /** Factory Flow's breathing: 0 to 1 and back over 1.9 s, for what wants attention (an unwired port). */
+    /**
+     * Factory Flow's breathing: 0 to 1 and back over 1.9 s, for what wants attention (a card a block could link to).
+     */
     private static float breathe() {
         // A picture of the plan holds still.
         if (com.gtnhplanner.ui.canvas.PlanPicture.drawing()) return 0;
@@ -576,22 +590,6 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     private static int alpha(final int rgb, final float a) {
         return Math.round(Math.max(0, Math.min(1, a)) * 255) << 24 | rgb & 0xFFFFFF;
-    }
-
-    private static boolean anyUnwired(final CardModel m) {
-        for (final CardModel.PortView p : m.inputs) if (!p.wired()) return true;
-        for (final CardModel.PortView p : m.outputs) if (!p.wired()) return true;
-        return false;
-    }
-
-    /** A card with a port still to wire breathes: a dim ring, and a lit one with a halo fading in and out. */
-    private void drawUnwiredRing() {
-        final int w = CardLayout.W, h = layout.height;
-        final float b = breathe();
-        Hyb.ring(0, 0, w, h, 1, 0x40C8D2E0);
-        Hyb.ring(0, 0, w, h, 1, alpha(0xEEF2F8, 0.85f * b));
-        for (int i = 1; i <= 4; i++)
-            Hyb.ring(-i, -i, w + 2 * i, h + 2 * i, 1, alpha(0xDCE6F4, 0.3f * b * (5 - i) / 5f));
     }
 
     /**
@@ -832,30 +830,100 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             return;
         }
         final BoardCanvas board = canvas();
-        final float b = breathe();
         for (final CardModel.PortView p : ports) {
             final int y = layout.rowY(section, output, p.index());
             if (p.index() > 0) CardPaint.rowSeparator(output, y);
             if (hoveredSlot != null && hoveredSlot.section == section
                 && hoveredSlot.output == output
                 && hoveredSlot.index == p.index()) Hyb.rect(x, y, w, layout.rowH(section, output, p.index()), 0x10FFFFFF);
-            CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
-            CardPaint.flowWords(
-                p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
-                p.isPower(),
-                p.isFluid(),
-                p.name(),
-                unit,
-                output,
-                y);
-            if (layout.hasExtra(section, output, p.index())) CardPaint.extraRow(p, unit, y + h, z);
-            if (!p.wired()) {
-                final int ix = CardLayout.iconX(output) - 2, iy = y + CardLayout.ICON_Y - 2, side = CardLayout.ICON + 4;
-                Hyb.dashed(ix, iy, side, side, alpha(0xFFFFFF, 0.3f + 0.55f * b), 3, 3);
+            // Unwired but running (a pinned machine runs whatever is wired to it): it takes from outside the plan, or
+            // gives out of it, as a spare does, and is drawn as one; nothing is missing, so it does not pulse.
+            // A port picked up off the card as a drawer shows as it will be once placed: wired.
+            final boolean lifted = board != null && board.lifted(sectionId(section), output, p.index());
+            final boolean open = !lifted && isOpen(p);
+            final Double wheeled = session.wheeledPortRate(models.get(section).node, output, p.index());
+            final Double target = wheeled != null ? wheeled
+                : session.portTarget(models.get(section).node, output, p.index());
+            final boolean set = !lifted && target != null;
+            final boolean controls = !lifted && showsControls(section, p);
+            if (open) CardPaint.openRow(p, unit, y, z, set);
+            else {
+                CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
+                CardPaint.flowWords(
+                    p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
+                    p.isPower(),
+                    p.isFluid(),
+                    p.name(),
+                    unit,
+                    output,
+                    y,
+                    set,
+                    controls);
             }
+            if (controls) {
+                final boolean here = hoveredSlot != null && hoveredSlot.section == section
+                    && hoveredSlot.output == output
+                    && hoveredSlot.index == p.index();
+                CardPaint.portControls(
+                    output,
+                    y,
+                    set ? Fmt.compact(target * unit.perSecond) : null,
+                    (p.isFluid() ? " L" : "") + unit.suffix,
+                    here && hoveredSlot.overKey(),
+                    here && hoveredSlot.overBox(),
+                    session.unset(sectionId(section)),
+                    board != null && board.edit()
+                        .editing(BoardCanvas.portEditKey(sectionId(section), output, p.index())) ? board.edit()
+                            : null);
+            }
+            if (layout.hasExtra(section, output, p.index())) CardPaint
+                .extraRow(p, unit, y + h, z, board == null ? 0 : board.carriedFrom(sectionId(section), output, p.index()));
+            // Lit, one glow round the port and its extra row (part of the port: what it forces out or in).
             if (session.lit()
-                .port(sectionId(section), output, p.index(), p.key())) glow(x, y, w, h);
+                .port(sectionId(section), output, p.index(), p.key()))
+                glow(x, y, w, layout.hasExtra(section, output, p.index()) ? 2 * h : h);
+            // What is in hand could go here: green, brighter where it would go if let go now (or home, put back).
+            if (board != null) {
+                final UUID id = sectionId(section);
+                if (board.portSnapped(id, output, p.index())) acceptGlow(x, y, w, h, true);
+                else if (board.portTakesDrag(id, output, p.index(), p.key())) acceptGlow(x, y, w, h, false);
+            }
         }
+    }
+
+    /**
+     * A green glow round a port row that would take what is in hand, breathing so the eye finds every one;
+     * {@code there}: where it would go now, steady and brighter.
+     */
+    private static void acceptGlow(final float x, final float y, final float w, final float h, final boolean there) {
+        final float breath = there ? 1
+            : 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 1000.0 * Math.PI * 1.4);
+        Hyb.rect(x, y, w, h, alpha(0x4ADE80, (there ? 0.16f : 0.1f) * breath));
+        Hyb.ring(x, y, w, h, 1, there ? CardPaint.ACCEPT : alpha(0x4ADE80, 0.75f * breath));
+        for (int i = 1; i <= 3; i++) Hyb.ring(
+            x - i,
+            y - i,
+            w + 2 * i,
+            h + 2 * i,
+            1,
+            alpha(0x4ADE80, (there ? 0.3f : 0.24f * breath) * (4 - i) / 4f));
+    }
+
+    /**
+     * Whether a port has no wire and no drawer yet the plan runs through it: what it takes then comes in from outside
+     * the plan, and what it makes leaves it. EU is not one (only drawers take it; a machine's draw is its power).
+     */
+    public static boolean isOpen(final CardModel.PortView p) {
+        return !p.wired() && !p.isPower() && p.perSecond() > CardModel.EXTRA_EPS;
+    }
+
+    /**
+     * Whether a port carries its own rule key and rate box: an open end of the plan (no wire, no drawer), which is a
+     * drawer in all but name; a wired port's rate is what it is wired to (a drawer has its own key and box), and a
+     * rate set on a port goes when it is wired ({@link BoardSession#edit}). Never power.
+     */
+    public boolean showsControls(final int section, final CardModel.PortView p) {
+        return !p.isPower() && !p.wired();
     }
 
     /** EU's icon: the power wing's bolt, at a whole scale, on a dark amber square filling the icon's box. */
@@ -902,9 +970,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         // The share: what part of the machine's time, then its own machines.
         final double total = machinesTotal();
         final String pct = total > 0 ? Math.round(100 * m.machines / total) + "%" : "0%";
-        final boolean unwired = anyUnwired(m);
-        final String word = unwired ? "NO WIRES" : m.machines <= 0 ? "UNUSED" : "×" + Fmt.machines(m.machines);
-        final int wordColor = unwired ? Hyb.AMBER_INK : Hyb.MUTED;
+        final String word = m.machines <= 0 ? "UNUSED" : "×" + Fmt.machines(m.machines);
+        final int wordColor = Hyb.MUTED;
         final int tx = CardLayout.IN_RAIL_X + 4;
         CardPaint.hair(y);
         Hyb.text(pct, tx, y + 4, Hyb.INK);
@@ -967,14 +1034,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final boolean pinnedNow = pendingCount > 0 || pinned() && !pendingUnpin;
         final String under = crop()
             ? pinnedNow ? "crops, pinned"
-                : session.nothingToSolveFor() ? CardPaint.SET_COUNT
+                : session.unset(nodeId) ? CardPaint.SET_COUNT
                     : Math.round(machinesTotal()) == 1 ? "crop planted" : "crops planted"
-            : pinnedNow ? CardPaint.PINNED : session.nothingToSolveFor() ? CardPaint.SET_COUNT : null;
+            : pinnedNow ? CardPaint.PINNED : session.unset(nodeId) ? CardPaint.SET_COUNT : null;
         CardPaint.count(
             countText(),
             machinesTotal() <= 0 && pendingCount <= 0,
+            pinnedNow,
             under,
-            pinnedNow || crop() && !session.nothingToSolveFor() ? Hyb.MUTED : CardPaint.prompt(),
+            pinnedNow || crop() && !session.unset(nodeId) ? Hyb.MUTED : CardPaint.prompt(),
             hover == Part.MACHINES,
             box);
     }
@@ -1797,6 +1865,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
         if (model == null) return false;
+        // While a leftover is carried the wheel is the board's: how much is in hand.
+        if (canvas() != null && canvas().carryingSpare()) return false;
         final int step = direction == UpOrDown.UP ? 1 : -1;
         final Node node = model.node;
         switch (partAt(localX(), localY())) {

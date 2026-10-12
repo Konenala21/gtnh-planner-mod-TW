@@ -18,6 +18,25 @@ public final class Pointer {
     public static volatile boolean typing;
     /** Set while the tour holds Shift (a Shift-click): the game's "is Shift down" says yes (a mixin reads it). */
     public static volatile boolean shift;
+    /** The keys the tour holds down now (the board's pan keys are read by asking whether a key is down). */
+    private static final java.util.Set<Integer> held = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Whether the tour holds {@code key} down now. */
+    public static boolean held(final int key) {
+        return held.contains(key);
+    }
+
+    /** Holds a key down, or ({@code down} false) lets it go. */
+    public static void hold(final int key, final boolean down) {
+        if (down) held.add(key);
+        else held.remove(key);
+    }
+
+    /** Lets go of every key the tour holds. */
+    public static void letGo() {
+        held.clear();
+    }
+
     /** Where it is, in GUI pixels. */
     private static volatile float x, y;
 

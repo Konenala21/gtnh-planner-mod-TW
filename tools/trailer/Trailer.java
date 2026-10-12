@@ -44,10 +44,10 @@ public class Trailer {
     static final Map<String, String> globalSet = new HashMap<>();
     static final List<Double> stills = new ArrayList<>();
     /** Words over the picture: when, and the text (between asterisks, the brand's cyan). */
-    record Caption(double t0, double t1, String text, boolean badge, boolean top) {}
+    record Caption(double t0, double t1, String text, boolean badge, boolean top, boolean typed) {}
 
     static final List<Caption> captions = new ArrayList<>();
-    static String title = "";
+    static String title = "", subtitle = "";
     static Source defaultSource;
 
     static final class Shot {
@@ -68,7 +68,10 @@ public class Trailer {
     }
 
     /** A time in the edit: seconds, or beats ("8b"). */
+    /** A time in the edit: seconds, or beats ("8b"), with an offset in seconds ("72b+0.1", "80b-0.2"). */
     static double editTime(final String s) {
+        final int b = s.indexOf('b');
+        if (b > 0 && b < s.length() - 1) return editTime(s.substring(0, b + 1)) + Double.parseDouble(s.substring(b + 1));
         return s.endsWith("b") ? Double.parseDouble(s.substring(0, s.length() - 1)) * beat() : Double.parseDouble(s);
     }
 
@@ -126,15 +129,18 @@ public class Trailer {
                     .add(new double[] { editTime(p[2]), Double.parseDouble(p[3]) });
                 case "set" -> set.put(p[1], p[2]);
                 case "still" -> stills.add(editTime(p[1]));
-                case "caption", "captiontop", "badge" -> captions.add(
+                case "caption", "captiontop", "badge", "say", "saytop" -> captions.add(
                     new Caption(
                         editTime(p[1]),
                         editTime(p[2]),
                         line.substring(line.indexOf(p[2], line.indexOf(p[1]) + p[1].length()) + p[2].length())
                             .trim(),
                         p[0].equals("badge"),
-                        p[0].equals("captiontop")));
+                        p[0].equals("captiontop") || p[0].equals("saytop"),
+                        p[0].startsWith("say")));
                 case "title" -> title = line.substring(5)
+                    .trim();
+                case "subtitle" -> subtitle = line.substring(8)
                     .trim();
                 default -> throw new IllegalArgumentException("unknown line: " + line);
             }
@@ -243,9 +249,11 @@ public class Trailer {
 
             @Override
             protected boolean removeEldestEntry(final Map.Entry<Integer, int[]> e) {
-                return size() > 16;
+                return size() > 48;
             }
         };
+        /** Frames being decoded now: a second frame needing one waits for it rather than decoding it again. */
+        final Map<Integer, java.util.concurrent.CompletableFuture<int[]>> loading = new java.util.concurrent.ConcurrentHashMap<>();
 
         Source(final String path) {
             dir = new File(path);
@@ -329,6 +337,22 @@ public class Trailer {
                 final int[] c = cache.get(i);
                 if (c != null) return c;
             }
+            final java.util.concurrent.CompletableFuture<int[]> mine = new java.util.concurrent.CompletableFuture<>(),
+                other = loading.putIfAbsent(i, mine);
+            if (other != null) return other.get();
+            try {
+                final int[] pxs = decode(i);
+                mine.complete(pxs);
+                return pxs;
+            } catch (final Exception e) {
+                mine.completeExceptionally(e);
+                throw e;
+            } finally {
+                loading.remove(i);
+            }
+        }
+
+        private int[] decode(final int i) throws Exception {
             final BufferedImage img = ImageIO.read(dir.isFile() ? dir : new File(dir, String.format("f%05d.jpg", i)));
             final BufferedImage rgb = new BufferedImage(sw, sh, BufferedImage.TYPE_INT_RGB);
             rgb.getGraphics()
@@ -784,7 +808,7 @@ public class Trailer {
         }
         final double bg = key(s, "endbg", t, 0), card = key(s, "endcard", t, 0), master = key(s, "master", t, 1);
         if (bg > 0.001) endBackground(o, bg);
-        if (card > 0.001) endCard(o, card);
+        if (card > 0.001) endCard(o, card, key(s, "endsub", t, 0));
         for (final Caption c : captions) if (t >= c.t0() - 0.01 && t <= c.t1() + 0.4) caption(o, c, t);
         final byte[] bytes = new byte[W * H * 3];
         for (int p = 0; p < o.length; p++)
@@ -864,16 +888,21 @@ public class Trailer {
      * badge (a time-lapse's speed) small at the top right. Words between asterisks are the brand's cyan.
      */
     static void caption(final float[] o, final Caption c, final double t) {
-        final double in = smooth(c.t0(), c.t0() + 0.35, t), outA = 1 - smooth(c.t1(), c.t1() + 0.35, t);
+        final double in = smooth(c.t0(), c.t0() + (c.typed() ? 0.15 : 0.35), t),
+            outA = 1 - smooth(c.t1(), c.t1() + 0.35, t);
+        // Typed: how many letters show by now (the asterisks that colour words are not letters).
+        final int shown = c.typed() ? (int) Math.floor(Math.max(0, t - c.t0()) * num(null, "typespeed", 30)) : Integer.MAX_VALUE;
         final float alpha = (float) Math.min(in, outA);
         if (alpha <= 0.001f) return;
         final int scale = c.badge() ? (int) num(null, "badgescale", 3) : (int) num(null, "captionscale", 4);
         final String plain = c.text()
             .replace("*", "");
         final int tw = textWidth(plain) * scale, th = 8 * scale, padX = 6 * scale, padY = 4 * scale;
-        final int rise = (int) Math.round((1 - smoother((t - c.t0()) / 0.35)) * 10);
-        final int x = c.badge() ? W - (int) num(null, "badgemargin", 72) - tw - 2 * padX : (int) num(null, "captionx", 96);
-        final int y = c.badge() ? (int) num(null, "badgemargin", 72)
+        final int rise = c.typed() ? 0 : (int) Math.round((1 - smoother((t - c.t0()) / 0.35)) * 10);
+        final double margin = num(null, "badgemargin", 72);
+        final int x = c.badge() ? W - (int) num(null, "badgemarginx", margin) - tw - 2 * padX
+            : (int) num(null, "captionx", 96);
+        final int y = c.badge() ? (int) num(null, "badgemarginy", margin)
             : c.top() ? (int) num(null, "captiontopy", 110) + rise : H - (int) num(null, "captiony", 150) - th + rise;
         final BufferedImage img = new BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB);
         final Graphics2D g = img.createGraphics();
@@ -881,15 +910,18 @@ public class Trailer {
         g.fillRect(x, y - padY, tw + 2 * padX, th + 2 * padY);
         g.setColor(new Color(0x22D3EE));
         g.fillRect(x, y - padY, Math.max(2, scale / 2 + 1), th + 2 * padY);
-        int cx = x + padX;
+        int cx = x + padX, left = shown;
         boolean accent = false;
-        for (final String run : c.text()
+        for (final String whole : c.text()
             .split("\\*", -1)) {
+            final String run = left >= whole.length() ? whole : whole.substring(0, Math.max(0, left));
+            left -= whole.length();
             if (!run.isEmpty()) {
                 text(g, run, cx, y, scale, accent ? 0x22D3EE : c.badge() ? 0x9A9CA4 : 0xE8E9EE);
                 cx += textWidth(run) * scale;
             }
             accent = !accent;
+            if (left <= 0) break;
         }
         g.dispose();
         final int[] px = ((DataBufferInt) img.getRaster()
@@ -905,8 +937,77 @@ public class Trailer {
         }
     }
 
-    /** The end card: the logo (when the shot file names one) over the name in the game's font, fading up together. */
-    static void endCard(final float[] o, final double p) {
+    /**
+     * The typed captions' sound: a soft, round boop every other letter (none for spaces or stops), its pitch a little by
+     * the letter, as a typed line in a game sounds, kept low: a pure sine easing in (no click) and gliding down a touch.
+     * Written as a WAV of its own, mixed under the music.
+     */
+    static File blips() throws Exception {
+        final int sr = 48000, n = (int) (DURATION * sr) + sr;
+        final float[] b = new float[n];
+        final double speed = num(null, "typespeed", 30), base = num(null, "blippitch", 470),
+            gain = num(null, "blipgain", 0.13);
+        final int every = (int) num(null, "blipevery", 2);
+        final java.util.Random r = new java.util.Random(7);
+        boolean any = false;
+        for (final Caption c : captions) {
+            if (!c.typed()) continue;
+            final String plain = c.text()
+                .replace("*", "");
+            int sounding = 0;
+            for (int i = 0; i < plain.length(); i++) {
+                final char ch = Character.toLowerCase(plain.charAt(i));
+                if (!Character.isLetterOrDigit(ch)) continue;
+                if (sounding++ % every != 0) continue;
+                final double at = c.t0() + i / speed;
+                if (at >= c.t1()) break;
+                any = true;
+                final boolean vowel = "aeiou".indexOf(ch) >= 0;
+                final double f = base * Math.pow(2, ((ch * 5) % 7 - 3) / 36.0) * (vowel ? 0.96 : 1)
+                    * (1 + (r.nextDouble() - 0.5) * 0.01);
+                final int i0 = (int) (at * sr), len = (int) (0.11 * sr);
+                double ph = 0;
+                for (int k = 0; k < len && i0 + k < n; k++) {
+                    final double tt = k / (double) sr;
+                    // A raised-cosine swell over 9 ms, then a gentle fall; the pitch settles from a little above.
+                    final double rise = tt < 0.009 ? 0.5 - 0.5 * Math.cos(Math.PI * tt / 0.009) : 1;
+                    final double env = rise * Math.exp(-Math.max(0, tt - 0.009) / 0.03);
+                    ph += 2 * Math.PI * f * (1 + 0.05 * Math.exp(-tt / 0.018)) / sr;
+                    b[i0 + k] += (float) (Math.sin(ph) * env * gain);
+                }
+            }
+        }
+        if (!any) return null;
+        final File f = new File(out.getAbsoluteFile()
+            .getParentFile(), "blips.wav");
+        final java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocate(44 + n * 4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        bb.put("RIFF".getBytes())
+            .putInt(36 + n * 4)
+            .put("WAVEfmt ".getBytes())
+            .putInt(16)
+            .putShort((short) 1)
+            .putShort((short) 2)
+            .putInt(sr)
+            .putInt(sr * 4)
+            .putShort((short) 4)
+            .putShort((short) 16)
+            .put("data".getBytes())
+            .putInt(n * 4);
+        for (int i = 0; i < n; i++) {
+            final short v = (short) Math.max(-32767, Math.min(32767, Math.round(b[i] * 32767)));
+            bb.putShort(v)
+                .putShort(v);
+        }
+        Files.write(f.toPath(), bb.array());
+        return f;
+    }
+
+    /**
+     * The end card: the logo (when the shot file names one) over the name in the game's font, fading up together; the
+     * subtitle under it pops in on its own key ({@code endsub}, on a beat), the name already where it will stay.
+     */
+    static void endCard(final float[] o, final double p, final double sub) {
         final float alpha = (float) smooth(0, 0.7, p);
         final int rise = (int) Math.round((1 - smoother(p)) * 8);
         final BufferedImage img = new BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB);
@@ -915,11 +1016,28 @@ public class Trailer {
         final int scale = (int) num(null, "wordscale", 7), tw = textWidth(title) * scale, th = 8 * scale;
         final int ls = (int) num(null, "logoscale", 2), gap = (int) num(null, "logogap", 36);
         final int lw = logo == null ? 0 : logo.getWidth() * ls, lh = logo == null ? 0 : logo.getHeight() * ls;
-        final int total = lh + (logo == null ? 0 : gap) + th, top = (H - total) / 2 + rise;
+        final int ss = (int) num(null, "subscale", 4), sw = textWidth(subtitle) * ss, sh = subtitle.isEmpty() ? 0 : 8 * ss,
+            sgap = subtitle.isEmpty() ? 0 : (int) num(null, "subgap", 30);
+        final int total = lh + (logo == null ? 0 : gap) + th + sgap + sh, top = (H - total) / 2 + rise;
         if (logo != null) g.drawImage(logo, (W - lw) / 2, top, lw, lh, null);
-        text(g, title, (W - tw) / 2, top + total - th, scale,
-            Integer.parseInt(globalSet.getOrDefault("wordcolor", "22D3EE"), 16));
+        final int ty = top + lh + (logo == null ? 0 : gap);
+        text(g, title, (W - tw) / 2, ty, scale, Integer.parseInt(globalSet.getOrDefault("wordcolor", "22D3EE"), 16));
         g.dispose();
+        // The subtitle, its own fade and a small drop into place, drawn after the name's blend.
+        BufferedImage subImg = null;
+        if (sh > 0 && sub > 0.001) {
+            subImg = new BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB);
+            final Graphics2D sg = subImg.createGraphics();
+            final int drop = (int) Math.round((1 - smoother(sub)) * -6);
+            text(sg, subtitle, (W - sw) / 2, ty + th + sgap + drop, ss,
+                Integer.parseInt(globalSet.getOrDefault("subcolor", "E8E9EE"), 16));
+            sg.dispose();
+        }
+        blend(o, img, alpha);
+        if (subImg != null) blend(o, subImg, (float) Math.min(alpha, smooth(0, 1, sub)));
+    }
+
+    static void blend(final float[] o, final BufferedImage img, final float alpha) {
         final int[] px = ((DataBufferInt) img.getRaster()
             .getDataBuffer()).getData();
         for (int q = 0; q < px.length; q++) {
@@ -950,6 +1068,14 @@ public class Trailer {
 
     public static void main(final String[] args) throws Exception {
         parse(new File(args[0]));
+        if (args.length > 1 && args[1].equals("--blips")) {
+            // Only the typed captions' sound, to hear it on its own.
+            out.getAbsoluteFile()
+                .getParentFile()
+                .mkdirs();
+            System.out.println("blips " + blips());
+            return;
+        }
         loadArt();
         for (final Shot s : shots) prepare(s);
         if (stillDir != null) stillDir.mkdirs();
@@ -981,8 +1107,36 @@ public class Trailer {
                 "-i",
                 "-"));
         final String audio = globalSet.get("audio");
+        final File blips = audio == null ? null : blips();
         if (audio != null) cmd.addAll(List.of("-i", audio));
-        cmd.addAll(
+        if (blips != null) cmd.addAll(List.of("-i", blips.getPath()));
+        // The encoder: x264 on the CPU, or (set encoder nvenc) the graphics card's, which leaves the CPU to rendering.
+        if (globalSet.getOrDefault("encoder", "x264")
+            .equals("nvenc")) cmd.addAll(
+                List.of(
+                    "-c:v",
+                    "h264_nvenc",
+                    "-preset",
+                    "p7",
+                    "-tune",
+                    "hq",
+                    "-rc",
+                    "vbr",
+                    "-cq",
+                    globalSet.getOrDefault("cq", "16"),
+                    "-b:v",
+                    "0",
+                    "-maxrate",
+                    "60M",
+                    "-bufsize",
+                    "120M",
+                    "-profile:v",
+                    "high",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-movflags",
+                    "+faststart"));
+        else cmd.addAll(
             List.of(
                 "-c:v",
                 "libx264",
@@ -998,13 +1152,18 @@ public class Trailer {
                 "+faststart"));
         if (audio != null) cmd.addAll(
             List.of(
-                "-af",
+                "-filter_complex",
                 String.format(
                     Locale.ROOT,
-                    "volume=%s,afade=t=out:st=%.3f:d=%.3f",
+                    "[1:a]aresample=48000,volume=%s,afade=t=out:st=%.3f:d=%.3f[m]" + (blips == null ? ";[m]anull[a]"
+                        : ";[2:a]volume=1[b];[m][b]amix=inputs=2:normalize=0:duration=first[a]"),
                     globalSet.getOrDefault("audiogain", "0dB"),
                     DURATION - num(null, "audiofade", 1.6),
                     num(null, "audiofade", 1.6)),
+                "-map",
+                "0:v",
+                "-map",
+                "[a]",
                 "-ar",
                 "48000",
                 "-c:a",
@@ -1019,11 +1178,32 @@ public class Trailer {
             .start();
         final long started = System.nanoTime();
         final int frames = (int) Math.round(DURATION * FPS);
+        // Several frames render at once (each frame's own passes are parallel too, but they wait on decoding the
+        // footage's JPEGs, one at a time), a few ahead, written to the encoder in order.
+        final int lanes = (int) num(null, "lanes", Math.max(2, Runtime.getRuntime()
+            .availableProcessors() / 2));
+        final java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(lanes);
+        final java.util.ArrayDeque<java.util.concurrent.Future<byte[]>> ahead = new java.util.ArrayDeque<>();
+        int next = 0;
         try (OutputStream os = p.getOutputStream()) {
             for (int f = 0; f < frames; f++) {
-                os.write(render(f));
-                if (f % 60 == 0) System.out.printf(Locale.ROOT, "frame %d/%d (%s)%n", f, frames, shotAt(f / FPS).name);
+                while (next < frames && next < f + lanes * 2) {
+                    final int nf = next++;
+                    ahead.add(pool.submit(() -> render(nf)));
+                }
+                os.write(
+                    ahead.poll()
+                        .get());
+                if (f % 60 == 0) System.out.printf(
+                    Locale.ROOT,
+                    "frame %d/%d (%s) %.1f fps%n",
+                    f,
+                    frames,
+                    shotAt(f / FPS).name,
+                    f / Math.max(1e-9, (System.nanoTime() - started) / 1e9));
             }
+        } finally {
+            pool.shutdownNow();
         }
         System.out.printf(
             Locale.ROOT,
