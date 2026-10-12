@@ -1034,8 +1034,10 @@ public final class PlanOverlay {
         final int w = Math.round(r.tw / r.scale), h = TAG_H;
         // In its wire's colours: a backing tinted with it and an edge of it (the highlight's when lit).
         final int wire = 0xFF000000 | r.conn.line.color() & 0xFFFFFF;
-        Hyb.roundRect(-1, -1, w + 2, h + 2, 5, lit ? 0xE0000000 | Hyb.LIT & 0xFFFFFF : wire);
-        Hyb.roundRect(0, 0, w, h, 4, 0xE0000000 | Hyb.mix(0xFF141518, wire, 0.72f) & 0xFFFFFF);
+        // Nearly black for the text, only a hint of the wire in it; the edge says which wire.
+        Hyb.rect(0, 0, w, h, 0xE8000000 | Hyb.mix(0xFF141518, wire, 0.88f) & 0xFFFFFF);
+        // The edge alone, so none of its colour shows through the backing.
+        Hyb.ring(-1, -1, w + 2, h + 2, 1, lit ? 0xE0000000 | Hyb.LIT & 0xFFFFFF : wire);
         final PlanSnapshot.Flow f = r.conn.flow;
         if (f != null) {
             if (f.power()) RecipeCard.euIcon(4, 3, TAG_ICON);
@@ -1048,7 +1050,7 @@ public final class PlanOverlay {
         final int text = 4 + TAG_ICON + 5;
         // No text shadows on the dark backing: each would draw the text twice, every frame.
         Hyb.text(r.rate, text, 3, TAG_RATE, Hyb.INK, false);
-        Hyb.text(r.name, text, 3 + 8 * TAG_RATE + 2, 1f, Hyb.MUTED, false);
+        Hyb.text(r.name, text, 3 + 8 * TAG_RATE + 2, 1f, 0xFFB8BBC4, false);
         GL11.glPopMatrix();
     }
 
