@@ -134,10 +134,21 @@ public final class Minimap {
     }
 
     private void draw(final Minecraft mc, final ScaledResolution sr) {
-        final int size = PlannerSettings.minimapSize();
-        final boolean circle = PlannerSettings.minimapCircle();
         final int[] at = bounds(sr);
-        final int x0 = at[0] + 2, y0 = at[1] + 2;
+        drawAt(at[0] + 2, at[1] + 2, PlannerSettings.minimapSize(), 1);
+    }
+
+    /**
+     * The settings' picture of the map: drawn as it is in play, at (x, y) in the drawing space as it is, {@code size}
+     * across, showing what the map in play shows.
+     */
+    public static void preview(final int x, final int y, final int size) {
+        INSTANCE.drawAt(x, y, size, size / (float) PlannerSettings.minimapSize());
+    }
+
+    /** The map at (x0, y0), {@code size} across, its plan {@code k} times as big as in play (where k is 1). */
+    private void drawAt(final int x0, final int y0, final int size, final float k) {
+        final boolean circle = PlannerSettings.minimapCircle();
         final PlanSnapshot snap = PlanSnapshot.latest();
         GL11.glPushMatrix();
         GL11.glColor4f(1, 1, 1, 1);
@@ -160,12 +171,12 @@ public final class Minimap {
             centreX += (to[0] - centreX) * 0.2f;
             centreY += (to[1] - centreY) * 0.2f;
         }
-        final float z = zoom();
+        final float z = zoom() * k;
         final float ox = x0 + size / 2f - centreX * z, oy = y0 + size / 2f - centreY * z;
-        clipBegin(sr, x0, y0, size, circle);
+        clipBegin(x0, y0, size, circle);
         LABELS.clear();
         drawWires(snap.wires(), ox, oy, z, lit);
-        if (z > WHOLE_FROM) {
+        if (zoom() > WHOLE_FROM) {
             // Close in, as the board: whole cards and drawers.
             for (final PlanSnapshot.Box b : snap.drawers()) whole(
                 ox + b.x() * z,
@@ -181,7 +192,7 @@ public final class Minimap {
             drawDrawers(snap.drawers(), ox, oy, z, snap.rateUnit());
             drawCards(snap.cards(), ox, oy, z, focused);
         }
-        if (z <= WHOLE_FROM && PlannerSettings.zoomedOutNames()) {
+        if (zoom() <= WHOLE_FROM && PlannerSettings.zoomedOutNames()) {
             GL11.glPushMatrix();
             GL11.glTranslatef(ox, oy, 0);
             GL11.glScalef(z, z, 1);
@@ -255,12 +266,13 @@ public final class Minimap {
      * the
      * depth test off as they draw, so with the depth mask the map also leaves out icons centred outside the circle.
      */
-    private static void clipBegin(final ScaledResolution sr, final int x, final int y, final int size,
-        final boolean circle) {
-        final Minecraft mc = Minecraft.getMinecraft();
-        final int f = sr.getScaleFactor();
+    private static void clipBegin(final int x, final int y, final int size, final boolean circle) {
+        // The scissor in the window's pixels, from the drawing space as it is: the HUD's, or the settings' inside the
+        // planner (whose scissor, if any, comes back after).
+        final int[] win = window(x, y, size, size);
+        GL11.glPushAttrib(GL11.GL_SCISSOR_BIT);
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(x * f, mc.displayHeight - (y + size) * f, size * f, size * f);
+        GL11.glScissor(win[0], win[1], win[2], win[3]);
         roundX = x + size / 2f;
         roundY = y + size / 2f;
         roundR = circle ? size / 2f : Float.MAX_VALUE;
@@ -308,6 +320,32 @@ public final class Minimap {
         masked = true;
     }
 
+    private static final java.nio.FloatBuffer MODELVIEW = org.lwjgl.BufferUtils.createFloatBuffer(16),
+        PROJECTION = org.lwjgl.BufferUtils.createFloatBuffer(16), WINDOW = org.lwjgl.BufferUtils.createFloatBuffer(3);
+    private static final java.nio.IntBuffer VIEWPORT = org.lwjgl.BufferUtils.createIntBuffer(16);
+
+    /**
+     * A box of the drawing space as it is now, in the window's pixels {x, y, w, h} (y from the bottom), for the
+     * scissor.
+     */
+    private static int[] window(final float x, final float y, final float w, final float h) {
+        MODELVIEW.clear();
+        PROJECTION.clear();
+        VIEWPORT.clear();
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MODELVIEW);
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, PROJECTION);
+        GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+        final float[] a = project(x, y), b = project(x + w, y + h);
+        final int x0 = Math.round(Math.min(a[0], b[0])), y0 = Math.round(Math.min(a[1], b[1]));
+        return new int[] { x0, y0, Math.round(Math.max(a[0], b[0])) - x0, Math.round(Math.max(a[1], b[1])) - y0 };
+    }
+
+    private static float[] project(final float x, final float y) {
+        WINDOW.clear();
+        org.lwjgl.util.glu.GLU.gluProject(x, y, 0, MODELVIEW, PROJECTION, VIEWPORT, WINDOW);
+        return new float[] { WINDOW.get(0), WINDOW.get(1) };
+    }
+
     /** The round map's centre and radius (no radius for a square), and whether it clips with the stencil. */
     private static float roundX, roundY, roundR;
     private static boolean stencil;
@@ -328,7 +366,7 @@ public final class Minimap {
     }
 
     private static void clipEnd(final boolean circle) {
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        GL11.glPopAttrib();
         if (stencil) GL11.glDisable(GL11.GL_STENCIL_TEST);
         if (masked) {
             GL11.glDepthMask(true);

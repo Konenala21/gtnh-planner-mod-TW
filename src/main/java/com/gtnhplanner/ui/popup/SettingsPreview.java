@@ -297,84 +297,24 @@ final class SettingsPreview {
 
     // region The minimap
 
-    /** The minimap as set, as large as the box holds, over a muted view so its see-through shows. */
+    /**
+     * The minimap as set, as large as the box holds, drawn by the minimap itself, over the view so its see-through
+     * shows.
+     */
     static void minimap(final int x, final int y, final int w, final int h) {
         backdrop(x, y, w, h);
         if (PlannerSettings.minimap()) {
-            final int size = Math.min(w, h) - 24, mx = x + (w - size) / 2, my = y + (h - size) / 2;
-            final boolean circle = PlannerSettings.minimapCircle();
+            final int size = Math.min(w, h) - 36;
             Hyb.fadeOut = PlannerSettings.minimapSeeThrough() / 100f;
             Hyb.keepItems = true;
             try {
-                Minimap.frame(mx, my, size, circle);
-                final PlanSnapshot snap = PlanSnapshot.latest();
-                if (snap != null) plan(snap, mx, my, size, circle, size / (float) PlannerSettings.minimapSize());
+                Minimap.preview(x + (w - size) / 2, y + (h - size) / 2 - 6, size);
             } finally {
                 Hyb.fadeOut = 0;
                 Hyb.keepItems = false;
             }
         }
         frame(x, y, w, h);
-    }
-
-    /** The plan in the map: its wires and cards at the map's zoom, centred on the plan, only what falls inside. */
-    private static void plan(final PlanSnapshot snap, final int mx, final int my, final int size, final boolean circle,
-        final float k) {
-        float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE;
-        for (final PlanSnapshot.Card c : snap.cards()) {
-            x0 = Math.min(x0, c.x());
-            y0 = Math.min(y0, c.y());
-            x1 = Math.max(x1, c.x() + c.w());
-            y1 = Math.max(y1, c.y() + c.h());
-        }
-        if (x0 > x1) return;
-        final float z = PlannerSettings.MINIMAP_ZOOMS[PlannerSettings.minimapZoomIndex()] * k;
-        final float cx = mx + size / 2f, cy = my + size / 2f, ox = cx - (x0 + x1) / 2 * z, oy = cy - (y0 + y1) / 2 * z;
-        for (final PlanSnapshot.Line l : snap.wires()) {
-            final int colour = 0xFF000000 | l.color() & 0xFFFFFF;
-            for (int i = 1; i < l.path()
-                .size(); i++) {
-                final int[] a = l.path()
-                    .get(i - 1),
-                    b = l.path()
-                        .get(i);
-                final float ax = ox + a[0] * z, ay = oy + a[1] * z, bx = ox + b[0] * z, by = oy + b[1] * z;
-                if (!inside(ax, ay, mx, my, size, circle) || !inside(bx, by, mx, my, size, circle)) continue;
-                Hyb.rect(
-                    Math.min(ax, bx),
-                    Math.min(ay, by),
-                    Math.max(1, Math.abs(bx - ax)),
-                    Math.max(1, Math.abs(by - ay)),
-                    colour);
-            }
-        }
-        for (final PlanSnapshot.Card c : snap.cards()) {
-            final float cl = ox + c.x() * z, ct = oy + c.y() * z, cw = c.w() * z, ch = c.h() * z;
-            final boolean whole = inside(cl, ct, mx, my, size, circle) && inside(cl + cw, ct + ch, mx, my, size, circle)
-                && inside(cl + cw, ct, mx, my, size, circle)
-                && inside(cl, ct + ch, mx, my, size, circle);
-            // A card part in the map shows its part (a square map's edge cuts it); a round map shows whole ones.
-            if (!whole && (circle || !inside(cl + cw / 2, ct + ch / 2, mx, my, size, false))) continue;
-            final float l = Math.max(mx, cl), t = Math.max(my, ct), w = Math.min(mx + size, cl + cw) - l,
-                h = Math.min(my + size, ct + ch) - t;
-            if (w <= 1 || h <= 1) continue;
-            Hyb.rect(l, t, w, h, 0xFF3C3E45);
-            Hyb.rect(l + 0.5f, t + 0.5f, w - 1, h - 1, 0xFF26282C);
-            final float icon = Math.min(cw, ch) * 0.6f;
-            if (whole && icon >= 6 && c.machine() != null) {
-                Hyb.item(c.machine(), cl + (cw - icon) / 2, ct + (ch - icon) / 2, icon, 0);
-                GL11.glDisable(GL11.GL_LIGHTING);
-                GL11.glDisable(GL11.GL_DEPTH_TEST);
-            }
-        }
-    }
-
-    private static boolean inside(final float px, final float py, final int mx, final int my, final int size,
-        final boolean circle) {
-        if (px < mx || py < my || px > mx + size || py > my + size) return false;
-        if (!circle) return true;
-        final float r = size / 2f, dx = px - (mx + r), dy = py - (my + r);
-        return dx * dx + dy * dy <= r * r;
     }
 
     // endregion
