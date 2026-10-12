@@ -70,7 +70,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   rate. The overview counts it as the plan's edge (what it supplies is an input), never a machine. It posts and imports
   as the website's own custom rate card.
 - The fluid tank (`power/FluidTank`, source `fluid-tank`; the website's Tank, its free mirror of every fluid Canner
-  recipe) empties a filled cell into its fluid and the empty cell, or fills cells, free and instant, at the litres
+  recipe; drawn as EnderIO's Fluid Tank, on the card and as its ghost in the world) empties a filled cell into its
+  fluid and the empty cell, or fills cells, free and instant, at the litres
   Forge's fluid container registry gives (never a guessed 1000). What it is given decides: a cell given or a fluid asked
   of it empties cells, a fluid given or a cell asked of it fills them. One craft a second, unpinned: its count is cells
   a second, and the overview lists no machine for it. It posts as the website's Tank (map `planner.tank`, a tick a

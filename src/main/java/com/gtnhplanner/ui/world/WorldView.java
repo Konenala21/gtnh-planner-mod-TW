@@ -197,7 +197,11 @@ public final class WorldView {
         final PlanSnapshot snap = PlanSnapshot.latest();
         final PlanSnapshot.Card card = snap == null ? null : snap.cardOf(node.id);
         if (card != null && card.name() != null) return card.name();
-        if (node.isPower()) return node.powerSource;
+        if (node.isPower()) {
+            // Its source's name ("Fluid Tank"), never its id.
+            final com.gtnhplanner.power.PowerSource source = com.gtnhplanner.power.PowerRegistry.get(node.powerSource);
+            return source != null ? source.name() : node.powerSource;
+        }
         // A card of a plan not open since: its machine is saved as an item key.
         if (node.machineName != null && node.machineName.startsWith("item:")) {
             final net.minecraft.item.ItemStack machine = com.gtnhplanner.ui.Resources.item(node.machineName);

@@ -2152,7 +2152,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     private String placeName() {
-        return model.isPower() ? model.node.powerSource : model.machineName;
+        return model.machineName;
     }
 
     /** A crop's harvester: the crops planted (the card's count), the machines they fill, the harvest and the draw. */

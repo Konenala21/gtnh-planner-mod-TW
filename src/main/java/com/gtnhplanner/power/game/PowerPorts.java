@@ -126,8 +126,13 @@ public final class PowerPorts {
     /** The machine item a source is drawn as, or null. */
     @Nullable
     public static ItemStack machineStack(final String sourceId) {
-        // The fluid tank is drawn as what it handles: an empty cell.
-        if (com.gtnhplanner.power.FluidTank.ID.equals(sourceId)) return item("IC2:itemCellEmpty");
+        // The fluid tank is EnderIO's Fluid Tank, the block (its picture, and its ghost when placed in the world); a
+        // pack
+        // without EnderIO draws an empty cell.
+        if (com.gtnhplanner.power.FluidTank.ID.equals(sourceId)) {
+            final ItemStack tank = item("EnderIO:blockTank");
+            return tank != null ? tank : item("IC2:itemCellEmpty");
+        }
         final PowerResources.Ref ref = PowerResources.machineIcon(sourceId);
         return ref == null ? null : item(ref.id);
     }
