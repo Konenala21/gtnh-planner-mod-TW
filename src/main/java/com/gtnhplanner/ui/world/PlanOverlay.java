@@ -72,6 +72,8 @@ public final class PlanOverlay {
         double distance;
         /** How much its card is looked at, 0 to 1 (eased): it grows and comes up solid as it is. */
         float a;
+        /** Whether it fills much of the screen (close up): its card goes by the crosshair, over it, not around it. */
+        boolean big;
         /** What its box covers on the screen {x0, y0, x1, y1}, or null when none of it is in front of the camera. */
         @Nullable
         float[] rect;
@@ -360,7 +362,13 @@ public final class PlanOverlay {
         final List<Placed> all = placed(mc);
         final float cx = sr.getScaledWidth() / 2f, cy = sr.getScaledHeight() / 2f;
         // Where each machine is on the screen, and how much its card is looked at.
-        for (final Placed p : all) p.rect = screenBox(p.box, sr, mc);
+        final float screenArea = sr.getScaledWidth() * sr.getScaledHeight();
+        for (final Placed p : all) {
+            p.rect = screenBox(p.box, sr, mc);
+            final float[] v = onScreen(p.rect, sr);
+            p.big = v != null
+                && ((v[2] - v[0]) * (v[3] - v[1]) > 0.22f * screenArea || v[3] - v[1] > 0.5f * sr.getScaledHeight());
+        }
         final Map<UUID, Float> seen = attention(all);
         for (final Placed p : all) p.a = seen.getOrDefault(p.card.id(), 0f);
         // A card stands over one of its machines, the one the crosshair meets, else its first (the one in hand while
@@ -392,7 +400,7 @@ public final class PlanOverlay {
         final List<float[]> taken = new ArrayList<>(labelBoxes);
         for (final Placed p : shown) taken.add(new float[] { p.left, p.top, p.left + p.w, p.top + p.h });
         // The machine looked at, and the one being placed, stay in view.
-        for (final Placed p : all) if (p.rect != null && (p.preview || p.a > 0.5f)) taken.add(p.rect);
+        for (final Placed p : all) if (p.rect != null && !p.big && (p.preview || p.a > 0.5f)) taken.add(p.rect);
         for (final int[] b : new int[][] { Minimap.bounds(sr), PinList.bounds(), PlacementKeys.stripBounds(),
             LinkPicker.titleBounds() }) if (b != null) taken.add(new float[] { b[0], b[1], b[0] + b[2], b[1] + b[3] });
         placeTags(runs, taken, sr, mc);
@@ -490,13 +498,14 @@ public final class PlanOverlay {
     @Nullable
     private MachineLabel.Placement label(final Placed p, final ScaledResolution sr, final Minecraft mc,
         final List<float[]> taken) {
-        final float[] r = p.rect, at = screen(p.home, sr, mc);
-        if (r == null || at == null) return null;
+        // The part of it on the screen: a machine close up is labelled where it can be seen.
+        final float[] r = onScreen(p.rect, sr);
+        if (r == null) return null;
         return MachineLabel.place(
             p.card,
             p.nth,
-            at[0],
-            at[1],
+            (r[0] + r[2]) / 2,
+            (r[1] + r[3]) / 2,
             (r[2] - r[0]) * 0.8f,
             (r[3] - r[1]) * 0.7f,
             1f / sr.getScaleFactor(),
@@ -601,9 +610,9 @@ public final class PlanOverlay {
          * Where along the wire its tag can go: the wire's ends in the world, the share of it shown, and its lane's
          * step.
          */
-        double[] from, to, span;
-        double at;
-        float ox, oy;
+        /** The part of its line on the screen where its tag can sit {x0, y0, x1, y1}, or null when none is. */
+        @Nullable
+        float[] vis;
         /**
          * Its tag's spot on its wire on the screen, the wire's way across the screen, and whether the tag is off it.
          */
@@ -652,6 +661,7 @@ public final class PlanOverlay {
             final int labels = PlannerSettings.arWireLabels();
             r.tag = labels == PlannerSettings.WIRE_LABELS_ALWAYS
                 || labels == PlannerSettings.WIRE_LABELS_LOOKED && (shown(r, seen) > TAG_FROM || r.conn.same(hovered));
+            if (r.vis == null) r.tag = false;
             out.add(r);
         }
         return out;
@@ -742,12 +752,13 @@ public final class PlanOverlay {
     /** Places along a tag's wire, its shown part end to end, as offsets from its spot, nearest first. */
     private List<float[]> alongWire(final Run r, final ScaledResolution sr, final Minecraft mc) {
         final List<float[]> out = new ArrayList<>();
-        final double len = r.span[1] - r.span[0];
-        final int steps = 14;
+        if (r.vis == null) return out;
+        final int steps = 16;
         for (int i = 0; i <= steps; i++) {
-            final double t = r.span[0] + len * (0.06 + 0.88 * i / steps);
-            final float[] at = screen(along(r.from, r.to, t), sr, mc);
-            if (at != null) out.add(new float[] { at[0] + r.ox - r.anchorX, at[1] + r.oy - r.anchorY, 0 });
+            final float f = 0.03f + 0.94f * i / steps;
+            out.add(
+                new float[] { r.vis[0] + (r.vis[2] - r.vis[0]) * f - r.anchorX,
+                    r.vis[1] + (r.vis[3] - r.vis[1]) * f - r.anchorY, 0 });
         }
         out.sort(Comparator.comparingDouble(c -> Math.hypot(c[0], c[1])));
         return out;
@@ -834,14 +845,22 @@ public final class PlanOverlay {
             rate);
         r.tw = (TAG_ICON + 9 + Math.max(Hyb.width(r.name), Hyb.width(rate) * TAG_RATE) + 5) * scale;
         r.th = TAG_H * scale;
-        // On its own line, so it is plain which wire it names: wires sharing a pair of cards have theirs staggered
-        // along
-        // them, a fifth of the run apart, so they never sit side by side.
-        final double t = Math.max(
-            span[0] + 0.15 * (span[1] - span[0]),
-            Math.min(span[1] - 0.15 * (span[1] - span[0]), (span[0] + span[1]) / 2 + lane * 0.2 * (span[1] - span[0])));
-        final float[] on = screen(along(from, to, t), sr, mc);
-        final float cx = (on != null ? on[0] : mid[0]) + ox, cy = (on != null ? on[1] : mid[1]) + oy;
+        // On its own line, on the part of it on the screen (its own half size in from the edges), so it is plain which
+        // wire it names and it stays where the wire can be seen; wires sharing a pair of cards have theirs staggered
+        // along them, a fifth of it apart.
+        final float hw = r.tw / 2 + 2, hh = r.th / 2 + 2;
+        r.vis = clip(
+            sa[0] + ox,
+            sa[1] + oy,
+            sb[0] + ox,
+            sb[1] + oy,
+            hw,
+            hh,
+            sr.getScaledWidth() - hw,
+            sr.getScaledHeight() - hh);
+        final float share = Math.max(0.12f, Math.min(0.88f, 0.5f + lane * 0.2f));
+        final float cx = r.vis == null ? mid[0] + ox : r.vis[0] + (r.vis[2] - r.vis[0]) * share,
+            cy = r.vis == null ? mid[1] + oy : r.vis[1] + (r.vis[3] - r.vis[1]) * share;
         r.tx = cx - r.tw / 2;
         r.ty = cy - r.th / 2;
         r.anchorX = cx;
@@ -851,13 +870,40 @@ public final class PlanOverlay {
             r.ux = (sb[0] - sa[0]) / sl;
             r.uy = (sb[1] - sa[1]) / sl;
         }
-        r.from = from;
-        r.to = to;
-        r.span = span;
-        r.at = t;
-        r.ox = ox;
-        r.oy = oy;
         return r;
+    }
+
+    /** A segment cut to a box (Liang-Barsky): its part inside {x0, y0, x1, y1}, or null when none is. */
+    @Nullable
+    private static float[] clip(final float x0, final float y0, final float x1, final float y1, final float minX,
+        final float minY, final float maxX, final float maxY) {
+        float t0 = 0, t1 = 1;
+        final float dx = x1 - x0, dy = y1 - y0;
+        final float[] p = { -dx, dx, -dy, dy }, q = { x0 - minX, maxX - x0, y0 - minY, maxY - y0 };
+        for (int i = 0; i < 4; i++) {
+            if (p[i] == 0) {
+                if (q[i] < 0) return null;
+                continue;
+            }
+            final float t = q[i] / p[i];
+            if (p[i] < 0) {
+                if (t > t1) return null;
+                t0 = Math.max(t0, t);
+            } else {
+                if (t < t0) return null;
+                t1 = Math.min(t1, t);
+            }
+        }
+        return new float[] { x0 + dx * t0, y0 + dy * t0, x0 + dx * t1, y0 + dy * t1 };
+    }
+
+    /** The part of a box {x0, y0, x1, y1} on the screen, or null when none is. */
+    @Nullable
+    private static float[] onScreen(@Nullable final float[] r, final ScaledResolution sr) {
+        if (r == null) return null;
+        final float x0 = Math.max(0, r[0]), y0 = Math.max(0, r[1]), x1 = Math.min(sr.getScaledWidth(), r[2]),
+            y1 = Math.min(sr.getScaledHeight(), r[3]);
+        return x1 > x0 && y1 > y0 ? new float[] { x0, y0, x1, y1 } : null;
     }
 
     private static double[] along(final double[] a, final double[] b, final double t) {
@@ -968,9 +1014,9 @@ public final class PlanOverlay {
         if (title != null) taken.add(new float[] { title[0], title[1], title[2], title[3] });
         // No card covers the machine being placed or the one looked at (each card keeps off its own anyway).
         final List<Placed> keep = new ArrayList<>();
-        for (final Placed p : all) if (p.rect != null && (p.preview || p.a > 0.5f)) keep.add(p);
+        for (final Placed p : all) if (p.rect != null && !p.big && (p.preview || p.a > 0.5f)) keep.add(p);
         for (final Placed p : shown) {
-            final float[] own = around(p.rect);
+            final float[] own = p.big ? new float[] { -1e6f, -1e6f, 0, 0 } : around(p.rect);
             final List<float[]> others = new ArrayList<>(taken);
             for (final Placed k : keep) if (k != p) others.add(around(k.rect));
             final float[] o = offsets.computeIfAbsent(p.card.id(), id -> new float[4]);
@@ -1179,6 +1225,13 @@ public final class PlanOverlay {
         p.scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / Math.max(0.5, p.distance))) * sized(p.a);
         p.w = com.gtnhplanner.ui.card.CleanCardView.width() * p.scale;
         p.h = com.gtnhplanner.ui.card.CleanCardView.height(p.card) * p.scale;
+        if (p.big) {
+            // Close up, the machine fills the view: the card stands by the crosshair, up and to the right, over it.
+            final float cx = sr.getScaledWidth() / 2f, cy = sr.getScaledHeight() / 2f;
+            p.sx = p.bx = cx + 16 + p.w / 2;
+            p.sy = p.by = cy - 16 - p.h / 2;
+            return p.scale > 0.02f;
+        }
         p.sx = Math.max(r[0], Math.min(r[2], p.bx));
         p.sy = r[1] - GHOST_GAP - p.h / 2;
         return p.scale > 0.02f;

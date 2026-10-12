@@ -147,6 +147,10 @@ Nothing shows until a card of the plan last open is placed.
   placed on several spots stands over the one the crosshair meets, else its first; its wires run from the first; the
   others show the ghost alone. A card is drawn at its size within ten blocks of you and shrinks with distance beyond
   (always the whole card).
+- Everything follows what is on the screen: a wire's tag sits on the part of its line on the screen (none for a wire
+  wholly off it), a machine's label in the middle of the part of it on the screen, and a machine close up (filling a
+  fifth of the screen, or half its height) has its card by the crosshair, up and to the right, over the machine,
+  rather than pushed off around it.
 - Cards move out of each other's way as map labels do (`PlanOverlay.layout`): the one looked at first, then nearest
   first, each stays at home (just above its machine) while that is clear, else takes the clear place nearest it (aside,
   up, or down past its machine, which costs most), with a line from its nearest edge to its machine, ending in a small
