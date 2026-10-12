@@ -44,7 +44,7 @@ public final class PlannerKeys {
      * key: each tick a key one of them shares with another binding is handed back to that one, so setting these never
      * takes a key from anything else.
      */
-    static final KeyBinding ROTATE = new KeyBinding("key.gtnhplanner.rotate", Keyboard.KEY_R, CATEGORY);
+    public static final KeyBinding ROTATE = new KeyBinding("key.gtnhplanner.rotate", Keyboard.KEY_R, CATEGORY);
     static final KeyBinding PICK_UP = new KeyBinding("key.gtnhplanner.pickUp", Keyboard.KEY_G, CATEGORY);
     static final KeyBinding REMOVE = new KeyBinding("key.gtnhplanner.remove", Keyboard.KEY_DELETE, CATEGORY);
     public static final KeyBinding FOCUS = new KeyBinding("key.gtnhplanner.focus", Keyboard.KEY_U, CATEGORY);

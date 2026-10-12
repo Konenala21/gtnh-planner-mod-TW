@@ -10,6 +10,7 @@
 
 - Dragging a wire lights up every card and port that can take it. Wire arrows are fewer, bigger and lighter, on the board and in the world.
 - The plan over the world is calmer: a machine's card only pops up above it when you look at it (Shift + U), and each machine gets a small label with its name, tier, power and count (Shift + I). Wires say what they carry, always or only for the machine you look at. The gear explains every option, with its key. Machines can show as see-through, solid or not at all, and the keys list in the corner can be hidden (all in the gear).
+- The settings show a live picture of what the world and minimap options do.
 - Every world key (turn, pick up, remove, Focus, Labels) can be changed in Controls, and the minimap can be made see-through. It also shows whole cards one zoom step sooner.
 - Rates you set on a card's port show up in the overview, and "~ Set" puts a rate on anything nothing sets yet.
 - "(set count)" only nags on the part of the plan that actually needs a number.

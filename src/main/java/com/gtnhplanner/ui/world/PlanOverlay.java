@@ -451,89 +451,23 @@ public final class PlanOverlay {
 
     // region Labels in the ghosts
 
-    /** A label's padding, unscaled, and its largest scale. */
-    private static final int LABEL_PAD = 4;
-
-    private static final float LABEL_MAX = 0.75f;
-
-    /** Power a generator makes, on its label. */
-    private static final int MADE = 0xFF8FD694;
-
     /**
-     * A machine's label in the middle of its ghost on the screen, on a soft dark backing: its name (over two lines when
-     * long), then its tier, the power it draws (or makes) and how many machines its card has ("2/4": which of them this
-     * is). It always fits in the
-     * ghost: as the ghost gets small on the screen the name goes first, then the power, then the count, and with not
-     * even its tier fitting at a letter pixel a screen pixel (the smallest that reads), there is no label. It keeps
-     * clear
-     * of the nearer machines' labels ({@code taken}) the same way: less of it, or none.
+     * A machine's label in the middle of its ghost on the screen ({@link MachineLabel}): as much as fits inside the
+     * ghost's face, at no less than a letter pixel a screen pixel (the smallest that reads), clear of the nearer
+     * machines' labels ({@code taken}).
      */
     private void label(final Placed p, final ScaledResolution sr, final Minecraft mc, final List<float[]> taken) {
         final float[] r = p.rect, at = screen(p.home, sr, mc);
         if (r == null || at == null) return;
-        final PlanSnapshot.Card c = p.card;
-        // One of several: which, "2/4"; a card of one machine, how many, "×1".
-        final int of = (int) Math.ceil(c.machines() - 1e-9);
-        final String count = of > 1 && p.nth > 0 ? p.nth + "/" + of
-            : "×" + com.gtnhplanner.ui.theme.Fmt.machines(c.machines());
-        final boolean makes = c.madeEuPerTick() > 0;
-        final double eu = makes ? c.madeEuPerTick() : c.euPerTick();
-        final String power = eu > 0 ? (makes ? "+" : "") + com.gtnhplanner.ui.theme.Fmt.power(eu) + " EU/t" : "";
-        final String amps = c.amps() > 1 ? c.amps() + "A" : null;
-        final int tierW = c.tier()
-            .isEmpty() ? 0 : Hyb.tierTagWidth(c.tier(), amps);
-        final int countW = Hyb.width(count);
-        final int full = tierW + (tierW > 0 && !power.isEmpty() ? 4 : 0) + Hyb.width(power) + 6 + countW;
-        final List<String> name = wrap(c.name(), Math.max(full, 70));
-        int nameW = 0;
-        for (final String s : name) nameW = Math.max(nameW, Hyb.width(s));
-        // Most first, each {width, height, name lines, power shown, count shown}.
-        final int[][] levels = { { Math.max(nameW, full), 4 + name.size() * 10 + 15, name.size(), 1, 1 },
-            { full, 17, 0, 1, 1 }, { tierW + (tierW > 0 ? 6 : 0) + countW, 17, 0, 0, 1 },
-            { tierW > 0 ? tierW : countW, 17, 0, 0, tierW > 0 ? 0 : 1 } };
-        // Inside the ghost's face, clear of its neighbours' labels.
-        final float roomW = (r[2] - r[0]) * 0.8f, roomH = (r[3] - r[1]) * 0.7f, least = 1f / sr.getScaleFactor();
-        for (final int[] l : levels) {
-            final int w = l[0] + 2 * LABEL_PAD, h = l[1];
-            final float scale = Math.min(Math.min(roomW / w, roomH / h), LABEL_MAX);
-            if (scale < least) continue;
-            // Clear of the nearer machines' labels, else less of it, else none.
-            final float x0 = at[0] - w * scale / 2, y0 = at[1] - h * scale / 2, x1 = x0 + w * scale,
-                y1 = y0 + h * scale;
-            boolean clear = true;
-            for (final float[] t : taken)
-                if (x0 < t[2] + 1 && t[0] < x1 + 1 && y0 < t[3] + 1 && t[1] < y1 + 1) clear = false;
-            if (!clear) continue;
-            taken.add(new float[] { x0, y0, x1, y1 });
-            GL11.glPushMatrix();
-            GL11.glTranslatef(x0, y0, 0);
-            GL11.glScalef(scale, scale, 1);
-            Hyb.roundRect(0, 0, w, h, 3, 0xA8141518);
-            for (int i = 0; i < l[2]; i++) Hyb.text(name.get(i), LABEL_PAD, 3 + 10 * i, Hyb.INK);
-            final float y = h - 13;
-            float x = LABEL_PAD;
-            if (tierW > 0) {
-                Hyb.tierTag(c.tier(), amps, x, y);
-                x += tierW + 4;
-            }
-            if (l[3] == 1 && !power.isEmpty()) Hyb.text(power, x, y, makes ? MADE : Hyb.MUTED);
-            if (l[4] == 1) Hyb.textRight(count, w - LABEL_PAD, y, Hyb.INK);
-            GL11.glPopMatrix();
-            return;
-        }
-    }
-
-    /** A name on one line, or two split at a space when it is wider than {@code room}, each cut to fit. */
-    private static List<String> wrap(final String s, final int room) {
-        if (Hyb.width(s) <= room) return List.of(s);
-        final String[] words = s.split(" ");
-        String first = words[0];
-        int i = 1;
-        while (i < words.length && Hyb.width(first + " " + words[i]) <= room) first += " " + words[i++];
-        if (i >= words.length) return List.of(Hyb.fit(first, room));
-        return List.of(
-            Hyb.fit(first, room),
-            Hyb.fit(String.join(" ", java.util.Arrays.copyOfRange(words, i, words.length)), room));
+        MachineLabel.draw(
+            p.card,
+            p.nth,
+            at[0],
+            at[1],
+            (r[2] - r[0]) * 0.8f,
+            (r[3] - r[1]) * 0.7f,
+            1f / sr.getScaleFactor(),
+            taken);
     }
 
     // endregion

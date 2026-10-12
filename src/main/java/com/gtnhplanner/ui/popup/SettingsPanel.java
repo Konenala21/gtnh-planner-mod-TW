@@ -116,25 +116,26 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             most = Math.max(most, tall);
         }
         h = TITLE + PAD + most + PAD;
-        size(W, h);
+        size(width(), h);
     }
 
     /** Opens the settings in the middle of the screen. */
     public static void open(final ModularPanel parent) {
         final SettingsPanel settings = new SettingsPanel(sections());
         final int H = settings.h;
-        final Popup popup = new Popup(PANEL, W, H) {
+        final int wide = settings.width();
+        final Popup popup = new Popup(PANEL, wide, H) {
 
             @Override
             public void drawBackground(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
                 // The board behind dims a little; the box in the card's colours, with the card's shadow.
                 Hyb.rect(-getArea().x, -getArea().y, PlannerScale.width(), PlannerScale.height(), 0x60000000);
-                Hyb.dropShadow(0, 0, W, H);
-                CardPaint.surface(W, H);
+                Hyb.dropShadow(0, 0, getArea().width, getArea().height);
+                CardPaint.surface(getArea().width, getArea().height);
             }
         };
         popup.child(settings.pos(0, 0));
-        Popup.open(parent, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 2);
+        Popup.open(parent, popup, (PlannerScale.width() - wide) / 2, (PlannerScale.height() - H) / 2);
     }
 
     // region The settings
@@ -181,7 +182,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             .getOpenPanels()) {
             if (p.getName() == null || !p.getName()
                 .startsWith(PANEL + "_")) continue;
-            p.pos((PlannerScale.width() - W) / 2, (PlannerScale.height() - p.getArea().height) / 2);
+            p.pos((PlannerScale.width() - p.getArea().width) / 2, (PlannerScale.height() - p.getArea().height) / 2);
             p.scheduleResize();
         }
     }
@@ -411,8 +412,34 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         return new int[] { 1, TITLE + PAD + i * SIDE_ROW, SIDE - 1, SIDE_ROW };
     }
 
-    private static int[] closeRect() {
-        return new int[] { W - 4 - CLOSE, (TITLE - CLOSE) / 2, CLOSE, CLOSE };
+    private int[] closeRect() {
+        return new int[] { width() - 4 - CLOSE, (TITLE - CLOSE) / 2, CLOSE, CLOSE };
+    }
+
+    /** The room the pictures of what a section changes take, right of its settings. */
+    private static final int PREVIEW_W = 260;
+
+    /** Whether the showing section has a picture of what it changes, and the board has room for it. */
+    private boolean previewing() {
+        final String name = section().name();
+        return (name.equals("In the world") || name.equals("Minimap")) && PlannerScale.width() >= W + PREVIEW_W + 8;
+    }
+
+    /** The box's width: its settings, and a picture beside them when the section has one. */
+    private int width() {
+        return W + (previewing() ? PREVIEW_W : 0);
+    }
+
+    /** After the section changes: the box as wide as it now needs, in the middle of the board again. */
+    private void relayout() {
+        final int w = width();
+        if (getArea().width == w) return;
+        size(w, h);
+        final ModularPanel p = getPanel();
+        if (p == null) return;
+        p.size(w, h);
+        p.pos((PlannerScale.width() - w) / 2, (PlannerScale.height() - h) / 2);
+        p.scheduleResize();
     }
 
     /** The control's box in a row at {@code y}. */
@@ -542,7 +569,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);
         cross(close[0] + close[2] / 2f, close[1] + close[3] / 2f, closeHot ? Hyb.INK : Hyb.MUTED);
-        Hyb.rect(1, TITLE, W - 2, 1, CardPaint.HAIR);
+        Hyb.rect(1, TITLE, width() - 2, 1, CardPaint.HAIR);
 
         // The sections, the one showing marked in gold.
         Hyb.rect(1, TITLE + 1, SIDE - 1, h - TITLE - 2, SIDE_FILL);
@@ -585,6 +612,14 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             if (row.hint() != null && hintX + Hyb.width(row.hint()) + 6 <= controlRect(row, y)[0])
                 Hyb.text(row.hint(), hintX, y + (ROW - 8) / 2f + 1, Hyb.MUTED);
             drawControl(row, y, rowHot, mx, my);
+        }
+        // The picture of what the section changes, beside its settings.
+        if (previewing()) {
+            Hyb.rect(W, TITLE + 1, 1, h - TITLE - 2, CardPaint.HAIR);
+            final int px = W + 8, py = TITLE + PAD + 2, pw = PREVIEW_W - 16, ph = h - TITLE - 2 * PAD - 4;
+            if (section().name()
+                .equals("Minimap")) SettingsPreview.minimap(px, py, pw, ph);
+            else SettingsPreview.world(px, py, pw, ph);
         }
     }
 
@@ -674,6 +709,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < sections.size(); i++) if (in(sideRect(i), mx, my)) {
             if (i != shown) {
                 shown = i;
+                relayout();
                 Hyb.click();
             }
             return Result.SUCCESS;
@@ -741,6 +777,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             final int next = Math.max(0, Math.min(sections.size() - 1, shown - step));
             if (next != shown) {
                 shown = next;
+                relayout();
                 Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
             }
             return true;

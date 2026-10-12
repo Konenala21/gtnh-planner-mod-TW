@@ -215,7 +215,7 @@ public final class Minimap {
     /** Its frame's edge and the dark line inside it, as see-through. */
     private static final int EDGE = 0xB03C3E45, INSIDE = 0xB01D1F23;
 
-    private static void frame(final int x, final int y, final int size, final boolean circle) {
+    public static void frame(final int x, final int y, final int size, final boolean circle) {
         Hyb.beginBatch();
         if (!circle) {
             // Rings and fill side by side, never over each other, so the see-through parts stay even.
