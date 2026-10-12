@@ -165,8 +165,10 @@ Nothing shows until a card of the plan last open is placed.
   third of a block at each; they stop growing early as you come close), faint where nothing flows yet. Several wires between
   the same two cards run side by side in lanes (a line, its edges and a clear gap apart), so the two directions of a pair part. At its middle a tag says what
   goes along it: the icon, the rate in large type and the name small under it, on a plain soft dark backing, as big as
-  the cards' ports there; on the line when the wire runs alone, beside its own lane, on the side away from the other
-  wires, when two cards share several.
+  the cards' ports there; on its own wire, in its colours (a backing tinted with it, an edge of it), so it is plain
+  which wire it names; wires sharing two cards have theirs staggered along them, and a tag that would overlap a
+  nearer one slides along its wire until it is clear (`PlanOverlay.unstackTags`). Arrowheads are 70% white over the
+  wire's colour.
 - The wire the crosshair is on (its tag, or its line within 24 GUI pixels, when no card is under the crosshair) is
   highlighted, and the minimap
   highlights the same wire and (with "Centre on the machine you look at") glides to it.
