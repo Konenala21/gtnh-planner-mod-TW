@@ -391,6 +391,8 @@ public final class PlanOverlay {
         // The wire tags last, clear of the labels, the cards and the panels in the corners.
         final List<float[]> taken = new ArrayList<>(labelBoxes);
         for (final Placed p : shown) taken.add(new float[] { p.left, p.top, p.left + p.w, p.top + p.h });
+        // The machine looked at, and the one being placed, stay in view.
+        for (final Placed p : all) if (p.rect != null && (p.preview || p.a > 0.5f)) taken.add(p.rect);
         for (final int[] b : new int[][] { Minimap.bounds(sr), PinList.bounds(), PlacementKeys.stripBounds(),
             LinkPicker.titleBounds() }) if (b != null) taken.add(new float[] { b[0], b[1], b[0] + b[2], b[1] + b[3] });
         placeTags(runs, taken, sr, mc);
@@ -665,9 +667,10 @@ public final class PlanOverlay {
 
     /**
      * Places the wire tags, nearest wires first, clear of everything already on the screen ({@code taken}, {x0, y0, x1,
-     * y1}: the machines' labels, the card, the minimap) and of each other: on their wire where that is clear, else a
-     * step or two along it, else off to one side with a line back to it; back on their spot as soon as that is clear.
-     * A tag keeps a clear place it has rather than hopping between equal ones, and glides to a new one.
+     * y1}: the machines' labels, the card, the machine looked at, the minimap) and of each other. A tag stays on its
+     * wire wherever along it there is room, the nearest such place to its spot first; only with no room anywhere on its
+     * wire does it step just off it, a line back to it; with no clear place at all, the least covered. It keeps a clear
+     * place it has rather than hopping, goes home as soon as home is clear, and glides between places.
      */
     private void placeTags(final List<Run> runs, final List<float[]> taken, final ScaledResolution sr,
         final Minecraft mc) {
@@ -680,30 +683,17 @@ public final class PlanOverlay {
         order.sort(Comparator.comparingDouble((Run r) -> -r.scale));
         final List<float[]> boxes = new ArrayList<>(taken);
         for (final Run r : order) {
-            final float[] spot = tagSpots.computeIfAbsent(tagKey(r), k -> new float[4]);
-            float[] go = null;
-            if (clearAt(r, 0, 0, boxes)) go = new float[] { 0, 0 };
-            else if (clearAt(r, spot[0], spot[1], boxes)) go = new float[] { spot[0], spot[1] };
-            else {
-                // The first clear place, else the one least covered.
-                float least = overlap(r, spot[0], spot[1], boxes);
-                go = new float[] { spot[0], spot[1] };
-                for (final float[] c : candidates(r, sr, mc)) {
-                    final float o = overlap(r, c[0], c[1], boxes);
-                    if (o < least) {
-                        least = o;
-                        go = c;
-                    }
-                    if (o == 0) break;
-                }
-            }
+            // {target dx, dy, drawn dx, dy, target off its wire (1)}
+            final float[] spot = tagSpots.computeIfAbsent(tagKey(r), k -> new float[5]);
+            final float[] go = choose(r, spot, boxes, sr, mc);
             spot[0] = go[0];
             spot[1] = go[1];
+            spot[4] = go[2];
             spot[2] += (spot[0] - spot[2]) * ease;
             spot[3] += (spot[1] - spot[3]) * ease;
             r.tx = r.anchorX + spot[2] - r.tw / 2;
             r.ty = r.anchorY + spot[3] - r.th / 2;
-            // Off its wire, by more than half its own size across it: a line back to its spot.
+            // Off its wire by more than its own size across it: a line back to its spot.
             final float across = Math.abs(spot[2] * -r.uy + spot[3] * r.ux);
             r.leader = across > Math.abs(r.ux) * r.th / 2 + Math.abs(r.uy) * r.tw / 2 + 2;
             final float gx = r.anchorX + go[0] - r.tw / 2, gy = r.anchorY + go[1] - r.th / 2;
@@ -711,33 +701,64 @@ public final class PlanOverlay {
         }
     }
 
-    /** A wire's tag's name across frames: the wire's ends and what it carries. */
+    /** Where a tag goes now, {dx, dy, off its wire (1) or not (0)}: see {@link #placeTags}. */
+    private float[] choose(final Run r, final float[] spot, final List<float[]> boxes, final ScaledResolution sr,
+        final Minecraft mc) {
+        if (clearAt(r, 0, 0, boxes)) return new float[] { 0, 0, 0 };
+        final boolean kept = (spot[0] != 0 || spot[1] != 0) && clearAt(r, spot[0], spot[1], boxes);
+        // Along its wire, nearest its spot first.
+        final List<float[]> on = alongWire(r, sr, mc);
+        for (final float[] c : on) if (clearAt(r, c[0], c[1], boxes)) {
+            // A clear place it has on its wire, unless this one is much nearer home.
+            if (kept && spot[4] == 0 && Math.hypot(spot[0], spot[1]) < Math.hypot(c[0], c[1]) * 1.6f)
+                return new float[] { spot[0], spot[1], 0 };
+            return c;
+        }
+        if (kept) return new float[] { spot[0], spot[1], spot[4] };
+        // Just off its wire, by its spot, either side.
+        final float nx = -r.uy, ny = r.ux, reach = Math.abs(nx) * r.tw / 2 + Math.abs(ny) * r.th / 2 + 5;
+        final List<float[]> off = new ArrayList<>();
+        for (int m = 1; m <= 2; m++) for (final int side : new int[] { -1, 1 })
+            off.add(new float[] { nx * side * reach * m, ny * side * reach * m, 1 });
+        for (final float[] c : off) if (clearAt(r, c[0], c[1], boxes)) return c;
+        // Nowhere clear: the least covered, on its wire before off it.
+        float[] best = new float[] { spot[0], spot[1], spot[4] };
+        float least = overlap(r, spot[0], spot[1], boxes);
+        for (final List<float[]> list : List.of(on, off)) for (final float[] c : list) {
+            final float o = overlap(r, c[0], c[1], boxes);
+            if (o < least * 0.8f) {
+                least = o;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    /** A wire tag's name across frames: the wire's ends and what it carries. */
     private static String tagKey(final Run r) {
         return r.conn.line.from() + "/" + r.conn.line.to() + "/" + r.conn.line.resource();
     }
 
-    /**
-     * Where else a tag can go, nearest first, as offsets from its spot: along its wire a step or two either way, then
-     * off to either side of it, one tag and then two away.
-     */
-    private List<float[]> candidates(final Run r, final ScaledResolution sr, final Minecraft mc) {
+    /** Places along a tag's wire, its shown part end to end, as offsets from its spot, nearest first. */
+    private List<float[]> alongWire(final Run r, final ScaledResolution sr, final Minecraft mc) {
         final List<float[]> out = new ArrayList<>();
         final double len = r.span[1] - r.span[0];
-        for (int k = 1; k <= 3; k++) for (final int dir : new int[] { 1, -1 }) {
-            final double t = r.at + dir * k * 0.14 * len;
-            if (t < r.span[0] + 0.08 * len || t > r.span[1] - 0.08 * len) continue;
-            final float[] on = screen(along(r.from, r.to, t), sr, mc);
-            if (on != null) out.add(new float[] { on[0] + r.ox - r.anchorX, on[1] + r.oy - r.anchorY });
+        final int steps = 14;
+        for (int i = 0; i <= steps; i++) {
+            final double t = r.span[0] + len * (0.06 + 0.88 * i / steps);
+            final float[] at = screen(along(r.from, r.to, t), sr, mc);
+            if (at != null) out.add(new float[] { at[0] + r.ox - r.anchorX, at[1] + r.oy - r.anchorY, 0 });
         }
-        final float nx = -r.uy, ny = r.ux, reach = Math.abs(nx) * r.tw / 2 + Math.abs(ny) * r.th / 2 + 6;
-        // Off to either side, then off to either side a step along it too.
-        final int along = out.size();
-        for (int m = 1; m <= 3; m++) for (final int side : new int[] { -1, 1 }) {
-            out.add(new float[] { nx * side * reach * m, ny * side * reach * m });
-            for (int i = 0; i < Math.min(2, along); i++)
-                out.add(new float[] { out.get(i)[0] + nx * side * reach * m, out.get(i)[1] + ny * side * reach * m });
-        }
+        out.sort(Comparator.comparingDouble(c -> Math.hypot(c[0], c[1])));
         return out;
+    }
+
+    /** Whether a tag moved by (dx, dy) from its spot keeps clear of every box. */
+    private static boolean clearAt(final Run r, final float dx, final float dy, final List<float[]> boxes) {
+        final float x0 = r.anchorX + dx - r.tw / 2, y0 = r.anchorY + dy - r.th / 2, x1 = x0 + r.tw, y1 = y0 + r.th;
+        for (final float[] b : boxes)
+            if (x0 < b[2] + 2 && b[0] < x1 + 2 && y0 < b[3] + 2 && b[1] < y1 + 2) return false;
+        return true;
     }
 
     /** How much of a tag moved by (dx, dy) from its spot other boxes cover, in square pixels. */
@@ -750,14 +771,6 @@ public final class PlanOverlay {
             if (w > 0 && h > 0) sum += w * h;
         }
         return sum;
-    }
-
-    /** Whether a tag moved by (dx, dy) from its spot keeps clear of every box. */
-    private static boolean clearAt(final Run r, final float dx, final float dy, final List<float[]> boxes) {
-        final float x0 = r.anchorX + dx - r.tw / 2, y0 = r.anchorY + dy - r.th / 2, x1 = x0 + r.tw, y1 = y0 + r.th;
-        for (final float[] b : boxes)
-            if (x0 < b[2] + 2 && b[0] < x1 + 2 && y0 < b[3] + 2 && b[1] < y1 + 2) return false;
-        return true;
     }
 
     /**

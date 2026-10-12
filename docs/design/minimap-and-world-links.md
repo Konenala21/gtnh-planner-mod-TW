@@ -167,9 +167,10 @@ Nothing shows until a card of the plan last open is placed.
   goes along it: the icon, the rate in large type and the name small under it, on a plain soft dark backing, as big as
   the cards' ports there; on its own wire, in its colours (a backing tinted with it, an edge of it), so it is plain
   which wire it names; wires sharing two cards have theirs staggered along them, and a tag keeps clear of the machines' labels, the card, the corner panels and nearer
-  tags (`PlanOverlay.placeTags`): on its wire where it can, a step or two along it, else off to one side with a
-  line in its colour back to a dot on the wire (the least covered place when nothing is clear); it keeps a clear
-  place it has, goes home once that is clear, and glides (about 70 ms) when it moves. Arrowheads are 70% white over the
+  tags (`PlanOverlay.placeTags`): anywhere along its own wire first, nearest its spot first (and the machine looked at
+  stays clear too); only with no room anywhere on its wire does it step just off it, a line in its colour back to a
+  dot on the wire; the least covered place when nothing is clear. It keeps a clear place it has, goes home once that
+  is clear, and glides (about 70 ms) when it moves. Arrowheads are 70% white over the
   wire's colour.
 - The wire the crosshair is on (its tag, or its line within 24 GUI pixels, when no card is under the crosshair) is
   highlighted, and the minimap
