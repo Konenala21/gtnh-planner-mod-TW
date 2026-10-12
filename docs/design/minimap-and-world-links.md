@@ -119,7 +119,7 @@ key say, works for both; GTNH runs every binding on a pressed key anyway):
 
 With Focus, Labels and wire labels off, only the machines and the wires show. Wires show at 60%, more for the card
 looked at. The gear's In the world section gives each its key and one plain line on what it does (the owner, 2026-10-12: one
-short sentence, no commas, no intro); beside it a live picture of the settings at work (`ui/popup/SettingsPreview`: three of the open plan's machines on a dusky ruled floor, the middle one under the crosshair, with its machines, labels, wire labels, card and keys list as set; the Minimap section the same way shows the map itself, large, its shape, zoom and see-through; the box widens for them when the board has room); every key
+short sentence, no commas, no intro); beside it a live picture of the settings at work (`ui/popup/SettingsPreview`: three of the open plan's machines on toned-down sky and grass, the middle one under the crosshair, with its machines, labels, wire labels, card and keys list as set; the Minimap section the same way shows the map itself, large, its shape, zoom and see-through; the box widens for them when the board has room); every key
 that switches something has its setting there, and the Keys section opens Controls. Only the machine looked at is outlined.
 Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
 draws is multiplied by; items and fluids, which the game draws solid whatever the blending, drop out once a card is a

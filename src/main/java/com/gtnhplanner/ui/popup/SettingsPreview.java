@@ -20,7 +20,7 @@ import com.gtnhplanner.ui.world.PlannerKeys;
 /**
  * The settings' pictures of what they change, beside the In the world and Minimap sections, drawn from the open plan
  * and the settings as they are now, so a switch shows its effect at once. The world: up to three of the plan's machines
- * on a dusky floor, wired as in the plan, the middle one under the crosshair; with its machines as set, its labels, its
+ * on muted grass, wired as in the plan, the middle one under the crosshair; with its machines as set, its labels, its
  * wire
  * labels, the card of the machine looked at and the keys list. The minimap: the map itself, large, its shape, zoom
  * and see-through. Labels fit inside the machines, as in the
@@ -173,35 +173,14 @@ final class SettingsPreview {
         return null;
     }
 
-    /** The view: a dusky sky and a dark floor ruled toward the horizon, in the planner's own muted tones. */
-    private static final int SKY_TOP = 0xFF20262F, SKY_LOW = 0xFF34404F, FLOOR = 0x2A3427, FLOOR_FAR = 0xFF34402F,
-        FLOOR_NEAR = 0xFF222A20, RULE = 0x14FFFFFF;
+    /** The view: the game's sky and grass, toned down, each shading only slightly toward the horizon. */
+    private static final int SKY_TOP = 0xFF5F7898, SKY_LOW = 0xFF6A84A3, FLOOR = 0x4C6A3B, FLOOR_FAR = 0xFF51703F,
+        FLOOR_NEAR = 0xFF496638;
 
     private static void backdrop(final int x, final int y, final int w, final int h) {
-        backdrop(x, y, w, h, true);
-    }
-
-    /** The view; its floor's rules toward the middle only with {@code deep} (calmer behind the minimap). */
-    private static void backdrop(final int x, final int y, final int w, final int h, final boolean deep) {
         final float horizon = y + h * 0.36f;
         gradient(x, y, w, horizon - y, SKY_TOP, SKY_LOW);
         gradient(x, horizon, w, y + h - horizon, FLOOR_FAR, FLOOR_NEAR);
-        // The floor's rules: across, closer together toward the horizon; and toward its middle.
-        for (int k = 1; k <= 7; k++) {
-            final float t = k / 7f;
-            Hyb.rect(x, horizon + (y + h - horizon) * t * t, w, 1, RULE);
-        }
-        final float vx = x + w / 2f;
-        if (deep) for (int i = -7; i <= 7; i++) {
-            float ex = vx + i * w * 0.2f, ey = y + h;
-            // Cut at the box's sides.
-            if (ex < x || ex > x + w) {
-                final float side = ex < x ? x : x + w;
-                ey = horizon + (y + h - horizon) * (side - vx) / (ex - vx);
-                ex = side;
-            }
-            band(vx, horizon, ex, ey, 1, RULE);
-        }
     }
 
     private static void frame(final int x, final int y, final int w, final int h) {
@@ -320,7 +299,7 @@ final class SettingsPreview {
 
     /** The minimap as set, as large as the box holds, over a muted view so its see-through shows. */
     static void minimap(final int x, final int y, final int w, final int h) {
-        backdrop(x, y, w, h, false);
+        backdrop(x, y, w, h);
         if (PlannerSettings.minimap()) {
             final int size = Math.min(w, h) - 24, mx = x + (w - size) / 2, my = y + (h - size) / 2;
             final boolean circle = PlannerSettings.minimapCircle();
