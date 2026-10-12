@@ -150,12 +150,10 @@ public final class WorldView {
                     WorldMarks.ghostDepth(machine, needs, size, at[0], at[1], at[2], facing);
                     WorldMarks.machineGhost(machine, needs, size, at[0], at[1], at[2], facing, false);
                 }
-                WorldMarks.outline(
-                    WorldMarks.extent(machine, needs, size, at[0], at[1], at[2], facing),
-                    Hyb.LIT & 0xFFFFFF,
-                    0.004f,
-                    1.5f,
-                    0.6f);
+                final double[] box = WorldMarks.extent(machine, needs, size, at[0], at[1], at[2], facing);
+                WorldMarks.outline(box, Hyb.LIT & 0xFFFFFF, 0.004f, 1.5f, 0.6f);
+                // Which way it faces, so R's turn shows on any machine.
+                WorldMarks.front(box, facing, Hyb.GOLD & 0xFFFFFF, 1f);
             }
         }
         if (shown != null) {
@@ -218,10 +216,12 @@ public final class WorldView {
         if (mc.currentScreen != null || mc.gameSettings.hideGUI) return;
         final ScaledResolution sr = event.resolution;
         final float cx = sr.getScaledWidth() / 2f;
-        // While the keys strip shows, the note is its last line instead.
+        // While the keys strip shows, the note is its last line instead; while placing, it goes under the title.
         if (System.currentTimeMillis() < noteUntil && !PlacementKeys.stripShown()) {
-            Hyb.rect(cx - Hyb.width(note) / 2f - 4, 6, Hyb.width(note) + 8, 13, 0xE0141414);
-            Hyb.textCentered(note, cx, 9, noteColor);
+            final int[] title = LinkPicker.titleBounds();
+            final float y = title == null ? 6 : title[1] + title[3] + 3;
+            Hyb.rect(cx - Hyb.width(note) / 2f - 4, y, Hyb.width(note) + 8, 13, 0xE0141414);
+            Hyb.textCentered(note, cx, y + 3, noteColor);
         }
         GL11.glColor4f(1, 1, 1, 1);
     }

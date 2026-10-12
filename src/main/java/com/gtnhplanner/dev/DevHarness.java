@@ -721,6 +721,11 @@ public final class DevHarness {
                     return Map
                         .of("yaw", p.rotationYaw, "pitch", p.rotationPitch, "x", p.posX, "y", p.posY, "z", p.posZ);
                 });
+            case "/worldplace":
+                // The plan over the world set up for a look: card=N placed at x,y,z[&facing][&add=1], pick=N starts
+                // placing card N as its place key does, clear=1 takes the open plan out of the world.
+                requireWorld();
+                return onClient(() -> DevBoard.worldPlace(q));
             case "/machine":
                 // A GregTech machine in the dev world, powered and fed so it runs (for the AR lens).
                 requireWorld();

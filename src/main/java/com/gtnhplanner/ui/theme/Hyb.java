@@ -505,6 +505,8 @@ public final class Hyb {
     /** The shadow alone, under the rectangle the icon fills: its silhouette, dropped and softened by spreading. */
     public static void iconShadow(final ItemStack item, final FluidStack fluid, final float x, final float y,
         final float size) {
+        // Faded with the drawing, and gone with the icon once it drops out.
+        if (fadeOut >= FADE_ITEMS) return;
         // Three spreads, the widest faintest: about two fifths black at the heart, fading over two pixels.
         final float dy = size / 8f;
         final float[] grow = { 2, 1, 0 };
@@ -512,7 +514,7 @@ public final class Hyb {
         for (int i = 0; i < 3; i++) {
             final float g = grow[i] * size / 24f;
             if (fluid != null) rect(x - g, y + dy - g, size + 2 * g, size + 2 * g, shade[i]);
-            else if (item != null) IconShadows.draw(item, x - g, y + dy - g, size + 2 * g, shade[i]);
+            else if (item != null) IconShadows.draw(item, x - g, y + dy - g, size + 2 * g, faded(shade[i]));
         }
     }
 

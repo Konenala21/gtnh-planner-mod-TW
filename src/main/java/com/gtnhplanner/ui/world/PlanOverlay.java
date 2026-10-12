@@ -32,11 +32,11 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
  * The plan overlaid on the world: every card of the plan last open in the planner that has been placed on a spot is
- * drawn floating over it as the board draws it, a stem down to the spot, where a ghost of its machine stands; the same
- * size within ten blocks and shrinking with distance beyond. Cards move out of each other's way, their stems pointing
- * back to their spots. The plan's wires between placed
- * cards are
- * drawn flat on the screen as the board draws them, from block to block, with arrowheads moving towards the card fed
+ * drawn as the board draws it just above the ghost of its machine, never on it, a line down to it; the same size within
+ * ten blocks and shrinking with distance beyond. A card is small and faint until you look at its machine (or the card),
+ * then grows and comes up solid; with Focus on, only that one shows. Every ghost's edges always show. Cards move out of
+ * each other's way, their lines pointing back to their machines. The plan's wires between placed cards are drawn flat
+ * on the screen as the board draws them, from block to block, with arrowheads moving towards the card fed
  * and a tag naming what goes along and how much. Nothing shows until a card is placed. What the crosshair is on is
  * highlighted.
  */
@@ -70,9 +70,15 @@ public final class PlanOverlay {
         /** What it fills in the world, its spot or its structure: {x0, y0, z0, x1, y1, z1}. */
         final double[] box;
         double distance;
+        /** How much its card is looked at, 0 to 1 (eased): it grows and comes up solid as it is. */
+        float a;
+        /** What its box covers on the screen {x0, y0, x1, y1}, or null when none of it is in front of the camera. */
+        @Nullable
+        float[] rect;
         /**
-         * Where the card's centre would be on the screen, on its spot; its spot's centre; its scale and size there; and
-         * where it is drawn, its top left, once moved out of the other cards' way.
+         * Where the card's centre would be on the screen, just above its machine; the middle of the machine's top (the
+         * card's line ends there); its scale and size there; and where it is drawn, its top left, once moved out of the
+         * way.
          */
         float sx, sy, bx, by, scale, w, h, left, top;
 
@@ -155,8 +161,36 @@ public final class PlanOverlay {
         return PlannerSettings.arLens();
     }
 
-    /** How solid the plan over the world is drawn: a touch see-through, so the world behind it still shows. */
-    private static final float SOLID = 0.8f;
+    /**
+     * How solid a card is drawn looked at (a touch see-through, so the world behind it still shows), and not: faint,
+     * at {@link #IDLE_SIZE} of its size, so the world shows past the plan. With Focus on, a card not looked at is not
+     * drawn at all. While placing, the card in hand is {@link #IN_HAND} looked at and every other card none.
+     */
+    private static final float SOLID = 0.85f, IDLE_SOLID = 0.22f, IDLE_SIZE = 0.6f, IN_HAND = 0.35f;
+
+    /** How solid a wire is drawn between two cards not looked at; its tag shows once either is looked at this much. */
+    private static final float IDLE_WIRE = 0.3f, TAG_FROM = 0.3f;
+
+    /** A placed machine's edges, not looked at. */
+    private static final int EDGE = 0xC8CCD4;
+
+    /** The room kept between a card and its machine on the screen, in GUI pixels. */
+    private static final float GHOST_GAP = 4;
+
+    /** How solid a card is drawn, looked at {@code a}. */
+    private static float solid(final float a) {
+        return PlannerSettings.arFocus() ? SOLID * a : IDLE_SOLID + (SOLID - IDLE_SOLID) * a;
+    }
+
+    /** How solid a wire is drawn, its cards looked at {@code a}. */
+    private static float wireSolid(final float a) {
+        return PlannerSettings.arFocus() ? SOLID * a : IDLE_WIRE + (SOLID - IDLE_WIRE) * a;
+    }
+
+    /** A card's size, looked at {@code a}, as a share of its full size. */
+    private static float sized(final float a) {
+        return IDLE_SIZE + (1 - IDLE_SIZE) * a;
+    }
 
     /** The cards placed in this dimension within range, nearest first. */
     private static List<Placed> placed(final Minecraft mc) {
@@ -177,11 +211,9 @@ public final class PlanOverlay {
                 all.add(new Placed(c, preview, true, true));
                 first = false;
             }
-            final int[] moving = LinkPicker.moving();
             for (final int[] l : n.worldLinks) if (l[0] == dim) {
                 // Where the machine in hand was is empty while it is in hand.
-                if (inHand && moving != null && l[1] == moving[1] && l[2] == moving[2] && l[3] == moving[3]) continue;
-                if (inHand && moving == null && LinkPicker.replacing()) continue;
+                if (inHand && LinkPicker.hidden(l)) continue;
                 all.add(new Placed(c, l, first));
                 first = false;
             }
@@ -248,8 +280,11 @@ public final class PlanOverlay {
             if (p.preview) continue;
             if (p.card.machine() != null) WorldMarks
                 .machineGhost(p.card.machine(), p.card.needs(), p.size, p.x, p.y, p.z, p.facing, built(mc, p));
+            // Every machine's edges always show, so it can be found with its card faint or hidden; lit, the one looked
+            // at.
             if (p.card.id()
                 .equals(lit)) WorldMarks.outline(p.box, Hyb.LIT & 0xFFFFFF, 0.012f, 1.5f, 0.6f);
+            else WorldMarks.outline(p.box, EDGE, 0.004f, 1f, 0.4f);
         }
         WorldMarks.end();
     }
@@ -303,26 +338,38 @@ public final class PlanOverlay {
         if (snap == null) return;
         final ScaledResolution sr = event.resolution;
         final List<Placed> all = placed(mc);
-        final List<Placed> shown = new ArrayList<>();
         final float cx = sr.getScaledWidth() / 2f, cy = sr.getScaledHeight() / 2f;
-        // How much of each card shows: all, or only where you look, fading in and out.
-        final Map<UUID, Float> seen = focus(all, sr, mc, cx, cy);
-        // A card over its first spot only: its other machines show as ghosts.
+        // Where each machine is on the screen, and how much its card is looked at.
+        for (final Placed p : all) p.rect = screenBox(p.box, sr, mc);
+        final Map<UUID, Float> seen = attention(all, cx, cy);
+        for (final Placed p : all) p.a = seen.getOrDefault(p.card.id(), 0f);
+        // A card stands over one of its machines, the one the crosshair meets, else its first (the one in hand while
+        // placing): the others show as ghosts.
+        final Map<UUID, Placed> stand = new HashMap<>();
+        for (final Placed p : all) if (p.main) stand.put(p.card.id(), p);
+        if (lookedAt != null && !LinkPicker.active()) for (final Placed p : all) if (!p.preview && p.card.id()
+            .equals(lookedAt.card.id()) && p.x == lookedAt.x && p.y == lookedAt.y && p.z == lookedAt.z)
+            stand.put(p.card.id(), p);
+        final List<Placed> shown = new ArrayList<>();
         for (final Placed p : all)
-            if (p.main && seen.getOrDefault(p.card.id(), 1f) > 0.01f && project(p, sr, mc)) shown.add(p);
+            if (stand.get(p.card.id()) == p && solid(p.a) > 0.01f && project(p, sr, mc)) shown.add(p);
+        // The card looked at takes its place first, then the rest nearest first.
+        shown.sort(
+            Comparator.comparingInt((Placed p) -> p.a > 0.5f ? 0 : 1)
+                .thenComparingDouble(p -> p.distance));
         // The plan's wires, flat on the screen as the board draws them, and the one the crosshair is on.
-        final List<Run> runs = runs(conns(all), sr, mc, snap);
-        layout(shown, runs, sr);
+        final List<Run> runs = runs(conns(all), seen, sr, mc, snap);
+        layout(shown, runs, all, sr);
         // What the crosshair is on: a wire's tag, else the nearest card it is over, else a spot (its ghost), else the
-        // wire
-        // whose line is within reach.
+        // wire whose line is within reach.
         Run near = null;
-        for (final Run r : runs) if (r.covers(cx, cy)) near = r;
+        for (final Run r : runs) if (r.tag && r.covers(cx, cy)) near = r;
         Placed over = null;
         if (near == null) for (final Placed p : shown) if (p.covers(cx, cy)) {
             over = p;
             break;
         }
+        overCard = over == null ? null : over.card.id();
         // While a machine is in hand, it is the one lit, and nothing else is under the crosshair.
         final Node inHand = LinkPicker.active() ? LinkPicker.node() : null;
         if (inHand != null) {
@@ -357,27 +404,30 @@ public final class PlanOverlay {
         Minimap.INSTANCE.point(card, hovered == null ? null : hovered.line);
         Hyb.beginBatch();
         for (final Run r : runs) {
-            Hyb.fadeOut = 1 - SOLID * shown(r, seen);
+            Hyb.fadeOut = 1 - wireSolid(shown(r, seen));
             if (Hyb.fadeOut < 0.99f) wire(r, r.conn.same(hovered));
         }
         Hyb.fadeOut = 0;
         Hyb.endBatch();
-        // Far to near, so nearer cards cover farther ones as objects do; the one the crosshair is on over them all.
+        // Far to near, so nearer cards cover farther ones as objects do, the one looked at over the rest; the one the
+        // crosshair is on over them all.
         Placed top = null;
         for (int i = shown.size() - 1; i >= 0; i--) {
             final Placed p = shown.get(i);
             if (p.card.id()
                 .equals(lit)) top = p;
             else {
-                Hyb.fadeOut = 1 - SOLID * seen.getOrDefault(p.card.id(), 1f);
+                Hyb.fadeOut = 1 - solid(p.a);
                 card(p, snap, false);
             }
         }
-        Hyb.fadeOut = 1 - SOLID;
-        if (top != null) card(top, snap, true);
-        // Over the cards: what each wire carries.
-        for (final Run r : runs) if (!r.conn.same(hovered)) {
-            Hyb.fadeOut = 1 - SOLID * shown(r, seen);
+        if (top != null) {
+            Hyb.fadeOut = 1 - solid(top.a);
+            card(top, snap, true);
+        }
+        // Over the cards: what each wire carries, where a card it joins is looked at.
+        for (final Run r : runs) if (r.tag && !r.conn.same(hovered)) {
+            Hyb.fadeOut = 1 - solid(shown(r, seen));
             if (Hyb.fadeOut < 0.99f) tag(r, false);
         }
         Hyb.fadeOut = 1 - SOLID;
@@ -387,54 +437,75 @@ public final class PlanOverlay {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
     }
 
-    // region Cards only where you look
+    // region How much each card is looked at
 
     /**
-     * How near the crosshair comes to a machine, on the screen in GUI pixels, for its card to show whole, and how far
-     * it fades out over: a wide margin, so cards come and go softly as you look around.
+     * How near the crosshair comes to a machine on the screen (the outline of its box), in GUI pixels, for its card to
+     * come up whole, to come up a quarter, and to stay down: steep, so only what you look at stands out.
      */
-    private static final float FOCUS_NEAR = 28, FOCUS_FAR = 150;
+    private static final float NEAR_WHOLE = 2, NEAR_QUARTER = 14, NEAR_NONE = 80;
 
-    /** Each card's share shown, eased from frame to frame; and when it was last eased. */
+    /** How quickly a card comes up or goes down: a share of the way a second. */
+    private static final float EASE = 12;
+
+    /** Each card's share looked at, eased from frame to frame; and when it was last eased. */
+    private final Map<UUID, Float> attention = new HashMap<>();
+    private long attentionAt;
+    /** The card the crosshair was over last frame: a card being read stays up. */
     @Nullable
-    private Map<UUID, Float> focus;
-    private long focusAt;
+    private UUID overCard;
 
     /**
-     * How much of each card shows, by card: every card whole, or with "Cards only where you look" by how near the
-     * crosshair is to its machine (whole on it, gone past {@link #FOCUS_FAR}), easing in and out over a few frames. The
-     * card in hand while placing and the card looked at show whole.
+     * How much each card is looked at, by card, easing in and out: whole with the crosshair on its machine (its ghost,
+     * through blocks) or on the card itself; else, with Focus off, by how near the crosshair is to its machine on the
+     * screen, and with Focus on not at all. While placing, the card in hand is {@link #IN_HAND} and the rest none.
      */
-    private Map<UUID, Float> focus(final List<Placed> all, final ScaledResolution sr, final Minecraft mc,
-        final float cx, final float cy) {
-        if (focus == null) focus = new HashMap<>();
-        if (!PlannerSettings.arFocus()) {
-            focus.clear();
-            return focus;
-        }
+    private Map<UUID, Float> attention(final List<Placed> all, final float cx, final float cy) {
         final long now = System.nanoTime();
-        final float step = focusAt == 0 ? 1 : Math.min(1, (now - focusAt) / 1e9f * 9);
-        focusAt = now;
-        final Map<UUID, Float> want = new HashMap<>();
+        final float step = attentionAt == 0 ? 1 : Math.min(1, (now - attentionAt) / 1e9f * EASE);
+        attentionAt = now;
+        final boolean focus = PlannerSettings.arFocus();
         final Node inHand = LinkPicker.active() ? LinkPicker.node() : null;
+        final Map<UUID, Float> want = new HashMap<>();
         for (final Placed p : all) {
             final UUID id = p.card.id();
-            float w = id.equals(looked) || inHand != null && p.card.nodeIds()
-                .contains(inHand.id) ? 1 : near(p.box, sr, mc, cx, cy);
+            final float w = inHand != null ? p.card.nodeIds()
+                .contains(inHand.id) ? IN_HAND : 0
+                : id.equals(looked) || id.equals(overCard) ? 1 : focus ? 0 : near(p.rect, cx, cy);
             want.merge(id, w, Math::max);
         }
-        final Map<UUID, Float> next = new HashMap<>();
+        attention.keySet()
+            .retainAll(want.keySet());
         for (final Map.Entry<UUID, Float> e : want.entrySet()) {
-            final float was = focus.getOrDefault(e.getKey(), 0f);
-            next.put(e.getKey(), was + (e.getValue() - was) * step);
+            final float was = attention.getOrDefault(e.getKey(), 0f);
+            attention.put(e.getKey(), was + (e.getValue() - was) * step);
         }
-        focus = next;
-        return focus;
+        return attention;
     }
 
-    /** 1 with the crosshair on or near a box's outline on the screen, down to 0 past {@link #FOCUS_FAR}. */
-    private float near(final double[] box, final ScaledResolution sr, final Minecraft mc, final float cx,
-        final float cy) {
+    /**
+     * 1 with the crosshair on a machine's outline on the screen, a quarter {@link #NEAR_QUARTER} off it, none past
+     * {@link #NEAR_NONE}.
+     */
+    private static float near(@Nullable final float[] r, final float cx, final float cy) {
+        if (r == null) return 0;
+        final float dx = Math.max(0, Math.max(r[0] - cx, cx - r[2])), dy = Math.max(0, Math.max(r[1] - cy, cy - r[3]));
+        final float d = (float) Math.hypot(dx, dy);
+        if (d <= NEAR_WHOLE) return 1;
+        if (d <= NEAR_QUARTER) return 1 - 0.75f * smooth((d - NEAR_WHOLE) / (NEAR_QUARTER - NEAR_WHOLE));
+        return 0.25f * (1 - smooth(Math.min(1, (d - NEAR_QUARTER) / (NEAR_NONE - NEAR_QUARTER))));
+    }
+
+    /** Smoothstep, so a change starts and ends gently. */
+    private static float smooth(final float t) {
+        return t * t * (3 - 2 * t);
+    }
+
+    /**
+     * What a box covers on the screen {x0, y0, x1, y1}, from its corners in front of the camera; null when none are.
+     */
+    @Nullable
+    private float[] screenBox(final double[] box, final ScaledResolution sr, final Minecraft mc) {
         float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE;
         int corners = 0;
         for (int i = 0; i < 8; i++) {
@@ -451,16 +522,12 @@ public final class PlanOverlay {
             x1 = Math.max(x1, at[0]);
             y1 = Math.max(y1, at[1]);
         }
-        if (corners == 0) return 0;
-        final float dx = Math.max(0, Math.max(x0 - cx, cx - x1)), dy = Math.max(0, Math.max(y0 - cy, cy - y1));
-        final float t = Math.max(0, Math.min(1, ((float) Math.hypot(dx, dy) - FOCUS_NEAR) / (FOCUS_FAR - FOCUS_NEAR)));
-        // Smoothstep, so the fade starts and ends gently.
-        return 1 - t * t * (3 - 2 * t);
+        return corners == 0 ? null : new float[] { x0, y0, x1, y1 };
     }
 
-    /** How much of a wire shows: as much as the more shown of the two cards it joins. */
+    /** How much of a wire shows: as much as the more looked at of the two cards it joins. */
     private static float shown(final Run r, final Map<UUID, Float> seen) {
-        return Math.max(seen.getOrDefault(r.conn.from().card.id(), 1f), seen.getOrDefault(r.conn.to().card.id(), 1f));
+        return Math.max(seen.getOrDefault(r.conn.from().card.id(), 0f), seen.getOrDefault(r.conn.to().card.id(), 0f));
     }
 
     // endregion
@@ -490,6 +557,8 @@ public final class PlanOverlay {
         final List<float[]> arrows;
         final String name, rate;
         float tx, ty, tw, th;
+        /** Whether its tag shows: a card it joins is looked at, or the crosshair is on it. */
+        boolean tag;
 
         Run(final Conn conn, final float[] a, final float[] b, final List<float[]> arrows, final float scale,
             final String name, final String rate) {
@@ -514,8 +583,8 @@ public final class PlanOverlay {
      * in
      * lanes, each tag beside its own lane on its outer side.
      */
-    private List<Run> runs(final List<Conn> conns, final ScaledResolution sr, final Minecraft mc,
-        final PlanSnapshot snap) {
+    private List<Run> runs(final List<Conn> conns, final Map<UUID, Float> seen, final ScaledResolution sr,
+        final Minecraft mc, final PlanSnapshot snap) {
         final List<Run> out = new ArrayList<>();
         final Map<String, List<Conn>> pairs = new java.util.LinkedHashMap<>();
         for (final Conn c : conns) {
@@ -525,8 +594,10 @@ public final class PlanOverlay {
         }
         final double clock = System.currentTimeMillis() / 1000.0;
         for (final List<Conn> pair : pairs.values()) for (int i = 0; i < pair.size(); i++) {
-            final Run r = run(pair.get(i), i - (pair.size() - 1) / 2f, clock, sr, mc, snap);
-            if (r != null) out.add(r);
+            final Run r = run(pair.get(i), i - (pair.size() - 1) / 2f, clock, seen, sr, mc, snap);
+            if (r == null) continue;
+            r.tag = shown(r, seen) > TAG_FROM || r.conn.same(hovered);
+            out.add(r);
         }
         return out;
     }
@@ -537,8 +608,8 @@ public final class PlanOverlay {
      * world, so they keep their pace and spacing however you move.
      */
     @Nullable
-    private Run run(final Conn c, final float lane, final double clock, final ScaledResolution sr, final Minecraft mc,
-        final PlanSnapshot snap) {
+    private Run run(final Conn c, final float lane, final double clock, final Map<UUID, Float> seen,
+        final ScaledResolution sr, final Minecraft mc, final PlanSnapshot snap) {
         // From the block of the one nearest the other to the block of the other nearest that: a structure's wire
         // leaves from its side toward where it goes, and meets the near side of where it arrives.
         final double[] start = nearest(c.from, c.to.home), to = nearest(c.to, start), from = nearest(c.from, to);
@@ -553,11 +624,12 @@ public final class PlanOverlay {
         final double[] middle = along(from, to, (span[0] + span[1]) / 2);
         final float[] mid = screen(middle, sr, mc);
         if (sa == null || sb == null || mid == null) return null;
-        // Sized as the cards are: full size near, shrinking with distance.
+        // Sized as the cards are: full size near, shrinking with distance, smaller while neither card is looked at.
         final double far = Math.sqrt(
             (middle[0] - camX) * (middle[0] - camX) + (middle[1] - camY) * (middle[1] - camY)
                 + (middle[2] - camZ) * (middle[2] - camZ));
-        final float scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / far));
+        final float scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / far))
+            * sized(Math.max(seen.getOrDefault(c.from.card.id(), 0f), seen.getOrDefault(c.to.card.id(), 0f)));
         // The lane: a step across the wire on the screen, measured the same way for both directions of a pair.
         final boolean forward = c.from.card.id()
             .compareTo(c.to.card.id()) < 0;
@@ -684,55 +756,76 @@ public final class PlanOverlay {
     // region Making room
 
     /**
-     * Each card's offset from its place straight over its spot, in its own widths (right) and heights (up), kept from
+     * Each card's offset from its home just above its machine, in its own widths (right) and heights (up), kept from
      * frame to frame: where it is going {x, y} and where it is drawn now {x, y}.
      */
     private final Map<UUID, float[]> offsets = new HashMap<>();
     private long laidOut;
 
     /**
-     * Moves cards out of each other's way, as map labels are: nearest first, each keeps where it is (at home, on its
-     * spot)
-     * while that is clear of the cards already placed and the wires' tags, and otherwise takes the clear place nearest
-     * home, aside, up or down, a line pointing back to its spot. A card that moved goes home again once that is clear,
-     * and moves quickly rather than gliding.
+     * Moves cards out of each other's way, as map labels are: the one looked at first, then nearest first, each keeps
+     * where it is (at home, just above its machine) while that is clear and otherwise takes the clear place nearest
+     * home, aside, up or down past its machine, a line pointing back to it. Clear is on the screen and off the cards
+     * already placed, the wires' tags, its own machine, and the machine being placed or looked at. A card that moved
+     * goes home again once that is clear, and moves quickly rather than gliding.
      */
-    private void layout(final List<Placed> shown, final List<Run> runs, final ScaledResolution sr) {
+    private void layout(final List<Placed> shown, final List<Run> runs, final List<Placed> all,
+        final ScaledResolution sr) {
         final long now = System.currentTimeMillis();
         final float ease = laidOut == 0 ? 1 : (float) (1 - Math.exp(-(now - laidOut) / 50.0));
         laidOut = now;
+        final float sw = sr.getScaledWidth(), sh = sr.getScaledHeight();
         final List<float[]> taken = new ArrayList<>();
-        for (final Run r : runs) taken.add(new float[] { r.tx, r.ty, r.tw, r.th });
+        for (final Run r : runs) if (r.tag) taken.add(new float[] { r.tx, r.ty, r.tw, r.th });
         // The minimap is drawn over the cards: they keep out from under it.
         final int[] map = Minimap.bounds(sr);
         if (map != null) taken.add(new float[] { map[0], map[1], map[2], map[3] });
         final int[] pins = PinList.bounds();
         if (pins != null) taken.add(new float[] { pins[0], pins[1], pins[2], pins[3] });
+        final int[] title = LinkPicker.titleBounds();
+        if (title != null) taken.add(new float[] { title[0], title[1], title[2], title[3] });
+        // No card covers the machine being placed or the one looked at (each card keeps off its own anyway).
+        final List<Placed> keep = new ArrayList<>();
+        for (final Placed p : all) if (p.rect != null && (p.preview || p.a > 0.5f)) keep.add(p);
         for (final Placed p : shown) {
+            final float[] own = around(p.rect);
+            final List<float[]> others = new ArrayList<>(taken);
+            for (final Placed k : keep) if (k != p) others.add(around(k.rect));
             final float[] o = offsets.computeIfAbsent(p.card.id(), id -> new float[4]);
             float bestX = o[0], bestY = o[1];
-            final boolean clear = clear(p, bestX, bestY, taken);
+            final boolean clear = clear(p, bestX, bestY, others, own, sw, sh);
             final float now0 = cost(p, bestX, bestY);
             if (!clear || now0 > 0) {
-                // A clear place, nearest home first; where it is now is clear too, only one much nearer home.
+                // A clear place, nearest home first; where it is now is clear too, only one much nearer home. Far
+                // enough aside and down to pass its machine, in steps that keep the search small.
                 float best = clear ? now0 * 0.6f : Float.MAX_VALUE;
-                for (float dy = -1.5f; dy <= 2.01f; dy += 0.25f) for (float dx = -1.5f; dx <= 1.51f; dx += 0.125f) {
-                    final float c = cost(p, dx, dy);
-                    if (c < best && clear(p, dx, dy, taken)) {
-                        best = c;
-                        bestX = dx;
-                        bestY = dy;
+                final float across = 1.5f + own[2] / p.w / 2, down = 1.5f + own[3] / p.h;
+                final float stepX = Math.max(0.125f, across / 20), stepY = Math.max(0.25f, (down + 1.5f) / 28);
+                for (int j = -(int) (down / stepY); j * stepY <= 1.5f; j++)
+                    for (int i = -(int) (across / stepX); i * stepX <= across; i++) {
+                        final float dx = i * stepX, dy = j * stepY, c = cost(p, dx, dy);
+                        if (c < best && clear(p, dx, dy, others, own, sw, sh)) {
+                            best = c;
+                            bestX = dx;
+                            bestY = dy;
+                        }
                     }
-                }
             }
             o[0] = bestX;
             o[1] = bestY;
             o[2] += (o[0] - o[2]) * ease;
             o[3] += (o[1] - o[3]) * ease;
-            p.left = p.sx + o[2] * p.w - p.w / 2;
-            p.top = p.sy - o[3] * p.h - p.h / 2;
+            // Kept on the screen, whatever happens.
+            p.left = Math.max(2, Math.min(sw - 2 - p.w, p.sx + o[2] * p.w - p.w / 2));
+            p.top = Math.max(2, Math.min(sh - 2 - p.h, p.sy - o[3] * p.h - p.h / 2));
             taken.add(new float[] { p.sx + o[0] * p.w - p.w / 2, p.sy - o[1] * p.h - p.h / 2, p.w, p.h });
         }
+    }
+
+    /** A machine's rectangle on the screen {x0, y0, x1, y1} with room around it, as {x, y, w, h}. */
+    private static float[] around(final float[] r) {
+        return new float[] { r[0] - GHOST_GAP, r[1] - GHOST_GAP, r[2] - r[0] + 2 * GHOST_GAP,
+            r[3] - r[1] + 2 * GHOST_GAP };
     }
 
     /**
@@ -743,20 +836,29 @@ public final class PlanOverlay {
         return Math.abs(dx) * p.w + (dy >= 0 ? 1.15f : 1.4f) * Math.abs(dy) * p.h;
     }
 
-    /** Whether a card at an offset keeps clear of everything placed. */
-    private static boolean clear(final Placed p, final float dx, final float dy, final List<float[]> taken) {
-        final float x = p.sx + dx * p.w - p.w / 2 - CARD_GAP, y = p.sy - dy * p.h - p.h / 2 - CARD_GAP;
-        final float w = p.w + 2 * CARD_GAP, h = p.h + 2 * CARD_GAP;
+    /**
+     * Whether a card at an offset is on the screen (where it fits) and keeps clear of everything placed and of its own
+     * machine.
+     */
+    private static boolean clear(final Placed p, final float dx, final float dy, final List<float[]> taken,
+        final float[] own, final float sw, final float sh) {
+        final float x = p.sx + dx * p.w - p.w / 2, y = p.sy - dy * p.h - p.h / 2;
+        if (p.w < sw - 4 && (x < 2 || x + p.w > sw - 2) || p.h < sh - 4 && (y < 2 || y + p.h > sh - 2)) return false;
+        // Its own machine, a touch inside its margin, so home (touching it) counts as clear.
+        if (x < own[0] + own[2] - 0.5f && own[0] + 0.5f < x + p.w
+            && y < own[1] + own[3] - 0.5f
+            && own[1] + 0.5f < y + p.h) return false;
+        final float gx = x - CARD_GAP, gy = y - CARD_GAP, w = p.w + 2 * CARD_GAP, h = p.h + 2 * CARD_GAP;
         for (final float[] t : taken)
-            if (x < t[0] + t[2] && t[0] < x + w && y < t[1] + t[3] && t[1] < y + h) return false;
+            if (gx < t[0] + t[2] && t[0] < gx + w && gy < t[1] + t[3] && t[1] < gy + h) return false;
         return true;
     }
 
     // endregion
 
     /**
-     * A card where the layout put it: on its spot, covering the ghost; or, moved aside, with a line from its nearest
-     * edge to the middle of its spot, ending in a small pin.
+     * A card where the layout put it, off its machine, with a line from its nearest edge to the middle of the machine's
+     * top, ending in a small pin.
      */
     private static void card(final Placed p, final PlanSnapshot snap, final boolean ringed) {
         final boolean home = p.bx >= p.left && p.bx < p.left + p.w && p.by >= p.top && p.by < p.top + p.h;
@@ -866,22 +968,23 @@ public final class PlanOverlay {
     // endregion
 
     /**
-     * Where a card's spot's middle falls on the GUI (its card's home), and the card's scale: {@link #SIZE} within
-     * {@link #FULL_SIZE_WITHIN} blocks, shrinking with distance beyond. False when it is behind the camera or off the
-     * screen.
+     * A card's home on the GUI, just above its machine (never on it: the machine stays in view), where its line ends
+     * (the middle of the machine's top), and its scale: {@link #SIZE} within {@link #FULL_SIZE_WITHIN} blocks,
+     * shrinking with distance beyond, and smaller while it is not looked at. False when its machine is off the screen.
      */
     private boolean project(final Placed p, final ScaledResolution sr, final Minecraft mc) {
-        final float[] middle = screen(p.home, sr, mc);
-        if (middle == null) return false;
-        p.sx = p.bx = middle[0];
-        p.sy = p.by = middle[1];
-        p.scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / Math.max(0.5, p.distance)));
+        final float[] r = p.rect;
+        if (r == null || r[2] < 0 || r[0] > sr.getScaledWidth() || r[3] < 0 || r[1] > sr.getScaledHeight())
+            return false;
+        final float[] top = screen(p.home[0], p.box[4], p.home[2], sr, mc);
+        p.bx = top != null ? top[0] : (r[0] + r[2]) / 2;
+        p.by = top != null ? top[1] : r[1];
+        p.scale = (float) (SIZE * Math.min(1, FULL_SIZE_WITHIN / Math.max(0.5, p.distance))) * sized(p.a);
         p.w = com.gtnhplanner.ui.card.CleanCardView.width() * p.scale;
         p.h = com.gtnhplanner.ui.card.CleanCardView.height(p.card) * p.scale;
-        return p.scale > 0.02f && p.sx > -p.w
-            && p.sx < sr.getScaledWidth() + p.w
-            && p.sy > -p.h
-            && p.sy < sr.getScaledHeight() + p.h;
+        p.sx = Math.max(r[0], Math.min(r[2], p.bx));
+        p.sy = r[1] - GHOST_GAP - p.h / 2;
+        return p.scale > 0.02f;
     }
 
     @Nullable

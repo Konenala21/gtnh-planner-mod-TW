@@ -193,8 +193,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   (`Minimap`, from the board's `PlanSnapshot`), and the plan over the world: a card's place key (or L on a block)
   places it on a spot, the imaginary block in front of the face looked at (`LinkPicker`, `LinkTarget`,
   `WorldLinks`, `Node.worldLinks`, a spot and a facing per machine; breaking blocks never removes one), and
-  `PlanOverlay` (Y) draws each placed card over its block as the board does (`ui/card/CleanCardView`), with the plan's
-  wires as connectors. Multiblocks show as their whole structure (`ui/gt/StructureGhosts`), drawn every frame from a
+  `PlanOverlay` (Y) draws each placed card just above its machine's ghost, never on it, as the board does
+  (`ui/card/CleanCardView`), with the plan's wires as connectors: small and faint until you look at the machine or the
+  card (`PlanOverlay.attention`; Focus, Shift+U, draws only that one), every ghost's edges always showing. Placing
+  builds against placed machines' ghosts as against blocks (`LinkPicker.aim`), and the ghost's front is lit with an
+  arrow (`WorldMarks.front`); `call 'worldplace?card=N&x&y&z&facing'` places a card, `pick=N` starts placing it. Multiblocks show as their whole structure (`ui/gt/StructureGhosts`), drawn every frame from a
   kept fake world: display lists of block rendering come out invisible under Angelica. They are built as the card needs
   them (its coil, a tower's height, a line's length) through GregTech's structure channels. Placed machines are adjusted
   from the world with sneak held (`PlacementKeys`: R turn, G pick up and move, Del remove, U Focus: cards only where you
@@ -244,7 +247,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 567 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 571 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.

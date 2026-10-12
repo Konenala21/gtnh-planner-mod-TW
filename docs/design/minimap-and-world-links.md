@@ -48,7 +48,11 @@ plan show what the machines are doing.
   GregTech multiblock as its whole structure, see section 5, standing on that spot: the structure's bottom goes there,
   its controller as high above it as it is in the structure, and the whole structure is outlined); a click places it
   there, facing that way, and you stay in the world (`ui/world/LinkPicker`). The crosshair reaches 48 blocks while
-  placing, past the game's own reach, to stand back from a big structure. While placing, R turns it a quarter and
+  placing, past the game's own reach, to stand back from a big structure. Placed machines count as blocks for it
+  (`LinkPicker.aim`): the next goes on top of or beside the last, as against a real block (a card's own spot is refused,
+  "One is placed there already"). The ghost shows which way it faces, its front face lit gold with an arrow on the
+  ground out of it (`WorldMarks.front`); a single block's model is turned to its facing (GregTech draws its machines
+  facing west as items, so they are turned from there). While placing, R turns it a quarter and
   [ ] size a structure that comes in sizes; the title says its size in blocks ("3 x 4 x 3"). A card of several machines places one a click ("Place X: 2 of 3", up to 64): the
   first click replaces where the card was, each later one adds a spot, and right-click or Esc stops there, keeping the
   ones placed. Right-click or Esc before the first click cancels. Right-click on the key removes the card from the world.
@@ -94,10 +98,14 @@ plan show what the machines are doing.
 ## 5. The plan over the world (AR)
 
 `ui/world/PlanOverlay`, toggled with Y and in the settings ("Show the plan over the world (AR)", "How far to show it").
-Shift+U, Focus (or "Cards only where you look" in the settings), shows a card only while you look at or near its machine: whole
-with the crosshair within 28 GUI pixels of the machine's outline on the screen, fading out smoothly to nothing at 150,
-easing in and out over a few frames; a wire shows as much as the more shown of its two cards. The card in hand and the
-card looked at always show. Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
+How much a card is looked at (`PlanOverlay.attention`, 0 to 1, easing in and out over a few frames) sets its size and
+how solid it is: looked at (the crosshair on its machine, its ghost through blocks, or on the card itself) it is a
+little over half the board's size and nearly solid; otherwise it is 60% of that and faint (22%), so the world shows
+past the plan. With Focus off a card comes up by how near the crosshair is to its machine on the screen, whole on it,
+a quarter 14 GUI pixels off and none past 80. Shift+U, Focus (or "Cards only where you look" in the settings), shows
+only the card looked at: the rest are not drawn at all. Every placed machine's edges always show, faint, so a
+machine can be found with its card faint or hidden. A wire shows as much as the more looked at of its two cards, and
+its tag only once one is. While placing, the card in hand is a third looked at and every other card none. Cards are faded whole through `Hyb.fadeOut`, which every colour, text and picture `Hyb`
 draws is multiplied by; items and fluids, which the game draws solid whatever the blending, drop out once a card is a
 third faded.
 Nothing shows until a card of the plan last open is placed.
@@ -118,13 +126,16 @@ Nothing shows until a card of the plan last open is placed.
   structure already standing in the world, the same block (and meta, but a machine's), is left out, so a structure
   half built shows what is left to build. Anything else shows its own block model, not when the machine is built there
   already. Display lists do not work here under Angelica (they come out invisible), hence drawing each frame.
-- The card sits in the middle of its spot, or of its structure for a multiblock, drawn as the board draws it
-  (`ui/card/CleanCardView`), with nothing to press. A card placed on several spots shows the card and its wires at the
-  first; the others show the ghost alone. A card is drawn at a little over half the board's size within ten blocks of
-  you and shrinks with distance beyond (always the whole card).
-- Cards move out of each other's way as map labels do (`PlanOverlay.layout`): nearest first, each stays on its spot
-  while that is clear of the cards already placed and the wires' tags, else takes the clear place nearest it (aside, up,
-  or down, which costs most), with a line from its nearest edge to the middle of its spot, ending in a small pin. A
+- The card stands just above its machine, never on it, so the spot or structure stays in view, drawn as the board
+  draws it (`ui/card/CleanCardView`), with nothing to press, a line from it to the middle of the machine's top. A card
+  placed on several spots stands over the one the crosshair meets, else its first; its wires run from the first; the
+  others show the ghost alone. A card is drawn at its size within ten blocks of you and shrinks with distance beyond
+  (always the whole card).
+- Cards move out of each other's way as map labels do (`PlanOverlay.layout`): the one looked at first, then nearest
+  first, each stays at home (just above its machine) while that is clear, else takes the clear place nearest it (aside,
+  up, or down past its machine, which costs most), with a line from its nearest edge to its machine, ending in a small
+  pin. Clear is on the screen and off the cards already placed, the shown wire tags, its own machine and the machine
+  being placed or looked at. A
   card goes home again once that is clear by a good margin, and moves in a quick ease, never a glide; where it was is
   kept, so turning away and back finds the same arrangement.
 - The crosshair is on a card when it is over the card itself or meets its spot or structure (its ghost), through

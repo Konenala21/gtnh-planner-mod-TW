@@ -161,7 +161,7 @@ final class WorldMarks {
         final int y, final int z, final int facing, final boolean builtHere) {
         final StructureGhosts.Ghost structure = StructureGhosts.get(machine, needs, size);
         if (structure != null) StructureGhosts.colour(structure, x, y, z, facing);
-        else if (!builtHere) ghost(machine, x, y, z);
+        else if (!builtHere) ghost(machine, x, y, z, facing);
     }
 
     private static final net.minecraft.client.renderer.RenderBlocks GHOST = new net.minecraft.client.renderer.RenderBlocks();
@@ -171,7 +171,8 @@ final class WorldMarks {
      * only), so it shows whatever is on the block now, a stand-in or the ground. Not drawn for an item that is not a
      * block.
      */
-    static void ghost(final net.minecraft.item.ItemStack machine, final int x, final int y, final int z) {
+    static void ghost(final net.minecraft.item.ItemStack machine, final int x, final int y, final int z,
+        final int facing) {
         final net.minecraft.block.Block block = net.minecraft.block.Block.getBlockFromItem(machine.getItem());
         if (block == null || block == net.minecraft.init.Blocks.air) return;
         Minecraft.getMinecraft()
@@ -179,6 +180,9 @@ final class WorldMarks {
             .bindTexture(net.minecraft.client.renderer.texture.TextureMap.locationBlocksTexture);
         GL11.glPushMatrix();
         GL11.glTranslated(x + 0.5, y + 0.5, z + 0.5);
+        // Its front turned to the facing: drawn as an item, a block shows its front one way (GregTech's machines to the
+        // west, as their item; anything else to the south), turned as a structure's ghost is.
+        GL11.glRotatef(-90f * (facing - itemFront(block)), 0, 1, 0);
         GL11.glScalef(0.96f, 0.96f, 0.96f);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -204,6 +208,70 @@ final class WorldMarks {
         GL11.glDisable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glPopMatrix();
+    }
+
+    /** The way a block drawn as an item has its front: GregTech's machines west (1), anything else south (0). */
+    private static int itemFront(final net.minecraft.block.Block block) {
+        final Object name = net.minecraft.block.Block.blockRegistry.getNameForObject(block);
+        return name != null && name.toString()
+            .startsWith("gregtech:gt.blockmachines") ? 1 : 0;
+    }
+
+    /**
+     * Which way a placed machine faces, on its box {x0, y0, z0, x1, y1, z1}: the face its front is on, lit, and an
+     * arrow on the ground out from it (facing 0 south, 1 west, 2 north, 3 east), so a turn always shows, whatever the
+     * machine looks like.
+     */
+    static void front(final double[] b, final int facing, final int rgb, final float strength) {
+        final int f = facing & 3;
+        final double nx = f == 1 ? -1 : f == 3 ? 1 : 0, nz = f == 0 ? 1 : f == 2 ? -1 : 0;
+        final double g = 0.01;
+        // The face: its corners, from bottom left to top left as seen from in front.
+        final double fx0, fz0, fx1, fz1;
+        if (nz != 0) {
+            final double z = nz > 0 ? b[5] + g : b[2] - g;
+            fx0 = b[0];
+            fx1 = b[3];
+            fz0 = fz1 = z;
+        } else {
+            final double x = nx > 0 ? b[3] + g : b[0] - g;
+            fz0 = b[2];
+            fz1 = b[5];
+            fx0 = fx1 = x;
+        }
+        final double y0 = b[1], y1 = b[4];
+        final Tessellator t = Tessellator.instance;
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        t.startDrawingQuads();
+        t.setColorRGBA_I(rgb, (int) (40 * strength));
+        t.addVertex(fx0, y0, fz0);
+        t.addVertex(fx1, y0, fz1);
+        t.addVertex(fx1, y1, fz1);
+        t.addVertex(fx0, y1, fz0);
+        t.draw();
+        // The arrow: out from the middle of the face's bottom edge, along the ground.
+        final double mx = (fx0 + fx1) / 2, mz = (fz0 + fz1) / 2, ay = y0 + 0.03;
+        final double px = -nz, pz = nx;
+        final double[][] arrow = { { mx + nx * 0.15 + px * 0.35, mz + nz * 0.15 + pz * 0.35 },
+            { mx + nx * 0.15 - px * 0.35, mz + nz * 0.15 - pz * 0.35 }, { mx + nx * 0.85, mz + nz * 0.85 } };
+        for (final boolean seen : new boolean[] { false, true }) {
+            if (seen) {
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                GL11.glDepthFunc(GL11.GL_LEQUAL);
+            }
+            t.startDrawing(GL11.GL_TRIANGLES);
+            t.setColorRGBA_I(rgb, (int) ((seen ? 200 : 70) * strength));
+            for (final double[] a : arrow) t.addVertex(a[0], ay, a[1]);
+            t.draw();
+            GL11.glLineWidth(seen ? 2.5f : 1.5f);
+            t.startDrawing(GL11.GL_LINE_LOOP);
+            t.setColorRGBA_I(rgb, (int) ((seen ? 255 : 90) * strength));
+            t.addVertex(fx0, y0, fz0);
+            t.addVertex(fx1, y0, fz1);
+            t.addVertex(fx1, y1, fz1);
+            t.addVertex(fx0, y1, fz0);
+            t.draw();
+        }
     }
 
     /**

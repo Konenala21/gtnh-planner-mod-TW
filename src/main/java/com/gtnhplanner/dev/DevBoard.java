@@ -217,6 +217,51 @@ final class DevBoard {
         throw new IllegalArgumentException("no card " + index);
     }
 
+    /**
+     * The plan over the world, set up for a look: {@code card=N} (the report's order) placed at x, y, z (facing 0
+     * south, 1 west, 2 north, 3 east; {@code add=1} as one more of its machines), {@code pick=N} starts placing card N
+     * as its place key does (the planner closes), {@code clear=1} takes every card of the open plan out of the world.
+     */
+    static Map<String, Object> worldPlace(final Map<String, String> q) {
+        final BoardScreen screen = screen();
+        if (screen == null) throw new IllegalStateException("the planner is not open");
+        final Graph graph = screen.session()
+            .graph();
+        if (q.containsKey("clear")) {
+            for (final com.gtnhplanner.data.flowchart.Node n : graph.nodes.values())
+                com.gtnhplanner.ui.world.WorldLinks.clear(graph, n);
+            return Map.of("cleared", true);
+        }
+        final boolean pick = q.containsKey("pick");
+        final int index = Integer.parseInt(pick ? q.get("pick") : q.get("card"));
+        int i = 0;
+        for (final CardModel model : screen.session()
+            .models()
+            .values()) {
+            if (i++ != index) continue;
+            if (pick) {
+                final RecipeCard card = screen.canvas()
+                    .cards()
+                    .get(model.node.id);
+                if (card == null) throw new IllegalArgumentException("card " + index + " is not on the board");
+                card.placeInWorld();
+                return Map.of("placing", String.valueOf(model.machineName));
+            }
+            com.gtnhplanner.ui.world.WorldLinks.assign(
+                graph,
+                model.node,
+                Minecraft.getMinecraft().theWorld.provider.dimensionId,
+                Integer.parseInt(q.get("x")),
+                Integer.parseInt(q.get("y")),
+                Integer.parseInt(q.get("z")),
+                Integer.parseInt(q.getOrDefault("facing", "0")),
+                0,
+                q.containsKey("add"));
+            return Map.of("placed", String.valueOf(model.machineName), "links", model.node.worldLinks.size());
+        }
+        throw new IllegalArgumentException("no card " + index);
+    }
+
     /** Sets zoom and pan so tests start from a known view. */
     static void view(final float zoom, final float panX, final float panY) {
         final BoardScreen screen = screen();

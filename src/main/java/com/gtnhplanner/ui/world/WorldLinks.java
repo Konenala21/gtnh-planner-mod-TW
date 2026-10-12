@@ -271,6 +271,41 @@ public final class WorldLinks {
         return near;
     }
 
+    /**
+     * Where a ray enters a box from outside and through which face: {distance, side}, the side as the game numbers a
+     * block's (0 bottom, 1 top, 2 north, 3 south, 4 west, 5 east); null when it misses or starts inside.
+     */
+    @Nullable
+    static double[] enterFace(final net.minecraft.util.Vec3 o, final net.minecraft.util.Vec3 d, final double[] box) {
+        double near = -Double.MAX_VALUE, far = Double.MAX_VALUE;
+        int side = -1;
+        final double[] origin = { o.xCoord, o.yCoord, o.zCoord }, dir = { d.xCoord, d.yCoord, d.zCoord };
+        // The faces at each axis's low and high end: west and east, bottom and top, north and south.
+        final int[] low = { 4, 0, 2 }, high = { 5, 1, 3 };
+        for (int k = 0; k < 3; k++) {
+            final double lo = box[k], hi = box[k + 3];
+            if (Math.abs(dir[k]) < 1e-9) {
+                if (origin[k] < lo || origin[k] > hi) return null;
+                continue;
+            }
+            double t1 = (lo - origin[k]) / dir[k], t2 = (hi - origin[k]) / dir[k];
+            int s1 = low[k];
+            if (t1 > t2) {
+                final double t = t1;
+                t1 = t2;
+                t2 = t;
+                s1 = high[k];
+            }
+            if (t1 > near) {
+                near = t1;
+                side = s1;
+            }
+            far = Math.min(far, t2);
+            if (near > far) return null;
+        }
+        return near < 0 || side < 0 ? null : new double[] { near, side };
+    }
+
     /** The spot in front of the face a ray hit: where a placed card goes (an imaginary block there). */
     public static int[] inFront(final net.minecraft.util.MovingObjectPosition hit) {
         int x = hit.blockX, y = hit.blockY, z = hit.blockZ;

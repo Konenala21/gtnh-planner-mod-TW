@@ -9,6 +9,7 @@
 ## Better
 
 - Dragging a wire lights up every card and port that can take it.
+- Cards over the world stay small and faint until you look at their machine, and sit beside it instead of on it. Focus (Shift + U) now shows only the one you're looking at.
 - Rates you set on a card's port show up in the overview, and "~ Set" puts a rate on anything nothing sets yet.
 - "(set count)" only nags on the part of the plan that actually needs a number.
 - Steam machines lose the voltage chip (they don't use EU) and show how much steam they burn instead.
@@ -22,4 +23,5 @@
 - Crop farms in pasted plans come in now, and crop cards share to the library properly.
 - Generators in pasted Build plans keep their count instead of getting resized.
 - Cards in pasted plans don't land on top of each other.
+- Placing machines in the world: you can stack the next one on the one you just placed, and you can see which way R turns it.
 - Placing a generator in the world shows its name, not a code.

@@ -2105,13 +2105,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 "",
                 Hyb.INK,
                 false,
-                () -> com.gtnhplanner.ui.world.LinkPicker.start(
-                    session.graph(),
-                    node.id,
-                    placeName(),
-                    model.machineStack,
-                    CardModel.structureNeeds(models),
-                    (int) Math.min(64, Math.ceil(machinesTotal() - 1e-9)))));
+                this::placeInWorld));
         if (placed()) rows.add(
             PickList.Entry
                 .of("Remove from the world", () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
@@ -2124,6 +2118,21 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 false,
                 () -> session.togglePinList(nodeId)));
         Popup.open(getPanel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
+    }
+
+    /**
+     * Starts placing the card in the world, one click a machine: the planner closes and its ghost follows the
+     * crosshair.
+     */
+    public void placeInWorld() {
+        if (model == null) return;
+        com.gtnhplanner.ui.world.LinkPicker.start(
+            session.graph(),
+            model.node.id,
+            placeName(),
+            model.machineStack,
+            CardModel.structureNeeds(models),
+            (int) Math.min(64, Math.ceil(machinesTotal() - 1e-9)));
     }
 
     /** The pin key's right-click: off the block in the world and off the pin list, as one undo step. */

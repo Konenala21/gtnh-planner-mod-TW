@@ -102,7 +102,9 @@ public final class PlacementKeys {
         // Focus needs no machine lit.
         if (Keyboard.getEventKey() == Keyboard.KEY_U) {
             com.gtnhplanner.ui.PlannerSettings.setArFocus(!com.gtnhplanner.ui.PlannerSettings.arFocus());
-            WorldView.say(com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus: on" : "Focus: off");
+            WorldView.say(
+                com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus on: only what you look at"
+                    : "Focus off: all cards, faint");
             return;
         }
         // The key can come in the same tick as sneak, before the tick takes the placement in hand.
@@ -167,7 +169,9 @@ public final class PlacementKeys {
             || Minecraft.getMinecraft().theWorld == null
             || Minecraft.getMinecraft().theWorld.provider.dimensionId != link[0]) return;
         WorldMarks.begin();
-        WorldMarks.outline(WorldLinks.extent(graph, node, link), Hyb.LIT & 0xFFFFFF, 0.012f, 2.5f, 1f);
+        final double[] box = WorldLinks.extent(graph, node, link);
+        WorldMarks.outline(box, Hyb.LIT & 0xFFFFFF, 0.012f, 2.5f, 1f);
+        WorldMarks.front(box, WorldLinks.facing(link), Hyb.GOLD & 0xFFFFFF, 1f);
         WorldMarks.end();
     }
 

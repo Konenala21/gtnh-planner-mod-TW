@@ -154,13 +154,60 @@ public final class LinkPicker {
     /** How far the crosshair reaches when placing: past the game's reach, to stand back from a big structure. */
     private static final double REACH = 48;
 
-    /** The block face under the crosshair, as far as placing reaches, or null. */
+    /**
+     * The block face under the crosshair, as far as placing reaches, or null. The plan's placed machines count as
+     * blocks: placing builds against their ghosts as against real blocks, so the next machine can go on top of or
+     * beside the last.
+     */
     @Nullable
     static MovingObjectPosition aim() {
-        final net.minecraft.entity.EntityLivingBase eye = Minecraft.getMinecraft().renderViewEntity;
-        if (eye == null || Minecraft.getMinecraft().theWorld == null) return null;
+        final Minecraft mc = Minecraft.getMinecraft();
+        final net.minecraft.entity.EntityLivingBase eye = mc.renderViewEntity;
+        if (eye == null || mc.theWorld == null) return null;
         final MovingObjectPosition hit = eye.rayTrace(REACH, 1f);
-        return hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK ? hit : null;
+        MovingObjectPosition best = hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK ? hit
+            : null;
+        final Graph g = INSTANCE.graph;
+        if (g == null) return best;
+        final net.minecraft.util.Vec3 from = eye.getPosition(1f), dir = eye.getLook(1f);
+        double limit = best == null ? REACH : best.hitVec.distanceTo(from);
+        final int dim = mc.theWorld.provider.dimensionId;
+        final Node inHand = node();
+        for (final Node n : g.nodes.values()) for (final int[] l : n.worldLinks) {
+            if (l[0] != dim || n == inHand && hidden(l)) continue;
+            final double[] box = WorldLinks.extent(g, n, l);
+            final double[] face = WorldLinks.enterFace(from, dir, box);
+            if (face == null || face[0] >= limit) continue;
+            limit = face[0];
+            best = onFace(from, dir, face, box);
+        }
+        return best;
+    }
+
+    /**
+     * Whether one of the in-hand card's own placements is gone while it is in hand: the one being moved, or all of
+     * them before its first placing.
+     */
+    static boolean hidden(final int[] l) {
+        final int[] m = INSTANCE.moving;
+        return m != null ? l[1] == m[1] && l[2] == m[2] && l[3] == m[3] : replacing();
+    }
+
+    /** A ray's hit on a face of a placed machine's box, as the game reports a block's: the block inside that face. */
+    private static MovingObjectPosition onFace(final net.minecraft.util.Vec3 from, final net.minecraft.util.Vec3 dir,
+        final double[] face, final double[] box) {
+        final double t = face[0];
+        final int side = (int) face[1];
+        final double px = from.xCoord + dir.xCoord * t, py = from.yCoord + dir.yCoord * t,
+            pz = from.zCoord + dir.zCoord * t;
+        final int x = side == 4 ? (int) box[0] : side == 5 ? (int) box[3] - 1 : inside(px, box[0], box[3]);
+        final int y = side == 0 ? (int) box[1] : side == 1 ? (int) box[4] - 1 : inside(py, box[1], box[4]);
+        final int z = side == 2 ? (int) box[2] : side == 3 ? (int) box[5] - 1 : inside(pz, box[2], box[5]);
+        return new MovingObjectPosition(x, y, z, side, net.minecraft.util.Vec3.createVectorHelper(px, py, pz));
+    }
+
+    private static int inside(final double v, final double lo, final double hi) {
+        return (int) Math.max(lo, Math.min(hi - 1, Math.floor(v)));
     }
 
     /**
@@ -265,6 +312,12 @@ public final class LinkPicker {
         if (node == null || hit == null) return;
         final int[] at = spot(hit);
         final int dim = mc.theWorld.provider.dimensionId;
+        // One of this card's machines there already: placing it again would count it twice.
+        if (moving == null && placed > 0 && WorldLinks.indexOf(node, dim, at[0], at[1], at[2]) >= 0) {
+            WorldView.say("One is placed there already");
+            com.gtnhplanner.ui.sound.Sfx.DENY.play();
+            return;
+        }
         com.gtnhplanner.ui.sound.Sfx.WORLD_PLACE.play();
         if (moving != null) {
             WorldLinks.relink(graph, node, moving, WorldLinks.link(dim, at[0], at[1], at[2], facing(), size), true);
@@ -340,6 +393,7 @@ public final class LinkPicker {
                 + ". Right-click or Esc to cancel.";
         final int w = Math.max(Hyb.width(title) + 22, Hyb.width(how)) + 12, h = 29;
         final float x = (event.resolution.getScaledWidth() - w) / 2f, y = 6;
+        titleAt = new int[] { (int) x - 1, (int) y - 1, w + 2, h + 2 };
         Hyb.rect(x - 1, y - 1, w + 2, h + 2, Hyb.FRAME);
         Hyb.rect(x, y, w, h, 0xE0141414);
         if (machine != null) Hyb.item(machine, x + 5, y + 3, 12, 0);
@@ -348,6 +402,15 @@ public final class LinkPicker {
         Hyb.text(how, x + 6, y + 17, Hyb.MUTED);
         GL11.glColor4f(1, 1, 1, 1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
+    }
+
+    @Nullable
+    private static int[] titleAt;
+
+    /** Where the title is drawn {x, y, w, h} while placing, or null: the note and the cards keep out of its way. */
+    @Nullable
+    static int[] titleBounds() {
+        return active() ? titleAt : null;
     }
 
     /** A structure's size in blocks, across, high and deep as it faces you: "3 x 7 x 3". */
