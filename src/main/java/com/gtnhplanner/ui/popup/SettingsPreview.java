@@ -198,7 +198,7 @@ final class SettingsPreview {
     /** A wire as the plan over the world draws one: its colour on a dark edge, two arrowheads lighter than it. */
     private static void wire(final float ax, final float ay, final float bx, final float by,
         final PlanSnapshot.Line l) {
-        final int colour = 0xFF000000 | l.color() & 0xFFFFFF, tip = Hyb.mix(colour, 0xFFFFFFFF, 0.6f);
+        final int colour = 0xFF000000 | l.color() & 0xFFFFFF, tip = Hyb.mix(colour, 0xFFFFFFFF, 0.3f);
         band(ax, ay, bx, by, 5, 0xB0000000);
         band(ax, ay, bx, by, 3, colour);
         final float len = (float) Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len;

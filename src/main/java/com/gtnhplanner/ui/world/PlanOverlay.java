@@ -583,6 +583,13 @@ public final class PlanOverlay {
         final List<float[]> arrows;
         final String name, rate;
         float tx, ty, tw, th;
+        /**
+         * Where along the wire its tag can go: the wire's ends in the world, the share of it shown, and its lane's
+         * step.
+         */
+        double[] from, to, span;
+        double at;
+        float ox, oy;
         /** Whether its tag shows: a card it joins is looked at, or the crosshair is on it. */
         boolean tag;
 
@@ -628,7 +635,49 @@ public final class PlanOverlay {
                 || labels == PlannerSettings.WIRE_LABELS_LOOKED && (shown(r, seen) > TAG_FROM || r.conn.same(hovered));
             out.add(r);
         }
+        unstackTags(out, sr, mc);
         return out;
+    }
+
+    /**
+     * Moves tags off each other along their own wires, the nearest wires' first: each that overlaps one already placed
+     * tries a step either way along its wire, then two, then three, and stays where it was if none is clear.
+     */
+    private void unstackTags(final List<Run> runs, final ScaledResolution sr, final Minecraft mc) {
+        final List<Run> order = new ArrayList<>();
+        for (final Run r : runs) if (r.tag) order.add(r);
+        order.sort(Comparator.comparingDouble((Run r) -> -r.scale));
+        final List<Run> placed = new ArrayList<>();
+        for (final Run r : order) {
+            if (overlaps(r, placed)) {
+                final double len = r.span[1] - r.span[0], tx0 = r.tx, ty0 = r.ty;
+                boolean clear = false;
+                for (int k = 1; k <= 3 && !clear; k++) for (final int dir : new int[] { 1, -1 }) {
+                    final double t = r.at + dir * k * 0.14 * len;
+                    if (t < r.span[0] + 0.08 * len || t > r.span[1] - 0.08 * len) continue;
+                    final float[] on = screen(along(r.from, r.to, t), sr, mc);
+                    if (on == null) continue;
+                    r.tx = on[0] + r.ox - r.tw / 2;
+                    r.ty = on[1] + r.oy - r.th / 2;
+                    if (!overlaps(r, placed)) {
+                        clear = true;
+                        break;
+                    }
+                }
+                if (!clear) {
+                    r.tx = (float) tx0;
+                    r.ty = (float) ty0;
+                }
+            }
+            placed.add(r);
+        }
+    }
+
+    private static boolean overlaps(final Run r, final List<Run> placed) {
+        for (final Run o : placed)
+            if (r.tx < o.tx + o.tw + 2 && o.tx < r.tx + r.tw + 2 && r.ty < o.ty + o.th + 2 && o.ty < r.ty + r.th + 2)
+                return true;
+        return false;
     }
 
     /**
@@ -692,17 +741,22 @@ public final class PlanOverlay {
             rate);
         r.tw = (TAG_ICON + 9 + Math.max(Hyb.width(r.name), Hyb.width(rate) * TAG_RATE) + 5) * scale;
         r.th = TAG_H * scale;
-        // On the line when it runs alone; beside its lane, on the side away from the other wires, when it has company.
-        float cx = mid[0] + ox, cy = mid[1] + oy;
-        final float side = (float) Math.hypot(ox, oy);
-        if (side > 0) {
-            final float nx = ox / side, ny = oy / side;
-            final float apart = Math.abs(nx) * r.tw / 2 + Math.abs(ny) * r.th / 2 + lineWidth(scale) / 2 + 3;
-            cx += nx * apart;
-            cy += ny * apart;
-        }
+        // On its own line, so it is plain which wire it names: wires sharing a pair of cards have theirs staggered
+        // along
+        // them, a fifth of the run apart, so they never sit side by side.
+        final double t = Math.max(
+            span[0] + 0.15 * (span[1] - span[0]),
+            Math.min(span[1] - 0.15 * (span[1] - span[0]), (span[0] + span[1]) / 2 + lane * 0.2 * (span[1] - span[0])));
+        final float[] on = screen(along(from, to, t), sr, mc);
+        final float cx = (on != null ? on[0] : mid[0]) + ox, cy = (on != null ? on[1] : mid[1]) + oy;
         r.tx = cx - r.tw / 2;
         r.ty = cy - r.th / 2;
+        r.from = from;
+        r.to = to;
+        r.span = span;
+        r.at = t;
+        r.ox = ox;
+        r.oy = oy;
         return r;
     }
 
@@ -928,7 +982,7 @@ public final class PlanOverlay {
         band(r.ax, r.ay, r.bx, r.by, w, flowing || lit ? colour : colour & 0x00FFFFFF | 0x99000000);
         // The arrowheads, set out along the wire in the world.
         final float head = 5.6f * arrow, half = 3f * arrow;
-        final int tip = Hyb.mix(colour, 0xFFFFFFFF, 0.6f);
+        final int tip = Hyb.mix(colour, 0xFFFFFFFF, 0.3f);
         for (final float[] a : r.arrows) {
             final float px = a[0], py = a[1], ux = a[2], uy = a[3], fade = a[4];
             final float fx = px + ux * head * 0.6f, fy = py + uy * head * 0.6f;
@@ -978,8 +1032,10 @@ public final class PlanOverlay {
         GL11.glTranslatef(r.tx, r.ty, 0);
         GL11.glScalef(r.scale, r.scale, 1);
         final int w = Math.round(r.tw / r.scale), h = TAG_H;
-        Hyb.roundRect(0, 0, w, h, 4, 0xC8141518);
-        if (lit) Hyb.ring(-1, -1, w + 2, h + 2, 1, 0xD0000000 | Hyb.LIT & 0xFFFFFF);
+        // In its wire's colours: a backing tinted with it and an edge of it (the highlight's when lit).
+        final int wire = 0xFF000000 | r.conn.line.color() & 0xFFFFFF;
+        Hyb.roundRect(-1, -1, w + 2, h + 2, 5, lit ? 0xE0000000 | Hyb.LIT & 0xFFFFFF : wire);
+        Hyb.roundRect(0, 0, w, h, 4, 0xE0000000 | Hyb.mix(0xFF141518, wire, 0.72f) & 0xFFFFFF);
         final PlanSnapshot.Flow f = r.conn.flow;
         if (f != null) {
             if (f.power()) RecipeCard.euIcon(4, 3, TAG_ICON);
