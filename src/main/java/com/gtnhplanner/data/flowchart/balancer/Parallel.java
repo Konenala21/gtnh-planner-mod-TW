@@ -47,12 +47,17 @@ public final class Parallel {
         return 16;
     }
 
+    /** {@code work} applied to every item, side by side when there are several; the answers in the items' order. */
+    public static <T, R> List<R> map(final List<T> items, final Function<T, R> work) {
+        return map(null, items, work);
+    }
+
     /**
      * {@code work} applied to every item, side by side when there are several and nothing is listening (a profiler
      * hears every model, in order, so it gets them one at a time); the answers in the items' order.
      */
     public static <T, R> List<R> map(final SolveContext ctx, final List<T> items, final Function<T, R> work) {
-        if (items.size() < 2 || THREADS < 2 || ctx.profiler.enabled()) {
+        if (items.size() < 2 || THREADS < 2 || ctx != null && ctx.profiler.enabled()) {
             final List<R> out = new ArrayList<>(items.size());
             for (final T item : items) out.add(work.apply(item));
             return out;

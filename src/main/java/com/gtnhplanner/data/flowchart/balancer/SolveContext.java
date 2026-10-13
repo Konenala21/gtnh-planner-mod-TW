@@ -99,6 +99,8 @@ public final class SolveContext {
     public Note rejection = new Note(SolverMessage.SOLVER_NO_SOLUTION);
     /** Final answer notes: pin overshoots from construction, then each pass's own stage notes. */
     public final List<Note> notes = new ArrayList<>();
+    /** How many of {@link #notes} the snapshot itself raised (pin overshoots), before any solve added its own. */
+    public final int constructionNotes;
     /** Stage notes produced by the pass currently running (cleared on every pass). */
     public final List<Note> stageNotes = new ArrayList<>();
 
@@ -179,6 +181,7 @@ public final class SolveContext {
         // A pinned shared machine is a pin too: its recipes' machines add up to its count.
         for (final ModelData.Pool pool : model.pools) anchor |= pool.exact() && pool.capacity() > 0;
         this.anchored = any || anchor;
+        this.constructionNotes = notes.size();
     }
 
     /** Whether any drawer puts a bound in the model. */

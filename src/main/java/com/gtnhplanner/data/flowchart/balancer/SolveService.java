@@ -14,7 +14,8 @@ import com.gtnhplanner.GtnhPlanner;
  * <p>
  * The client thread takes a {@link SolveInput} snapshot whenever the graph's version moves and
  * {@link #submit}s it; the worker solves it with {@link Balancer#solve(SolveInput)} and publishes
- * the answer, which the board reads every frame with {@link #latest()}. Only the newest request
+ * the answer, which the board reads every frame with {@link #latest()}. Islands of the plan an edit did not touch
+ * are not solved again ({@link Balancer.Cache}). Only the newest request
  * matters:
  * <ul>
  * <li>a request that has not started yet is replaced by the next {@code submit}, so a burst of edits
@@ -85,7 +86,15 @@ public final class SolveService implements AutoCloseable {
 
     /** A service solving with {@link Balancer#solve(SolveInput)}. */
     public SolveService() {
-        this(Balancer::solve);
+        this(cachedSolve());
+    }
+
+    /**
+     * {@link Balancer#solve(SolveInput, Balancer.Cache)} with a cache of its own: the plan's unchanged islands kept.
+     */
+    private static Function<SolveInput, BalanceResult> cachedSolve() {
+        final Balancer.Cache cache = new Balancer.Cache();
+        return input -> Balancer.solve(input, cache);
     }
 
     /** A service solving with {@code solver}; tests hand in a solver they control. */

@@ -337,3 +337,12 @@ timed (`altBudgetMillis` is gone), and a swap keeps open the gates the answer op
 offer no choice because there is none (each leftover has one possible place), and say so, complete; palladium_line's
 second pass offers choices on four leftovers. Platline solves in 18 ms with everything (0.25 s after phase 1), mv in
 38 ms, platline x4 in 0.53 s.
+
+**Phase 4** (2026-10-12): islands (`Islands`): machines joined by a wire, a capped shared machine or a drawer are one
+island, and `Balancer.solveWithAlternatives` solves each by itself, side by side, then reads them together as one
+plan (one `SolutionView`, whose wiring notes still look across islands; each island's choices keyed by the whole
+plan's answer). An island with nothing to size is idle; one that cannot balance says why and leaves the rest solved.
+`Balancer.Cache` keeps solved islands by their snapshot (and the solver effort), so an edit re-solves only its island
+and undo finds the old answer; `SolveService` keeps one. `SolverIslandTest`: every copy of a tiled plan answers
+exactly as the plan alone, and the cache never answers for an island that changed. Platline x10 solves in 0.58 s
+(67 s before phase 1), x4 in 27 ms.

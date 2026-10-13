@@ -217,7 +217,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 28.00000000000001
+        "ratePerSecond": 28.0
       },
       {
         "port": {
@@ -1008,10 +1008,10 @@
                   "portIndex": 0.0,
                   "input": false
                 },
-                "ratePerSecond": 28.00000000000001
+                "ratePerSecond": 28.0
               }
             ],
-            "max": 28.00000000000001,
+            "max": 28.0,
             "share": 1.0,
             "solverPick": true
           }
@@ -2961,7 +2961,7 @@
               "portIndex": 0.0,
               "input": false
             },
-            "ratePerSecond": 28.00000000000001
+            "ratePerSecond": 28.0
           }
         ],
         "rank": "DEFAULT"
