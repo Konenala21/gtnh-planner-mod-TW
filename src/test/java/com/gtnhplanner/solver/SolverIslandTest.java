@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
-import com.gtnhplanner.data.flowchart.balancer.Budget;
 import com.gtnhplanner.data.flowchart.balancer.SolutionView;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput;
 import com.gtnhplanner.harness.GtnhFlowLoader;
@@ -27,13 +26,10 @@ class SolverIslandTest {
     @BeforeAll
     static void setUp() {
         GtnhFlowLoader.ensureDefaultMachineProfile();
-        Budget.timeless(true);
     }
 
     @AfterAll
-    static void tearDown() {
-        Budget.timeless(false);
-    }
+    static void tearDown() {}
 
     @Test
     void everyCopyAnswersAsThePlanAlone() {
@@ -73,7 +69,7 @@ class SolverIslandTest {
     void theCacheOnlyKeepsWhatDidNotChange() {
         final SolveInput tiled = SolverCorpus.tile(SolverCorpus.plan("platline"), 3);
         final Balancer.Cache cache = new Balancer.Cache();
-        Balancer.solveWithAlternatives(tiled, cache);
+        Balancer.solveWithAlternatives(tiled, cache, () -> false);
         final java.util.List<SolveInput.Machine> machines = new java.util.ArrayList<>(tiled.machines());
         int edited = -1;
         for (int m = machines.size() - 1; m >= 0 && edited < 0; m--) if (machines.get(m)
@@ -103,7 +99,7 @@ class SolverIslandTest {
             tiled.drawers(),
             tiled.extentPins(),
             tiled.spares());
-        final SolutionView cached = solved(Balancer.solveWithAlternatives(edit, cache));
+        final SolutionView cached = solved(Balancer.solveWithAlternatives(edit, cache, () -> false));
         final SolutionView fresh = solved(Balancer.solveWithAlternatives(edit));
         assertEquals(fresh.machineCounts, cached.machineCounts);
         assertEquals(fresh.edgeFlowsPerSecond, cached.edgeFlowsPerSecond);

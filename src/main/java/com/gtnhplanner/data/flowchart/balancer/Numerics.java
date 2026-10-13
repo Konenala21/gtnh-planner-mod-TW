@@ -12,10 +12,11 @@ public final class Numerics {
     /** Duration ticks per second, used for every extent-to-count conversion. */
     public static final int TICKS_PER_SECOND = 20;
 
-    /** Ceiling on the WHOLE solve, scaled by effort. */
-    public final long solveBudgetMillis = 20_000;
-    /** Floor on any one model's time limit, however little of the budget is left. */
-    public final long minModelMillis = 250;
+    /**
+     * How long one model may run before it is stopped as broken: a safety net only, far past what any working model
+     * takes. Nothing else in a solve looks at the clock; its work is counted.
+     */
+    public final long modelSafetyMillis = 30_000;
     /**
      * How many questions the gate search ({@link GateSearch}) may ask proving its minimal answer least, scaled by
      * effort. Counted, so where it stops is the same on every computer; past it, the least answers found stand, or the
@@ -33,8 +34,6 @@ public final class Numerics {
      * cutting the ties short lets the same chart answer differently.
      */
     public final int maxTiedSupports = 64;
-    /** Ceiling on any ONE model's model time, scaled by effort. */
-    public final long stageTimeLimitMillis = 15_000;
 
     /** Cap on gate swaps tried in the alternatives search, scaled by effort. */
     public final int maxAltSwaps = 1024;

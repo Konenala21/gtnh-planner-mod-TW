@@ -48,32 +48,29 @@ public final class Solver {
     public static SolveResult run(final SolveContext ctx, final Handles h, final String label) {
         SolveResult last = null;
         for (final LinearSolver.Configuration opinion : OPINIONS) {
+            ctx.checkStop();
             h.model().options.linear(opinion);
-            final Optimisation.Result result = timed(ctx, h, label);
+            final long start = System.currentTimeMillis();
+            final Optimisation.Result result = h.model()
+                .minimise();
+            final long millis = System.currentTimeMillis() - start;
+            if (ctx.profiler.enabled()) {
+                ctx.profiler.modelSolved(
+                    label,
+                    millis,
+                    result.getState()
+                        .toString(),
+                    h.model()
+                        .countVariables(),
+                    h.model()
+                        .countExpressions());
+            }
             last = result.getState()
-                .isFeasible() ? fromHandles(ctx, h, false) : rejected(ctx, result);
+                .isFeasible() ? fromHandles(ctx, h, false)
+                    : rejected(ctx, result, millis >= h.model().options.time_abort);
             if (!last.isRejected()) return last;
         }
         return last;
-    }
-
-    private static Optimisation.Result timed(final SolveContext ctx, final Handles h, final String label) {
-        final Profiler profiler = ctx.profiler;
-        final long start = profiler.enabled() ? System.currentTimeMillis() : 0;
-        final Optimisation.Result result = h.model()
-            .minimise();
-        if (profiler.enabled()) {
-            profiler.modelSolved(
-                label,
-                System.currentTimeMillis() - start,
-                result.getState()
-                    .toString(),
-                h.model()
-                    .countVariables(),
-                h.model()
-                    .countExpressions());
-        }
-        return result;
     }
 
     /** The AUTO extent lower bound: the pass-2 floors when a replay forced them, else zero. */
@@ -226,11 +223,12 @@ public final class Solver {
     /**
      * Records what the solver actually said and yields the rejection every caller reads as
      * "nothing here". The state does not separate a model with no solution from a search that gave
-     * up looking - ojAlgo returns INFEASIBLE for both - so whether the budget was spent goes into
-     * the reason too.
+     * up looking - ojAlgo returns INFEASIBLE for both - so a model that ran into its safety limit
+     * ({@link Numerics#modelSafetyMillis}) says so in the reason too.
      */
-    private static SolveResult rejected(final SolveContext ctx, final Optimisation.Result result) {
-        final Note note = ctx.budget.expired() ? new Note(SolverMessage.SOLVER_BUDGET, result.getState())
+    private static SolveResult rejected(final SolveContext ctx, final Optimisation.Result result,
+        final boolean outOfTime) {
+        final Note note = outOfTime ? new Note(SolverMessage.SOLVER_BUDGET, result.getState())
             : new Note(SolverMessage.SOLVER_UNSATISFIABLE, result.getState());
         ctx.profiler.pointRejected("solve", note.describe());
         return SolveResult.rejected(note);

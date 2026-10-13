@@ -346,3 +346,10 @@ plan's answer). An island with nothing to size is idle; one that cannot balance 
 and undo finds the old answer; `SolveService` keeps one. `SolverIslandTest`: every copy of a tiled plan answers
 exactly as the plan alone, and the cache never answers for an island that changed. Platline x10 solves in 0.58 s
 (67 s before phase 1), x4 in 27 ms.
+
+**Phase 5** (2026-10-12): no clock decides anything. `Budget` is gone: the work is counted (gate-search questions,
+swaps, probes, ties) and each model has only a 30 s safety net (`Numerics.modelSafetyMillis`) that no working model
+reaches. A newer edit stops the running solve before its next model (`SolveContext.checkStop`, `Balancer.Stopped`,
+`SolveService`); islands it finished stay cached. The snapshot numbers ingredients through an index (an item's id and
+damage, its ore ids, a fluid) instead of testing every port against every ingredient, with the same numbers. Not done:
+publishing the answer before its alternatives, which the times above no longer call for.

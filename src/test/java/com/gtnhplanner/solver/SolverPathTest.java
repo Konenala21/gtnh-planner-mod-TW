@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonElement;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
-import com.gtnhplanner.data.flowchart.balancer.Budget;
 import com.gtnhplanner.data.flowchart.balancer.ModelBuilder;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 
@@ -27,12 +26,10 @@ class SolverPathTest {
     @BeforeAll
     static void setUp() {
         GtnhFlowLoader.ensureDefaultMachineProfile();
-        Budget.timeless(true);
     }
 
     @AfterAll
     static void tearDown() {
-        Budget.timeless(false);
         ModelBuilder.reversed(false);
     }
 

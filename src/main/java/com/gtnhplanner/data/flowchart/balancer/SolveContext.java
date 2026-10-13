@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 import javax.annotation.Nullable;
 
@@ -17,7 +18,7 @@ import com.gtnhplanner.data.flowchart.Drawer;
 /**
  * The shared, mutable state of one solve run - the "threaded" half of the zero-copy pipeline.
  * Everything a stage may read or write on a single shared object rather than copied per stage:
- * the build-once {@link ModelData}, the type's {@link Heuristics}, the run's {@link Budget} and
+ * the build-once {@link ModelData}, the type's {@link Heuristics}, the run's stop signal and
  * pins, the pass-2 floors, and the current point ({@link StageOutcome}). Stages mutate this in
  * place; the next stage reads the result. The only objects rebuilt per stage are the ojAlgo models
  * themselves, which is inherent to the library and allowed.
@@ -30,12 +31,8 @@ public final class SolveContext {
 
     public final ModelData model;
     public final Heuristics heuristics;
-    /**
-     * The wall-clock deadline for the whole solve. Mutable: the alternatives search swaps it for
-     * its own split budgets mid-run, so a stage always reads the deadline that governs the model
-     * it is about to build.
-     */
-    public Budget budget;
+    /** Whether a newer edit has made this solve's answer worthless; every model asks before it runs. */
+    private final BooleanSupplier stop;
     public final boolean anyPin;
     /**
      * Whether anything sets the chart's scale: a pin, or a drawer that asks for a positive amount
@@ -104,12 +101,12 @@ public final class SolveContext {
     /** Stage notes produced by the pass currently running (cleared on every pass). */
     public final List<Note> stageNotes = new ArrayList<>();
 
-    SolveContext(final SolveInput input, final Heuristics heuristics, final Budget budget,
+    SolveContext(final SolveInput input, final Heuristics heuristics, final BooleanSupplier stop,
         final Map<UUID, Double> extraExtentPins, final Set<Pin> pins, final boolean bindsExternals,
         final Profiler profiler) {
         this.model = new ModelData(input, heuristics);
         this.heuristics = heuristics;
-        this.budget = budget;
+        this.stop = stop;
         this.pins = Set.copyOf(pins);
         this.profiler = profiler;
         this.bindsExternals = bindsExternals;
@@ -182,6 +179,11 @@ public final class SolveContext {
         for (final ModelData.Pool pool : model.pools) anchor |= pool.exact() && pool.capacity() > 0;
         this.anchored = any || anchor;
         this.constructionNotes = notes.size();
+    }
+
+    /** Ends the solve ({@link Balancer.Stopped}) when a newer edit has made its answer worthless. */
+    public void checkStop() {
+        if (stop.getAsBoolean()) throw new Balancer.Stopped();
     }
 
     /** Whether any drawer puts a bound in the model. */

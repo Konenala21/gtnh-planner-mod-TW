@@ -21,7 +21,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
-import com.gtnhplanner.data.flowchart.balancer.Budget;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 
 /**
@@ -38,13 +37,10 @@ class SolverGoldenTest {
     static void profile() {
         GtnhFlowLoader.ensureDefaultMachineProfile();
         // Answers that do not depend on how busy the machine is: the goldens are the whole search's.
-        Budget.timeless(true);
     }
 
     @AfterAll
-    static void timed() {
-        Budget.timeless(false);
-    }
+    static void timed() {}
 
     @TestFactory
     Stream<DynamicTest> answersStayTheSame() {

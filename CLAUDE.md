@@ -277,7 +277,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - The solver (`docs/design/solver-plan.md`: what it promises, what was wrong, the phases) is checked against
   goldens: `./gradlew test --tests '*SolverGoldenTest*' -Pbench=check` compares every corpus plan's whole answer
   (`src/test/resources/solver-corpus/`, plans exported with `call 'solvedump?dir=...'`) to the recorded one, with
-  `Budget.timeless` so no clock decides anything; `-PwriteGoldens` records them afresh. `*SolverBench*` and
+  `-PwriteGoldens` records them afresh. `SolverPathTest` (answers the same however the simplex gets there) and
+  `SolverIslandTest` (a plan's islands answer as if alone) run in the normal suite. `*SolverBench*` and
   `*SolverCensus*` time it and count its models; compare before and after in one sitting.
 - The layout benchmark (`./gradlew test -Pbench=<label> --tests '*LayoutBenchmark*'`, tagged `bench`, left out of the
   normal run) routes and arranges every plan in the corpus, measures it (`layout/RouteMetrics`) and draws it to

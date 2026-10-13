@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
-import com.gtnhplanner.data.flowchart.balancer.Budget;
 import com.gtnhplanner.data.flowchart.balancer.Profiler;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 
@@ -25,13 +24,10 @@ class SolverCensus {
     @BeforeAll
     static void setUp() {
         GtnhFlowLoader.ensureDefaultMachineProfile();
-        Budget.timeless(true);
     }
 
     @AfterAll
-    static void tearDown() {
-        Budget.timeless(false);
-    }
+    static void tearDown() {}
 
     @Test
     void census() {
