@@ -14,10 +14,12 @@ import java.util.Properties;
 import net.minecraft.client.Minecraft;
 
 import com.gtnhplanner.GtnhPlanner;
+import com.gtnhplanner.ui.theme.Fmt;
 
 /**
- * The player's planner settings (the top bar's gear): how the board looks zoomed out, the minimap, and the in-world
- * views of linked machines. Kept in {@code config/gtnhplanner-settings.properties}, so they carry across worlds.
+ * The player's planner settings (the top bar's gear and its unit keys): how the board looks zoomed out and shows its
+ * numbers, the minimap, and the in-world views of linked machines. Kept in
+ * {@code config/gtnhplanner-settings.properties}, so they carry across worlds.
  */
 public final class PlannerSettings {
 
@@ -255,6 +257,41 @@ public final class PlannerSettings {
 
     public static int arRange() {
         return AR_RANGES[arRangeIndex()];
+    }
+
+    // endregion
+
+    // region The way numbers are shown (the top bar's keys)
+
+    /** The board's rate unit: per tick, second, minute or hour. */
+    public static Fmt.RateUnit rateUnit() {
+        try {
+            return Fmt.RateUnit.valueOf(load().getProperty("board.rateUnit", Fmt.RateUnit.SECOND.name()));
+        } catch (final IllegalArgumentException e) {
+            return Fmt.RateUnit.SECOND;
+        }
+    }
+
+    public static void setRateUnit(final Fmt.RateUnit unit) {
+        set("board.rateUnit", unit.name());
+    }
+
+    /** Power shown as amps at each machine's tier rather than EU/t. */
+    public static boolean powerAsAmps() {
+        return bool("board.powerAmps", false);
+    }
+
+    public static void setPowerAsAmps(final boolean amps) {
+        set("board.powerAmps", amps);
+    }
+
+    /** Power summed with every machine running at once rather than on average. */
+    public static boolean peakPower() {
+        return bool("board.peakPower", false);
+    }
+
+    public static void setPeakPower(final boolean peak) {
+        set("board.peakPower", peak);
     }
 
     // endregion

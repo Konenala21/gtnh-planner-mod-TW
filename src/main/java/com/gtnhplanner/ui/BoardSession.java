@@ -65,7 +65,8 @@ public final class BoardSession {
     private int structure;
     /** The sticky notes the widgets were last built for. */
     private Set<UUID> noteIds = Set.of();
-    private Fmt.RateUnit rateUnit = Fmt.RateUnit.SECOND;
+    /** The top bar's unit keys, as the player last left them ({@link PlannerSettings}). */
+    private Fmt.RateUnit rateUnit = PlannerSettings.rateUnit();
     private NodeLookupContext pendingLookup;
     private SolveService solver = new SolveService();
     /** Set when the board closed; NEI's pages close it too, and closing back to it reopens it. */
@@ -161,6 +162,7 @@ public final class BoardSession {
 
     public void setRateUnit(final Fmt.RateUnit unit) {
         rateUnit = unit;
+        PlannerSettings.setRateUnit(unit);
     }
 
     /**
@@ -1301,8 +1303,8 @@ public final class BoardSession {
         AMPS
     }
 
-    private PowerKey powerKey = PowerKey.EU;
-    private boolean peakPower;
+    private PowerKey powerKey = PlannerSettings.powerAsAmps() ? PowerKey.AMPS : PowerKey.EU;
+    private boolean peakPower = PlannerSettings.peakPower();
 
     public PowerKey powerKey() {
         return powerKey;
@@ -1310,6 +1312,7 @@ public final class BoardSession {
 
     public void togglePowerKey() {
         powerKey = powerKey == PowerKey.EU ? PowerKey.AMPS : PowerKey.EU;
+        PlannerSettings.setPowerAsAmps(powerKey == PowerKey.AMPS);
     }
 
     /** Peak counts every machine running at once (whole machines); average uses the solved fraction. */
@@ -1330,6 +1333,7 @@ public final class BoardSession {
 
     public void togglePeakPower() {
         peakPower = !peakPower;
+        PlannerSettings.setPeakPower(peakPower);
         // The totals rail sums power with it.
         seenVersion = Long.MIN_VALUE;
     }

@@ -13,6 +13,7 @@ import com.gtnhplanner.ui.Planner;
 import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.card.MachinePicks;
 import com.gtnhplanner.ui.card.SettingMemory;
+import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.world.PlanSnapshot;
 
 import codechicken.nei.LayoutManager;
@@ -37,6 +38,9 @@ final class Sandbox {
     private boolean minimap, circle, follows, pinList;
     private int size, zoom;
     private PlannerSettings.Corner corner, pinCorner;
+    /** The top bar's unit keys: the tour types its rates a second, and shows power as EU/t on average. */
+    private Fmt.RateUnit rateUnit;
+    private boolean amps, peak;
 
     void enter() {
         if (active) return;
@@ -60,6 +64,12 @@ final class Sandbox {
         corner = PlannerSettings.minimapCorner();
         pinList = PlannerSettings.pinList();
         pinCorner = PlannerSettings.pinListCorner();
+        rateUnit = PlannerSettings.rateUnit();
+        amps = PlannerSettings.powerAsAmps();
+        peak = PlannerSettings.peakPower();
+        PlannerSettings.setRateUnit(Fmt.RateUnit.SECOND);
+        PlannerSettings.setPowerAsAmps(false);
+        PlannerSettings.setPeakPower(false);
         Plan.enterSandbox();
     }
 
@@ -107,6 +117,9 @@ final class Sandbox {
         PlannerSettings.setMinimapCorner(corner);
         PlannerSettings.setPinList(pinList);
         PlannerSettings.setPinListCorner(pinCorner);
+        PlannerSettings.setRateUnit(rateUnit);
+        PlannerSettings.setPowerAsAmps(amps);
+        PlannerSettings.setPeakPower(peak);
         if (world) {
             final GuiScreen screen = mc.currentScreen;
             if (Planner.isPlanner(screen)) Planner.open();
