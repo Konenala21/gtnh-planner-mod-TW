@@ -269,15 +269,18 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   and before a release. It cannot see an API that still exists but behaves differently: test in an older pack for that.
 - The next release's notes build up as work lands: `.changelogs/unreleased.md`. Any commit to main that a player would
   notice adds or edits its line there, in the same commit (the owner, 2026-10-12: always ready to ship). How they read:
-  Discord-casual and in a player's words, short and not daunting. One line a change, grouped New / Better / Fixed; the
+  Discord-casual and in a player's words, short and not daunting. Written as the engineers who made it, never as
+  marketing or as AI (the owner, 2026-10-13): short sentences with almost no commas, no slogans. One line a change,
+  grouped New / Better / Fixed; the
   thing in bold only for a headline feature; no class names, settings keys, paths or numbers a player would not know;
   never the website (pasted plans are "plan links and codes"). Fold small changes together rather than letting the
   list grow; a change undone before release comes off the list.
 - Releases are tagged `0.2.0-beta.N` on main (annotated, "GTNH Planner <tag>"; alpha.1 to alpha.5 came before, as
   pre-releases) and published as full releases (the owner, 2026-10-13), notes in
   `.changelogs/<tag>.md`: rename `unreleased.md` to it, top it with the last release's short intro (beta warning,
-  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. A release may end with
-  an "Under the hood" section for the curious (the solver, frame rates, with numbers and links to `docs/design/`).
+  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The player part stays
+  short (beta.1's is about 450 words). After Install a release may add "Technical notes", labelled as such and as long
+  and as technical as it needs (what was broken, what we did, numbers, class names, links to `docs/design/`).
   Pictures: the owner takes them and pastes them into the draft on GitHub; the notes mark each place with a
   `> 📷 **IMAGE N – ...**` line saying what to show. The fork's Actions have never run, so the tag builds nothing: run `./gradlew compatCheck`,
   smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
