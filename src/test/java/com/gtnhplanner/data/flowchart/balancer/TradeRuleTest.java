@@ -1,0 +1,135 @@
+package com.gtnhplanner.data.flowchart.balancer;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Where AUTO trades, on farm, mill and oven, each turning one thing into one at a craft a second: it buys as far
+ * upstream as it can and sells as far downstream as it can, and a machine nothing pinned feeds or needs stays at zero.
+ */
+class TradeRuleTest {
+
+    private static final UUID FARM = new UUID(0, 1), MILL = new UUID(0, 2), OVEN = new UUID(0, 3),
+        CAKE = new UUID(0, 4);
+
+    private static SolveInput.PortIn port(final int resource, final String name) {
+        return new SolveInput.PortIn(1, 1f, 1, resource, name, false);
+    }
+
+    private static SolveInput.Machine machine(final UUID id, final String name, final List<SolveInput.PortIn> inputs,
+        final List<SolveInput.PortIn> outputs, final int pinnedCount, final Map<Integer, Double> wanted) {
+        return new SolveInput.Machine(
+            id,
+            name,
+            20,
+            1,
+            1,
+            inputs,
+            outputs,
+            pinnedCount > 0,
+            Math.max(1, pinnedCount),
+            wanted,
+            Map.of());
+    }
+
+    /**
+     * The chain, the farm pinned at {@code farms} (0 for unpinned), the oven asked for {@code bread} a second (0 for
+     * nothing asked), and with {@code cake} a cake maker on the flour line that nothing asks for.
+     */
+    private static SolutionView bread(final int farms, final double bread, final boolean cake) {
+        final List<SolveInput.Machine> machines = new ArrayList<>(
+            List.of(
+                machine(FARM, "farm", List.of(), List.of(port(0, "wheat")), farms, Map.of()),
+                machine(MILL, "mill", List.of(port(0, "wheat")), List.of(port(1, "flour")), 0, Map.of()),
+                machine(
+                    OVEN,
+                    "oven",
+                    List.of(port(1, "flour")),
+                    List.of(port(2, "bread")),
+                    0,
+                    bread > 0 ? Map.of(0, bread) : Map.of())));
+        final List<SolveInput.EdgeIn> edges = new ArrayList<>(
+            List.of(
+                new SolveInput.EdgeIn(new UUID(1, 1), FARM, 0, MILL, 0),
+                new SolveInput.EdgeIn(new UUID(1, 2), MILL, 0, OVEN, 0)));
+        if (cake) {
+            machines.add(machine(CAKE, "cake maker", List.of(port(1, "flour")), List.of(port(3, "cake")), 0, Map.of()));
+            edges.add(new SolveInput.EdgeIn(new UUID(1, 3), MILL, 0, CAKE, 0));
+        }
+        final SolveInput input = new SolveInput(
+            BalanceMode.AUTO,
+            null,
+            machines,
+            edges,
+            List.of(),
+            List.of(),
+            Map.of());
+        return assertInstanceOf(Balancer.Answer.Solved.class, Balancer.solveWithAlternatives(input)).solution();
+    }
+
+    /** What is traded at one machine's port, in units a second; 0 when nothing is. */
+    private static double traded(final List<External> trades, final UUID machine) {
+        double total = 0;
+        for (final External e : trades) if (e.port()
+            .nodeId()
+            .equals(machine)) total += e.ratePerSecond();
+        return total;
+    }
+
+    @Test
+    void shortOfWheat_buysWheatAndRunsTheMill() {
+        final SolutionView s = bread(5, 10, false);
+        assertEquals(5, traded(s.gatedSources, MILL), 1e-9, "wheat bought at the mill");
+        assertEquals(0, traded(s.gatedSources, OVEN), 1e-9, "no flour bought");
+        assertEquals(10, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(List.of(), s.gatedSinks);
+    }
+
+    @Test
+    void spareWheat_isMilledAndSoldAsFlour() {
+        final SolutionView s = bread(15, 10, false);
+        assertEquals(5, traded(s.gatedSinks, MILL), 1e-9, "flour sold from the mill");
+        assertEquals(0, traded(s.gatedSinks, FARM), 1e-9, "no wheat sold");
+        assertEquals(15, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(List.of(), s.gatedSources);
+    }
+
+    @Test
+    void spareFlour_goesOnToTheCakeMakerRatherThanBeingSold() {
+        final SolutionView s = bread(15, 10, true);
+        assertEquals(15, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(5, s.machineCounts.get(CAKE), 1e-9);
+        assertEquals(List.of(), s.gatedSources);
+        assertEquals(List.of(), s.gatedSinks);
+    }
+
+    @Test
+    void onlyTheFarmPinned_whatItGrowsGoesAllTheWayToBread() {
+        final SolutionView s = bread(10, 0, false);
+        assertEquals(10, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(List.of(), s.gatedSources);
+        assertEquals(List.of(), s.gatedSinks);
+        assertTrue(s.unneeded.isEmpty());
+    }
+
+    @Test
+    void aMachineNothingPinnedFeedsOrNeeds_staysAtZeroAndAsksForACount() {
+        final SolutionView s = bread(0, 10, true);
+        assertEquals(10, s.machineCounts.get(FARM), 1e-9);
+        assertEquals(10, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(0, s.machineCounts.get(CAKE), 1e-9);
+        assertEquals(java.util.Set.of(CAKE), s.unneeded);
+    }
+}

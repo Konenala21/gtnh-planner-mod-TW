@@ -37,6 +37,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - `docs/design/ff-card-spec.md` is Factory Flow's card measured from its source (sizes, colours, tooltips, the
   power panel's formulas). Our card is 320 wide to its 380 with chrome kept at 1 px; the clean card replaced its
   look (`docs/design/card-redesign.md`); `ui/card/CardLayout` holds the geometry. Board tooltips are `ui/popup/Tip` panels; a multiblock's power chips show `ui/card/PowerPanel`.
+- AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
+  machines running, never buying more to sell more), sell as far downstream as it can (spare goes on to every machine
+  that takes it and is sold at the brick wall), then the least internal flow; machine steps in `ModelData.portSteps`,
+  a loop counting as one, settled level by level in `TradeStage`. A machine nothing pinned feeds or needs sits at zero
+  and asks for a count (`SolutionView.unneeded`). There is no setting for it: the owner dropped one.
 - Wires are routed by `layout/WireRouter`: exact A* on a 10 px grid with planned docks, kept per board so a change
   re-routes only what it touched. Arrange is `layout/arrange/`, a port of the website's arrange (column pass,
   optimiser, free placement, polish) judged by that router, run in the background from the top bar's key.
