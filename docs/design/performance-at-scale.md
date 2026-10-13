@@ -44,7 +44,7 @@ Other costs: tiling 7,840 cards in one paste took 3 s, 9,800 more took 9 s. Rout
 
 ## What looks wrong, worst first
 
-1. **The solver.** One ILP for the whole plan: ten unconnected copies took 19 times as long as one, and 40 copies
+1. **The solver** (fixed 2026-10-12, `docs/design/solver-plan.md`: the plan's islands solve apart and are cached, so 19,600 cards solve in 4.4 s and an edit in 0.36 s). One ILP for the whole plan: ten unconnected copies took 19 times as long as one, and 40 copies
    never finished. The thread dump sits in `GateCountStage.deletionFilter`, which solves the whole LP again once per
    candidate gate (`Solver.externalsLp`), so the cost grows with gates times plan size. Unconnected parts could be
    solved on their own, and a part no edit touched need not be solved again. A stale solve also runs to the end

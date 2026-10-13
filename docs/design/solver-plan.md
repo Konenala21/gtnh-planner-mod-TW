@@ -353,3 +353,13 @@ reaches. A newer edit stops the running solve before its next model (`SolveConte
 `SolveService`); islands it finished stay cached. The snapshot numbers ingredients through an index (an item's id and
 damage, its ore ids, a fluid) instead of testing every port against every ingredient, with the same numbers. Not done:
 publishing the answer before its alternatives, which the times above no longer call for.
+
+**In the game** (2026-10-12, dev game with GregTech, the stress plan of tiled platline): 490 cards solve in 1.2 s cold
+(34 s before), an edit re-solves its island in 0.14 s; 1,960 cards in 1.8 s (never finished before); 19,600 cards in
+4.4 s cold, an edit in 0.36 s and its undo under 0.25 s. What it took at that scale: options keep their island's key
+(a plan-wide key per option was 87% of a 186 s solve), the wiring notes index who makes each ingredient, and the
+island cache keeps the last two solves' islands however many there are.
+
+Open work: a better minimal answer where the needed gates do not balance (palladium_line's second pass: 10 found, 8
+least); warm re-solves (`IntermediateSolver.update`) now that answers no longer depend on the solve path; a connected
+plan of a few hundred machines in the corpus, to measure what islands cannot help.
