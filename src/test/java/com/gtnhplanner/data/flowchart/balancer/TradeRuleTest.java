@@ -11,6 +11,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.gtnhplanner.data.flowchart.Drawer;
+
 /**
  * Where AUTO trades, on farm, mill and oven, each turning one thing into one at a craft a second: it buys as far
  * upstream as it can and sells as far downstream as it can, and a machine nothing pinned feeds or needs stays at zero.
@@ -138,6 +140,13 @@ class TradeRuleTest {
      * {@code cakes} above zero the cake maker pinned at that many machines (a craft a second each).
      */
     private static SolutionView line(final int cakes) {
+        return line(cakes, null);
+    }
+
+    /**
+     * As {@link #line(int)}, the cake maker's cake going to a product drawer asking for 5 a second under {@code rule}.
+     */
+    private static SolutionView line(final int cakes, @javax.annotation.Nullable final Drawer.Rule rule) {
         final List<SolveInput.Machine> machines = List.of(
             machine(FARM, "farm", List.of(), List.of(port(0, "wheat")), 10, Map.of()),
             machine(MILL, "mill", List.of(port(0, "wheat")), List.of(port(1, "flour")), 0, Map.of()),
@@ -147,14 +156,16 @@ class TradeRuleTest {
             new SolveInput.EdgeIn(new UUID(1, 1), FARM, 0, MILL, 0),
             new SolveInput.EdgeIn(new UUID(1, 2), MILL, 0, OVEN, 0),
             new SolveInput.EdgeIn(new UUID(1, 3), OVEN, 0, CAKE, 0));
-        final SolveInput input = new SolveInput(
-            BalanceMode.AUTO,
-            null,
-            machines,
-            edges,
-            List.of(),
-            List.of(),
-            Map.of());
+        final List<SolveInput.DrawerIn> drawers = rule == null ? List.of()
+            : List.of(
+                new SolveInput.DrawerIn(
+                    new UUID(2, 1),
+                    "cake",
+                    Drawer.Kind.PRODUCT,
+                    rule,
+                    5,
+                    List.of(new Drawer.Link(CAKE, 0))));
+        final SolveInput input = new SolveInput(BalanceMode.AUTO, null, machines, edges, List.of(), drawers, Map.of());
         return assertInstanceOf(Balancer.Answer.Solved.class, Balancer.solveWithAlternatives(input)).solution();
     }
 
@@ -177,5 +188,22 @@ class TradeRuleTest {
         assertEquals(5, traded(s.gatedSinks, OVEN), 1e-9, "bread sold at the oven");
         assertEquals(5, traded(s.gatedSinks, OVEN) + traded(s.gatedSinks, MILL) + traded(s.gatedSinks, FARM), 1e-9);
         assertEquals(List.of(), s.gatedSources);
+    }
+
+    @Test
+    void aCakeDrawerTakingFive_theSpareIsSoldAsBreadRightBeforeTheCakes() {
+        // Every cake goes to the drawer, and it takes no more than 5: the last place anything can leave is the bread.
+        for (final Drawer.Rule rule : List.of(Drawer.Rule.EXACTLY, Drawer.Rule.AT_MOST)) {
+            final SolutionView s = line(0, rule);
+            assertEquals(10, s.machineCounts.get(OVEN), 1e-9, rule.name());
+            assertEquals(5, s.machineCounts.get(CAKE), 1e-9, rule.name());
+            assertEquals(5, traded(s.gatedSinks, OVEN), 1e-9, rule.name() + ": bread sold at the oven");
+            assertEquals(1, s.gatedSinks.size(), rule.name());
+            assertEquals(List.of(), s.gatedSources, rule.name());
+        }
+        // At least 5: all of it becomes cake and the drawer takes the 10.
+        final SolutionView s = line(0, Drawer.Rule.AT_LEAST);
+        assertEquals(10, s.machineCounts.get(CAKE), 1e-9);
+        assertEquals(List.of(), s.gatedSinks);
     }
 }
