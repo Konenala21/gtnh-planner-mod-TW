@@ -51,12 +51,15 @@ public final class PlanAPI {
             .history(graph);
     }
 
-    /** Runs {@code edit} as one undo step; no-op edits leave no trace. */
+    /**
+     * Runs {@code edit} as one undo step; no-op edits leave no trace. An edit that changed the graph moves its version
+     * (at least as a layout edit), so everything keyed on it, the save's kept encodings too, sees the change.
+     */
     public static void recordEdit(final Graph graph, final Runnable edit) {
         final UndoHistory history = undoHistory(graph);
         final String before = history.beginEdit(graph);
         edit.run();
-        history.commitEdit(before, graph);
+        if (history.commitEdit(before, graph)) graph.touchLayout();
     }
 
     /**
@@ -206,26 +209,66 @@ public final class PlanAPI {
         }
     }
 
+    /** A save waiting for the writer: the file, what goes in it, and how many plans it holds. */
+    private record Pending(File file, com.google.gson.JsonObject tree, int plans) {}
+
+    private static final java.util.concurrent.atomic.AtomicReference<Pending> PENDING = new java.util.concurrent.atomic.AtomicReference<>();
+
+    /** Writes saves off the game thread, so an edit never waits on the disk; the newest save waiting wins. */
+    private static final java.util.concurrent.ExecutorService WRITER = java.util.concurrent.Executors
+        .newSingleThreadExecutor(r -> {
+            final Thread t = new Thread(r, "GTNH Planner save");
+            t.setDaemon(true);
+            return t;
+        });
+
+    static {
+        // A save still waiting when the game closes is written before it goes.
+        Runtime.getRuntime()
+            .addShutdownHook(new Thread(PlanAPI::writePending, "GTNH Planner save on exit"));
+    }
+
+    /**
+     * Saves every plan. Each plan is encoded here, on the game thread, where the plans are edited, and only those
+     * changed since they were last encoded ({@link Serializer#planTree}); the text is made and the disk written on the
+     * writer's thread.
+     */
     public static void save() {
         // The tour's own plans are never written.
         if (Plan.sandboxed()) return;
-        try {
-            File saveFile = getSaveFile();
-            saveFile.getParentFile()
-                .mkdirs();
-            backUp(
-                saveFile,
-                Plan.getInstance()
-                    .getGraphs()
-                    .size());
-            Files.writeString(saveFile.toPath(), Serializer.encodePlan(Plan.getInstance()), StandardCharsets.UTF_8);
+        final Pending save = new Pending(
+            getSaveFile(),
+            Serializer.planTree(Plan.getInstance()),
+            Plan.getInstance()
+                .getGraphs()
+                .size());
+        if (PENDING.getAndSet(save) == null) WRITER.execute(PlanAPI::writePending);
+    }
 
-            saveFile = getDebugSaveFile();
-            saveFile.getParentFile()
+    /** Writes the newest save waiting, if any: a backup first when one is due, then the file, replaced whole. */
+    private static synchronized void writePending() {
+        final Pending save = PENDING.getAndSet(null);
+        if (save == null) return;
+        try {
+            save.file()
+                .getParentFile()
                 .mkdirs();
-            Files
-                .writeString(saveFile.toPath(), Serializer.encodePlanDebug(Plan.getInstance()), StandardCharsets.UTF_8);
-        } catch (final Exception ignored) {}
+            backUp(save.file(), save.plans());
+            final File next = new File(
+                save.file()
+                    .getParentFile(),
+                save.file()
+                    .getName() + ".new");
+            Files.writeString(next.toPath(), Serializer.GSON.toJson(save.tree()), StandardCharsets.UTF_8);
+            Files.move(
+                next.toPath(),
+                save.file()
+                    .toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (final Exception e) {
+            GtnhPlanner.LOG.warn("Could not save the plans", e);
+        }
     }
 
     /** The plans' folder for this world (or the game's, outside one). */
@@ -246,7 +289,4 @@ public final class PlanAPI {
         return new File(folder("plannh"), "plannh.dat");
     }
 
-    public static File getDebugSaveFile() {
-        return new File(folder("gtnhplanner"), "plans_debug.json");
-    }
 }

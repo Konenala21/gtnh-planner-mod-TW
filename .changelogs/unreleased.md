@@ -20,6 +20,7 @@
 - The tour doesn't touch your GUI scale anymore.
 - Plans solve several times faster on a computer with a few cores to spare, and the same plan always comes out with the same numbers.
 - The planner buys raw stuff and runs your own machines instead of buying parts they could make, and only sells spare once nothing further down the line can use it. Machines nothing you pinned needs sit at 0 and ask for a count.
+- No more little freeze after every change (dropping or deleting a drawer, anything): saving happens in the background now. Scrolling a count or rate updates the plan as you scroll instead of after you stop.
 - Huge plans stay smooth: thousands of cards pan and zoom without slowing down, open much faster, and the plan over the world keeps up with thousands of placed machines. Wires no longer flicker when zoomed far out.
 - Resource packs can restyle the plan button on NEI's recipe pages, like NEI's own buttons.
 

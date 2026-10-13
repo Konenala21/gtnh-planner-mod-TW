@@ -105,6 +105,21 @@ public final class Serializer {
 
     @Nonnull
     private static String encodePlan(final Plan plan, final boolean debug) {
+        return GSON.toJson(planTree(plan, debug));
+    }
+
+    /**
+     * The plan as a JSON tree, each slot's data encoded (only the slots changed since they were last encoded are
+     * encoded again): cheap to build on the game thread, and turned into text with {@link #GSON} on any thread, since
+     * it shares nothing the game changes.
+     */
+    @Nonnull
+    public static JsonObject planTree(final Plan plan) {
+        return planTree(plan, false);
+    }
+
+    @Nonnull
+    private static JsonObject planTree(final Plan plan, final boolean debug) {
         final JsonObject root = GSON.toJsonTree(plan, Plan.class)
             .getAsJsonObject();
 
@@ -124,12 +139,36 @@ public final class Serializer {
                     .isEmpty();
             if (keep) slotObj.addProperty("data", graph.getUnreadable());
             else if (debug) slotObj.add("data", graphToJson(graph));
-            else slotObj.addProperty("data", encode(graph));
+            else slotObj.addProperty("data", encodeKept(graph));
             arr.add(slotObj);
         }
         root.add("graphs", arr);
+        return root;
+    }
 
-        return GSON.toJson(root);
+    /** A graph's last encoding, and the version, name and camera it was made at. */
+    private record Kept(long version, String name, float zoom, float panX, float panY, String data) {}
+
+    /** Each graph's last encoding: a save encodes again only the graphs that changed since ({@link #encodeKept}). */
+    private static final Map<Graph, Kept> KEPT = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * {@link #encode} of {@code graph}, made again only when the graph changed since it was last made: its version
+     * (which every edit moves), its name or its camera (which move without one).
+     */
+    private static String encodeKept(final Graph graph) {
+        final Kept kept = KEPT.get(graph);
+        if (kept != null && kept.version() == graph.version()
+            && kept.name()
+                .equals(graph.getName())
+            && kept.zoom() == graph.getZoom()
+            && kept.panX() == graph.getPanX()
+            && kept.panY() == graph.getPanY()) return kept.data();
+        final String data = encode(graph);
+        KEPT.put(
+            graph,
+            new Kept(graph.version(), graph.getName(), graph.getZoom(), graph.getPanX(), graph.getPanY(), data));
+        return data;
     }
 
     /**
@@ -177,6 +216,18 @@ public final class Serializer {
                 if (obj.has("icon")) graph.setIcon(
                     obj.get("icon")
                         .getAsString());
+                // What was read is the graph's encoding until it changes: the first save after loading encodes only
+                // what has been edited since, not every plan.
+                if (graph.getUnreadable() == null) KEPT.put(
+                    graph,
+                    new Kept(
+                        graph.version(),
+                        graph.getName(),
+                        graph.getZoom(),
+                        graph.getPanX(),
+                        graph.getPanY(),
+                        obj.get("data")
+                            .getAsString()));
                 plan.getGraphs()
                     .add(graph);
             }

@@ -1863,9 +1863,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     /**
-     * A count or amps being wheeled: shown on the card at once, committed (one edit, one solve) once the wheel has been
-     * still for {@value #WHEEL_COMMIT_MS} ms, so a fast spin is one change and not a solve and a save per notch. 0 for
-     * none.
+     * A count or amps being wheeled: shown on the card at once and solved at once, notch by notch; the spin becomes one
+     * undo step once the wheel has been still for {@value #WHEEL_COMMIT_MS} ms ({@link BoardSession#live}). 0 for none.
      */
     private long pendingCount;
     /** The wheel took a pinned count below one: it unpins when the wheel goes still. */
@@ -1880,7 +1879,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      */
     private CardModel committedOver;
 
-    /** Commits a wheeled count or amps once the wheel has gone still; lets go of it once the solve has caught up. */
+    /** Lets go of a wheeled count or amps once the wheel has gone still and the solve has caught up with it. */
     private void commitWheel() {
         if (committedOver != null) {
             if (model != committedOver && !session.solving()) {
@@ -1893,9 +1892,6 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         }
         if (pendingCount <= 0 && pendingAmps <= 0 && !pendingUnpin
             || System.currentTimeMillis() - wheelAt < WHEEL_COMMIT_MS) return;
-        if (pendingCount > 0) session.pin(model.node, pendingCount);
-        else if (pendingUnpin) session.pin(model.node, 0);
-        if (pendingAmps > 0) session.setSetting(model.node, "amp", pendingAmps);
         committedOver = model;
     }
 
@@ -1921,6 +1917,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 pendingAmps = stepAmps(pendingAmps > 0 ? pendingAmps : model.amps, step);
                 wheelAt = System.currentTimeMillis();
                 committedOver = null;
+                session.wheelSetting(node, "amp", pendingAmps);
             }
             case MACHINE -> stepMachine(step);
             case MACHINES -> wheelCount(step);
@@ -1948,6 +1945,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         }
         wheelAt = System.currentTimeMillis();
         committedOver = null;
+        session.wheelPin(model.node, pendingUnpin ? 0 : pendingCount);
     }
 
     /** A count being wheeled and not set yet, to show at once: the count, 0 when it will unpin; -1 for none. */

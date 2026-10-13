@@ -86,6 +86,7 @@ public final class BoardSession {
     void close() {
         closed = true;
         solver.close();
+        settleLive(true);
         PlanAPI.save();
         if (current == this) current = null;
     }
@@ -172,12 +173,56 @@ public final class BoardSession {
      */
     @SuppressWarnings("deprecation")
     public void edit(final Runnable change) {
+        settleLive(true);
         PlanAPI.recordEdit(graph, () -> {
             change.run();
             releaseHolders();
             dropWiredTargets();
         });
         graph.touch();
+        PlanAPI.save();
+    }
+
+    /** What the wheel is changing: the plan as it was before the spin, or null when none is under way. */
+    private String liveBefore;
+    private Graph liveGraph;
+    private long liveAt;
+    private Sfx liveSound;
+
+    /** How long the wheel is still before a spin becomes one undo step and is saved. */
+    private static final long LIVE_SETTLE_MS = 500;
+
+    /**
+     * A change the wheel makes, one notch at a time: applied and solved at once, so the plan follows the wheel, and
+     * recorded as one undo step and saved once the wheel has been still a moment ({@link #settleLive}), with
+     * {@code settled} played then (null for none).
+     */
+    public void live(final Runnable change, @Nullable final Sfx settled) {
+        if (liveBefore != null && liveGraph != graph) settleLive(true);
+        if (liveBefore == null) {
+            liveBefore = PlanAPI.undoHistory(graph)
+                .beginEdit(graph);
+            liveGraph = graph;
+        }
+        change.run();
+        releaseHolders();
+        dropWiredTargets();
+        graph.touch();
+        liveAt = System.currentTimeMillis();
+        liveSound = settled;
+    }
+
+    /** Ends a spin: one undo step for all of it, and a save. Only once the wheel has been still, unless {@code now}. */
+    private void settleLive(final boolean now) {
+        if (liveBefore == null || !now && System.currentTimeMillis() - liveAt < LIVE_SETTLE_MS) return;
+        if (PlanAPI.undoHistory(liveGraph)
+            .commitEdit(liveBefore, liveGraph)) liveGraph.touchLayout();
+        liveBefore = null;
+        liveGraph = null;
+        if (liveSound != null && !now) liveSound.play();
+        liveSound = null;
+        if (wheeledRates != null) wheeledRates.clear();
+        if (wheeledPorts != null) wheeledPorts.clear();
         PlanAPI.save();
     }
 
@@ -208,6 +253,7 @@ public final class BoardSession {
     /** An undoable change that only moves things: saved, but no re-solve. */
     @SuppressWarnings("deprecation")
     public void editLayout(final Runnable change) {
+        settleLive(true);
         PlanAPI.recordEdit(graph, change);
         graph.touchLayout();
         PlanAPI.save();
@@ -755,32 +801,21 @@ public final class BoardSession {
 
     /** Rates being wheeled, per drawer (per second), shown at once and set once the wheel is still; null for none. */
     private Map<UUID, Double> wheeledRates;
-    private long rateWheelAt;
 
     /**
-     * A drawer rate from the wheel: shown at once, set (one edit, one solve) once the wheel has been still a moment.
+     * A drawer rate from the wheel: shown and solved at once, one undo step once the wheel goes still ({@link #live}).
      */
     public void wheelDrawerRate(final Drawer drawer, final double perSecond) {
         if (wheeledRates == null) wheeledRates = new HashMap<>();
         final Double was = wheeledRates.get(drawer.getId());
         Sfx.TICK.play(perSecond >= (was == null ? drawer.getRate() : was) ? 1.12f : 0.9f);
         wheeledRates.put(drawer.getId(), perSecond);
-        rateWheelAt = System.currentTimeMillis();
+        live(() -> applyDrawerRate(drawer, perSecond), perSecond > 0 ? Sfx.PIN : Sfx.UNPIN);
     }
 
     /** The rate a drawer is being wheeled to, per second; null when it is not. */
     public Double wheeledRate(final UUID drawerId) {
         return wheeledRates == null ? null : wheeledRates.get(drawerId);
-    }
-
-    private void commitWheeledRates() {
-        if (wheeledRates == null || wheeledRates.isEmpty() || System.currentTimeMillis() - rateWheelAt < 500) return;
-        final Map<UUID, Double> rates = new HashMap<>(wheeledRates);
-        wheeledRates.clear();
-        rates.forEach((id, rate) -> {
-            final Drawer d = graph.getDrawer(id);
-            if (d != null) setDrawerRate(d, rate);
-        });
     }
 
     public void setDrawerRule(final Drawer drawer, final Drawer.Rule rule) {
@@ -793,18 +828,20 @@ public final class BoardSession {
      * exactly for a source, at least for a product. Zero clears the rule.
      */
     public void setDrawerRate(final Drawer drawer, final double perSecond) {
-        edit(() -> {
-            if (!(perSecond > 0)) {
-                drawer.setTarget(Drawer.Rule.ANY, 0);
-                return;
-            }
-            Drawer.Rule rule = drawer.getRule();
-            if (rule == Drawer.Rule.ANY)
-                rule = drawer.getKind() == Drawer.Kind.SOURCE ? Drawer.Rule.EXACTLY : Drawer.Rule.AT_LEAST;
-            drawer.setTarget(rule, perSecond);
-        });
+        edit(() -> applyDrawerRate(drawer, perSecond));
         // A rate is a target the plan solves for: pinned, or let go.
         (perSecond > 0 ? Sfx.PIN : Sfx.UNPIN).play();
+    }
+
+    private static void applyDrawerRate(final Drawer drawer, final double perSecond) {
+        if (!(perSecond > 0)) {
+            drawer.setTarget(Drawer.Rule.ANY, 0);
+            return;
+        }
+        Drawer.Rule rule = drawer.getRule();
+        if (rule == Drawer.Rule.ANY)
+            rule = drawer.getKind() == Drawer.Kind.SOURCE ? Drawer.Rule.EXACTLY : Drawer.Rule.AT_LEAST;
+        drawer.setTarget(rule, perSecond);
     }
 
     // endregion
@@ -1118,6 +1155,7 @@ public final class BoardSession {
     }
 
     public void undo() {
+        settleLive(true);
         if (!canUndo()) {
             Sfx.DENY.play();
             return;
@@ -1129,6 +1167,7 @@ public final class BoardSession {
     }
 
     public void redo() {
+        settleLive(true);
         if (!canRedo()) {
             Sfx.DENY.play();
             return;
@@ -1563,10 +1602,12 @@ public final class BoardSession {
     /** Pins a shared machine's count (zero unpins): its recipes' machines then add up to exactly that. */
     public void pinShared(final com.gtnhplanner.data.flowchart.MachineGroup g, final double count) {
         (count > 0 ? Sfx.PIN : Sfx.UNPIN).play();
-        edit(() -> {
-            g.setPinned(count > 0);
-            g.setMachineCapacity(count > 0 ? Math.max(1, (int) Math.round(count)) : 0);
-        });
+        edit(() -> applyPinShared(g, count));
+    }
+
+    private static void applyPinShared(final com.gtnhplanner.data.flowchart.MachineGroup g, final double count) {
+        g.setPinned(count > 0);
+        g.setMachineCapacity(count > 0 ? Math.max(1, (int) Math.round(count)) : 0);
     }
 
     // endregion
@@ -1695,17 +1736,34 @@ public final class BoardSession {
             return;
         }
         (count > 0 ? Sfx.PIN : Sfx.UNPIN).play();
-        edit(() -> {
-            if (count <= 0) {
-                node.setMachineCountFixed(false);
-                return;
-            }
-            node.machineConfig.setMachineCount(Math.max(1, (int) Math.round(count)));
-            node.setMachineCountFixed(true);
-            // A pinned count is the machine's run: a port rate set before gives way to it.
-            node.targetOutputRates.clear();
-            node.targetInputRates.clear();
-        });
+        edit(() -> applyPin(node, count));
+    }
+
+    /** A machine count from the wheel: solved at once, one undo step once the wheel goes still ({@link #live}). */
+    public void wheelPin(final Node node, final double count) {
+        final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
+        if (g != null) live(() -> applyPinShared(g, count), count > 0 ? Sfx.PIN : Sfx.UNPIN);
+        else live(() -> applyPin(node, count), count > 0 ? Sfx.PIN : Sfx.UNPIN);
+    }
+
+    /** A setting from the wheel (a card's amps): solved at once, one undo step once the wheel goes still. */
+    public void wheelSetting(final Node node, final String key, final int value) {
+        live(() -> {
+            node.machineConfig.setInt(key, value);
+            syncShared(node);
+        }, null);
+    }
+
+    private static void applyPin(final Node node, final double count) {
+        if (count <= 0) {
+            node.setMachineCountFixed(false);
+            return;
+        }
+        node.machineConfig.setMachineCount(Math.max(1, (int) Math.round(count)));
+        node.setMachineCountFixed(true);
+        // A pinned count is the machine's run: a port rate set before gives way to it.
+        node.targetOutputRates.clear();
+        node.targetInputRates.clear();
     }
 
     /**
@@ -1715,21 +1773,23 @@ public final class BoardSession {
      */
     public void setPortTarget(final Node node, final boolean output, final int index, final double perSecond) {
         (perSecond > 0 ? Sfx.PIN : Sfx.UNPIN).play();
-        edit(() -> {
-            node.targetOutputRates.clear();
-            node.targetInputRates.clear();
-            if (perSecond <= 0) return;
-            (output ? node.targetOutputRates : node.targetInputRates).put(index, perSecond);
-            node.setMachineCountFixed(false);
-        });
+        edit(() -> applyPortTarget(node, output, index, perSecond));
+    }
+
+    private static void applyPortTarget(final Node node, final boolean output, final int index,
+        final double perSecond) {
+        node.targetOutputRates.clear();
+        node.targetInputRates.clear();
+        if (perSecond <= 0) return;
+        (output ? node.targetOutputRates : node.targetInputRates).put(index, perSecond);
+        node.setMachineCountFixed(false);
     }
 
     /** Port rates being wheeled (per second), by the port, with the node they are on; null for none. */
     private Map<String, Object[]> wheeledPorts;
-    private long portWheelAt;
 
     /**
-     * A port's rate from the wheel: shown at once, set (one edit, one solve) once the wheel has been still a moment.
+     * A port's rate from the wheel: shown and solved at once, one undo step once the wheel goes still ({@link #live}).
      */
     public void wheelPortRate(final Node node, final boolean output, final int index, final double perSecond) {
         if (wheeledPorts == null) wheeledPorts = new HashMap<>();
@@ -1737,7 +1797,7 @@ public final class BoardSession {
         final Double set = was != null ? was : portTarget(node, output, index);
         Sfx.TICK.play(perSecond >= (set == null ? 0 : set) ? 1.12f : 0.9f);
         wheeledPorts.put(portKey(node.id, output, index), new Object[] { node, output, index, perSecond });
-        portWheelAt = System.currentTimeMillis();
+        live(() -> applyPortTarget(node, output, index, perSecond), perSecond > 0 ? Sfx.PIN : Sfx.UNPIN);
     }
 
     /** The rate a port is being wheeled to, a second; null when it is not. */
@@ -1745,13 +1805,6 @@ public final class BoardSession {
     public Double wheeledPortRate(final Node node, final boolean output, final int index) {
         final Object[] w = wheeledPorts == null ? null : wheeledPorts.get(portKey(node.id, output, index));
         return w == null ? null : (Double) w[3];
-    }
-
-    private void commitWheeledPorts() {
-        if (wheeledPorts == null || wheeledPorts.isEmpty() || System.currentTimeMillis() - portWheelAt < 500) return;
-        final List<Object[]> rates = new ArrayList<>(wheeledPorts.values());
-        wheeledPorts.clear();
-        for (final Object[] w : rates) setPortTarget((Node) w[0], (Boolean) w[1], (Integer) w[2], (Double) w[3]);
     }
 
     /** The rate a machine's port is set to, a second; null when the plan decides it. */
@@ -1870,8 +1923,7 @@ public final class BoardSession {
     }
 
     private void tickBoard() {
-        commitWheeledRates();
-        commitWheeledPorts();
+        settleLive(false);
         if (disarmOnTick) {
             disarmOnTick = false;
             pendingLookup = null;
