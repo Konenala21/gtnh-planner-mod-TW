@@ -132,4 +132,50 @@ class TradeRuleTest {
         assertEquals(0, s.machineCounts.get(CAKE), 1e-9);
         assertEquals(java.util.Set.of(CAKE), s.unneeded);
     }
+
+    /**
+     * Farm, mill, oven and cake maker in a line (wheat, flour, bread, cake), the farm pinned at 10, and with
+     * {@code cakes} above zero the cake maker pinned at that many machines (a craft a second each).
+     */
+    private static SolutionView line(final int cakes) {
+        final List<SolveInput.Machine> machines = List.of(
+            machine(FARM, "farm", List.of(), List.of(port(0, "wheat")), 10, Map.of()),
+            machine(MILL, "mill", List.of(port(0, "wheat")), List.of(port(1, "flour")), 0, Map.of()),
+            machine(OVEN, "oven", List.of(port(1, "flour")), List.of(port(2, "bread")), 0, Map.of()),
+            machine(CAKE, "cake maker", List.of(port(2, "bread")), List.of(port(3, "cake")), cakes, Map.of()));
+        final List<SolveInput.EdgeIn> edges = List.of(
+            new SolveInput.EdgeIn(new UUID(1, 1), FARM, 0, MILL, 0),
+            new SolveInput.EdgeIn(new UUID(1, 2), MILL, 0, OVEN, 0),
+            new SolveInput.EdgeIn(new UUID(1, 3), OVEN, 0, CAKE, 0));
+        final SolveInput input = new SolveInput(
+            BalanceMode.AUTO,
+            null,
+            machines,
+            edges,
+            List.of(),
+            List.of(),
+            Map.of());
+        return assertInstanceOf(Balancer.Answer.Solved.class, Balancer.solveWithAlternatives(input)).solution();
+    }
+
+    @Test
+    void onlyTheWheatPinned_itAllBecomesCake() {
+        final SolutionView s = line(0);
+        assertEquals(10, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(10, s.machineCounts.get(CAKE), 1e-9);
+        assertEquals(List.of(), s.gatedSources);
+        assertEquals(List.of(), s.gatedSinks);
+    }
+
+    @Test
+    void cakesHeldAtFive_theSpareIsSoldAsBreadRightBeforeThem() {
+        final SolutionView s = line(5);
+        assertEquals(10, s.machineCounts.get(MILL), 1e-9);
+        assertEquals(10, s.machineCounts.get(OVEN), 1e-9);
+        assertEquals(5, s.machineCounts.get(CAKE), 1e-9);
+        assertEquals(5, traded(s.gatedSinks, OVEN), 1e-9, "bread sold at the oven");
+        assertEquals(5, traded(s.gatedSinks, OVEN) + traded(s.gatedSinks, MILL) + traded(s.gatedSinks, FARM), 1e-9);
+        assertEquals(List.of(), s.gatedSources);
+    }
 }
