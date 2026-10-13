@@ -253,11 +253,6 @@
               "nodeId": "9fc6659d-4d41-3827-b08f-660bc8298cf2",
               "portIndex": 0.0,
               "input": false
-            },
-            {
-              "nodeId": "b4c771b2-fd35-3fd6-a57b-48c371fd7842",
-              "portIndex": 0.0,
-              "input": false
             }
           ]
         },
@@ -286,11 +281,6 @@
       {
         "key": {
           "gateAnchors": [
-            {
-              "nodeId": "b4c771b2-fd35-3fd6-a57b-48c371fd7842",
-              "portIndex": 0.0,
-              "input": false
-            },
             {
               "nodeId": "4637f2ed-068b-3583-99c4-3e7a4c6b746d",
               "portIndex": 0.0,
@@ -324,11 +314,6 @@
         "key": {
           "gateAnchors": [
             {
-              "nodeId": "b4c771b2-fd35-3fd6-a57b-48c371fd7842",
-              "portIndex": 0.0,
-              "input": false
-            },
-            {
               "nodeId": "b4ced5aa-ef6b-3970-9290-030eb9db923d",
               "portIndex": 0.0,
               "input": false
@@ -361,11 +346,6 @@
         "key": {
           "gateAnchors": [
             {
-              "nodeId": "9fc6659d-4d41-3827-b08f-660bc8298cf2",
-              "portIndex": 0.0,
-              "input": false
-            },
-            {
               "nodeId": "b4c771b2-fd35-3fd6-a57b-48c371fd7842",
               "portIndex": 0.0,
               "input": false
@@ -397,11 +377,6 @@
       {
         "key": {
           "gateAnchors": [
-            {
-              "nodeId": "9fc6659d-4d41-3827-b08f-660bc8298cf2",
-              "portIndex": 0.0,
-              "input": false
-            },
             {
               "nodeId": "38b74777-ee11-368c-8b4a-93afb1f03714",
               "portIndex": 0.0,
@@ -436,11 +411,6 @@
           "gateAnchors": [
             {
               "nodeId": "9128a70e-e466-31d2-a8f5-f8a06cf5d4ae",
-              "portIndex": 0.0,
-              "input": false
-            },
-            {
-              "nodeId": "9fc6659d-4d41-3827-b08f-660bc8298cf2",
               "portIndex": 0.0,
               "input": false
             }

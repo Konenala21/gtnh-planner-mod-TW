@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -230,6 +229,19 @@ public final class Balancer {
      */
     public static Answer solveWithAlternatives(final SolveInput input, @Nullable final Cache cache,
         final BooleanSupplier stop) {
+        if (cache == null) return solveIslands(input, null, stop);
+        boolean stopped = true;
+        try {
+            final Answer answer = solveIslands(input, cache, stop);
+            stopped = false;
+            return answer;
+        } finally {
+            cache.finish(stopped);
+        }
+    }
+
+    private static Answer solveIslands(final SolveInput input, @Nullable final Cache cache,
+        final BooleanSupplier stop) {
         final long start = System.currentTimeMillis();
         final List<SolveInput> islands = Islands.of(input);
         if (islands.size() == 1) return piece(input, cache, stop).answer();
@@ -305,19 +317,8 @@ public final class Balancer {
                     .spares());
         }
         whole.commit(StageOutcome.of(whole, extents, flows, externals, support, false));
-        // An island's options name its answers by its own gates; the plan's are those with every other island's.
-        final Set<PortRef> anchors = new HashSet<>(whole.keyOf(support)
-            .gateAnchors());
-        final List<Alternative> planOptions = new ArrayList<>(options.size());
-        for (final Alternative option : options) {
-            final Set<PortRef> islandAnchors = islandAnchorsOf(pieces, option.replaces());
-            final Set<PortRef> key = new HashSet<>(anchors);
-            key.removeAll(islandAnchors);
-            key.addAll(
-                option.key()
-                    .gateAnchors());
-            planOptions.add(new Alternative(ChoiceKey.of(key), option.replaces(), option.opens(), option.externals(), option.rank()));
-        }
+        // Each option keeps its island's key: a stored choice applies to the islands its anchors sit on (Islands).
+        final List<Alternative> planOptions = new ArrayList<>(options);
         final List<Rank> displayOrder = Preference.displayOrder();
         planOptions.sort(
             Comparator.comparing((final Alternative option) -> option.replaces(), PortRef.ORDER)
@@ -338,21 +339,6 @@ public final class Balancer {
         return leftover.bearers()
             .get(0)
             .anchor();
-    }
-
-    /** The anchors of the answer of the island whose leftover {@code decision} is. */
-    private static Set<PortRef> islandAnchorsOf(final List<Piece> pieces, final PortRef decision) {
-        for (final Piece p : pieces) {
-            if (p.answer() instanceof Answer.Solved && p.ctx().model.machineIndex.containsKey(decision.nodeId())) {
-                return new HashSet<>(
-                    p.ctx()
-                        .keyOf(
-                            p.ctx()
-                                .support())
-                        .gateAnchors());
-            }
-        }
-        return Set.of();
     }
 
     /** The plan's connected port for {@code ref}. */
@@ -376,25 +362,43 @@ public final class Balancer {
 
     /**
      * Islands already solved, by their snapshot and the solver's effort: an edit re-solves only the island it touched,
-     * and undo finds the answer it had. The newest 256 are kept. A {@link SolveService} keeps one for its plan.
+     * and undo finds the answer it had. It keeps the islands of the last two solves, however many. A
+     * {@link SolveService} keeps one for its plan.
      */
     public static final class Cache {
 
-        private final Map<Object, Piece> pieces = new LinkedHashMap<>(64, 0.75f, true) {
-
-            @Override
-            protected boolean removeEldestEntry(final Map.Entry<Object, Piece> eldest) {
-                return size() > 256;
-            }
-        };
+        /** The islands of the last solve. */
+        private Map<Object, Piece> last = new HashMap<>();
+        /** The islands of the solve before it, so undo finds its answer. */
+        private Map<Object, Piece> before = new HashMap<>();
+        /** The islands of the solve under way. */
+        private Map<Object, Piece> current = new HashMap<>();
 
         @Nullable
         synchronized Piece get(final SolveInput island) {
-            return pieces.get(keyOf(island));
+            final Object key = keyOf(island);
+            Piece piece = last.get(key);
+            if (piece == null) piece = before.get(key);
+            if (piece != null) current.put(key, piece);
+            return piece;
         }
 
         synchronized void put(final SolveInput island, final Piece piece) {
-            pieces.put(keyOf(island), piece);
+            current.put(keyOf(island), piece);
+        }
+
+        /**
+         * A solve is over: its islands become the last, the last the ones before. A stopped solve keeps what it did
+         * finish beside the last, so its next try starts there.
+         */
+        synchronized void finish(final boolean stopped) {
+            if (stopped) {
+                last.putAll(current);
+            } else {
+                before = last;
+                last = current;
+            }
+            current = new HashMap<>();
         }
 
         private static Object keyOf(final SolveInput island) {
