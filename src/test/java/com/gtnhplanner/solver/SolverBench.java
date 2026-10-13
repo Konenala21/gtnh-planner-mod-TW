@@ -2,6 +2,8 @@ package com.gtnhplanner.solver;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -29,7 +31,9 @@ class SolverBench {
         final String only = System.getProperty("gtnhplanner.bench.only", "");
         final int runs = Integer.getInteger("gtnhplanner.bench.runs", 3);
         final ThreadMXBean threads = ManagementFactory.getThreadMXBean();
-        for (final SolverCorpus.Case c : SolverCorpus.cases(4, 10)) {
+        final List<SolverCorpus.Case> cases = new ArrayList<>(SolverCorpus.cases(4, 10));
+        cases.add(new SolverCorpus.Case("platline-x10-joined", SolverCorpus.joined(SolverCorpus.plan("platline"), 10)));
+        for (final SolverCorpus.Case c : cases) {
             if (!only.isEmpty() && !c.name()
                 .equals(only)) continue;
             Balancer.solveWithAlternatives(c.input());

@@ -363,3 +363,9 @@ island cache keeps the last two solves' islands however many there are.
 Open work: a better minimal answer where the needed gates do not balance (palladium_line's second pass: 10 found, 8
 least); warm re-solves (`IntermediateSolver.update`) now that answers no longer depend on the solve path; a connected
 plan of a few hundred machines in the corpus, to measure what islands cannot help.
+
+**Phase 6** (2026-10-12): ojAlgo 57.4.0 (its sparse dual simplex). Answers identical on every golden, the path test
+and the island test, which is what phase 2 bought; one island of 490 machines (`SolverCorpus.joined`, ten platlines
+under one shared machine, in `SolverBench`) went from 13.4 s to 1.4 s, nanocircuits from 63 to 33 ms, platline from
+25 to 15 ms. Warm re-solves (`IntermediateSolver.update`) do not pay here: ojAlgo rebuilds after every infeasible
+answer, and most of the gate search's questions are a needed gate refusing to close.

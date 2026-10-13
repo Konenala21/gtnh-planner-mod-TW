@@ -62,6 +62,32 @@ final class SolverCorpus {
      * {@link SolveInput#of(com.gtnhplanner.data.flowchart.Graph)}
      * would read the choice from the open plan, which other tests leave set.
      */
+    /**
+     * {@code k} copies of a plan made one island: a shared machine spanning one machine of every copy, capped far above
+     * anything they run, so the answer is the copies' and only the model is one. What islands cannot split.
+     */
+    static SolveInput joined(final SolveInput in, final int k) {
+        final SolveInput tiled = tile(in, k);
+        final List<UUID> members = new ArrayList<>();
+        final int per = in.machines()
+            .size();
+        for (int c = 0; c < k; c++) members.add(
+            tiled.machines()
+                .get(c * per)
+                .id());
+        final List<SolveInput.PoolIn> pools = new ArrayList<>(tiled.pools());
+        pools.add(new SolveInput.PoolIn(members, 1_000_000));
+        return new SolveInput(
+            tiled.mode(),
+            tiled.choice(),
+            tiled.machines(),
+            tiled.edges(),
+            pools,
+            tiled.drawers(),
+            tiled.extentPins(),
+            tiled.spares());
+    }
+
     static SolveInput chart(final String name) {
         final com.gtnhplanner.data.flowchart.Graph graph = GtnhFlowLoader.load(name)
             .graph();
