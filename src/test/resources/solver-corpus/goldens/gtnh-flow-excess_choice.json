@@ -12,7 +12,7 @@
     },
     "edgeFlowsPerSecond": {
       "8393cdb7-cc16-39e8-b95b-839905380592": 5.0,
-      "da72d040-df10-3c59-952d-df0062696bfc": 250.0
+      "da72d040-df10-3c59-952d-df0062696bfc": 249.9999999999999
     },
     "gatedSources": [],
     "gatedSinks": [
@@ -22,7 +22,7 @@
           "portIndex": 1.0,
           "input": false
         },
-        "ratePerSecond": 530.0
+        "ratePerSecond": 530.0000000000001
       }
     ],
     "terminalInputs": [
@@ -70,8 +70,8 @@
       }
     ],
     "openGates": 1.0,
-    "externalQuantity": 530.0,
-    "totalInternalFlow": 255.0,
+    "externalQuantity": 530.0000000000001,
+    "totalInternalFlow": 254.9999999999999,
     "floorsUsed": false,
     "notes": [],
     "key": {
@@ -106,10 +106,10 @@
                   "portIndex": 1.0,
                   "input": false
                 },
-                "ratePerSecond": 530.0
+                "ratePerSecond": 530.0000000000001
               }
             ],
-            "max": 530.0,
+            "max": 530.0000000000001,
             "share": 1.0,
             "solverPick": true
           },
@@ -120,7 +120,7 @@
               "input": false
             },
             "flows": [],
-            "max": 10.600000000000001,
+            "max": 10.6,
             "share": 0.0,
             "solverPick": false
           }
@@ -167,7 +167,7 @@
               "portIndex": 1.0,
               "input": false
             },
-            "ratePerSecond": 530.0
+            "ratePerSecond": 530.0000000000001
           }
         ],
         "rank": "DEFAULT"
@@ -199,7 +199,7 @@
               "portIndex": 0.0,
               "input": false
             },
-            "ratePerSecond": 10.600000000000001
+            "ratePerSecond": 10.6
           }
         ],
         "rank": "VOIDS_MORE"

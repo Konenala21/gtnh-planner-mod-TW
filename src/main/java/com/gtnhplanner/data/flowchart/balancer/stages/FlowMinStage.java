@@ -1,8 +1,10 @@
 package com.gtnhplanner.data.flowchart.balancer.stages;
 
-import java.util.Set;
+import java.util.List;
 
+import com.gtnhplanner.data.flowchart.balancer.GateSearch;
 import com.gtnhplanner.data.flowchart.balancer.Outcome;
+import com.gtnhplanner.data.flowchart.balancer.Parallel;
 import com.gtnhplanner.data.flowchart.balancer.SolveContext;
 import com.gtnhplanner.data.flowchart.balancer.SolveResult;
 import com.gtnhplanner.data.flowchart.balancer.Solver;
@@ -10,10 +12,10 @@ import com.gtnhplanner.data.flowchart.balancer.Stage;
 import com.gtnhplanner.data.flowchart.balancer.StageOutcome;
 
 /**
- * Internal flow: gates fixed to the open set, minimize total internal flow, then pick the one
- * canonical point among the optimum. Each external-quantity candidate opens the gates ITS OWN
- * witness carries and is solved under the shared quantity cap; ties keep the least internal flow,
- * then the lower ChoiceKey. The champion is canonicalized once more and committed to the context.
+ * Internal flow: each candidate's gates fixed open, its own least quantity held, the least total internal flow, then
+ * the one canonical point among that optimum. The least flow wins; a tie there is a tie on every objective the solver
+ * has, so it breaks on the lower ChoiceKey, a property of the chart rather than of the search. The champion is
+ * committed to the context.
  */
 public final class FlowMinStage implements Stage<ExternalMinStage.ExternalPlan, StageOutcome> {
 
@@ -24,35 +26,24 @@ public final class FlowMinStage implements Stage<ExternalMinStage.ExternalPlan, 
 
     @Override
     public Outcome<StageOutcome> run(final SolveContext ctx, final ExternalMinStage.ExternalPlan plan) {
+        final List<StageOutcome> solved = Parallel.map(ctx, plan.candidates(), (final GateSearch.Support cand) -> {
+            final SolveResult s3 = Solver.flowMinimal(ctx, cand.open(), cand.point().externalQuantity);
+            return s3.isRejected() ? null : Solver.canonicalize(ctx, cand.open(), s3.point());
+        });
         StageOutcome best = null;
-        Set<Integer> bestSupport = null;
-        for (final StageOutcome cand : plan.candidates()) {
-            final Set<Integer> open = ctx.carryingGates(cand.externals, cand.support);
-            final SolveResult s3Result = Solver.flowMinimal(ctx, open, plan.qtyCap());
-            if (s3Result.isRejected()) continue;
-            StageOutcome s3 = Solver.canonicalize(ctx, open, s3Result.point());
+        for (final StageOutcome s3 : solved) {
+            if (s3 == null) continue;
             if (best == null) {
                 best = s3;
-                bestSupport = s3.support;
                 continue;
             }
-            // Least internal flow wins. A tie there is a tie on every objective the solver has, so
-            // it breaks on the lower ChoiceKey, a property of the chart rather than of the search.
             final double tol = ctx.tieTolerance(best.internalFlow, best);
             final boolean better = s3.internalFlow < best.internalFlow - tol;
             final boolean tied = Math.abs(s3.internalFlow - best.internalFlow) <= tol;
-            final boolean tiedButPreferred = tied && ctx.keyOf(s3.support)
-                .compareTo(ctx.keyOf(bestSupport)) < 0;
-            if (better || tiedButPreferred) {
-                // The support the returned point actually carries, not the candidate that led to
-                // it: those differ whenever this stage leaves one of the candidate's gates unused.
-                best = s3;
-                bestSupport = s3.support;
-            }
+            if (better || tied && ctx.keyOf(s3.support)
+                .compareTo(ctx.keyOf(best.support)) < 0) best = s3;
         }
-        if (best == null) {
-            return new Outcome.Fail<>(ctx.rejection);
-        }
+        if (best == null) return new Outcome.Fail<>(ctx.rejection);
         ctx.commit(best);
         return new Outcome.Continue<>(best);
     }

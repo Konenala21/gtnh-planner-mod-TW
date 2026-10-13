@@ -21,25 +21,33 @@
       "f2fa7cf5-1980-4964-ab14-c15852a5abe4": 1.0
     },
     "edgeFlowsPerSecond": {
-      "13328acd-f4bb-436a-b3c8-a4237d2451cb": 0.16666666666666666,
-      "5015a7e6-e72a-4fdf-a778-602d9191b46e": 141.6666666666667,
-      "5e49c432-0d17-4794-aac6-485141281a5a": 35.71428571428571,
-      "970cfd50-923a-4dd4-a398-d940b3fdb6cf": 25.0,
+      "13328acd-f4bb-436a-b3c8-a4237d2451cb": 0.16666666666667,
+      "5015a7e6-e72a-4fdf-a778-602d9191b46e": 141.6667713163347,
+      "5e49c432-0d17-4794-aac6-485141281a5a": 35.7142857142857,
+      "970cfd50-923a-4dd4-a398-d940b3fdb6cf": 24.99989535033192,
       "a6e64a64-9db2-48ba-b23d-39eb21dd8990": 0.125,
-      "d1234035-cbe1-48de-b17d-e231e9413bb8": 166.66666666666666,
+      "d1234035-cbe1-48de-b17d-e231e9413bb8": 166.6666666666666,
       "e8d44373-9569-4a9c-bf73-ddea55fd69d7": 0.4,
       "eb45cc1c-67fe-4822-94c5-310d7195ad78": 0.25,
-      "f324da6f-c636-4277-b1d0-32d160aa9e49": 0.4666666666666667,
+      "f324da6f-c636-4277-b1d0-32d160aa9e49": 0.46666666666667,
       "fe2afe40-7e85-41c1-979f-284e86637508": 0.125
     },
     "gatedSources": [
+      {
+        "port": {
+          "nodeId": "1cfbb5fb-9ec5-4108-944b-eda025696c79",
+          "portIndex": 1.0,
+          "input": true
+        },
+        "ratePerSecond": 1.0464966807E-4
+      },
       {
         "port": {
           "nodeId": "a7e7b435-1d99-4bfb-9511-a1c6f7a5f177",
           "portIndex": 0.0,
           "input": true
         },
-        "ratePerSecond": 0.1527777777777778
+        "ratePerSecond": 0.15277777777778
       },
       {
         "port": {
@@ -47,7 +55,7 @@
           "portIndex": 1.0,
           "input": true
         },
-        "ratePerSecond": 0.1527777777777778
+        "ratePerSecond": 0.15277777777778
       },
       {
         "port": {
@@ -55,7 +63,7 @@
           "portIndex": 1.0,
           "input": true
         },
-        "ratePerSecond": 1191.666666666666
+        "ratePerSecond": 1191.666562016998
       }
     ],
     "gatedSinks": [
@@ -73,7 +81,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 0.17142857142857135
+        "ratePerSecond": 0.17142857142857
       },
       {
         "port": {
@@ -81,7 +89,7 @@
           "portIndex": 1.0,
           "input": false
         },
-        "ratePerSecond": 0.3055555555555556
+        "ratePerSecond": 0.30555555555556
       },
       {
         "port": {
@@ -89,7 +97,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 8.866666666666667
+        "ratePerSecond": 8.86666666666667
       },
       {
         "port": {
@@ -97,7 +105,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 0.11111111111111115
+        "ratePerSecond": 0.11111111111111
       },
       {
         "port": {
@@ -105,7 +113,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 30.952380952380953
+        "ratePerSecond": 30.95238095238096
       }
     ],
     "terminalInputs": [
@@ -218,7 +226,7 @@
     ],
     "openGates": 9.0,
     "externalQuantity": 2065.7126984126976,
-    "totalInternalFlow": 370.5809523809524,
+    "totalInternalFlow": 370.5809523809523,
     "floorsUsed": false,
     "notes": [],
     "key": {
@@ -306,10 +314,10 @@
                   "portIndex": 0.0,
                   "input": false
                 },
-                "ratePerSecond": 0.11111111111111115
+                "ratePerSecond": 0.11111111111111
               }
             ],
-            "max": 0.11111111111111115,
+            "max": 0.11111111111111,
             "share": 1.0,
             "solverPick": true
           }
@@ -333,10 +341,10 @@
                   "portIndex": 1.0,
                   "input": false
                 },
-                "ratePerSecond": 0.3055555555555556
+                "ratePerSecond": 0.30555555555556
               }
             ],
-            "max": 0.3055555555555556,
+            "max": 0.30555555555556,
             "share": 1.0,
             "solverPick": true
           }
@@ -360,10 +368,10 @@
                   "portIndex": 0.0,
                   "input": true
                 },
-                "ratePerSecond": 0.1527777777777778
+                "ratePerSecond": 0.15277777777778
               }
             ],
-            "max": 0.1527777777777778,
+            "max": 0.15277777777778,
             "share": 1.0,
             "solverPick": true
           }
@@ -387,10 +395,10 @@
                   "portIndex": 1.0,
                   "input": true
                 },
-                "ratePerSecond": 0.1527777777777778
+                "ratePerSecond": 0.15277777777778
               }
             ],
-            "max": 0.1527777777777778,
+            "max": 0.15277777777778,
             "share": 1.0,
             "solverPick": true
           }
@@ -414,10 +422,10 @@
                   "portIndex": 0.0,
                   "input": false
                 },
-                "ratePerSecond": 0.17142857142857135
+                "ratePerSecond": 0.17142857142857
               }
             ],
-            "max": 0.17142857142857135,
+            "max": 0.17142857142857,
             "share": 1.0,
             "solverPick": true
           }
@@ -468,10 +476,10 @@
                   "portIndex": 0.0,
                   "input": false
                 },
-                "ratePerSecond": 8.866666666666667
+                "ratePerSecond": 8.86666666666667
               }
             ],
-            "max": 8.866666666666667,
+            "max": 8.86666666666667,
             "share": 1.0,
             "solverPick": true
           }
@@ -491,11 +499,19 @@
             "flows": [
               {
                 "port": {
+                  "nodeId": "1cfbb5fb-9ec5-4108-944b-eda025696c79",
+                  "portIndex": 1.0,
+                  "input": true
+                },
+                "ratePerSecond": 1.0464966807E-4
+              },
+              {
+                "port": {
                   "nodeId": "0d38b77c-cff8-46f8-a1b2-1c69b94be711",
                   "portIndex": 1.0,
                   "input": true
                 },
-                "ratePerSecond": 1191.666666666666
+                "ratePerSecond": 1191.666562016998
               }
             ],
             "max": 1191.666666666666,
@@ -625,7 +641,7 @@
               "portIndex": 0.0,
               "input": false
             },
-            "ratePerSecond": 0.11111111111111115
+            "ratePerSecond": 0.11111111111111
           }
         ],
         "rank": "DEFAULT"
@@ -697,7 +713,7 @@
               "portIndex": 1.0,
               "input": false
             },
-            "ratePerSecond": 0.3055555555555556
+            "ratePerSecond": 0.30555555555556
           }
         ],
         "rank": "DEFAULT"
@@ -769,7 +785,7 @@
               "portIndex": 0.0,
               "input": true
             },
-            "ratePerSecond": 0.1527777777777778
+            "ratePerSecond": 0.15277777777778
           }
         ],
         "rank": "DEFAULT"
@@ -841,7 +857,7 @@
               "portIndex": 1.0,
               "input": true
             },
-            "ratePerSecond": 0.1527777777777778
+            "ratePerSecond": 0.15277777777778
           }
         ],
         "rank": "DEFAULT"
@@ -913,7 +929,7 @@
               "portIndex": 0.0,
               "input": false
             },
-            "ratePerSecond": 0.17142857142857135
+            "ratePerSecond": 0.17142857142857
           }
         ],
         "rank": "DEFAULT"
@@ -1057,7 +1073,7 @@
               "portIndex": 0.0,
               "input": false
             },
-            "ratePerSecond": 8.866666666666667
+            "ratePerSecond": 8.86666666666667
           }
         ],
         "rank": "DEFAULT"
@@ -1125,11 +1141,19 @@
         "externals": [
           {
             "port": {
+              "nodeId": "1cfbb5fb-9ec5-4108-944b-eda025696c79",
+              "portIndex": 1.0,
+              "input": true
+            },
+            "ratePerSecond": 1.0464966807E-4
+          },
+          {
+            "port": {
               "nodeId": "0d38b77c-cff8-46f8-a1b2-1c69b94be711",
               "portIndex": 1.0,
               "input": true
             },
-            "ratePerSecond": 1191.666666666666
+            "ratePerSecond": 1191.666562016998
           }
         ],
         "rank": "DEFAULT"

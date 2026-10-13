@@ -80,6 +80,8 @@ public final class SolveContext {
     public boolean shortCircuit;
     /** True when the replay pass (audit floors) actually ran. */
     public boolean floorsUsed;
+    /** The gates every answer opens ({@link GateSearch}): never the place a leftover could move from. */
+    public Set<Integer> neededGates = Set.of();
 
     /** The committed point - the only null in the state, until a stage commits one. */
     @Nullable
@@ -406,6 +408,7 @@ public final class SolveContext {
         this.shortCircuit = false;
         this.rejection = new Note(SolverMessage.SOLVER_NO_SOLUTION);
         this.floorsUsed = false;
+        this.neededGates = Set.of();
         this.stageNotes.clear();
     }
 
@@ -427,8 +430,11 @@ public final class SolveContext {
             for (final int e : port.edges()) {
                 flowsSum += flows[e];
             }
-            final double residual = flowsSum + externals[p] - extents[port.machine()] * port.qtyPerCraft();
-            final double scale = Math.max(1.0, port.qtyPerCraft());
+            final double through = extents[port.machine()] * port.qtyPerCraft();
+            final double residual = flowsSum + externals[p] - through;
+            // Relative to what the port carries: a simplex's rounding grows with the flows it moves, and a port moving
+            // hundreds of thousands a second is not unbalanced by a millionth of an item.
+            final double scale = Math.max(1.0, Math.max(port.qtyPerCraft(), Math.abs(through)));
             if (Math.abs(residual) / scale > heuristics.numerics().validateTol) {
                 return "port " + (port.input() ? "in" : "out")
                     + "["
@@ -516,8 +522,16 @@ public final class SolveContext {
         }
         if (!anyIdle) return new double[0];
 
-        final double useEps = heuristics.numerics().useEps;
-        final double floor = (minRunning == Double.MAX_VALUE ? useEps : minRunning) * 1e-3;
+        // A rate the chart already achieves: the slowest unpinned machine that runs, else the slowest pinned one (an
+        // absolute fallback this far below the plan's own rates sits in the simplex's rounding, and its answers with
+        // it).
+        if (minRunning == Double.MAX_VALUE) {
+            for (int m = 0; m < n; m++) {
+                if (!Double.isNaN(pinnedExtent[m]) && pinnedExtent[m] > heuristics.numerics().useEpsDetect)
+                    minRunning = Math.min(minRunning, pinnedExtent[m]);
+            }
+        }
+        final double floor = (minRunning == Double.MAX_VALUE ? heuristics.numerics().useEps : minRunning) * 1e-3;
         final double[] floors = new double[n];
         for (int m = 0; m < n; m++) {
             if (Double.isNaN(pinnedExtent[m]) && pinnedComponents.contains(find(root, m))) floors[m] = floor;

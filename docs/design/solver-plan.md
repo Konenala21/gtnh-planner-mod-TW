@@ -302,3 +302,29 @@ edit to one island of any plan costs that island; the 1,960 and 19,600 card stre
 - The full suite (`./gradlew test`) and `./gradlew compatCheck`; the stress plans in the game
   (`call 'stress?copies=N'`, `performance-at-scale.md`).
 - A player-visible change gets its line in `.changelogs/unreleased.md` in the same commit.
+
+## 10. Progress
+
+**Phase 1** (2026-10-12): `Parallel`, identical answers, 4-5x.
+
+**Phase 2** (2026-10-12): the gate count is `GateSearch`, exact and canonical, built from LP feasibility questions
+only; the big-M MILPs (`gateMILP`, `quantityMILP`, their cuts and node budgets) are gone. What the work found:
+
+- ojAlgo's presolve declared sets of gates infeasible that balance (230_platline's second pass), and the gate MILP
+  claimed 2 gates optimal where 1 balanced, and in another run that nothing balanced at all. Our models now run in an
+  environment with no presolvers (`ModelBuilder`), which also removes the 85% presolve share.
+- Without presolve, one simplex set-up can still call a model infeasible that another solves, or return a point that
+  does not conserve. Every AUTO model now runs through `Solver.run`: a point must pass `SolveContext.validate`, and
+  "no solution" is believed only when both set-ups (Ruiz-scaled revised simplex, then ojAlgo's own pick) say so.
+- The conservation check compares a port's residual with what the port carries, not its per-craft amount.
+- The every-machine-runs floor, when no unpinned machine ran, was 1e-7 crafts/s: down in the simplex's rounding on a
+  plan moving thousands a second, so its answer was noise. It is now a thousandth of the slowest pinned rate.
+- The canonical tie-break weighs edges and ports by a fixed scramble of their index (`Solver.tieWeight`); evenly
+  spaced weights tied whenever two index sums matched.
+- `SolverPathTest` solves the corpus with every model's variables added in reverse (a different simplex path) and
+  again later in the same game, and requires identical answers.
+
+Answers that moved, all for the better or proven: 230_platline 2 gates to 1, full platline 45 to 44, mv 31 to 30;
+platline (and x4, x10) proven least at 50. gtnh-flow's palladium_line second pass is a different problem since the
+floor fix (its pinned machine imports everything and every other machine runs at the floor): 10 gates, not proven; an
+unbounded search proves 8 least in 85 s, so a better heuristic is open work.

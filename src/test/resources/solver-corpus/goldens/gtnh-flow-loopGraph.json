@@ -1,11 +1,11 @@
 {
   "solution": {
     "extentsPerSecond": {
-      "51ab2cea-e8c7-39dc-bac0-4b27a4f7cd5d": 0.06666666666666667,
+      "51ab2cea-e8c7-39dc-bac0-4b27a4f7cd5d": 0.06666666666667,
       "e1dd6ea8-bc64-3626-a9d1-989b99ae435e": 0.03333333333333333
     },
     "machineCounts": {
-      "51ab2cea-e8c7-39dc-bac0-4b27a4f7cd5d": 0.5333333333333333,
+      "51ab2cea-e8c7-39dc-bac0-4b27a4f7cd5d": 0.53333333333336,
       "e1dd6ea8-bc64-3626-a9d1-989b99ae435e": 1.0
     },
     "edgeFlowsPerSecond": {
@@ -30,7 +30,7 @@
           "portIndex": 1.0,
           "input": true
         },
-        "ratePerSecond": 66.66666666666667
+        "ratePerSecond": 66.66666666667
       }
     ],
     "terminalOutputs": [
@@ -48,7 +48,7 @@
           "portIndex": 0.0,
           "input": false
         },
-        "ratePerSecond": 66.66666666666667
+        "ratePerSecond": 66.66666666667
       }
     ],
     "openGates": 1.0,
