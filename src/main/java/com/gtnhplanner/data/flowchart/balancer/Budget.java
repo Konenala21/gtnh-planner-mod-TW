@@ -9,6 +9,21 @@ public final class Budget {
 
     private final long deadlineMillis;
 
+    /**
+     * Tests only: no wall-clock ceilings anywhere in a solve (budgets never run out, models get no time limit), so a
+     * solve answers the same however busy the machine is. The counted limits (swaps tried, branch-and-bound nodes)
+     * still hold.
+     */
+    private static volatile boolean timeless;
+
+    public static void timeless(final boolean on) {
+        timeless = on;
+    }
+
+    public static boolean timeless() {
+        return timeless;
+    }
+
     private Budget(final long deadlineMillis) {
         this.deadlineMillis = deadlineMillis;
     }
@@ -19,6 +34,7 @@ public final class Budget {
     }
 
     public long remaining() {
+        if (timeless) return Long.MAX_VALUE / 4;
         return Math.max(0, deadlineMillis - System.currentTimeMillis());
     }
 

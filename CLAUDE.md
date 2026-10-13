@@ -274,6 +274,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
   `gh release create <tag> --prerelease --title "GTNH Planner <tag>" -F .changelogs/<tag>.md
   build/libs/gtnhplanner-<tag>.jar`.
+- The solver (`docs/design/solver-plan.md`: what it promises, what was wrong, the phases) is checked against
+  goldens: `./gradlew test --tests '*SolverGoldenTest*' -Pbench=check` compares every corpus plan's whole answer
+  (`src/test/resources/solver-corpus/`, plans exported with `call 'solvedump?dir=...'`) to the recorded one, with
+  `Budget.timeless` so no clock decides anything; `-PwriteGoldens` records them afresh. `*SolverBench*` and
+  `*SolverCensus*` time it and count its models; compare before and after in one sitting.
 - The layout benchmark (`./gradlew test -Pbench=<label> --tests '*LayoutBenchmark*'`, tagged `bench`, left out of the
   normal run) routes and arranges every plan in the corpus, measures it (`layout/RouteMetrics`) and draws it to
   `build/bench/<label>/`; `DragBench`, `RouterTrace` and `RouterProfile` look at dragging, single searches and

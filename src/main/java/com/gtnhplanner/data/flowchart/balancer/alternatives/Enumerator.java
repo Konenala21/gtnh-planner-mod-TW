@@ -16,6 +16,7 @@ import com.gtnhplanner.data.flowchart.balancer.External;
 import com.gtnhplanner.data.flowchart.balancer.ModelData;
 import com.gtnhplanner.data.flowchart.balancer.Note;
 import com.gtnhplanner.data.flowchart.balancer.Numerics;
+import com.gtnhplanner.data.flowchart.balancer.Parallel;
 import com.gtnhplanner.data.flowchart.balancer.PortRef;
 import com.gtnhplanner.data.flowchart.balancer.SolveContext;
 import com.gtnhplanner.data.flowchart.balancer.SolveResult;
@@ -100,22 +101,35 @@ public final class Enumerator {
         final List<Swap> shortlist = new ArrayList<>();
         int evaluated = 0;
         int skipped = 0;
+        // Every swap in a fixed order, each one LP: a batch at a time, side by side (Parallel), read back in that
+        // order. The budget is looked at between batches, so the swaps tried are always the list's first ones.
+        final List<int[]> swaps = new ArrayList<>();
         for (final int out : sorted(incumbent)) {
             for (int in = 0; in < ctx.model.gates.size(); in++) {
-                if (incumbent.contains(in)) continue;
-                if (evaluated >= n.effort(n.maxAltSwaps) || ctx.budget.expired()) {
-                    skipped++;
-                    continue;
-                }
-                evaluated++;
+                if (!incumbent.contains(in)) swaps.add(new int[] { out, in });
+            }
+        }
+        final int cap = (int) Math.min(swaps.size(), n.effort(n.maxAltSwaps));
+        skipped += swaps.size() - cap;
+        for (int at = 0; at < cap; at += Parallel.batch()) {
+            final List<int[]> batch = swaps.subList(at, Math.min(cap, at + Parallel.batch()));
+            if (ctx.budget.expired()) {
+                skipped += cap - at;
+                break;
+            }
+            final List<SolveResult> s2Results = Parallel.map(ctx, batch, swap -> {
                 final Set<Integer> trial = new HashSet<>(incumbent);
-                trial.remove(out);
-                trial.add(in);
-                final SolveResult s2Result = Solver.fixedQuantity(ctx, trial);
+                trial.remove(swap[0]);
+                trial.add(swap[1]);
+                return Solver.fixedQuantity(ctx, trial);
+            });
+            for (int i = 0; i < batch.size(); i++) {
+                final SolveResult s2Result = s2Results.get(i);
+                evaluated++;
                 if (s2Result.isRejected() || s2Result.point().support.size() != incumbent.size()) continue;
                 final StageOutcome s2 = s2Result.point();
                 if (!seen.add(ctx.keyOf(s2.support))) continue;
-                shortlist.add(new Swap(out, in, s2));
+                shortlist.add(new Swap(batch.get(i)[0], batch.get(i)[1], s2));
             }
         }
 
@@ -132,26 +146,38 @@ public final class Enumerator {
         // asking two questions where one has six cheap answers does not spend the whole option
         // budget on that one and leave the other with just its heading.
         final List<Swap> fair = interleaveByDecision(shortlist);
-        for (final Swap candidate : fair) {
-            if (options.size() >= n.maxAltOptions || ctx.budget.expired()) {
-                skipped++;
-                continue;
+        // Each candidate's evaluation (stage 3, then canonical) a batch at a time, side by side, read in order until
+        // the options are full: a batch may evaluate a few the list then has no room for, never a different few.
+        for (int at = 0; at < fair.size();) {
+            final List<Swap> batch = options.size() >= n.maxAltOptions || ctx.budget.expired() ? List.of()
+                : fair.subList(at, Math.min(fair.size(), at + Parallel.batch()));
+            final List<StageOutcome> evaluatedAlts = Parallel.map(ctx, batch, candidate -> {
+                final StageOutcome witness = candidate.witness();
+                final Set<Integer> open = ctx.carryingGates(witness.externals, witness.support);
+                final SolveResult s3Result = Solver.flowMinimal(ctx, open, witness.externalQuantity);
+                if (s3Result.isRejected()) return null;
+                return Solver.canonicalize(ctx, open, s3Result.point());
+            });
+            final int end = batch.isEmpty() ? fair.size() : at + batch.size();
+            for (int i = at; i < end; i++) {
+                if (options.size() >= n.maxAltOptions || batch.isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+                final Swap candidate = fair.get(i);
+                final StageOutcome alt = evaluatedAlts.get(i - at);
+                if (alt == null || alt.support.size() != incumbent.size()) continue;
+                if (points != null) points.put(ctx.keyOf(alt.support), alt);
+                options.add(
+                    asAlternative(
+                        ctx,
+                        alt.externals,
+                        alt.support,
+                        candidate.out(),
+                        candidate.in(),
+                        Preference.rankOf(ctx, alt, incumbentCost, tol)));
             }
-            final StageOutcome witness = candidate.witness();
-            final Set<Integer> open = ctx.carryingGates(witness.externals, witness.support);
-            final SolveResult s3Result = Solver.flowMinimal(ctx, open, witness.externalQuantity);
-            if (s3Result.isRejected()) continue;
-            final StageOutcome alt = Solver.canonicalize(ctx, open, s3Result.point());
-            if (alt.support.size() != incumbent.size()) continue;
-            if (points != null) points.put(ctx.keyOf(alt.support), alt);
-            options.add(
-                asAlternative(
-                    ctx,
-                    alt.externals,
-                    alt.support,
-                    candidate.out(),
-                    candidate.in(),
-                    Preference.rankOf(ctx, alt, incumbentCost, tol)));
+            at = end;
         }
         // Default first, then the ones that cost nothing to prefer, then by how much they give up.
         // Ties inside a rank go to the lower key, so the same chart always lists in the same order.

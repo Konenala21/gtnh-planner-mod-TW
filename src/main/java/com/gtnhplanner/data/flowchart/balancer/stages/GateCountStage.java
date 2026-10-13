@@ -8,6 +8,7 @@ import java.util.Set;
 
 import com.gtnhplanner.data.flowchart.balancer.Entry;
 import com.gtnhplanner.data.flowchart.balancer.Outcome;
+import com.gtnhplanner.data.flowchart.balancer.Parallel;
 import com.gtnhplanner.data.flowchart.balancer.SolveContext;
 import com.gtnhplanner.data.flowchart.balancer.SolveResult;
 import com.gtnhplanner.data.flowchart.balancer.Solver;
@@ -93,14 +94,36 @@ public final class GateCountStage implements Entry<GateCountStage.GatePlan> {
                 .thenComparing(g -> gateFlow[g])
                 .thenComparing(g -> g));
 
-        for (final int gate : order) {
-            if (!support.contains(gate)) continue; // already dropped via a shrunken support
-            final Set<Integer> trial = new HashSet<>(support);
-            trial.remove(gate);
-            final SolveResult solved = Solver.externalsLp(ctx, trial);
-            if (!solved.isRejected()) {
-                support = solved.point().support;
-                best = solved.point();
+        // Gates are tried one at a time in that order, each against the support as it stands. Most trials fail (the
+        // gate is needed), which leaves the support as it was: so the next few gates' trials are solved side by side
+        // against it (Parallel), and read in order. The first that succeeds changes the support, and the trials
+        // after it, made against the old one, are made again. The same trials, the same answers, as one at a time.
+        int next = 0;
+        while (next < order.size()) {
+            final Set<Integer> against = support;
+            final List<Integer> batch = new ArrayList<>(), at = new ArrayList<>();
+            int scan = next;
+            for (; scan < order.size() && batch.size() < Math.max(1, Parallel.threads()); scan++) {
+                if (!against.contains(order.get(scan))) continue; // already dropped via a shrunken support
+                batch.add(order.get(scan));
+                at.add(scan);
+            }
+            if (batch.isEmpty()) break;
+            final List<SolveResult> tried = Parallel.map(ctx, batch, gate -> {
+                final Set<Integer> trial = new HashSet<>(against);
+                trial.remove(gate);
+                return Solver.externalsLp(ctx, trial);
+            });
+            next = scan;
+            for (int i = 0; i < tried.size(); i++) {
+                if (tried.get(i)
+                    .isRejected()) continue;
+                support = tried.get(i)
+                    .point().support;
+                best = tried.get(i)
+                    .point();
+                next = at.get(i) + 1;
+                break;
             }
         }
         return SolveResult.solved(best);
