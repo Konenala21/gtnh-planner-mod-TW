@@ -177,7 +177,10 @@ public final class DevHarness {
 
     @SubscribeEvent
     public void onRenderTick(final TickEvent.RenderTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) DevPerf.frame();
+        if (event.phase == TickEvent.Phase.START) {
+            DevPerf.frame();
+            DevStress.frame();
+        }
         if (event.phase != TickEvent.Phase.END) return;
         framedSinceStep = true;
         // Only what was queued before this frame; actions may re-queue themselves for the next one.
@@ -688,6 +691,11 @@ public final class DevHarness {
                         return error("Could not write: " + e.getMessage());
                     }
                 });
+            case "/stress":
+                // Stress plans: copies=N tiles the open plan, world=1 places every machine, animate=pan|zoom|yaw|none
+                // moves the camera every frame, timesave=1 times one edit's encodes and save; alone, a report.
+                requireWorld();
+                return onClient(() -> DevStress.handle(q));
             case "/perf":
                 // Frame times: perf?start=1 begins sampling, perf ends it and reports (fps, percentiles, sections).
                 if (q.containsKey("start")) {

@@ -334,6 +334,13 @@ tools/dev/board-check.sh  # GT runs: end-to-end board check (recipe, port drag, 
   stop it when the work is done.
 - The user can press F2 in game to screenshot what they see; when they refer to "this" or "my screenshot", Read
   the newest file in `run/client/screenshots/`. Harness screenshots land there too, under the names you gave them.
+- Plans of thousands of cards: `call 'stress?copies=N'` tiles the open plan, `stress?world=1` places every machine,
+  `stress?animate=pan` moves the camera for `perf` (`docs/design/performance-at-scale.md`: numbers, what was slow, the
+  profiling steps). Only the board's cards and drawers in view are ModularUI's children (`BoardCanvas.getChildren`;
+  the rest are built but not walked); placed machines are found through `ui/world/WorldIndex`; wires look again only
+  when the plan, its solve or the board's placing moved something (`WireLayer.moved`): anything new that moves cards
+  outside an edit must call it. A hot swap of a class whose nested record or class it constructs crashes the game
+  (IllegalAccessError): restart instead.
 - Performance: `call 'perf?start=1'`, do something (drag, pan, open a plan), then `call perf` for FPS, frame-time
   percentiles and per-part timings (cards, drawers, wires, overview, routing, solve; over the world `ar.*`: ghosts,
   wires, labels, cards, tags). Wires route on the router's
