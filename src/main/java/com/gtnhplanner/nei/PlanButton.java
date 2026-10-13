@@ -6,7 +6,11 @@ import java.util.Map;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.util.ResourceLocation;
 
+import org.lwjgl.opengl.GL11;
+
+import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.ui.card.MachineChoices;
 
 import codechicken.lib.gui.GuiDraw;
@@ -73,15 +77,24 @@ public final class PlanButton extends GuiRecipeButton {
         super.drawButton(mc, mouseX, mouseY);
     }
 
-    /** The planner's mark, 8 pixels square: a card wired round a corner to another. */
+    /**
+     * The planner's mark (a card wired round a corner to another): two 8-pixel sprites side by side, normal then
+     * hovered, so a resource pack can redraw either.
+     */
+    private static final ResourceLocation MARK = new ResourceLocation(
+        GtnhPlanner.MODID,
+        "textures/gui/nei_plan_button.png");
+
     @Override
     protected void drawContent(final Minecraft mc, final int y, final int x, final boolean mouseOver) {
-        final int c = 0xFF000000 | getTextColour(mouseOver);
-        final int ox = xPosition + 2, oy = yPosition + 2;
-        Gui.drawRect(ox, oy, ox + 3, oy + 3, c);
-        Gui.drawRect(ox + 3, oy + 1, ox + 6, oy + 2, c);
-        Gui.drawRect(ox + 5, oy + 2, ox + 6, oy + 5, c);
-        Gui.drawRect(ox + 4, oy + 5, ox + 7, oy + 8, c);
+        mc.getTextureManager()
+            .bindTexture(MARK);
+        GL11.glColor4f(1, 1, 1, enabled ? 1 : 0.5f);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        Gui.func_146110_a(xPosition + 2, yPosition + 2, mouseOver ? 8 : 0, 0, 8, 8, 16, 8);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glColor4f(1, 1, 1, 1);
     }
 
     @Override

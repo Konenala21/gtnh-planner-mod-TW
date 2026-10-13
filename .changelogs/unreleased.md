@@ -18,6 +18,7 @@
 - Custom Rate moved into the new Other column in Non-recipe.
 - Zooming out switches cards to the simple view a step later, so the text stays readable longer.
 - The tour doesn't touch your GUI scale anymore.
+- Resource packs can restyle the plan button on NEI's recipe pages, like NEI's own buttons.
 
 ## Fixed
 
