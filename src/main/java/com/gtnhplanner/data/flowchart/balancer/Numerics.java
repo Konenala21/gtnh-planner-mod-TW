@@ -36,13 +36,9 @@ public final class Numerics {
     /** Ceiling on any ONE model's model time, scaled by effort. */
     public final long stageTimeLimitMillis = 15_000;
 
-    /** Wall budget for the WHOLE alternatives search, scaled by effort. */
-    public final long altBudgetMillis = 750;
-    /** How much of the alternatives budget the broad swap search may spend first. */
-    public final long altSearchSharePercent = 50;
     /** Cap on gate swaps tried in the alternatives search, scaled by effort. */
     public final int maxAltSwaps = 1024;
-    /** How many answers the alternatives list carries before it stops being a list. */
+    /** How many other places the alternatives list offers for one leftover. */
     public final int maxAltOptions = 8;
 
     /** Flows below this count as zero when deriving gate support (relative). */

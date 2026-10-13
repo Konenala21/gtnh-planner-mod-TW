@@ -1,6 +1,7 @@
 package com.gtnhplanner.data.flowchart.balancer.stages;
 
 import java.util.List;
+import java.util.Set;
 
 import com.gtnhplanner.data.flowchart.balancer.GateSearch;
 import com.gtnhplanner.data.flowchart.balancer.Outcome;
@@ -31,20 +32,31 @@ public final class FlowMinStage implements Stage<ExternalMinStage.ExternalPlan, 
             return s3.isRejected() ? null : Solver.canonicalize(ctx, cand.open(), s3.point());
         });
         StageOutcome best = null;
-        for (final StageOutcome s3 : solved) {
+        Set<Integer> bestOpen = null;
+        for (int i = 0; i < solved.size(); i++) {
+            final StageOutcome s3 = solved.get(i);
             if (s3 == null) continue;
             if (best == null) {
                 best = s3;
+                bestOpen = plan.candidates()
+                    .get(i)
+                    .open();
                 continue;
             }
             final double tol = ctx.tieTolerance(best.internalFlow, best);
             final boolean better = s3.internalFlow < best.internalFlow - tol;
             final boolean tied = Math.abs(s3.internalFlow - best.internalFlow) <= tol;
             if (better || tied && ctx.keyOf(s3.support)
-                .compareTo(ctx.keyOf(best.support)) < 0) best = s3;
+                .compareTo(ctx.keyOf(best.support)) < 0) {
+                best = s3;
+                bestOpen = plan.candidates()
+                    .get(i)
+                    .open();
+            }
         }
         if (best == null) return new Outcome.Fail<>(ctx.rejection);
         ctx.commit(best);
+        ctx.openGates = bestOpen;
         return new Outcome.Continue<>(best);
     }
 }

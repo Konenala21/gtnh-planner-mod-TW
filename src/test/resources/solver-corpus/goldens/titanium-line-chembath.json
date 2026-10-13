@@ -561,6 +561,114 @@
           }
         ],
         "custom": false
+      },
+      {
+        "key": "e57b0362-570a-4425-aee9-0a629c16bb1e:i:1",
+        "importing": true,
+        "bearers": [
+          {
+            "anchor": {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            "flows": [
+              {
+                "port": {
+                  "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+                  "portIndex": 1.0,
+                  "input": true
+                },
+                "ratePerSecond": 82.53968253968253
+              }
+            ],
+            "max": 82.53968253968253,
+            "share": 1.0,
+            "solverPick": true
+          }
+        ],
+        "custom": false
+      },
+      {
+        "key": "f2a17e46-e15f-4621-8142-dd44bc85ba52:i:0",
+        "importing": true,
+        "bearers": [
+          {
+            "anchor": {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            "flows": [
+              {
+                "port": {
+                  "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+                  "portIndex": 0.0,
+                  "input": true
+                },
+                "ratePerSecond": 0.08888888888889
+              }
+            ],
+            "max": 0.08888888888889,
+            "share": 1.0,
+            "solverPick": true
+          }
+        ],
+        "custom": false
+      },
+      {
+        "key": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065:o:0",
+        "importing": false,
+        "bearers": [
+          {
+            "anchor": {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            "flows": [
+              {
+                "port": {
+                  "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+                  "portIndex": 0.0,
+                  "input": false
+                },
+                "ratePerSecond": 0.03333333333333
+              }
+            ],
+            "max": 0.03333333333333,
+            "share": 1.0,
+            "solverPick": true
+          }
+        ],
+        "custom": false
+      },
+      {
+        "key": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065:i:0",
+        "importing": true,
+        "bearers": [
+          {
+            "anchor": {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            },
+            "flows": [
+              {
+                "port": {
+                  "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+                  "portIndex": 0.0,
+                  "input": true
+                },
+                "ratePerSecond": 33.33333333333334
+              }
+            ],
+            "max": 33.33333333333334,
+            "share": 1.0,
+            "solverPick": true
+          }
+        ],
+        "custom": false
       }
     ]
   },
@@ -1333,17 +1441,357 @@
           }
         ],
         "rank": "DEFAULT"
+      },
+      {
+        "key": {
+          "gateAnchors": [
+            {
+              "nodeId": "849595fe-4a17-4933-8f4f-5c596ae28612",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "c3cad290-3d86-4dce-80ef-da6a0bb462c5",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 1.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 4.0,
+              "input": false
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 2.0,
+              "input": false
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            }
+          ]
+        },
+        "replaces": {
+          "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+          "portIndex": 1.0,
+          "input": true
+        },
+        "opens": {
+          "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+          "portIndex": 1.0,
+          "input": true
+        },
+        "externals": [
+          {
+            "port": {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            "ratePerSecond": 82.53968253968253
+          }
+        ],
+        "rank": "DEFAULT"
+      },
+      {
+        "key": {
+          "gateAnchors": [
+            {
+              "nodeId": "849595fe-4a17-4933-8f4f-5c596ae28612",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "c3cad290-3d86-4dce-80ef-da6a0bb462c5",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 1.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 4.0,
+              "input": false
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 2.0,
+              "input": false
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            }
+          ]
+        },
+        "replaces": {
+          "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+          "portIndex": 0.0,
+          "input": true
+        },
+        "opens": {
+          "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+          "portIndex": 0.0,
+          "input": true
+        },
+        "externals": [
+          {
+            "port": {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            "ratePerSecond": 0.08888888888889
+          }
+        ],
+        "rank": "DEFAULT"
+      },
+      {
+        "key": {
+          "gateAnchors": [
+            {
+              "nodeId": "849595fe-4a17-4933-8f4f-5c596ae28612",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "c3cad290-3d86-4dce-80ef-da6a0bb462c5",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 1.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 4.0,
+              "input": false
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 2.0,
+              "input": false
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            }
+          ]
+        },
+        "replaces": {
+          "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+          "portIndex": 0.0,
+          "input": false
+        },
+        "opens": {
+          "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+          "portIndex": 0.0,
+          "input": false
+        },
+        "externals": [
+          {
+            "port": {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            "ratePerSecond": 0.03333333333333
+          }
+        ],
+        "rank": "DEFAULT"
+      },
+      {
+        "key": {
+          "gateAnchors": [
+            {
+              "nodeId": "849595fe-4a17-4933-8f4f-5c596ae28612",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "c3cad290-3d86-4dce-80ef-da6a0bb462c5",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 1.0,
+              "input": false
+            },
+            {
+              "nodeId": "d5f47f71-9a99-4c1f-90a3-bcf405918959",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 4.0,
+              "input": false
+            },
+            {
+              "nodeId": "e16551cf-7ba8-4e3b-9063-53cd94beb5a2",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 2.0,
+              "input": false
+            },
+            {
+              "nodeId": "e57b0362-570a-4425-aee9-0a629c16bb1e",
+              "portIndex": 1.0,
+              "input": true
+            },
+            {
+              "nodeId": "f2a17e46-e15f-4621-8142-dd44bc85ba52",
+              "portIndex": 0.0,
+              "input": true
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": false
+            },
+            {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            }
+          ]
+        },
+        "replaces": {
+          "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+          "portIndex": 0.0,
+          "input": true
+        },
+        "opens": {
+          "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+          "portIndex": 0.0,
+          "input": true
+        },
+        "externals": [
+          {
+            "port": {
+              "nodeId": "1dbaaaed-ed3f-4950-91e9-34aefe9ac065",
+              "portIndex": 0.0,
+              "input": true
+            },
+            "ratePerSecond": 33.33333333333334
+          }
+        ],
+        "rank": "DEFAULT"
       }
     ],
-    "complete": false,
-    "notes": [
-      {
-        "message": "SHOWING_CLOSEST",
-        "args": [
-          8.0,
-          12.0
-        ]
-      }
-    ]
+    "complete": true,
+    "notes": []
   }
 }

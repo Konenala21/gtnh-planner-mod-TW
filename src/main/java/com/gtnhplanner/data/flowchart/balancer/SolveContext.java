@@ -82,6 +82,8 @@ public final class SolveContext {
     public boolean floorsUsed;
     /** The gates every answer opens ({@link GateSearch}): never the place a leftover could move from. */
     public Set<Integer> neededGates = Set.of();
+    /** The gates the committed answer opens, those carrying too little to show included (set by the flow stage). */
+    public Set<Integer> openGates = Set.of();
 
     /** The committed point - the only null in the state, until a stage commits one. */
     @Nullable
@@ -409,6 +411,7 @@ public final class SolveContext {
         this.rejection = new Note(SolverMessage.SOLVER_NO_SOLUTION);
         this.floorsUsed = false;
         this.neededGates = Set.of();
+        this.openGates = Set.of();
         this.stageNotes.clear();
     }
 

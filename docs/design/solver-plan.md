@@ -328,3 +328,12 @@ Answers that moved, all for the better or proven: 230_platline 2 gates to 1, ful
 platline (and x4, x10) proven least at 50. gtnh-flow's palladium_line second pass is a different problem since the
 floor fix (its pinned machine imports everything and every other machine runs at the floor): 10 gates, not proven; an
 unbounded search proves 8 least in 85 s, so a better heuristic is open work.
+
+**Phase 3** (2026-10-12): the alternatives are per leftover. Every leftover the answer shows that not every answer
+has is a decision; each closed gate is tried in its place, through `Enumerator.evaluateSupport`'s canonical point;
+each decision lists its best eight. Needed gates are never tried (they cannot move), the swaps are counted, never
+timed (`altBudgetMillis` is gone), and a swap keeps open the gates the answer opens that carry too little to show
+(`SolveContext.openGates`). On the corpus: platline, mv, full platline and every plan whose open gates are all needed
+offer no choice because there is none (each leftover has one possible place), and say so, complete; palladium_line's
+second pass offers choices on four leftovers. Platline solves in 18 ms with everything (0.25 s after phase 1), mv in
+38 ms, platline x4 in 0.53 s.
