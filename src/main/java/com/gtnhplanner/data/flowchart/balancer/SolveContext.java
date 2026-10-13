@@ -388,8 +388,36 @@ public final class SolveContext {
     }
 
     /** Commits a point the way the chain reads it: one authoritative object replaces the last. */
+    /**
+     * Commits the plan's answer, with what the solver left at its dust (a rate a hundred-billionth of the plan's
+     * largest, {@link Numerics#dust}) set to exactly zero: a machine there is idle, not running at 0.000000000000001.
+     */
     public void commit(final StageOutcome committed) {
-        this.point = committed;
+        final double tol = heuristics.numerics().dust
+            * solutionScale(committed.extents, committed.flows, committed.externals);
+        final double[] extents = committed.extents.clone(), flows = committed.flows.clone(),
+            externals = committed.externals.clone();
+        boolean snapped = false;
+        for (int m = 0; m < extents.length; m++) {
+            double most = 0;
+            for (final double q : model.machines.get(m).inQty) most = Math.max(most, q);
+            for (final double q : model.machines.get(m).outQty) most = Math.max(most, q);
+            if (extents[m] != 0 && Math.abs(extents[m]) * Math.max(most, 1) <= tol) {
+                extents[m] = 0;
+                snapped = true;
+            }
+        }
+        for (final double[] values : new double[][] { flows, externals }) {
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] != 0 && Math.abs(values[i]) <= tol) {
+                    values[i] = 0;
+                    snapped = true;
+                }
+            }
+        }
+        this.point = snapped
+            ? StageOutcome.of(this, extents, flows, externals, committed.support, committed.provenOptimal)
+            : committed;
     }
 
     /** Independent conservation check; null when the point conserves, else the offending row. */

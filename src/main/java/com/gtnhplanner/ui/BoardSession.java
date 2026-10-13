@@ -2577,11 +2577,23 @@ public final class BoardSession {
     }
 
     /**
-     * Whether nothing sets the part of the plan this recipe or drawer is in (no pinned count or rate anywhere along its
-     * wires), so its count and rates ask for a number, however much of the rest of the plan is set.
+     * Whether this recipe or drawer asks for a number: nothing sets the part of the plan it is in (no pinned count or
+     * rate anywhere along its wires), or the answer leaves it at zero because nothing pinned feeds it or needs it. Its
+     * count and rates then ask for a number, however much of the rest of the plan is set.
      */
     public boolean unset(final UUID id) {
         return nothingToSolveFor || unset.contains(id);
+    }
+
+    /**
+     * What asks for a number: every part of the plan nothing sets, and every machine the answer leaves at zero because
+     * nothing pinned feeds it or needs what it makes ({@code SolutionView.unneeded}).
+     */
+    private java.util.Set<UUID> unsetParts() {
+        final java.util.Set<UUID> out = new java.util.HashSet<>(com.gtnhplanner.data.flowchart.balancer.Unanchored.of(graph));
+        if (result instanceof final com.gtnhplanner.data.flowchart.balancer.BalanceResult.Solved solved) out.addAll(
+            solved.auto().unneeded);
+        return out;
     }
 
     /**
@@ -2592,7 +2604,7 @@ public final class BoardSession {
     private List<Notice> buildNotices(final Map<UUID, CardModel> cards) {
         final List<Notice> out = new ArrayList<>();
         nothingToSolveFor = false;
-        unset = result == null ? java.util.Set.of() : com.gtnhplanner.data.flowchart.balancer.Unanchored.of(graph);
+        unset = result == null ? java.util.Set.of() : unsetParts();
         if (result != null) {
             for (final Note note : result.notes()) {
                 if (note.message() == SolverMessage.NO_PIN) {

@@ -389,6 +389,9 @@ buy wheat and run the mill, never buy flour; spare wheat is milled and the flour
 - A machine nothing pinned feeds or needs stays at zero rather than at a floor nobody chose, and is reported
   (`SolutionView.unneeded`) so the board asks for a count. palladium_line pins only palladium, so its platinum,
   rhodium, iridium and osmium branches ask for one.
+- What the solver leaves at its dust (a hundred-billionth of the plan's largest rate) is committed as exactly zero
+  (`SolveContext.commit`), so an idle machine reads idle and not "x<0.001". The board asks for a count on every
+  machine in `unneeded` as on a part nothing sets (`BoardSession.unsetParts`).
 - The choices panel explains an option by the same rules (`Preference`: buys more or further down the line, sells
   more or earlier in the line, moves more), and `Enumerator.evaluateSupport` settles a support exactly as AUTO does.
 - The owner considered a setting for the direction (buy downstream, sell upstream) and dropped it: the opposite
