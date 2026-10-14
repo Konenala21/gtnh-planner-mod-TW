@@ -91,7 +91,11 @@ final class DevCrops {
             final String id = raw.trim();
             if (id.isEmpty()) continue;
             final int at = id.lastIndexOf('@');
-            final Object item = Item.itemRegistry.getObject(at < 0 ? id : id.substring(0, at));
+            final String name = at < 0 ? id : id.substring(0, at);
+            Object item = Item.itemRegistry.getObject(name);
+            // Website ids are in lower case; the registry's names are not (IC2:blockRubWood).
+            if (item == null) for (final Object key : Item.itemRegistry.getKeys())
+                if (key instanceof final String k && k.equalsIgnoreCase(name)) item = Item.itemRegistry.getObject(k);
             if (!(item instanceof final Item it)) {
                 out.put(id, "no such item");
                 continue;
