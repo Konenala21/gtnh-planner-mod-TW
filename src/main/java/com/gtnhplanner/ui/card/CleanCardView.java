@@ -89,11 +89,13 @@ public final class CleanCardView {
             CardLayout.PICTURE };
         art(c, picture);
         if (c.circuit() != null && !PlannerSettings.circuitAsInput()) CardPaint.circuitBadge(c.circuit(), picture, 0);
+        // As the board's card: a crop card's count is the crops planted, said under it, no ×.
         CardPaint.count(
-            "×" + Fmt.machines(c.machines()),
+            (c.crop() ? "" : "×") + Fmt.machines(c.machines()),
             c.machines() <= 0,
             c.pinned(),
-            c.pinned() ? CardPaint.PINNED : null,
+            c.crop() ? c.pinned() ? "crops, pinned" : Math.round(c.machines()) == 1 ? "crop planted" : "crops planted"
+                : c.pinned() ? CardPaint.PINNED : null,
             Hyb.MUTED,
             false,
             picture);

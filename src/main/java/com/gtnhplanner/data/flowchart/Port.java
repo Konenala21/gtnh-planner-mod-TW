@@ -76,7 +76,17 @@ public class Port<T> {
         return ((ResourceProperty<Object>) type).canConnect(value, other.value);
     }
 
+    /** Whether the other port carries the same resource (not just one it could wire to): two such outputs are one. */
+    @SuppressWarnings("unchecked")
+    public boolean same(final Port<?> other) {
+        if (!type.equals(other.type)) return false;
+        return ((ResourceProperty<Object>) type).same(value, other.value);
+    }
+
     public void merge(final Port<?> other) {
+        // Exact amounts add up too (a crop listing one item twice), else the second's would be lost.
+        final double exact = Double.isNaN(exactAmount) && Double.isNaN(other.exactAmount) ? Double.NaN
+            : amount() + other.amount();
         final int newAmount = getAmount() + other.getAmount();
         // An amount-weighted average is undefined when there is no amount to weight by, and the NaN
         // chance it would leave here reaches the balancer as a NaN coefficient, where it poisons a
@@ -85,5 +95,6 @@ public class Port<T> {
             this.chance = (this.getAmount() * this.chance + other.getAmount() * other.chance) / newAmount;
         }
         type.setAmount(value, newAmount);
+        exactAmount = exact;
     }
 }

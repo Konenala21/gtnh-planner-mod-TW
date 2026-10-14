@@ -467,7 +467,7 @@ public final class Minimap {
                 }
             }
             pill(
-                "×" + Fmt.machines(c.machines()),
+                "×" + Fmt.machines(c.builds()),
                 x,
                 y,
                 w,

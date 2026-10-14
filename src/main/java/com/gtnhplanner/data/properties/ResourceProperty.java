@@ -23,6 +23,13 @@ public class ResourceProperty<T> extends SummaryProperty<T> {
 
     @lombok.Builder.Default
     private final BiPredicate<T, T> connectionChecker = (a, b) -> true;
+    /**
+     * Whether two values are the same resource, so two outputs of them are one: stricter than connecting, which lets
+     * an item go to anything sharing an ore name with it. Null: as {@link #canConnect}.
+     */
+    @lombok.Builder.Default
+    @Nullable
+    private final BiPredicate<T, T> sameChecker = null;
     @lombok.Builder.Default
     private final ToIntFunction<T> hashCodeExtractor = Objects::hashCode;
 
@@ -57,6 +64,11 @@ public class ResourceProperty<T> extends SummaryProperty<T> {
 
     public boolean canConnect(final T a, final T b) {
         return connectionChecker.test(a, b);
+    }
+
+    /** Whether two values are the same resource (see {@link #sameChecker}). */
+    public boolean same(final T a, final T b) {
+        return sameChecker != null ? sameChecker.test(a, b) : connectionChecker.test(a, b);
     }
 
     public int hashValue(final T value) {

@@ -227,6 +227,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return total;
     }
 
+    /** The machines it builds: its count, or for a crop card (whose count is crops planted) the harvesters. */
+    private double buildsTotal() {
+        double total = 0;
+        for (final CardModel m : models) total += com.gtnhplanner.machines.game.CropCards.builds(m.node, m.machines);
+        return total;
+    }
+
     /** What the card draws, as the board's power switches say: all its recipes' together. */
     private double powerTotal() {
         double total = 0;
@@ -550,14 +557,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
         } else drawMachineArt(m, (w - side) / 2f, (h - side) / 2f, side, side, side, z, true);
-        // How many, in white in the corner, at whole screen pixels per font pixel so it stays sharp.
-        final String count = "×" + Fmt.machines(machinesTotal());
+        // How many, in white in the corner, at whole screen pixels per font pixel so it stays sharp. Machines: a crop
+        // card's harvesters, beside their picture.
+        final double builds = buildsTotal();
+        final String count = "×" + Fmt.machines(builds);
         // Two screen pixels per font pixel, or one far out: whole pixels at every wheel step, so it stays sharp.
         float cs = 1 / zoom;
         if (cs > 4) cs /= 2;
         while (cs > 1 && Hyb.width(count) * cs > w * 0.8f) cs /= 2;
         final float tw = Hyb.width(count) * cs, th = 8 * cs;
-        Hyb.text(count, w - rim - 6 - tw, h - rim - 6 - th, cs, machinesTotal() <= 0 ? Hyb.MUTED : Hyb.INK);
+        Hyb.text(count, w - rim - 6 - tw, h - rim - 6 - th, cs, builds <= 0 ? Hyb.MUTED : Hyb.INK);
         if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
     }
 
@@ -1617,6 +1626,18 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case MACHINES -> {
                 final double machines = machinesTotal();
                 final boolean pin = pinned();
+                if (crop()) {
+                    // A crop card counts crops; the harvesters they fill are the machines.
+                    final Tip tip = Tip.of(pin ? "Pinned crops" : "Crops planted")
+                        .row(pin ? "Pinned" : "Calculated", Fmt.machines(machines))
+                        .row(
+                            com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Industrial Farms"
+                                : "Crop Managers",
+                            "×" + Fmt.machines(buildsTotal()));
+                    if (machines <= 0) tip.muted("No rate or pinned count in the plan needs this crop yet.");
+                    yield tip.action(Tip.Input.LEFT, pin ? "Change or unpin" : "Pin count")
+                        .action(Tip.Input.WHEEL, "+1 / -1");
+                }
                 final Tip tip = Tip.of(pin ? "Pinned machines" : "Required machines")
                     .row(pin ? "Pinned" : "Calculated", "×" + Fmt.machines(machines));
                 final double whole = Math.ceil(machines - 1e-9);
@@ -2143,7 +2164,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             placeName(),
             model.machineStack,
             CardModel.structureNeeds(models),
-            (int) Math.min(64, Math.ceil(machinesTotal() - 1e-9)));
+            // A spot for each machine it builds: a crop card's harvesters, never one per crop.
+            (int) Math.min(64, Math.ceil(buildsTotal() - 1e-9)));
     }
 
     /** The pin key's right-click: off the block in the world and off the pin list, as one undo step. */

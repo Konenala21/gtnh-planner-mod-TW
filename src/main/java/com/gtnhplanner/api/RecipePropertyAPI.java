@@ -37,6 +37,9 @@ public final class RecipePropertyAPI {
         .amountExtractor(stack -> stack.stackSize)
         .amountUpdater((stack, newAmount) -> stack.stackSize = newAmount)
         .connectionChecker(RecipePropertyAPI::itemsMatch)
+        // The same item: its id, meta and NBT. Sharing an ore name (Lapis Lazuli and Lapis Dust do) lets two items
+        // wire, never makes two outputs one.
+        .sameChecker((a, b) -> a.getItem() != null && a.isItemEqual(b) && ItemStack.areItemStackTagsEqual(a, b))
         .hashCodeExtractor(
             s -> 31 * s.getItem()
                 .hashCode() + s.getItemDamage())

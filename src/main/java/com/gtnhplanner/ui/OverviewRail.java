@@ -1081,7 +1081,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 9, countHot ? 0xFF15171C : 0xFF0F1114);
                     Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 1, 0xB3000000);
                     if (set) Hyb.textCentered(
-                        wheeled > 0 ? Long.toString(wheeled) : Fmt.machines(m.machines()),
+                        wheeled > 0 ? Long.toString(wheeled) : Fmt.machines(count(m)),
                         fieldX + COUNT_W / 2f,
                         y + 3,
                         Hyb.GOLD);
@@ -1260,19 +1260,34 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
                 if (card != null && card.model() != null)
-                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(m.machines() - 1e-9)));
+                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(count(m) - 1e-9)));
             }
             case COUNT -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
                 if (card != null && card.model() != null) {
                     final com.gtnhplanner.data.flowchart.Node node = card.model().node;
-                    edit.start("count:" + m.nodeId(), m.pinned() ? m.machines() : 0, v -> session.pin(node, v));
+                    edit.start("count:" + m.nodeId(), m.pinned() ? count(m) : 0, v -> session.pin(node, v));
                     getContext().focus(this);
                 }
             }
         }
         return Result.SUCCESS;
+    }
+
+    /**
+     * What a machine line's count field shows and sets: the card's own count. A crop card's is the crops planted,
+     * while the line's ×count is the harvesters they fill (issue 8).
+     */
+    private double count(final BoardSession.MachineLine m) {
+        final com.gtnhplanner.ui.card.CardModel card = session.model(m.nodeId());
+        return card != null ? card.machines : m.machines();
+    }
+
+    /** Whether a machine line is a crop card's, whose count field is crops planted. */
+    private boolean crop(final BoardSession.MachineLine m) {
+        final com.gtnhplanner.ui.card.CardModel card = session.model(m.nodeId());
+        return card != null && com.gtnhplanner.machines.game.CropCards.isCrop(card.node);
     }
 
     /** The card a recipe is on: its own, or the shared machine it is a recipe of. */
@@ -1389,7 +1404,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
                 if (card != null && card.model() != null)
-                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(m.machines() - 1e-9)));
+                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(count(m) - 1e-9)));
                 return true;
             }
         }
@@ -1530,7 +1545,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     : List.of("Pin", hint + "Click: place it in the world, or list it on screen while playing");
             }
             case COUNT -> List.of(
-                "Machine count",
+                crop((BoardSession.MachineLine) hit.data()) ? "Crops planted" : "Machine count",
                 hint + "Click: type a pinned count",
                 hint + "Wheel: one more or fewer (below one unpins)");
             case MACHINE_RULE -> {
@@ -1538,12 +1553,14 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 yield m.pinned()
                     ? List.of(
                         "Exactly",
-                        hint + "Pinned at " + Fmt.machines(m.machines()),
+                        hint + "Pinned at " + Fmt.machines(count(m)) + (crop(m) ? " crops" : ""),
                         hint + "Click: let the plan decide")
                     : List.of(
                         "Any",
                         hint + "The plan decides how many",
-                        hint + "Click: pin it at " + (long) Math.max(1, Math.ceil(m.machines() - 1e-9)));
+                        hint + "Click: pin it at "
+                            + (long) Math.max(1, Math.ceil(count(m) - 1e-9))
+                            + (crop(m) ? " crops" : ""));
             }
             case SPARE -> {
                 final SpareBar.Hit at = spareHitAt(hit);

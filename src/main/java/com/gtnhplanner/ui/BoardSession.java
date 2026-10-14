@@ -2119,9 +2119,7 @@ public final class BoardSession {
                     card.machineName,
                     card.machineStack,
                     // A crop card counts crops; the plan builds its harvesters.
-                    com.gtnhplanner.machines.game.CropCards.isCrop(card.node)
-                        ? com.gtnhplanner.machines.game.CropCards.harvesters(card.node, card.machines)
-                        : card.machines,
+                    com.gtnhplanner.machines.game.CropCards.builds(card.node, card.machines),
                     card.pinned,
                     card.tier,
                     card.amps,
