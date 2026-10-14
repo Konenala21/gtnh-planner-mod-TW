@@ -578,6 +578,20 @@ public final class DevHarness {
                     r.put("recent", com.gtnhplanner.ui.sound.Sfx.recent());
                     return r;
                 });
+            case "/chat":
+                // The chat's newest lines (lines=N, default 5) with what clicking each part runs; share=1 first
+                // shares the open plan there, as the Share menu's "Share in chat" does (client/ChatShare).
+                requireWorld();
+                return onClient(() -> {
+                    final Map<String, Object> r = new LinkedHashMap<>();
+                    if ("1".equals(q.get("share"))) {
+                        final String problem = com.gtnhplanner.client.ChatShare
+                            .send(com.gtnhplanner.api.PlanAPI.getActiveGraph());
+                        r.put("shared", problem == null ? "ok" : problem);
+                    }
+                    r.put("lines", chatLines(Integer.parseInt(q.getOrDefault("lines", "5"))));
+                    return r;
+                });
             case "/library":
                 // The site the library reads and posts to: url=<base> (tools/dev/mock-library.mjs for a local
                 // stand-in).
@@ -1002,6 +1016,7 @@ public final class DevHarness {
                 "/nei?item[&uses=1][&planner=0][&tab] - open NEI's recipes for an item, over the planner or (planner=0) from the inventory",
                 "/sound[?volume=0..1] - the master volume, set or read",
                 "/library[?url=<base>] - the site the library uses (tools/dev/mock-library.mjs is a local stand-in)",
+                "/chat[?lines=N][&share=1] - the chat's newest lines and what clicking each part runs; share=1 shares the open plan there first",
                 "/gtmachines?q=turbine[&all=1][&art=1] - GregTech multiblocks (all=1: every machine) as the game names them; art=1 adds the bundled picture each resolves to",
                 "/machinedata?dir=<path> - writes the website's TGS, Bacterial Vat and radio hatch side files from this game (run in the full pack)",
                 "/machinemath - every card of the active plan as the website's machine maths see it: machine, handler, settings, ticks, EU/t, parallels",
@@ -1395,6 +1410,39 @@ public final class DevHarness {
 
     private static int intArg(final Map<String, String> q, final String name, final int fallback) {
         return q.containsKey(name) ? intArg(q, name) : fallback;
+    }
+
+    /** The chat's newest {@code n} lines, newest first: each one's text and the commands its parts run when clicked. */
+    private List<Map<String, Object>> chatLines(final int n) {
+        final List<?> lines;
+        try {
+            Field field;
+            try {
+                field = net.minecraft.client.gui.GuiNewChat.class.getDeclaredField("chatLines");
+            } catch (final NoSuchFieldException obfuscated) {
+                field = net.minecraft.client.gui.GuiNewChat.class.getDeclaredField("field_146252_h");
+            }
+            field.setAccessible(true);
+            lines = (List<?>) field.get(mc.ingameGUI.getChatGUI());
+        } catch (final ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        final List<Map<String, Object>> out = new ArrayList<>();
+        for (int i = 0; i < Math.min(n, lines.size()); i++) {
+            final net.minecraft.util.IChatComponent line = ((net.minecraft.client.gui.ChatLine) lines.get(i))
+                .func_151461_a();
+            final Map<String, Object> m = new LinkedHashMap<>();
+            m.put("text", line.getUnformattedText());
+            final List<String> clicks = new ArrayList<>();
+            for (final Object part : line) {
+                final net.minecraft.event.ClickEvent click = ((net.minecraft.util.IChatComponent) part).getChatStyle()
+                    .getChatClickEvent();
+                if (click != null) clicks.add(click.getValue());
+            }
+            m.put("clicks", clicks);
+            out.add(m);
+        }
+        return out;
     }
 
     private static Map<String, Object> ok() {

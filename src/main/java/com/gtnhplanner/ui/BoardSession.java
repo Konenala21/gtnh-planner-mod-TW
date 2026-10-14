@@ -2623,6 +2623,19 @@ public final class BoardSession {
                 .getName() + "' to the clipboard");
     }
 
+    /** Shares a slot's plan in the game's chat, as a line everyone on the server can open. */
+    public void shareInChat(final int index) {
+        if (index < 0 || index >= slots().size()) return;
+        final Graph graph = slots().get(index);
+        final String problem = com.gtnhplanner.client.ChatShare.send(graph);
+        if (problem != null) {
+            flash(Severity.WARN, problem);
+            Sfx.DENY.play();
+            return;
+        }
+        flash(Severity.INFO, "Shared '" + graph.getName() + "' in chat");
+    }
+
     /** True when the solver had nothing to scale the plan by: no product rate and no pinned count. */
     public boolean nothingToSolveFor() {
         return nothingToSolveFor;

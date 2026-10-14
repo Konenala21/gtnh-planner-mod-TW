@@ -156,8 +156,14 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   plans, and Factory Flow's public setups from gtnhplanner.com (`library/CommunityApi`, `LibraryFeed`;
   `ui/library/LibraryView`), opened through the importer as a new plan. Signing in uses the website's own username
   and password accounts; the session (never the password) is kept in `config/gtnhplanner-account.properties`
-  (`library/Account`). The top bar's Share key (`BoardScreen.openShare`) offers the open plan to the library, its plan
-  code to the clipboard, and Screenshot... (`ui/popup/ScreenshotPanel`, rendered by `ui/canvas/PlanPicture`): the board
+  (`library/Account`). The top bar's Share key (`BoardScreen.openShare`, labels only) offers the open plan to the
+  library, its plan code to the clipboard, Share in chat (`client/ChatShare`: the whole plan on NEI's chat item link,
+  which NEI's server side relays from anyone to everyone, no website; NEI from beta-3 carries it in the link's payload
+  beside a paper named after the plan, under 30 KB; older NEI writes the item twice into the chat line, so plans over
+  14,000 characters are refused there, as a chat packet over 32 KiB drops every player it goes to; players with the
+  planner see "X shared the plan [name]", whose click, `/gtnhplanner_import <key>`, opens it as a new plan and then
+  reopens that one; `call 'chat?share=1'` shares and lists the chat), and Screenshot... (`ui/popup/ScreenshotPanel`,
+  rendered by `ui/canvas/PlanPicture`): the board
   drawn by itself into a raw GL framebuffer at a render tick's end (`WidgetTree.drawTree` on the canvas, resized to the
   plan and framed on it, at the GUI scale; nothing lit, selected, breathing or pulsing while `PlanPicture.drawing()`),
   cards Detailed or Simple (the zoomed-out glance view, with room for the names), an optional footer as the website's

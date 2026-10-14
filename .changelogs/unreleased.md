@@ -3,6 +3,7 @@
 - **Fluid Tank** – a new card under Non-recipe → Other. Wire a cell or a fluid to it and it empties or fills cells for free, no Canner needed.
 - **Split your leftovers** – when your machines make more than the plan uses (or not enough), the overview shows where the extra goes. Hit Split to share it out, or Auto to let the planner pick.
 - **Surplus and Imported rows** – a card now shows what leaves or comes into the plan at a wired port with no drawer. Drag that row off to turn it into a drawer.
+- **Share in chat** – Share → Share in chat drops your plan into the game chat. Anyone on the server with the planner clicks its name to open it.
 - **Update heads-up** – the planner tells you once when a new version is out.
 - **Bigger tour** – the "?" tour now goes all the way from NEI to placing machines in the world. Quit it whenever and you keep the plan you built as "Tour plan".
 

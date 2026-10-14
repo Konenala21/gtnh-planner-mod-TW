@@ -214,7 +214,7 @@ public final class BoardScreen extends ModularScreen {
                 key(
                     () -> "Share",
                     () -> true,
-                    "Share this plan: to the library, or as a plan code",
+                    "Share this plan: to the library, as a code or in chat",
                     fit("Share"),
                     () -> openShare(panel, session, canvas, parts.get("share")))));
         topBar.child(
@@ -342,32 +342,24 @@ public final class BoardScreen extends ModularScreen {
 
     /**
      * The Share key's menu, under the key: the open plan to the library (or an update of what it shared), its plan
-     * code to the clipboard, and a picture of it.
+     * code to the clipboard, a line in the game's chat that opens it (client/ChatShare), and a picture of it. Labels
+     * only, as narrow as they are: each says what it does.
      */
     private static void openShare(final ModularPanel panel, final BoardSession session, final BoardCanvas canvas,
         final IWidget key) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
-        rows.add(com.gtnhplanner.ui.library.AccountForms.shareRow(panel, session, session.graph()));
+        final com.gtnhplanner.ui.popup.PickList.Entry library = com.gtnhplanner.ui.library.AccountForms
+            .shareRow(panel, session, session.graph());
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
         final int slot = session.activeSlot();
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan code", () -> session.copyPlan(slot)));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in chat", () -> session.shareInChat(slot)));
         rows.add(
-            new com.gtnhplanner.ui.popup.PickList.Entry(
-                null,
-                "Copy plan code",
-                "to paste anywhere",
-                Hyb.INK,
-                false,
-                () -> session.copyPlan(slot)));
-        rows.add(
-            new com.gtnhplanner.ui.popup.PickList.Entry(
-                null,
-                "Screenshot...",
-                "a picture of it",
-                Hyb.INK,
-                false,
-                () -> com.gtnhplanner.ui.popup.ScreenshotPanel.open(panel, session, canvas)));
+            com.gtnhplanner.ui.popup.PickList.Entry
+                .of("Screenshot...", () -> com.gtnhplanner.ui.popup.ScreenshotPanel.open(panel, session, canvas)));
         com.gtnhplanner.ui.popup.Popup.open(
             panel,
-            com.gtnhplanner.ui.popup.PickList.popup("gtnhplanner_share_menu", null, rows, false, 190),
+            com.gtnhplanner.ui.popup.PickList.popup("gtnhplanner_share_menu", null, rows, false, 0),
             key.getArea().x,
             TOP_BAR + 2);
     }

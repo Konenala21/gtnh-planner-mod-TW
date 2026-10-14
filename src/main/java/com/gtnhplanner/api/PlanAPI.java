@@ -9,14 +9,6 @@ import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.init.Blocks;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.JsonToNBT;
-import net.minecraft.nbt.NBTException;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagString;
-import net.minecraft.util.StatCollector;
 
 import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.data.flowchart.Graph;
@@ -25,15 +17,8 @@ import com.gtnhplanner.data.flowchart.Serializer;
 import com.gtnhplanner.data.flowchart.UndoHistory;
 
 import codechicken.nei.NEIClientConfig;
-import codechicken.nei.NEIClientUtils;
-import codechicken.nei.bookmark.BookmarkPayload;
 
 public final class PlanAPI {
-
-    /** NBT key used to store the encoded graph in the share ItemStack. */
-    public static final String DATA_KEY = "gtnhplanner_data";
-    /** What shares were called before the rename: still read. */
-    private static final String LEGACY_DATA_KEY = "plannh_data";
 
     @Nonnull
     public static Graph getActiveGraph() {
@@ -62,31 +47,6 @@ public final class PlanAPI {
         if (history.commitEdit(before, graph)) graph.touchLayout();
     }
 
-    /**
-     * Encodes the given graph and sends it as an NEI item-link chat message.
-     * Other GTNH Planner clients see an import link; vanilla clients see a dirt-item
-     * tooltip with a bookmark prompt.
-     */
-    public static void shareGraph(final Graph graph) {
-        final String encoded = Serializer.encode(graph);
-        final ItemStack stack = createShareStack();
-        stack.getTagCompound()
-            .setString(DATA_KEY, encoded);
-        try {
-            NEIClientUtils.sendChatItemLink(
-                BookmarkPayload.of(stack, null)
-                    .toNBT());
-        } catch (final NoClassDefFoundError | NoSuchMethodError older) {
-            // NEI before GTNH 2.9's beta-3 links an ItemStack itself and has no BookmarkPayload.
-            try {
-                NEIClientUtils.class.getMethod("sendChatItemLink", ItemStack.class)
-                    .invoke(null, stack);
-            } catch (final ReflectiveOperationException e) {
-                GtnhPlanner.LOG.warn("[compat] this NEI cannot link items in chat", e);
-            }
-        }
-    }
-
     /** Copies the serialised graph to the system clipboard. */
     public static void copyToClipboard(final Graph graph) {
         GuiScreen.setClipboardString(Serializer.encode(graph));
@@ -107,77 +67,6 @@ public final class PlanAPI {
         } catch (final Exception e) {
             return null;
         }
-    }
-
-    /**
-     * Extracts GTNH Planner share data from a serialised ItemStack NBT string and
-     * deserialises it. This is the receiver side of {@link #shareGraph(Graph)}.
-     *
-     * @param nbtString the full serialised NBT from the /nei_bookmark command
-     * @return the deserialised graph, or {@code null} if the NBT doesn't
-     *         contain a {@code gtnhplanner_data} tag or the data is invalid.
-     */
-    @Nullable
-    public static Graph importFromNBT(final String nbtString) {
-        try {
-            final NBTTagCompound nbt = (NBTTagCompound) JsonToNBT.func_150315_a(nbtString);
-            if (!nbt.hasKey("tag")) return null;
-            final NBTTagCompound tag = nbt.getCompoundTag("tag");
-            final String key = tag.hasKey(DATA_KEY) ? DATA_KEY : LEGACY_DATA_KEY;
-            if (!tag.hasKey(key)) return null;
-            return Serializer.decode(tag.getString(key));
-        } catch (final NBTException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Checks whether a serialised ItemStack NBT string contains GTNH Planner share
-     * data, without fully deserialising the graph.
-     */
-    public static boolean containsPlanData(@Nonnull final String nbtString) {
-        try {
-            final NBTTagCompound nbt = (NBTTagCompound) JsonToNBT.func_150315_a(nbtString);
-            if (!nbt.hasKey("tag")) return false;
-            final NBTTagCompound tag = nbt.getCompoundTag("tag");
-            return tag.hasKey(DATA_KEY) || tag.hasKey(LEGACY_DATA_KEY);
-        } catch (final NBTException e) {
-            return false;
-        }
-    }
-
-    /**
-     * Wraps a deserialised graph in a new "Imported" slot, switches to it,
-     * and persists. Does not open any GUI.
-     */
-    public static void importGraph(@Nonnull final Graph graph) {
-        final Plan plan = Plan.getInstance();
-        graph.setName(StatCollector.translateToLocal("gtnhplanner.share.slot_imported"));
-        plan.getGraphs()
-            .add(graph);
-        plan.setActiveIndex(
-            plan.getGraphs()
-                .size() - 1);
-        save();
-    }
-
-    /**
-     * Creates a dirt ItemStack with GTNH Planner share display properties
-     * (localised name and lore). Both the sender (share button) and
-     * receiver (chat hover tooltip) build the same item so the visual
-     * is consistent on both sides.
-     */
-    @Nonnull
-    public static ItemStack createShareStack() {
-        final ItemStack stack = new ItemStack(Blocks.dirt);
-        final NBTTagCompound display = new NBTTagCompound();
-        display.setString("Name", StatCollector.translateToLocal("gtnhplanner.share.item_name"));
-        final NBTTagList lore = new NBTTagList();
-        lore.appendTag(new NBTTagString(StatCollector.translateToLocal("gtnhplanner.share.lore_shared")));
-        lore.appendTag(new NBTTagString(StatCollector.translateToLocal("gtnhplanner.share.click_to_import")));
-        display.setTag("Lore", lore);
-        stack.setTagInfo("display", display);
-        return stack;
     }
 
     /** Plans in the last save, to tell when one was deleted; -1 before the first save of the session. */

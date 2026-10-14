@@ -100,17 +100,6 @@ gtnhplanner.properties.cofh.rf_per_t=RF/t
 gtnhplanner.properties.enderio.experience=Experience
 
 ## Share messages
-gtnhplanner.share.import_link=> GTNH Planner Import
-gtnhplanner.share.item_name=§bGTNH Planner share
-gtnhplanner.share.item_lore=§7%s
-gtnhplanner.share.lore_shared=§7Shared flowchart
-gtnhplanner.share.click_to_import=§eClick to import
-gtnhplanner.share.import_error.missing=§cMissing NBT data
-gtnhplanner.share.import_error.invalid=§cInvalid GTNH Planner data
-gtnhplanner.share.import_error.decode=§cFailed to decode: %s
-gtnhplanner.share.slot_imported=Imported
-gtnhplanner.share.copy_to_clipboard=Plan exported to clipboard
-gtnhplanner.share.copy_from_clipboard=Plan imported from clipboard
 
 ## GUI
 ## GUI - Groups
