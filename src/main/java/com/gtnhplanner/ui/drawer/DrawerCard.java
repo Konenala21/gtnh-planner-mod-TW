@@ -439,6 +439,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             case PRODUCT -> "Product";
             case BYPRODUCT -> "Product";
             case TRASH -> "Trash";
+            case BUFFER -> "Buffer";
         };
     }
 
