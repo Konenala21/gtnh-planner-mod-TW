@@ -86,6 +86,9 @@ public final class SettingControls {
     /** Whether the card's coil stops its recipe: none picked, or too cold. */
     public static boolean coilTooCold(final CardModel m) {
         if (!m.usesHeat) return false;
+        // The website's maths: only a heat machine's recipe asks heat of the coil; elsewhere (the Multi Smelter, the
+        // cracker, the pyrolyse oven) the coil buys parallels, speed or a discount and stops nothing.
+        if (m.web != null) return com.gtnhplanner.machines.web.Heat.tooCold(m.coilHeat, m.recipeHeat);
         final GtCoils.Coil coil = m.coilHeat > 0 ? GtCoils.forHeat(m.coilHeat) : null;
         return coil == null || m.recipeHeat > coil.heat();
     }
