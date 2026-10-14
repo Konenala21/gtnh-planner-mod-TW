@@ -74,7 +74,8 @@ final class SnapshotMaker {
                     settings(session, m),
                     CardModel.structureNeeds(models),
                     builds,
-                    com.gtnhplanner.machines.game.CropCards.isCrop(n)));
+                    com.gtnhplanner.machines.game.CropCards.isCrop(n),
+                    com.gtnhplanner.power.FluidTank.is(n)));
         }
         final List<PlanSnapshot.Box> boxes = new ArrayList<>();
         for (final Drawer d : graph.getDrawers()) {

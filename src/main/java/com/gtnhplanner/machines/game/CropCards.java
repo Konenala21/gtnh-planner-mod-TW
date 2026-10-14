@@ -265,9 +265,11 @@ public final class CropCards {
 
     /**
      * The machines a card builds at this count, wherever machines are counted (the overview, the pin list, the world,
-     * the screenshot): its count, or for a crop card, whose count is crops planted, the harvesters they fill.
+     * the screenshot): its count, or for a crop card, whose count is crops planted, the harvesters they fill. A fluid
+     * tank is one tank: it has no rate, it keeps up with whatever the plan needs.
      */
     public static double builds(final Node node, final double count) {
+        if (com.gtnhplanner.power.FluidTank.is(node)) return 1;
         return isCrop(node) ? harvesters(node, count) : count;
     }
 

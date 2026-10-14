@@ -89,8 +89,8 @@ public final class CleanCardView {
             CardLayout.PICTURE };
         art(c, picture);
         if (c.circuit() != null && !PlannerSettings.circuitAsInput()) CardPaint.circuitBadge(c.circuit(), picture, 0);
-        // As the board's card: a crop card's count is the crops planted, said under it, no ×.
-        CardPaint.count(
+        // As the board's card: a crop card's count is the crops planted, said under it, no ×; a fluid tank has none.
+        if (!c.countless()) CardPaint.count(
             (c.crop() ? "" : "×") + Fmt.machines(c.machines()),
             c.machines() <= 0,
             c.pinned(),

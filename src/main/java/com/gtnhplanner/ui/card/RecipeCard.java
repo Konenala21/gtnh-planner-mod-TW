@@ -362,7 +362,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case POWER -> layout.powerRowY >= 0
                 ? new int[] { CardLayout.IN_RAIL_X, layout.powerRowY, CardLayout.RAIL_W, CardLayout.ROW }
                 : null;
-            case MACHINES -> CardPaint.countRect(countText(), layout.picture());
+            case MACHINES -> countless() ? null : CardPaint.countRect(countText(), layout.picture());
             case CIRCUIT -> model.circuit == null || shared() || model.isPower() ? null
                 : layout.circuitRowY >= 0
                     ? new int[] { CardLayout.IN_RAIL_X, layout.circuitRowY, CardLayout.RAIL_W, CardLayout.ROW }
@@ -370,6 +370,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case SECTION, CHIP -> null;
             case BODY -> new int[] { 0, 0, CardLayout.W, layout.height };
         };
+    }
+
+    /**
+     * A card with no count to show or set: the fluid tank, free and instant, which keeps up with whatever the plan
+     * needs (the owner, 2026-10-13: its cells a second was a number nobody plans by).
+     */
+    private boolean countless() {
+        return model != null && com.gtnhplanner.power.FluidTank.is(model.node);
     }
 
     /** The machine count as the card shows it: a wheeled count at once, before the solve catches up. */
@@ -562,6 +570,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
         } else drawMachineArt(m, (w - side) / 2f, (h - side) / 2f, side, side, side, z, true);
+        if (countless()) {
+            if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
+            return;
+        }
         // How many, in white in the corner, at whole screen pixels per font pixel so it stays sharp. Machines: a crop
         // card's harvesters, beside their picture.
         final double builds = buildsTotal();
@@ -1060,16 +1072,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         } else drawMachineArt(m, box[0], box[1], box[2], box[2], CardLayout.ITEM, z, true);
         if (m.circuit != null && !shared() && !m.isPower() && layout.circuitRowY < 0)
             CardPaint.circuitBadge(m.circuit, box, z);
+        if (countless()) return;
         // Under the count: pinned, or (while the plan has nothing set to solve for) the prompt to set it.
         final boolean pinnedNow = pendingCount > 0 || pinned() && !pendingUnpin;
         final String under = crop()
             ? pinnedNow ? "crops, pinned"
                 : session.unset(nodeId) ? CardPaint.SET_COUNT
                     : Math.round(machinesTotal()) == 1 ? "crop planted" : "crops planted"
-            : pinnedNow ? CardPaint.PINNED
-                : session.unset(nodeId) ? CardPaint.SET_COUNT
-                    // A fluid tank's count is the cells it handles a second.
-                    : com.gtnhplanner.power.FluidTank.is(m.node) && !m.inputs.isEmpty() ? "cells a second" : null;
+            : pinnedNow ? CardPaint.PINNED : session.unset(nodeId) ? CardPaint.SET_COUNT : null;
         CardPaint.count(
             countText(),
             machinesTotal() <= 0 && pendingCount <= 0,
@@ -1703,13 +1713,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final String cell = p.cell()
             .getDisplayName();
         return (com.gtnhplanner.power.FluidTank.emptying(n) ? tip.sub("Empties " + cell) : tip.sub("Fills " + cell))
-            .muted("Free and instant: no machine to build.")
+            .muted("Free and instant: as much as the plan needs.")
             .row(
                 "Holds",
                 Fmt.compact(p.fluid().amount) + " L of "
                     + p.fluid()
-                        .getLocalizedName())
-            .row("Cells a second", Fmt.machines(machinesTotal()));
+                        .getLocalizedName());
     }
 
     private Tip powerTip(final Part part) {
@@ -1973,7 +1982,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      * pinned once the wheel goes still; down from one unpins, as a drawer's rate wheeled to nothing clears it.
      */
     public void wheelCount(final int step) {
-        if (model == null) return;
+        if (model == null || countless()) return;
         com.gtnhplanner.ui.sound.Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
         final long from = pendingUnpin ? 0 : pendingCount > 0 ? pendingCount : Math.round(machinesTotal());
         if (from + step <= 0) {
@@ -2351,7 +2360,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /** The box to type a pinned count in, at a screen point (the overview's count line opens it too). */
     public void openPin(final int screenX, final int screenY) {
-        if (model == null) return;
+        if (model == null || countless()) return;
         Popup.open(
             session.panel(),
             NumberPopup.create(

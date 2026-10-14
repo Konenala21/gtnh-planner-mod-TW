@@ -85,6 +85,14 @@ class CropMachineCountTest {
         assertEquals(3.5, CropCards.builds(plain, 3.5), 1e-12);
     }
 
+    @Test
+    void aFluidTankIsOneTankHoweverManyCellsItHandles() {
+        final Node tank = new Node(UUID.randomUUID(), 0, 0);
+        tank.powerSource = com.gtnhplanner.power.FluidTank.ID;
+        assertEquals(1, CropCards.builds(tank, 37.5), 1e-12);
+        assertEquals(1, CropCards.builds(tank, 0), 1e-12);
+    }
+
     private static PlanSnapshot.Card card(final UUID id, final String name, final String tier, final double count,
         final double builds, final boolean crop) {
         return new PlanSnapshot.Card(
@@ -111,7 +119,8 @@ class CropMachineCountTest {
             List.of(),
             StructureGhosts.Needs.NONE,
             builds,
-            crop);
+            crop,
+            false);
     }
 
     @Test
