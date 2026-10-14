@@ -117,6 +117,29 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRe
             return id.startsWith("oracle:") && !tail.isEmpty() ? tail : null;
         }
 
+        /** A bee species' produce (FF's bee card): its machine is the bee's housing, a setting (machines/Bees). */
+        public boolean isBee() {
+            return "bee_produce".equals(kind) || "forestry-bee".equals(category);
+        }
+
+        /**
+         * A bee's species slugged as FF's ids carry it ({@code gregtech-bee-speciespulsatingiron}): from its bee input
+         * ({@code factoryflow:bee_species:<slug>}), else {@code source.rawRecipeId} (the species' Forestry id). Null on
+         * anything but a bee.
+         */
+        @Nullable
+        public String beeSlug() {
+            if (!isBee()) return null;
+            for (final FfSlot in : inputs) {
+                final String id = FfIds.normalize(in.id());
+                if (id.startsWith(BEE_SPECIES)) return id.substring(BEE_SPECIES.length());
+            }
+            return rawRecipeId == null ? null : FfIds.slug(rawRecipeId);
+        }
+
+        /** FF's dataset names a bee species as an input: {@code factoryflow:bee_species:<slug>}. */
+        public static final String BEE_SPECIES = "factoryflow:bee_species:";
+
         /** FF's Tank: a Canner recipe made free and instant. */
         public boolean isPlannerTank() {
             return TANK_MAP.equals(mapId()) || "planner-tank".equals(mapSlug());

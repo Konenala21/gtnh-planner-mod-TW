@@ -98,6 +98,9 @@ public final class FfSettings {
             // A crop's harvester (a Crop Manager or the Industrial Farm) is FF's machine and our setting (CropsNh); it
             // has no voltage of its own.
             if (handlerId != null) s.put(com.gtnhplanner.machines.CropsNh.HARVESTER, handlerId);
+        } else if (recipe.isBee()) {
+            // The card's own machine: a recipe the mod posted lists only the Apiary, which the website puts first.
+            bee(node, node.machineHandlerId() != null ? node.machineHandlerId() : handlerId, s, notes);
         } else if (steam(machine.label(), handlerId)) {
             // Steam runs at no voltage (FF hides the tier chip): a tier the card still carries is left behind.
             s.put(Settings.GT_MULTIBLOCK.key(), multiblock);
@@ -183,7 +186,27 @@ public final class FfSettings {
     public static boolean modelled(final String key) {
         return com.gtnhplanner.machines.TreeGrowthSimulator.SETTING_KEYS.contains(key)
             || com.gtnhplanner.machines.BacterialVat.SETTING_KEYS.contains(key)
-            || com.gtnhplanner.machines.CropsNh.SETTING_KEYS.contains(key);
+            || com.gtnhplanner.machines.CropsNh.SETTING_KEYS.contains(key)
+            || com.gtnhplanner.machines.Bees.SETTING_KEYS.contains(key);
+    }
+
+    /**
+     * A bee's housing, FF's machine and our setting (machines/Bees), with no voltage of its own. FF's card with no
+     * machine is its first, the Magic Apiary; an Alveary comes in as an Apiary and a Mega Apiary as an Industrial
+     * Apiary, the nearest the mod models. Its speed gene unset is FF's Normal (ours is the species' own).
+     */
+    private static void bee(final FfNode node, @Nullable final String handlerId, final Map<String, Object> s,
+        final List<String> notes) {
+        final String id = handlerId == null ? com.gtnhplanner.machines.Bees.MAGIC_APIARY.key() : handlerId;
+        com.gtnhplanner.machines.Bees.Housing housing = com.gtnhplanner.machines.Bees.housing(id);
+        if (housing == null) {
+            housing = id.contains("mega") ? com.gtnhplanner.machines.Bees.INDUSTRIAL
+                : com.gtnhplanner.machines.Bees.APIARY;
+            notes.add("its " + id + " came in as an " + housing.label());
+        }
+        s.put(com.gtnhplanner.machines.Bees.HOUSING, housing.key());
+        if (!node.machineConfigTiers()
+            .containsKey(com.gtnhplanner.machines.Bees.SPEED)) s.put(com.gtnhplanner.machines.Bees.SPEED, "normal");
     }
 
     /** The tier's index, or -1 for "NONE", "DEMO" and anything else that is not a tier. */

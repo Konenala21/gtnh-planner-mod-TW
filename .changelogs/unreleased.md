@@ -5,6 +5,7 @@
 - **Surplus and Imported rows** – a card now shows what leaves or comes into the plan at a wired port with no drawer. Drag that row off to turn it into a drawer.
 - **Update heads-up** – the planner tells you once when a new version is out.
 - **Bigger tour** – the "?" tour now goes all the way from NEI to placing machines in the world. Quit it whenever and you keep the plan you built as "Tour plan".
+- **Bees** – plan a bee from its page in NEI. Pick an Apiary, Magic Apiary or Industrial Apiary, set frames or upgrades and the speed gene, and say if it's jubilant to get its special products. Rates follow the game's own bee maths.
 
 ## Better
 

@@ -349,5 +349,11 @@ public final class Posting {
                     ? new PlanExport.Crop(id, stats)
                     : null;
         }
+
+        @Override
+        @Nullable
+        public com.gtnhplanner.machines.Bees.Species bee(final Node node) {
+            return com.gtnhplanner.machines.game.BeeCards.species(node);
+        }
     }
 }
