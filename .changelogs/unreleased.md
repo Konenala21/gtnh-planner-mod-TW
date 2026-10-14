@@ -35,3 +35,4 @@
 - The rate unit (/min and friends), EU/t or Amps, and Peak or Avg stick when you close and reopen the planner.
 - Crash reports sent from the game show the actual crash again, not just a pile of log lines.
 - Reports leave the chat out, so other players' names and messages stay private.
+- The planner stops taking the blame for NEI's own crashes in other screens (like the bookmark crash on 2.9.0 RC-1).

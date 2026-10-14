@@ -12,6 +12,10 @@ import codechicken.nei.LayoutStyleMinecraft;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.VisiblityData;
 
+/**
+ * NEI's layout beside the board: its buttons on the left, its item list on the right, the board between. NEI asks for
+ * it only while the board is up ({@code LayoutManagerMixin}); every other screen keeps NEI's own layout.
+ */
 public class FlowchartLayoutStyle extends LayoutStyleMinecraft {
 
     private static final int PADDING = 2;
