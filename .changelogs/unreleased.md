@@ -33,3 +33,5 @@
 - Placing machines in the world: you can stack the next one on the one you just placed, and you can see which way R turns it. Each machine of a group says which it is (1/4, 2/4...).
 - Placing a generator in the world shows its name, not a code.
 - The rate unit (/min and friends), EU/t or Amps, and Peak or Avg stick when you close and reopen the planner.
+- Crash reports sent from the game show the actual crash again, not just a pile of log lines.
+- Reports leave the chat out, so other players' names and messages stay private.
