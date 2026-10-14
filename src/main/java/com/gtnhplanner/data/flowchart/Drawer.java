@@ -365,6 +365,40 @@ public class Drawer extends GraphData {
         return kind.linksInputs() == input && isLinked(nodeId, portIndex);
     }
 
+    /** One port a drawer holds, and on which side of its card: an input it supplies, or an output it takes. */
+    public record Held(Link link, boolean input) {}
+
+    /**
+     * Every port the drawer holds with its side: its links on its kind's side, then a buffer's takers (inputs). Read
+     * this, not {@link #getLinks()}, wherever both sides of a buffer count.
+     */
+    public List<Held> held() {
+        final boolean input = kind.linksInputs();
+        final List<Held> out = new ArrayList<>(links.size() + takers.size());
+        for (final Link l : links) out.add(new Held(l, input));
+        for (final Link l : takers) out.add(new Held(l, true));
+        return out;
+    }
+
+    /** Whether a link is one of a buffer's users (an input it feeds) rather than on its kind's side. */
+    public boolean isTaker(final Link link) {
+        return takers.contains(link);
+    }
+
+    /** The side of the card a held link is on: true for an input (a source's links, a buffer's takers). */
+    public boolean sideOf(final Link link) {
+        return kind.linksInputs() || isTaker(link);
+    }
+
+    /**
+     * Whether a port could be linked here on its side: its own side always; the other side by a product or a source,
+     * which it makes a buffer ({@link #addPort}); never an input on trash.
+     */
+    public boolean takesSide(final boolean input) {
+        if (kind == Kind.BUFFER || kind.linksInputs() == input) return true;
+        return kind != Kind.TRASH;
+    }
+
     /** Whether this is a buffer: a drawer inside the plan, not one of its ends. */
     public boolean isBuffer() {
         return kind == Kind.BUFFER;

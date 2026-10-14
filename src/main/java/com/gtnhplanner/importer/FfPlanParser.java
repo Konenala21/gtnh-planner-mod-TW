@@ -64,6 +64,7 @@ public final class FfPlanParser {
 
         final boolean pool = bool(root, "poolMode", false);
         final boolean solve = bool(root, "solveMode", false) || pool;
+        final boolean planMode = bool(root, "planMode", false) && !pool;
 
         final Map<String, Board> boards = new HashMap<>();
         for (final JsonObject p : objects(root, "pockets")) {
@@ -116,6 +117,7 @@ public final class FfPlanParser {
             name,
             solve,
             pool,
+            planMode,
             recipes,
             nodes,
             edges,
@@ -461,6 +463,7 @@ public final class FfPlanParser {
             plan.name(),
             plan.solveMode(),
             plan.poolMode(),
+            plan.planMode(),
             keptRecipes,
             keptNodes,
             edges,

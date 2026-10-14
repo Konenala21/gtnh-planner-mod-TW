@@ -15,12 +15,14 @@ import javax.annotation.Nullable;
  * turned into trash drawers. Built by {@link FfPlanParser}. Ids keep FF's spelling (item ids are lowercase registry
  * names with {@code @meta} when the meta is not 0).
  *
+ * @param planMode  the one-mode board's plan (the site's {@code planMode}, and every plan the game posts): a buffer
+ *                  drawer's rule is live there, where no older board enforced one
  * @param textNotes FF's text annotations, which become the board's notes
  * @param notes     what the parser saw and left out (boards, other annotations, pool scopes), for the import report
  */
-public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRecipe> recipes, List<FfNode> nodes,
-    List<FfEdge> edges, List<FfStorage> storages, List<FfNote> textNotes, @Nullable FfTarget targetRate,
-    List<String> notes) {
+public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean planMode, List<FfRecipe> recipes,
+    List<FfNode> nodes, List<FfEdge> edges, List<FfStorage> storages, List<FfNote> textNotes,
+    @Nullable FfTarget targetRate, List<String> notes) {
 
     /** FF's synthetic "dial a rate" card; see FF's custom-rate.ts. */
     public static final String CUSTOM_RATE_MACHINE = "Custom Rate";

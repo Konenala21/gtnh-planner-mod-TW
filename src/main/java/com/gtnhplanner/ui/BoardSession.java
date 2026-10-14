@@ -236,12 +236,13 @@ public final class BoardSession {
             wired.add(portKey(e.sourceNodeId, true, e.sourceOutputIndex));
             wired.add(portKey(e.targetNodeId, false, e.targetInputIndex));
         }
-        for (final Drawer d : graph.getDrawers()) for (final Drawer.Link l : d.getLinks()) wired.add(
+        for (final Drawer d : graph.getDrawers()) for (final Drawer.Held h : d.held()) wired.add(
             portKey(
-                l.nodeId(),
-                !d.getKind()
-                    .linksInputs(),
-                l.portIndex()));
+                h.link()
+                    .nodeId(),
+                !h.input(),
+                h.link()
+                    .portIndex()));
         for (final Node n : graph.getNodes()) {
             n.targetOutputRates.keySet()
                 .removeIf(i -> wired.contains(portKey(n.id, true, i)));
@@ -510,6 +511,12 @@ public final class BoardSession {
         }
         final String now = Resources.key(port);
         for (final Drawer d : new ArrayList<>(graph.getDrawers())) {
+            // A buffer's user set to another item lets go of it: the buffer carries one item.
+            final Drawer.Link at = new Drawer.Link(node.id, index);
+            if (d.isTaker(at) && !now.equals(d.getResourceKey())) {
+                graph.unlinkDrawerPort(d.getId(), at, true);
+                continue;
+            }
             if (!d.getKind()
                 .linksInputs() || !d.isLinked(node.id, index) || now.equals(d.getResourceKey())) continue;
             if (d.getLinks()
@@ -643,36 +650,44 @@ public final class BoardSession {
     private boolean wired(final UUID nodeId) {
         for (final Edge e : graph.getEdges())
             if (e.sourceNodeId.equals(nodeId) || e.targetNodeId.equals(nodeId)) return true;
-        for (final Drawer d : graph.getDrawers()) for (final Drawer.Link link : d.getLinks()) if (link.nodeId()
+        for (final Drawer d : graph.getDrawers()) for (final Drawer.Held h : d.held()) if (h.link()
+            .nodeId()
             .equals(nodeId)) return true;
         return false;
     }
 
-    /** A port dragged onto a drawer: linked when the drawer holds the same resource on the same side. */
+    /**
+     * A port dragged onto a drawer: linked when the drawer holds the same resource on a side it takes. An input on a
+     * product, or an output on a source, makes it a buffer ({@code docs/design/buffer-drawers.md}); dropped again, it
+     * lets go, and a buffer left with one side is the end it still is.
+     */
     public boolean dropPortOnDrawer(final UUID fromNode, final boolean output, final int port, final Drawer drawer) {
         final Node node = graph.nodes.get(fromNode);
-        if (node == null || drawer.getKind()
-            .linksInputs() == output) return false;
+        if (node == null || !drawer.takesSide(!output)) return false;
         final String key = Resources.key((output ? node.outputs : node.inputs).get(port));
         // An input that takes the drawer's item as one of its others is set to it.
         final boolean pick = !key.equals(drawer.getResourceKey())
             && choiceKeys(node.id, output, port).contains(drawer.getResourceKey());
         if (!key.equals(drawer.getResourceKey()) && !pick) return false;
-        final boolean linked = drawer.isLinked(node.id, port);
+        final boolean linked = drawer.holds(node.id, port, !output);
+        final boolean ownSide = drawer.getKind()
+            .linksInputs() != output;
         final Double rate = portTarget(node, output, port);
         edit(() -> {
+            final Drawer.Link link = new Drawer.Link(node.id, port);
             if (pick) {
                 // The drawer it had goes, rather than following it to the new item: this one takes its place.
-                for (final Drawer other : graph.getDrawers()) if (other != drawer && other.getKind()
-                    .linksInputs() && other.isLinked(node.id, port))
-                    graph.unlinkDrawer(other.getId(), new Drawer.Link(node.id, port));
+                for (final Drawer other : new ArrayList<>(graph.getDrawers()))
+                    if (other != drawer && other.holds(node.id, port, true))
+                        graph.unlinkDrawerPort(other.getId(), link, true);
                 applyInputPick(node, port, drawer.getResourceKey());
             }
-            if (linked) graph.unlinkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
+            if (linked) graph.unlinkDrawerPort(drawer.getId(), link, !output);
             else {
-                graph.linkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
+                graph.linkDrawerPort(drawer.getId(), link, !output);
                 // A rate set on the port goes to a drawer with none; the port's own goes (it is wired now).
-                if (rate != null && drawer.effectiveRule() == Drawer.Rule.ANY
+                if (rate != null && ownSide
+                    && drawer.effectiveRule() == Drawer.Rule.ANY
                     && drawer.getKind()
                         .hasRule())
                     drawer.setTarget(Drawer.Rule.EXACTLY, rate);
@@ -721,12 +736,16 @@ public final class BoardSession {
 
     /** Whether a port already has a drawer on it: one per port, as on the website. */
     public boolean portHasDrawer(final UUID node, final boolean output, final int port) {
-        for (final Drawer d : graph.getDrawers()) {
-            if (d.getKind()
-                .linksInputs() == output) continue;
-            for (final Drawer.Link l : d.getLinks()) if (l.nodeId()
-                .equals(node) && l.portIndex() == port) return true;
-        }
+        for (final Drawer d : graph.getDrawers()) if (d.holds(node, port, !output)) return true;
+        return false;
+    }
+
+    /**
+     * Whether a port has an end of the plan on it: a drawer that is no buffer. What the solve sends out or brings in at
+     * a port linked to a buffer is no buffer's: it is the port's forced row, as on a plain wire.
+     */
+    public boolean portHasEndDrawer(final UUID node, final boolean output, final int port) {
+        for (final Drawer d : graph.getDrawers()) if (!d.isBuffer() && d.holds(node, port, !output)) return true;
         return false;
     }
 
@@ -917,7 +936,8 @@ public final class BoardSession {
     }
 
     public void unlinkDrawer(final Drawer drawer, final Drawer.Link link) {
-        edit(() -> graph.unlinkDrawer(drawer.getId(), link));
+        final boolean input = drawer.sideOf(link);
+        edit(() -> graph.unlinkDrawerPort(drawer.getId(), link, input));
         Sfx.cut(drawer.getResourceKey());
     }
 
@@ -1839,16 +1859,16 @@ public final class BoardSession {
                 }
             }
             for (final Drawer d : graph.getDrawers()) {
-                final boolean input = d.getKind()
-                    .linksInputs();
-                for (final Drawer.Link link : new ArrayList<>(d.getLinks())) {
+                for (final Drawer.Held held : d.held()) {
+                    final Drawer.Link link = held.link();
+                    final boolean input = held.input();
                     if (!link.nodeId()
                         .equals(node.id)) continue;
                     final int at = input ? moved(ins, nowIns, link.portIndex())
                         : moved(outs, nowOuts, link.portIndex());
                     if (at == link.portIndex()) continue;
-                    graph.unlinkDrawer(d.getId(), link);
-                    if (at >= 0) graph.linkDrawer(d.getId(), new Drawer.Link(node.id, at));
+                    graph.unlinkDrawerPort(d.getId(), link, input);
+                    if (at >= 0) graph.linkDrawerPort(d.getId(), new Drawer.Link(node.id, at), input);
                 }
             }
         });
@@ -2306,9 +2326,10 @@ public final class BoardSession {
         sortByAmount(in);
         sortByAmount(out);
         sortByAmount(internal);
-        // A resource with a drawer stays listed at 0, so its rule and rate can be set from here.
+        // A resource with a drawer stays listed at 0, so its rule and rate can be set from here. A buffer is inside the
+        // plan: its resource is no input or output of it.
         for (final DrawerModel d : drawerModels.values()) {
-            if (d.kind == Drawer.Kind.TRASH) continue;
+            if (d.kind == Drawer.Kind.TRASH || d.kind == Drawer.Kind.BUFFER) continue;
             final String key = canonicalKey(d.drawer.getResourceKey());
             final List<TotalLine> side = d.kind == Drawer.Kind.SOURCE ? in : out;
             if (side.stream()
@@ -2358,7 +2379,7 @@ public final class BoardSession {
                     .nodeId();
                 final int index = e.port()
                     .portIndex();
-                if (e.ratePerSecond() <= 0 || portHasDrawer(node, output, index)) continue;
+                if (e.ratePerSecond() <= 0 || portHasEndDrawer(node, output, index)) continue;
                 out.merge(portKey(node, output, index), e.ratePerSecond(), Double::sum);
             }
         }
@@ -2420,7 +2441,8 @@ public final class BoardSession {
                 .add(e.sourceNodeId);
         }
         for (final Drawer d : graph.getDrawers()) {
-            final List<Drawer.Link> links = d.getLinks();
+            final List<Drawer.Link> links = new ArrayList<>(d.getLinks());
+            links.addAll(d.getTakers());
             for (int i = 1; i < links.size(); i++) {
                 near.computeIfAbsent(
                     links.get(0)
@@ -2466,7 +2488,9 @@ public final class BoardSession {
             if (!d.kind.hasRule() || d.rule == Drawer.Rule.ANY || d.rule != Drawer.Rule.AT_MOST && d.target <= 0)
                 continue;
             boolean linked = false;
-            for (final Drawer.Link l : d.drawer.getLinks()) linked |= reach.contains(l.nodeId());
+            for (final Drawer.Held h : d.drawer.held()) linked |= reach.contains(
+                h.link()
+                    .nodeId());
             if (!linked) continue;
             final String rule = switch (d.rule) {
                 case AT_LEAST -> "at least ";
@@ -2721,13 +2745,14 @@ public final class BoardSession {
             wired.add(portKey(e.targetNodeId, false, e.targetInputIndex));
         }
         for (final Drawer d : graph.getDrawers()) {
-            for (final Drawer.Link link : d.getLinks()) {
+            for (final Drawer.Held h : d.held()) {
                 wired.add(
                     portKey(
-                        link.nodeId(),
-                        !d.getKind()
-                            .linksInputs(),
-                        link.portIndex()));
+                        h.link()
+                            .nodeId(),
+                        !h.input(),
+                        h.link()
+                            .portIndex()));
             }
         }
         return wired;

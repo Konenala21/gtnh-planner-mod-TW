@@ -196,6 +196,18 @@ public final class PlanExport {
                                 .toString(),
                             r));
             }
+            // A buffer's users: a wire from it to each, so the site reads it as fed and drawn from (a buffer).
+            for (final Drawer.Link link : d.getTakers()) {
+                final Node n = g.nodes.get(link.nodeId());
+                if (n == null) continue;
+                edges.add(
+                    edge(
+                        d.getId() + ":" + link.nodeId() + ":in:" + link.portIndex(),
+                        d.getId()
+                            .toString(),
+                        n.id.toString(),
+                        r));
+            }
         }
         final JsonArray annotations = new JsonArray();
         for (final Note n : g.getNotes()) annotations.add(note(n));
@@ -212,6 +224,8 @@ public final class PlanExport {
         final Res face = g.getIcon() == null ? null : world.resource(g.getIcon());
         if (face != null) p.add("icon", icon(face));
         p.addProperty("solveMode", true);
+        // The one-mode board's plan: the site reads a buffer's rule as live only there.
+        p.addProperty("planMode", true);
         p.add("recipes", recipes);
         p.add("nodes", nodes);
         p.add("storages", storages);
@@ -736,7 +750,8 @@ public final class PlanExport {
         o.addProperty("displayName", r.name());
         if (!d.getKind()
             .linksInputs()) {
-            o.addProperty("drainMode", "product");
+            // A buffer's role is its wires' (fed and drawn from); its rule is a product's, on what passes through.
+            if (!d.isBuffer()) o.addProperty("drainMode", "product");
             final String mode = switch (d.getRule()) {
                 case AT_LEAST -> "at-least";
                 case AT_MOST -> "at-most";
