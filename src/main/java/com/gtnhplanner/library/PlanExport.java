@@ -11,6 +11,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
@@ -21,6 +22,7 @@ import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.properties.RecipeProperty;
 import com.gtnhplanner.importer.FfPlan;
 import com.gtnhplanner.importer.FfSettings;
+import com.gtnhplanner.machines.web.Web;
 import com.gtnhplanner.power.CustomRate;
 import com.gtnhplanner.power.Energy;
 import com.gtnhplanner.power.PowerModel;
@@ -75,6 +77,25 @@ public final class PlanExport {
         /** A crop card's crop; null on any other card. */
         @Nullable
         default Crop crop(final Node node) {
+            return null;
+        }
+
+        /**
+         * A GregTech card's recipe as the website's dataset carries it (machines/game/WebCards: its map, its machines
+         * and their settings, the game's own overclocks), or null on any other card. Without it neither the game nor
+         * the website could tell which recipe map the card is on.
+         */
+        @Nullable
+        default Web.Recipe gregtech(final Node node) {
+            return null;
+        }
+
+        /**
+         * NEI's own id for the card's recipe, as a saved plan keeps it, so a game opening the post finds the very
+         * recipe; null on a card with none (a generator).
+         */
+        @Nullable
+        default JsonObject neiRecipe(final Node node) {
             return null;
         }
     }
@@ -198,7 +219,8 @@ public final class PlanExport {
         if (com.gtnhplanner.power.FluidTank.is(n)) return tankRecipe(n, id, world, res);
         if (n.isPower()) return powerRecipe(n, id, world, res);
         final Crop crop = world.crop(n);
-        if (crop != null) return cropRecipe(n, id, crop, world, res);
+        if (crop != null) return withNeiRecipe(cropRecipe(n, id, crop, world, res), world.neiRecipe(n));
+        final Web.Recipe site = world.gregtech(n);
         final JsonObject r = new JsonObject();
         r.addProperty("id", id);
         final String machine = world.machine(n);
@@ -208,16 +230,101 @@ public final class PlanExport {
                 : n.outputs.get(0)
                     .getDisplayName());
         r.addProperty("kind", "gregtech_machine");
-        r.addProperty("machineType", machine);
-        r.addProperty("minimumTier", world.tier(n));
+        final String mapId = site == null || site.metadata == null || !site.metadata.has("recipeMapId") ? null
+            : site.metadata.get("recipeMapId")
+                .getAsString();
+        if (site != null) r.addProperty("category", SMELTING.equals(mapId) ? "furnace" : "gregtech");
+        // The website's machine type is the recipe map's name; the machine itself is the node's handler.
+        r.addProperty("machineType", site != null ? site.machineType : machine);
+        r.addProperty("minimumTier", site != null && site.minimumTier != null ? site.minimumTier : world.tier(n));
         r.addProperty("durationTicks", Math.max(1, intProperty(n, "duration_ticks")));
         r.addProperty("eut", Math.max(0, longProperty(n, "gt.eu_per_tick")));
+        if (site != null && site.specialValue != null) r.addProperty("specialValue", site.specialValue);
+        if (site != null && site.programmedCircuit != null) r.addProperty("programmedCircuit", site.programmedCircuit);
         r.add("inputs", ports(n.inputs, false, world, res));
         r.add("outputs", ports(n.outputs, true, world, res));
+        if (site != null) gregtech(r, site);
         final JsonObject source = new JsonObject();
+        if (site != null && site.source != null && site.source.recipeMap != null)
+            source.addProperty("recipeMap", site.source.recipeMap);
         source.addProperty("exporter", "unknown");
         source.addProperty("sourceMod", "GTNH Planner");
         r.add("source", source);
+        final JsonObject meta = new JsonObject();
+        if (site != null && site.metadata != null)
+            for (final Map.Entry<String, JsonElement> e : site.metadata.entrySet()) meta.add(e.getKey(), e.getValue());
+        if (meta.entrySet()
+            .size() > 0) r.add("metadata", meta);
+        return withNeiRecipe(r, world.neiRecipe(n));
+    }
+
+    /** The website's vanilla furnace map, whose recipes it files as furnace recipes, not GregTech's. */
+    private static final String SMELTING = "smelting";
+
+    private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
+
+    /**
+     * What the website knows a GregTech recipe by, beside its numbers: the machines that run it with their settings,
+     * the recipe's own settings (a coil hot enough for it), and the game's overclocks at each tier. The website's
+     * maths read these, so the post solves there as it does on the board.
+     */
+    private static void gregtech(final JsonObject r, final Web.Recipe site) {
+        if (site.machineHandlers != null && !site.machineHandlers.isEmpty())
+            r.add("machineHandlers", GSON.toJsonTree(site.machineHandlers));
+        if (site.machineConfigControls != null && !site.machineConfigControls.isEmpty())
+            r.add("machineConfigControls", GSON.toJsonTree(site.machineConfigControls));
+        // The website reads a recipe's special value (a blast furnace recipe's heat) from NEI's lines, nowhere else.
+        if (site.nei != null && site.nei.additionalInfo != null && !site.nei.additionalInfo.isEmpty()) {
+            final JsonObject nei = new JsonObject();
+            nei.add("additionalInfo", GSON.toJsonTree(site.nei.additionalInfo));
+            r.add("nei", nei);
+        }
+        final Web.RuntimeCalculation calc = site.runtimeCalculation;
+        if (calc == null || calc.variants == null || calc.variants.isEmpty()) return;
+        final JsonObject runtime = new JsonObject();
+        // The oracle's kind for GT's OverclockCalculator run per tier (machines/game/RuntimeVariants).
+        runtime.addProperty("sourceKind", "gregtech-overclock-calculator");
+        runtime.addProperty("status", calc.status != null ? calc.status : "computed");
+        runtime.addProperty("oracleEligible", Boolean.TRUE.equals(calc.oracleEligible));
+        if (calc.strict != null) runtime.addProperty("strict", calc.strict);
+        final JsonArray variants = new JsonArray();
+        for (final Web.RuntimeVariant v : calc.variants) {
+            final JsonObject o = new JsonObject();
+            o.addProperty("id", v.id);
+            if (v.label != null) o.addProperty("label", v.label);
+            if (v.machineHandlerId != null) o.addProperty("machineHandlerId", v.machineHandlerId);
+            if (v.overclockTier != null) o.addProperty("overclockTier", v.overclockTier);
+            o.addProperty("durationTicks", Math.max(1, Math.round(v.durationTicks)));
+            o.addProperty("eut", Math.max(0, v.eut));
+            if (v.parallel != null && v.parallel > 0) o.addProperty("parallel", v.parallel);
+            if (v.outputs != null) {
+                final JsonArray outs = new JsonArray();
+                for (final Web.Resource out : v.outputs) {
+                    if (out.id == null || out.id.isEmpty() || !(out.amount > 0)) continue;
+                    final JsonObject x = new JsonObject();
+                    x.addProperty("kind", out.kind);
+                    x.addProperty("id", out.id);
+                    x.addProperty("amount", out.amount);
+                    if (out.chance != null) x.addProperty("chance", Math.max(0, Math.min(1, out.chance)));
+                    outs.add(x);
+                }
+                o.add("outputs", outs);
+            }
+            variants.add(o);
+        }
+        runtime.add("variants", variants);
+        r.add("runtimeCalculation", runtime);
+    }
+
+    /** The recipe with NEI's id for it in its metadata, where the website keeps what it does not read. */
+    private static JsonObject withNeiRecipe(final JsonObject r, @Nullable final JsonObject neiRecipe) {
+        if (neiRecipe == null) return r;
+        JsonObject meta = r.getAsJsonObject("metadata");
+        if (meta == null) {
+            meta = new JsonObject();
+            r.add("metadata", meta);
+        }
+        meta.add("neiRecipe", neiRecipe);
         return r;
     }
 

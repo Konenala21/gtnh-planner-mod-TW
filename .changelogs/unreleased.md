@@ -26,6 +26,7 @@
 
 ## Fixed
 
+- Plans opened from the library come in with all their cards now, even ones shared before this update.
 - Pasted plans (links and codes) get the right machines: no more Basic Extractors turning into Steam Extractors, or HV machines showing up as LV ones.
 - Crop farms in pasted plans come in now, and crop cards share to the library properly.
 - Generators in pasted Build plans keep their count instead of getting resized.
