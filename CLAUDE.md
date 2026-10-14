@@ -136,8 +136,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
   minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin). Where the solve sends
   something out of the plan, or brings it in, at a wired port with no drawer (the balancer's open gates), the card
-  shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Surplus" in a
-  byproduct drawer's green, "Imported" in a source's pink, faintly striped; the port's own row shows what its wires
+  shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Forced" in a
+  byproduct drawer's green going out or a source's pink coming in, faintly striped; the port's own row shows what its wires
   carry. It is part of the port, so dragging it makes a drawer, which takes the flow, and the row goes.
   They are Factory Flow's text annotations (`kind: "text"`, its colour tags and font sizes), so they come in with an
   imported plan and go out with a posted one; they take no part in the solve, the wiring or Arrange.
@@ -203,7 +203,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   error's stack, or a ModularUI frame with the planner open); asked once per crash. The mock answers
   `/api/feedback` too, writing each report to `build/dev-client/mock-feedback/`.
 - Updates: `client/UpdateCheck` asks this repo's GitHub releases once a game, in the background (pre-releases too;
-  tags compared as `0.2.0-alpha.N`, a dev build counting as its tag). When a newer one is out the board says so once
+  tags compared as `0.2.0-alpha.N` < `-beta.N` < `-rc.N` < `0.2.0`, a dev build counting as its tag; jars before
+  beta.1 read only alphas, so to them a beta is the release). When a newer one is out the board says so once
   per version as it opens (`ui/popup/UpdateOffer`, after any crash offer), with a key to that release's page; either
   answer is remembered (`update.offered` in the settings). `call 'update?latest=<tag>'` fakes one; `clear=1&reset=1`
   puts it back.
@@ -268,7 +269,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 571 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 614 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.
@@ -281,17 +282,24 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   and before a release. It cannot see an API that still exists but behaves differently: test in an older pack for that.
 - The next release's notes build up as work lands: `.changelogs/unreleased.md`. Any commit to main that a player would
   notice adds or edits its line there, in the same commit (the owner, 2026-10-12: always ready to ship). How they read:
-  Discord-casual and in a player's words, short and not daunting. One line a change, grouped New / Better / Fixed; the
+  Discord-casual and in a player's words, short and not daunting. Written as the engineers who made it, never as
+  marketing or as AI (the owner, 2026-10-13): short sentences with almost no commas, no slogans. One line a change,
+  grouped New / Better / Fixed; the
   thing in bold only for a headline feature; no class names, settings keys, paths or numbers a player would not know;
   never the website (pasted plans are "plan links and codes"). Fold small changes together rather than letting the
   list grow; a change undone before release comes off the list.
-- Releases are pre-releases tagged `0.2.0-alpha.N` on main (annotated, "GTNH Planner <tag>"), notes in
-  `.changelogs/<tag>.md`: rename `unreleased.md` to it, top it with the last release's short intro (alpha warning,
-  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The fork's Actions have
-  never run, so the tag builds nothing: run `./gradlew compatCheck`,
+- Releases are tagged `0.2.0-beta.N` on main (annotated, "GTNH Planner <tag>"; alpha.1 to alpha.5 came before, as
+  pre-releases) and published as full releases (the owner, 2026-10-13), notes in
+  `.changelogs/<tag>.md`: rename `unreleased.md` to it, top it with the last release's short intro (beta warning,
+  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The release page is
+  for players only: no technical words at all, about 400 words (the owner, 2026-10-13). Everything technical goes in
+  `.changelogs/<tag>-technical.md`, linked from the end of the notes: what was broken, what we did, numbers, and
+  links to code lines and commits pinned to a SHA (never `main`), with the old code at the commit before the change.
+  Pictures: the owner takes them and pastes them into the draft on GitHub; the notes mark each place with a
+  `> 📷 **IMAGE N – ...**` line saying what to show. The fork's Actions have never run, so the tag builds nothing: run `./gradlew compatCheck`,
   smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
-  `gh release create <tag> --prerelease --title "GTNH Planner <tag>" -F .changelogs/<tag>.md
-  build/libs/gtnhplanner-<tag>.jar`.
+  `gh release create <tag> --repo jackwrichards/gtnh-planner-mod --draft --title "GTNH Planner <tag>" -F <notes>
+  build/libs/gtnhplanner-<tag>.jar` (plain `gh` picks upstream), for the owner to review and publish.
 - The solver (`docs/design/solver-plan.md`: what it promises, what was wrong, the phases) is checked against
   goldens: `./gradlew test --tests '*SolverGoldenTest*' -Pbench=check` compares every corpus plan's whole answer
   (`src/test/resources/solver-corpus/`, plans exported with `call 'solvedump?dir=...'`) to the recorded one, with
