@@ -129,8 +129,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
   minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin). Where the solve sends
   something out of the plan, or brings it in, at a wired port with no drawer (the balancer's open gates), the card
-  shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Surplus" in a
-  byproduct drawer's green, "Imported" in a source's pink, faintly striped; the port's own row shows what its wires
+  shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Forced" in a
+  byproduct drawer's green going out or a source's pink coming in, faintly striped; the port's own row shows what its wires
   carry. It is part of the port, so dragging it makes a drawer, which takes the flow, and the row goes.
   They are Factory Flow's text annotations (`kind: "text"`, its colour tags and font sizes), so they come in with an
   imported plan and go out with a posted one; they take no part in the solve, the wiring or Arrange.
@@ -278,9 +278,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - Releases are tagged `0.2.0-beta.N` on main (annotated, "GTNH Planner <tag>"; alpha.1 to alpha.5 came before, as
   pre-releases) and published as full releases (the owner, 2026-10-13), notes in
   `.changelogs/<tag>.md`: rename `unreleased.md` to it, top it with the last release's short intro (beta warning,
-  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The player part stays
-  short (beta.1's is about 450 words). After Install a release may add "Technical notes", labelled as such and as long
-  and as technical as it needs (what was broken, what we did, numbers, class names, links to `docs/design/`).
+  which GTNH builds) and end it with its Install steps, and start a fresh empty `unreleased.md`. The release page is
+  for players only: no technical words at all, about 400 words (the owner, 2026-10-13). Everything technical goes in
+  `.changelogs/<tag>-technical.md`, linked from the end of the notes: what was broken, what we did, numbers, and
+  links to code lines and commits pinned to a SHA (never `main`), with the old code at the commit before the change.
   Pictures: the owner takes them and pastes them into the draft on GitHub; the notes mark each place with a
   `> 📷 **IMAGE N – ...**` line saying what to show. The fork's Actions have never run, so the tag builds nothing: run `./gradlew compatCheck`,
   smoke-test the jar in the full pack, then build at the tag with a clean tree (`./gradlew build -x test`, so the jar takes the tag's version) and
