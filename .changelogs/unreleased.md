@@ -41,3 +41,6 @@
 - Changing settings one after another in a card's gear (like a boiler's fuels) no longer crashes the game, and its readings keep up.
 - The Multi Smelter and other coil machines that aren't blast furnaces no longer say their coil is too cold.
 - Adding an HTGR recipe from NEI gives you the reactor itself: TRISO fuel in, burned fuel out, instead of the whole fuel making list.
+- Crash reports sent from the game show the actual crash again, not just a pile of log lines.
+- Reports leave the chat out, so other players' names and messages stay private.
+- The planner stops taking the blame for NEI's own crashes in other screens (like the bookmark crash on 2.9.0 RC-1).
