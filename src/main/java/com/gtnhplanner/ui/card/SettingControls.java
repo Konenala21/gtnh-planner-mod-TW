@@ -104,6 +104,11 @@ public final class SettingControls {
         // A crop's settings come in sections (machine, crop, surroundings, the farm's units), most pinned from the
         // start.
         final boolean crop = com.gtnhplanner.machines.game.CropCards.isCrop(m.node);
+        // What the recipe decides of the machine, read-only: the Dangote Distillus runs in its recipe's mode.
+        final String mode = m.web == null ? null
+            : com.gtnhplanner.machines.web.DangoteDistillus.mode(m.web.effectiveRecipe());
+        if (mode != null)
+            out.add(new Control("reading:mode", "SETTINGS", "Mode", mode, null, false, true, Type.READING, false));
         for (final com.gtnhplanner.machines.game.MachineModels.Setting s : com.gtnhplanner.machines.game.MachineModels
             .settings(m.node)) {
             final String group = crop ? com.gtnhplanner.machines.game.CropCards.group(s.key()) : "SETTINGS";

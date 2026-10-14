@@ -26,6 +26,7 @@
 - No more little freeze after every change (dropping or deleting a drawer, anything): saving happens in the background now. Scrolling a count or rate updates the plan as you scroll instead of after you stop.
 - Huge plans stay smooth: thousands of cards pan and zoom without slowing down, open much faster, and the plan over the world keeps up with thousands of placed machines. Wires no longer flicker when zoomed far out.
 - Resource packs can restyle the plan button on NEI's recipe pages, like NEI's own buttons.
+- The Dangote Distillus shows which mode its recipe runs it in, and in distillery mode you can set how tall it is.
 
 ## Fixed
 
