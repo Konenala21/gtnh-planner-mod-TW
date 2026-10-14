@@ -89,6 +89,13 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     @Override
     public void onUpdate() {
         super.onUpdate();
+        // The keyboard on a widget the board let go of (a note deleted, undone or left with its plan while being
+        // written in): nothing holds it any more.
+        final com.cleanroommc.modularui.screen.viewport.LocatedWidget held = getContext().getFocusedWidget();
+        if (held != null && held.getElement() != null
+            && !held.getElement()
+                .isValid())
+            getContext().removeFocus();
         session.tick();
         Popup.openPending();
         boolean rebuild = builtStructure != session.structure();
@@ -622,7 +629,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final float x0 = worldX(a.x) - m, y0 = worldY(a.y) - m, x1 = worldX(a.x + a.width) + m,
             y1 = worldY(a.y + a.height) + m;
         final com.cleanroommc.modularui.screen.viewport.LocatedWidget located = getContext().getFocusedWidget();
-        final IWidget focused = located == null ? null : located.getElement();
+        // One the board let go of still holding the keyboard is none: asking it for its parent throws (onUpdate drops
+        // it, but the tree asks for the children before that).
+        final IWidget focused = located == null || located.getElement() == null || !located.getElement()
+            .isValid() ? null : located.getElement();
         final List<IWidget> out = new ArrayList<>();
         for (final IWidget w : candidates(all, x0, y0, x1, y1, focused)) {
             final boolean seen;

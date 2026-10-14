@@ -403,6 +403,11 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         switch (part) {
             case DELETE -> {
                 Hyb.click();
+                // Let go of the keyboard first, words unsaved: the note is going.
+                if (editing) {
+                    editing = false;
+                    getContext().removeFocus();
+                }
                 session.deleteNote(noteId);
             }
             case SMALLER -> stepFont(-1);
