@@ -257,23 +257,31 @@ public final class CropCards {
         return setup == null ? 0 : CropsNh.cropsPerMachine(setup);
     }
 
-    /** The harvesters this many crops fill. */
+    /** The harvesters this many crops fill (a solved count planted whole: {@link CropsNh#seeds}). */
     public static int harvesters(final Node node, final double crops) {
         final Setup setup = setup(node);
-        return setup == null ? 0 : CropsNh.machineCount(setup, Math.round(crops));
+        return setup == null ? 0 : CropsNh.machineCount(setup, CropsNh.seeds(crops));
+    }
+
+    /**
+     * The machines a card builds at this count, wherever machines are counted (the overview, the pin list, the world,
+     * the screenshot): its count, or for a crop card, whose count is crops planted, the harvesters they fill.
+     */
+    public static double builds(final Node node, final double count) {
+        return isCrop(node) ? harvesters(node, count) : count;
     }
 
     /** The harvesters' draw for this many crops, EU/t. */
     public static double drawEut(final Node node, final double crops) {
         final CropsNh.Stats stats = stats(node);
         return stats == null || node.machineConfig == null ? 0
-            : CropsNh.drawEut(stats, node.machineConfig.settings, Math.round(crops));
+            : CropsNh.drawEut(stats, node.machineConfig.settings, CropsNh.seeds(crops));
     }
 
     public static List<FormulaLine> formulas(final Node node, final double crops) {
         final CropsNh.Stats stats = stats(node);
         if (stats == null || node.machineConfig == null) return Collections.emptyList();
-        return CropsNh.formulas(stats, node.machineConfig.settings, Math.round(Math.max(1, crops)));
+        return CropsNh.formulas(stats, node.machineConfig.settings, Math.max(1, CropsNh.seeds(crops)));
     }
 
     // region Settings

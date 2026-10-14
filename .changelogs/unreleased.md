@@ -29,6 +29,7 @@
 - Pasted plans (links and codes) get the right machines: no more Basic Extractors turning into Steam Extractors, or HV machines showing up as LV ones.
 - Crop farms in pasted plans come in now, and crop cards share to the library properly.
 - Crop cards show every drop again, like the Lapis Lazuli from Lazulia next to its Lapis Dust.
+- The pin list, the minimap and the world count the Industrial Farms or Crop Managers a crop farm needs, not the crops planted.
 - Generators in pasted Build plans keep their count instead of getting resized.
 - Cards in pasted plans don't land on top of each other.
 - Placing machines in the world: you can stack the next one on the one you just placed, and you can see which way R turns it. Each machine of a group says which it is (1/4, 2/4...).

@@ -12,7 +12,8 @@ import javax.annotation.Nullable;
  * transcribed from TileEntityCropSticks, MTECropManager and MTEIndustrialFarm in the GTNH 2.9 pack): how fast it grows
  * on what food, what it drops a harvest, and the two machines that harvest it, the Crop Manager (a single block
  * working real crop sticks) and the Industrial Farm (a multiblock that simulates them). A crop card's machine count
- * is the number of crops planted; the harvesters follow from it. Pure: the game side is machines/game/CropCards.
+ * is the number of crops planted; the harvesters follow from it ({@link #machineCount}), and they are what the plan
+ * builds wherever machines are counted. Pure: the game side is machines/game/CropCards.
  *
  * <p>
  * Settings are kept under the website's own keys (its control ids), so plans go between the two unchanged; the
@@ -234,6 +235,14 @@ public final class CropsNh {
     public static int machineCount(final Setup setup, final long crops) {
         if (handPicked(setup) || crops <= 0) return 0;
         return (int) Math.ceil((double) crops / cropsPerMachine(setup));
+    }
+
+    /**
+     * The whole crops a card's count plants: a solved count rounds up, as the website takes its solved seeds
+     * (ceil(required - 0.000001)), so 2601.2 crops are 2602 and fill a second farm.
+     */
+    public static long seeds(final double crops) {
+        return crops > 0 && Double.isFinite(crops) ? (long) Math.ceil(crops - 0.000001) : 0;
     }
 
     /** The farm's upgrade slots: clamp(tier - MV + 1, 1, 12). */
