@@ -144,23 +144,27 @@ public final class CropCards {
         }
     }
 
-    /** After every refresh: each drop's multiplier, the card's gain and harvester over the baseline. */
+    /**
+     * After every refresh: each output's multiplier, the card's gain and harvester over the baseline. Found by the
+     * output's item, not its place: an item the table lists twice is one output.
+     */
     public static void afterRefresh(final Node node) {
         final CropsNh.Stats stats = stats(node);
         final MachineConfig cfg = node.machineConfig;
         if (stats == null || cfg == null) return;
         cfg.inputConsumption.clear();
         cfg.outputProductivity.clear();
-        for (int i = 0; i < node.outputs.size() && i < stats.drops()
-            .size(); i++)
-            cfg.outputProductivity.put(
-                i,
-                (float) CropsNh.outputMultiplier(
-                    stats,
-                    cfg.settings,
-                    stats.drops()
-                        .get(i)
-                        .id()));
+        for (int i = 0; i < node.outputs.size(); i++) {
+            final String id = node.outputs.get(i)
+                .getValue() instanceof final net.minecraft.item.ItemStack s ? MachineModels.websiteId(s)
+                    : i < stats.drops()
+                        .size()
+                            ? stats.drops()
+                                .get(i)
+                                .id()
+                            : "";
+            cfg.outputProductivity.put(i, (float) CropsNh.outputMultiplier(stats, cfg.settings, id));
+        }
     }
 
     // endregion

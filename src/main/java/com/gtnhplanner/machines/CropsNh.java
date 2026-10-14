@@ -362,6 +362,7 @@ public final class CropsNh {
     /**
      * The solver's multiplier for one output: the crop's expected drop at the card's gain over the reference's, times
      * the harvester's drop rounds; 0 when it never grows, or when only the farm can grow it and a Crop Manager has it.
+     * An item the table lists more than once has its drops taken together.
      */
     public static double outputMultiplier(final Stats stats, final Map<String, ?> settings, final String dropId) {
         final Setup setup = setup(settings, stats);
@@ -369,12 +370,15 @@ public final class CropsNh {
         final Environment env = harvesterEnvironment(setup, environment(settings));
         if (growthRate(stats, env) <= 0) return 0;
         final double rounds = harvestRoundMultiplier(setup);
-        Drop drop = null;
+        double reference = 0, current = 0;
+        boolean found = false;
         for (final Drop d : stats.drops()) if (d.id()
-            .equals(dropId)) drop = d;
-        if (drop == null) return rounds;
-        final double reference = expectedDrop(stats, REFERENCE.gain(), drop);
-        final double current = expectedDrop(stats, env.gain(), drop);
+            .equals(dropId)) {
+                found = true;
+                reference += expectedDrop(stats, REFERENCE.gain(), d);
+                current += expectedDrop(stats, env.gain(), d);
+            }
+        if (!found) return rounds;
         return (reference > 0 ? current / reference : 1) * rounds;
     }
 

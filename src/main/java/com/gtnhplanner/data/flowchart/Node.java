@@ -152,8 +152,8 @@ public class Node {
             this.properties.putAll(props);
         }
 
-        deduplicate(inputs);
-        deduplicate(outputs);
+        deduplicate(inputs, false);
+        deduplicate(outputs, true);
         afterRefresh.accept(this);
     }
 
@@ -163,12 +163,19 @@ public class Node {
      */
     public static java.util.function.Consumer<Node> afterRefresh = node -> {};
 
-    private static void deduplicate(final List<Port<?>> ports) {
+    /**
+     * Folds ports of one resource into one. Inputs fold by what wires to them (an ore name: a recipe that takes any
+     * plank twice takes two planks); outputs only when they are the same resource ({@code same}), since two items that
+     * share an ore name are both made: Lazulia's Lapis Lazuli folded into its Lapis Dust and was lost (issue 487).
+     */
+    static void deduplicate(final List<Port<?>> ports, final boolean same) {
         final List<Port<?>> aggregate = new ArrayList<>(ports);
         for (int i = 0; i < aggregate.size(); i++) {
             for (int j = i + 1; j < aggregate.size(); j++) {
-                if (aggregate.get(i)
-                    .canConnect(aggregate.get(j))) {
+                if (same ? aggregate.get(i)
+                    .same(aggregate.get(j))
+                    : aggregate.get(i)
+                        .canConnect(aggregate.get(j))) {
                     aggregate.get(i)
                         .merge(aggregate.get(j));
                     aggregate.remove(j);
