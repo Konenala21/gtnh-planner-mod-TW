@@ -132,9 +132,10 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     private final BoardSession session;
     private final BoardCanvas canvas;
     private final TextFieldWidget filterField;
-    private final Set<String> folded = new HashSet<>(Set.of("INTERNAL"));
+    /** The sections folded to their bars, and whether the overview is open: as the player last left them. */
+    private final Set<String> folded = new HashSet<>(PlannerSettings.overviewFolded());
     private final List<Hit> hits = new ArrayList<>();
-    private boolean open = true;
+    private boolean open = PlannerSettings.overviewOpen();
     private String filter = "";
     private int scroll;
     private int contentH;
@@ -143,12 +144,13 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     OverviewRail(final BoardSession session, final BoardCanvas canvas) {
         this.session = session;
         this.canvas = canvas;
-        width(W);
+        width(currentWidth());
         filterField = new TextFieldWidget()
             .value(new StringValue.Dynamic(() -> filter, s -> filter = s == null ? "" : s))
             .hintText("Filter resources...")
             .pos(4, FILTER_Y)
             .size(W - 8, FILTER_H);
+        filterField.setEnabled(open);
         child(filterField);
     }
 
@@ -162,6 +164,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     void toggle() {
         open = !open;
+        PlannerSettings.setOverviewOpen(open);
         scroll = 0;
         filterField.setEnabled(open);
         width(currentWidth());
@@ -1227,6 +1230,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             case SECTION -> {
                 final String title = (String) hit.data();
                 if (!folded.remove(title)) folded.add(title);
+                PlannerSettings.setOverviewFolded(folded);
             }
             case RULE -> {
                 final DrawerModel d = (DrawerModel) hit.data();
