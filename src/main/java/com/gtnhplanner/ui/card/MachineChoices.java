@@ -34,6 +34,11 @@ public final class MachineChoices {
      */
     public static Node newNode(final IRecipeHandler handler, final int recipeIndex, @Nullable final Choice choice) {
         final Node node = new Node(handler, recipeIndex, 0, 0);
+        // A recipe whose machine is a non-recipe machine here (the HTGR's fuel pages): that machine's card, at the
+        // settings it was last left at, the recipe's own over them.
+        final com.gtnhplanner.power.game.RecipePower.Card power = com.gtnhplanner.power.game.RecipePower.of(node);
+        if (power != null)
+            return Node.power(power.source(), SettingMemory.powerSettings(power.source(), power.settings()), 0, 0);
         CardDefaults.apply(node);
         Choice use = choice;
         if (use == null) {
