@@ -34,3 +34,4 @@
 - Placing a generator in the world shows its name, not a code.
 - The rate unit (/min and friends), EU/t or Amps, and Peak or Avg stick when you close and reopen the planner.
 - The Multi Smelter and other coil machines that aren't blast furnaces no longer say their coil is too cold.
+- Adding an HTGR recipe from NEI gives you the reactor itself: TRISO fuel in, burned fuel out, instead of the whole fuel making list.
