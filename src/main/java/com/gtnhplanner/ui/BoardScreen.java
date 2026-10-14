@@ -493,7 +493,13 @@ public final class BoardScreen extends ModularScreen {
             .clickSound(Hyb::click)
             .onMousePressed(b -> {
                 // True makes ModularUI play the click: only when the key did something.
-                if (b != 0 || !enabled.getAsBoolean()) return false;
+                if (!enabled.getAsBoolean()) return false;
+                // A key that goes round its choices goes back one on a right-click, as the card's chips do.
+                if (b == 1 && wheel != null) {
+                    wheel.accept(-1);
+                    return true;
+                }
+                if (b != 0) return false;
                 action.run();
                 return true;
             });

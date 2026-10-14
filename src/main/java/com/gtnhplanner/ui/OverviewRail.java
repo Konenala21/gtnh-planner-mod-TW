@@ -967,7 +967,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             1);
         final String peak = session.peakPower() ? "Peak" : "Avg";
         Hyb.textCentered(peak, px + TOGGLE_W / 2f, y - SECTION_H + 2, Hyb.INK);
-        hits.add(new Hit(Kind.PEAK, px, y - SECTION_H + 1, px + TOGGLE_W, y - 1, null));
+        // Ahead of the heading's own hit, which spans the bar: the first hit under the mouse takes the click, and the
+        // key's is on top (behind the heading, a click on the key folded the section).
+        hits.add(hits.size() - 1, new Hit(Kind.PEAK, px, y - SECTION_H + 1, px + TOGGLE_W, y - 1, null));
         // What the machines draw, in the bar beside the key.
         Hyb.textRight(Fmt.power(t.euPerTick()) + " EU/t", px - 5, y - SECTION_H + 2, Hyb.MUTED);
         if (folded.contains("MACHINES")) return y + GAP;
@@ -1218,7 +1220,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             if (card != null) card.clearPins();
             return Result.SUCCESS;
         }
-        if (mouseButton != 0 && hit.kind() != Kind.RULE) return Result.SUCCESS;
+        // A right-click steps a rule back, and flips Avg and Peak as a left one does (the top bar's key does the same).
+        if (mouseButton != 0 && hit.kind() != Kind.RULE && hit.kind() != Kind.PEAK) return Result.SUCCESS;
         final int sx = getArea().x + hit.x0(), sy = getArea().y + hit.y1() + 2;
         if (hit.kind() != Kind.RESOURCE) Hyb.click();
         switch (hit.kind()) {
