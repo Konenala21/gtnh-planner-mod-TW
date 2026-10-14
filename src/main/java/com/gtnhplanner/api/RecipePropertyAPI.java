@@ -40,6 +40,11 @@ public final class RecipePropertyAPI {
         .hashCodeExtractor(
             s -> 31 * s.getItem()
                 .hashCode() + s.getItemDamage())
+        .keyExtractor(
+            stack -> "item:" + net.minecraft.item.Item.itemRegistry.getNameForObject(stack.getItem())
+                + ":"
+                + stack.getItemDamage())
+        .copier(ItemStack::copy)
         .displayStackProvider(stack -> stack)
         .colorProvider(IngredientColors::itemColor)
         .pinInputColor(PlannerColors.PIN_INPUT.getColor())
@@ -62,6 +67,10 @@ public final class RecipePropertyAPI {
         .hashCodeExtractor(
             fs -> fs.getFluid()
                 .hashCode())
+        .keyExtractor(
+            fs -> "fluid:" + fs.getFluid()
+                .getName())
+        .copier(FluidStack::copy)
         // Guard sits inside the lambda so GT classes only load if GT is present AND the
         // lambda actually runs (lambda bodies resolve their classes at call time, not here).
         .displayStackProvider(fs -> {

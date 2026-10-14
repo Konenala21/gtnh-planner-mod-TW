@@ -950,7 +950,7 @@ public final class BoardScreen extends ModularScreen {
         // Unwired and running: a forced input or output, told as the overview's are.
         if (RecipeCard.isOpen(view)) {
             final CardModel model = session.model(slot.node());
-            return actions(SpareTips.open(session, slot.node(), model == null ? "" : model.machineName, view));
+            return actions(SpareTips.open(session, slot.node(), model == null ? "" : model.machineName, view), slot);
         }
         final ItemStack stack = slot.stack();
         final boolean chanced = view.output() && view.chance() < 0.9999f;
@@ -965,14 +965,21 @@ public final class BoardScreen extends ModularScreen {
             final List<String> nei = GuiContainerManager.itemDisplayNameMultiline(stack, null, true);
             for (int i = 1; i < Math.min(nei.size(), 5); i++) tip.note(nei.get(i), Tip.SUBTLE);
         }
-        return actions(tip);
+        return actions(tip, slot);
     }
 
-    /** What the mouse does with a port. */
-    private static Tip actions(final Tip tip) {
-        return tip.action(Tip.Input.LEFT, "Recipes: what makes it")
-            .action(Tip.Input.RIGHT, "Uses: what uses it")
-            .action(Tip.Input.DRAG, "Connect")
+    /** What the mouse does with a port; the wheel changes the item of an input whose slot takes several. */
+    private Tip actions(final Tip tip, final PortSlot slot) {
+        final com.gtnhplanner.data.flowchart.Node node = slot.hasChoices() ? session.graph().nodes.get(slot.node())
+            : null;
+        if (node != null) tip.muted(
+            "Takes any of " + node.inputs.get(slot.index)
+                .getAlternatives()
+                .size() + " items.");
+        tip.action(Tip.Input.LEFT, "Recipes: what makes it")
+            .action(Tip.Input.RIGHT, "Uses: what uses it");
+        if (node != null) tip.action(Tip.Input.WHEEL, "Change item");
+        return tip.action(Tip.Input.DRAG, "Connect")
             .action(Tip.Input.KEY, "R, U");
     }
 }

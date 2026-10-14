@@ -873,6 +873,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     set,
                     controls);
             }
+            if (!output && p.index() < models.get(section).node.inputs.size()
+                && models.get(section).node.inputs.get(p.index())
+                    .hasChoices()) CardPaint.choiceMark(y);
             if (controls) {
                 final boolean here = hoveredSlot != null && hoveredSlot.section == section
                     && hoveredSlot.output == output

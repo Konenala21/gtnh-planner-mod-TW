@@ -393,20 +393,145 @@ public final class BoardSession {
     private boolean dropPortOnRecipe(final UUID fromNode, final boolean output, final int port, final UUID toNode) {
         final Node src = graph.nodes.get(fromNode), dst = graph.nodes.get(toNode);
         if (src == null || dst == null || src == dst) return false;
+        // A wire that lands on an input as one of the other items its slot takes sets it to that item, as the website's
+        // wires do: wired with an ore dictionary match (coal dust fed carbon dust), or as an item it only lists.
         if (output) {
             final int in = graph.findCompatibleInput(src, port, dst);
-            if (in < 0) return false;
-            connect(src.id, port, dst.id, in);
+            if (in >= 0) {
+                final String key = pickFor(dst, in, src.outputs.get(port));
+                if (key != null && !wired(src.id, port, dst.id, in))
+                    connectPicking(src, port, dst, new Pick(in, key, port));
+                else connect(src.id, port, dst.id, in);
+                return true;
+            }
+            final Pick pick = pickTaking(src.outputs.get(port), dst);
+            if (pick == null) return false;
+            connectPicking(src, port, dst, pick);
             return true;
         }
         final Port<?> want = src.inputs.get(port);
         for (int out = 0; out < dst.outputs.size(); out++) {
             if (!dst.outputs.get(out)
                 .canConnect(want)) continue;
-            connect(dst.id, out, src.id, port);
+            final String key = pickFor(src, port, dst.outputs.get(out));
+            if (key != null && !wired(dst.id, out, src.id, port))
+                connectPicking(dst, out, src, new Pick(port, key, out));
+            else connect(dst.id, out, src.id, port);
             return true;
         }
+        final Pick pick = pickTaken(src, port, dst);
+        if (pick == null) return false;
+        connectPicking(dst, pick.other(), src, pick);
+        return true;
+    }
+
+    /**
+     * The key to set input {@code in} of {@code node} to for a wire from {@code from}: what it carries when the input's
+     * slot lists it among its items and the input holds something else; null otherwise.
+     */
+    @Nullable
+    private static String pickFor(final Node node, final int in, final Port<?> from) {
+        if (in < 0 || in >= node.inputs.size()) return null;
+        final Port<?> p = node.inputs.get(in);
+        final String key = from.key();
+        if (!p.hasChoices() || key.equals(p.key())) return null;
+        return p.alternative(key) != null ? key : null;
+    }
+
+    /** Whether a wire already joins that output to that input. */
+    private boolean wired(final UUID from, final int output, final UUID to, final int input) {
+        for (final Edge e : graph.getEdges()) if (e.sourceNodeId.equals(from) && e.sourceOutputIndex == output
+            && e.targetNodeId.equals(to)
+            && e.targetInputIndex == input) return true;
         return false;
+    }
+
+    /**
+     * An input set to one of its other items for a wire: {@code input} on its card, the item's key, and the port at the
+     * other end of the wire ({@code other}, -1 when that is not known yet).
+     */
+    private record Pick(int input, String key, int other) {}
+
+    /** The first input of {@code dst} that would take what {@code out} carries once set to another of its items. */
+    @Nullable
+    private static Pick pickTaking(final Port<?> out, final Node dst) {
+        for (int i = 0; i < dst.inputs.size(); i++) {
+            final Port<?> in = dst.inputs.get(i);
+            if (!in.hasChoices()) continue;
+            for (final Object alt : in.getAlternatives())
+                if (out.canConnect(in.withAlternative(alt))) return new Pick(i, in.keyOf(alt), -1);
+        }
+        return null;
+    }
+
+    /** The first output of {@code dst} that input {@code input} of {@code src} would take once set to another item. */
+    @Nullable
+    private static Pick pickTaken(final Node src, final int input, final Node dst) {
+        if (input < 0 || input >= src.inputs.size()) return null;
+        final Port<?> in = src.inputs.get(input);
+        if (!in.hasChoices()) return null;
+        for (final Object alt : in.getAlternatives()) {
+            final Port<?> as = in.withAlternative(alt);
+            for (int out = 0; out < dst.outputs.size(); out++) if (dst.outputs.get(out)
+                .canConnect(as)) return new Pick(input, in.keyOf(alt), out);
+        }
+        return null;
+    }
+
+    /** Sets {@code to}'s input to the picked item and wires {@code from}'s output into it, as one undo step. */
+    private void connectPicking(final Node from, final int output, final Node to, final Pick pick) {
+        edit(() -> {
+            applyInputPick(to, pick.input(), pick.key());
+            graph.addEdge(new Edge(UUID.randomUUID(), from.id, to.id, output, pick.input()));
+        });
+        Sfx.connect(pick.key());
+    }
+
+    /**
+     * Sets an input to another of the items its recipe slot takes (an ore dictionary slot's members, GregTech's
+     * alternatives), the wheel over it: wires that no longer fit it go, and a drawer feeding it alone follows it to
+     * the new item (one feeding other inputs too lets go of it). A spin of the wheel is one undo step.
+     */
+    public void pickInput(final Node node, final int index, final String key) {
+        live(() -> applyInputPick(node, index, key), null);
+    }
+
+    private void applyInputPick(final Node node, final int index, final String key) {
+        if (!node.pickInput(index, key)) return;
+        final Port<?> port = node.inputs.get(index);
+        for (final Edge e : new ArrayList<>(graph.getEdges())) {
+            if (!e.targetNodeId.equals(node.id) || e.targetInputIndex != index) continue;
+            final Node src = graph.nodes.get(e.sourceNodeId);
+            if (src == null || e.sourceOutputIndex < 0
+                || e.sourceOutputIndex >= src.outputs.size()
+                || !src.outputs.get(e.sourceOutputIndex)
+                    .canConnect(port))
+                graph.removeEdge(e.id);
+        }
+        final String now = Resources.key(port);
+        for (final Drawer d : new ArrayList<>(graph.getDrawers())) {
+            if (!d.getKind()
+                .linksInputs() || !d.isLinked(node.id, index) || now.equals(d.getResourceKey())) continue;
+            if (d.getLinks()
+                .size() == 1) {
+                d.setResourceKey(now);
+                d.setLabel(port.getDisplayName());
+            } else graph.unlinkDrawer(d.getId(), new Drawer.Link(node.id, index));
+        }
+    }
+
+    /**
+     * The keys of the other items an input could be set to (its slot's alternatives); empty for an output, or an input
+     * that takes one thing only.
+     */
+    public java.util.Set<String> choiceKeys(final UUID nodeId, final boolean output, final int index) {
+        final Node n = graph.nodes.get(nodeId);
+        if (output || n == null || index < 0 || index >= n.inputs.size()) return java.util.Set.of();
+        final Port<?> p = n.inputs.get(index);
+        if (!p.hasChoices()) return java.util.Set.of();
+        final java.util.Set<String> keys = new HashSet<>();
+        for (final Object alt : p.getAlternatives()) keys.add(p.keyOf(alt));
+        return keys;
     }
 
     /**
@@ -529,10 +654,20 @@ public final class BoardSession {
         if (node == null || drawer.getKind()
             .linksInputs() == output) return false;
         final String key = Resources.key((output ? node.outputs : node.inputs).get(port));
-        if (!key.equals(drawer.getResourceKey())) return false;
+        // An input that takes the drawer's item as one of its others is set to it.
+        final boolean pick = !key.equals(drawer.getResourceKey())
+            && choiceKeys(node.id, output, port).contains(drawer.getResourceKey());
+        if (!key.equals(drawer.getResourceKey()) && !pick) return false;
         final boolean linked = drawer.isLinked(node.id, port);
         final Double rate = portTarget(node, output, port);
         edit(() -> {
+            if (pick) {
+                // The drawer it had goes, rather than following it to the new item: this one takes its place.
+                for (final Drawer other : graph.getDrawers()) if (other != drawer && other.getKind()
+                    .linksInputs() && other.isLinked(node.id, port))
+                    graph.unlinkDrawer(other.getId(), new Drawer.Link(node.id, port));
+                applyInputPick(node, port, drawer.getResourceKey());
+            }
             if (linked) graph.unlinkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
             else {
                 graph.linkDrawer(drawer.getId(), new Drawer.Link(node.id, port));
@@ -569,12 +704,17 @@ public final class BoardSession {
             if (output) {
                 final int in = graph.findCompatibleInput(src, port, dst);
                 if (in >= 0) return new PortRef(section, false, in);
+                if (port < 0 || port >= src.outputs.size()) return null;
+                final Pick pick = pickTaking(src.outputs.get(port), dst);
+                if (pick != null) return new PortRef(section, false, pick.input());
                 continue;
             }
             if (port < 0 || port >= src.inputs.size()) return null;
             final Port<?> want = src.inputs.get(port);
             for (int out = 0; out < dst.outputs.size(); out++) if (dst.outputs.get(out)
                 .canConnect(want)) return new PortRef(section, true, out);
+            final Pick pick = pickTaken(src, port, dst);
+            if (pick != null) return new PortRef(section, true, pick.other());
         }
         return null;
     }
@@ -852,25 +992,41 @@ public final class BoardSession {
         if (idx < 0 || idx >= originPorts.size()) return false;
         if (lookup.output()) {
             final int in = graph.findCompatibleInput(origin, idx, added);
-            if (in < 0) return false;
-            graph.addEdge(new Edge(UUID.randomUUID(), origin.id, added.id, idx, in));
+            if (in >= 0) {
+                final String key = pickFor(added, in, originPorts.get(idx));
+                if (key != null) applyInputPick(added, in, key);
+                graph.addEdge(new Edge(UUID.randomUUID(), origin.id, added.id, idx, in));
+                return true;
+            }
+            // Looked up from what it uses: the new card's input is set to it when the slot takes it among others.
+            final Pick pick = pickTaking(originPorts.get(idx), added);
+            if (pick == null) return false;
+            applyInputPick(added, pick.input(), pick.key());
+            graph.addEdge(new Edge(UUID.randomUUID(), origin.id, added.id, idx, pick.input()));
             return true;
         }
         final Port<?> want = originPorts.get(idx);
         for (int out = 0; out < added.outputs.size(); out++) {
             if (!added.outputs.get(out)
                 .canConnect(want)) continue;
+            final String key = pickFor(origin, idx, added.outputs.get(out));
+            if (key != null) applyInputPick(origin, idx, key);
             graph.addEdge(new Edge(UUID.randomUUID(), added.id, origin.id, out, idx));
             return true;
         }
-        return false;
+        final Pick pick = pickTaken(origin, idx, added);
+        if (pick == null) return false;
+        applyInputPick(origin, idx, pick.key());
+        graph.addEdge(new Edge(UUID.randomUUID(), added.id, origin.id, pick.other(), idx));
+        return true;
     }
 
     // region Copy and paste
 
     /** A copied card: its recipe and settings, and where it sat from the copy's top-left. */
     private record ClipNode(codechicken.nei.recipe.Recipe.RecipeId recipe, Map<String, Object> settings,
-        String machineName, boolean fixed, int dx, int dy, String powerSource, Map<String, String> powerSettings) {}
+        String machineName, boolean fixed, int dx, int dy, String powerSource, Map<String, String> powerSettings,
+        Map<Integer, String> picks) {}
 
     /** A copied drawer, and the copied cards' ports it was linked to, as {card index in the copy, port}. */
     private record ClipDrawer(Drawer.Kind kind, String key, String label, Drawer.Rule rule, double rate, int dx, int dy,
@@ -930,7 +1086,8 @@ public final class BoardSession {
                     n.x - x0,
                     n.y - y0,
                     n.powerSource,
-                    new LinkedHashMap<>(n.powerSettings)));
+                    new LinkedHashMap<>(n.powerSettings),
+                    new HashMap<>(n.inputPicks)));
         }
         final List<ClipEdge> edges = new ArrayList<>();
         for (final Edge e : graph.getEdges()) {
@@ -1003,6 +1160,8 @@ public final class BoardSession {
             n.machineConfig.settings.putAll(c.settings());
             n.machineName = c.machineName();
             n.setMachineCountFixed(c.fixed());
+            n.inputPicks.putAll(c.picks());
+            n.applyPicks();
             made.add(n);
         }
         final List<Drawer> madeDrawers = new ArrayList<>();
@@ -1840,6 +1999,8 @@ public final class BoardSession {
             final Node copy = new Node(ref.handler, ref.recipeIndex, at[0], at[1]);
             copy.machineConfig.copySettingsFrom(from.machineConfig);
             copy.machineName = from.machineName;
+            copy.inputPicks.putAll(from.inputPicks);
+            copy.applyPicks();
             copies.add(copy);
         }
         final com.gtnhplanner.data.flowchart.MachineGroup shared = sharedOf(node.id);

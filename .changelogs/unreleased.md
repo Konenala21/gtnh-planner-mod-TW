@@ -5,6 +5,7 @@
 - **Surplus and Imported rows** – a card now shows what leaves or comes into the plan at a wired port with no drawer. Drag that row off to turn it into a drawer.
 - **Update heads-up** – the planner tells you once when a new version is out.
 - **Bigger tour** – the "?" tour now goes all the way from NEI to placing machines in the world. Quit it whenever and you keep the plan you built as "Tour plan".
+- Inputs that take more than one item (Coal Dust also takes Carbon Dust) get a little orange mark. Scroll on one to swap the item, or just wire the other item in. New cards start on the items you favorited in NEI with Shift+F, and pasted plans keep their picks.
 
 ## Better
 

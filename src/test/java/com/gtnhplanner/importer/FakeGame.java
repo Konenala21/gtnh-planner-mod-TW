@@ -103,8 +103,19 @@ final class FakeGame implements RecipeIndex, NodeMaker {
         final String machineLabel = machine == null ? null : machine.label();
         final Node node = new Node(UUID.randomUUID(), 0, 0);
         node.machineName = recipe.handlerName();
-        for (final Map.Entry<String, Double> e : merged(recipe.inputs(), true).entrySet())
-            node.inputs.add(TestIngredients.port(e.getKey(), e.getValue()));
+        for (final Map.Entry<String, Double> e : merged(recipe.inputs(), true).entrySet()) {
+            final Port<TestIngredients.TestIngredient> port = TestIngredients.port(e.getKey(), e.getValue());
+            // A slot that takes several items (FF's alternatives) lists them all, as NEI does.
+            for (final GameStack s : recipe.inputs()) {
+                if (!(s.kind() + "|" + s.id()).equals(e.getKey())) continue;
+                final List<TestIngredients.TestIngredient> items = new ArrayList<>();
+                for (final String id : s.ids()) if (!id.startsWith("oredict:"))
+                    items.add(new TestIngredients.TestIngredient(s.kind() + "|" + id, 1));
+                if (items.size() > 1) port.setAlternatives(items);
+                break;
+            }
+            node.inputs.add(port);
+        }
         for (final Map.Entry<String, Double> e : merged(recipe.outputs(), false).entrySet())
             node.outputs.add(TestIngredients.port(e.getKey(), e.getValue()));
         if (machineLabel != null) machines.put(node.id, machineLabel);

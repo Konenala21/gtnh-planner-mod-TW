@@ -130,8 +130,13 @@ public final class PlanExport {
         final Map<Port<?>, Res> res = new HashMap<>();
         for (final Node n : g.getNodes()) {
             final String recipeId = "gtnhplanner:" + n.id;
-            recipes.add(recipe(n, recipeId, world, res));
-            nodes.add(node(n, recipeId, world));
+            // The card's picks among the items a slot takes, by the recipe's input index: the site's overrides.
+            final JsonObject picks = new JsonObject();
+            recipes.add(recipe(n, recipeId, world, res, picks));
+            final JsonObject node = node(n, recipeId, world);
+            if (picks.entrySet()
+                .size() > 0) node.add("recipeInputOverrides", picks);
+            nodes.add(node);
         }
         for (final Edge e : g.getEdges()) {
             final Node from = g.nodes.get(e.sourceNodeId), to = g.nodes.get(e.targetNodeId);
@@ -193,7 +198,8 @@ public final class PlanExport {
         return p;
     }
 
-    private static JsonObject recipe(final Node n, final String id, final World world, final Map<Port<?>, Res> res) {
+    private static JsonObject recipe(final Node n, final String id, final World world, final Map<Port<?>, Res> res,
+        final JsonObject picks) {
         if (CustomRate.is(n)) return customRateRecipe(n, id, world, res);
         if (com.gtnhplanner.power.FluidTank.is(n)) return tankRecipe(n, id, world, res);
         if (n.isPower()) return powerRecipe(n, id, world, res);
@@ -212,7 +218,7 @@ public final class PlanExport {
         r.addProperty("minimumTier", world.tier(n));
         r.addProperty("durationTicks", Math.max(1, intProperty(n, "duration_ticks")));
         r.addProperty("eut", Math.max(0, longProperty(n, "gt.eu_per_tick")));
-        r.add("inputs", ports(n.inputs, false, world, res));
+        r.add("inputs", ports(n.inputs, false, world, res, picks));
         r.add("outputs", ports(n.outputs, true, world, res));
         final JsonObject source = new JsonObject();
         source.addProperty("exporter", "unknown");
@@ -397,12 +403,49 @@ public final class PlanExport {
 
     private static JsonArray ports(final List<Port<?>> ports, final boolean outputs, final World world,
         final Map<Port<?>, Res> res) {
+        return ports(ports, outputs, world, res, null);
+    }
+
+    /**
+     * A side's ports as the recipe's slots. An input that can be set to another item writes the recipe's own item, the
+     * others it takes as its {@code alternatives}, and, when the card is set to another, that one into {@code picks}
+     * under the slot's index (the site's {@code recipeInputOverrides}); wires name the item it is set to.
+     */
+    private static JsonArray ports(final List<Port<?>> ports, final boolean outputs, final World world,
+        final Map<Port<?>, Res> res, @Nullable final JsonObject picks) {
         final JsonArray out = new JsonArray();
         for (final Port<?> p : ports) {
             if (p.fromModel) continue;
             final Res r = p.getValue() instanceof Energy ? EU : world.port(p);
             if (r == null) continue;
             res.put(p, r);
+            if (picks != null && !outputs && p.hasChoices() && Double.isNaN(p.getExactAmount())) {
+                final Res own = world.port(p.withAlternative(p.own()));
+                if (own != null) {
+                    final int amount = Math.max(1, p.getAmount());
+                    final JsonObject o = resource(own);
+                    o.addProperty("amount", amount);
+                    if (p.getAmount() <= 0) o.addProperty("consumed", false);
+                    final JsonArray alternatives = new JsonArray();
+                    for (final Object alt : p.getAlternatives()) {
+                        final Res a = world.port(p.withAlternative(alt));
+                        if (a != null && a.kind()
+                            .equals(own.kind())
+                            && !a.id()
+                                .equals(own.id()))
+                            alternatives.add(resource(a));
+                    }
+                    if (alternatives.size() > 0) o.add("alternatives", alternatives);
+                    if (!r.id()
+                        .equals(own.id())) {
+                        final JsonObject pick = resource(r);
+                        pick.addProperty("amount", amount);
+                        picks.add(String.valueOf(out.size()), pick);
+                    }
+                    out.add(o);
+                    continue;
+                }
+            }
             if (!Double.isNaN(p.getExactAmount())) {
                 // A generator's exact rate per second (its craft is a second); EU rides as a byproduct, as on the site.
                 final JsonObject o = resource(r);
