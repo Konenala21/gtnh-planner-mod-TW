@@ -85,22 +85,14 @@ public class FlowchartLayoutStyle extends LayoutStyleMinecraft {
             zoomArea.setInt(LayoutManager.itemZoom, 0);
         } catch (final ReflectiveOperationException ignored) {}
 
-        // NEI lays out every frame; the board's width follows its item panel, so it is laid out again only when that
-        // or the screen moved (every frame, it was a whole new layout of every card on the board).
+        // NEI lays out every frame; the board's width follows its item panel, so it is laid out again only when the
+        // board last measured itself against the panel somewhere else (every frame, it was a whole new layout of every
+        // card on the board). What it measured is the board's own record, not a copy kept here: the board also measures
+        // as it opens, before NEI has laid out for it, and a copy here would not know.
         final ModularScreen screen = ((GuiContainerWrapper) gui).getScreen();
-        final int panelX = LayoutManager.itemPanel.x;
-        if (screen != laidScreen || panelX != laidPanelX || screenW != laidW || screenH != laidH) {
-            laidScreen = screen;
-            laidPanelX = panelX;
-            laidW = screenW;
-            laidH = screenH;
-            screen.getMainPanel()
-                .scheduleResize();
-        }
+        if (!com.gtnhplanner.ui.BoardScreen.sizedFor(LayoutManager.itemPanel.x, screenW)) screen.getMainPanel()
+            .scheduleResize();
     }
 
     private static java.lang.reflect.Field zoomArea;
-    /** What the board was last laid out for. */
-    private static ModularScreen laidScreen;
-    private static int laidPanelX, laidW, laidH;
 }

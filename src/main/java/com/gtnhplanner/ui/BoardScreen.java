@@ -69,10 +69,11 @@ public final class BoardScreen extends ModularScreen {
             .left(0)
             // Clear of NEI's search box along the bottom.
             .marginBottom(22)
-            .widthRelOffset(
-                () -> (double) Math.max(120, LayoutManager.itemPanel.x - 4)
-                    / Minecraft.getMinecraft().currentScreen.width,
-                0);
+            .widthRelOffset(() -> {
+                sizedPanelX = LayoutManager.itemPanel.x;
+                sizedScreenW = Minecraft.getMinecraft().currentScreen.width;
+                return (double) Math.max(120, sizedPanelX - 4) / sizedScreenW;
+            }, 0);
         session.setPanel(panel);
         final BoardCanvas canvas = new BoardCanvas(session, panel);
         final OverviewRail rail = new OverviewRail(session, canvas);
@@ -742,6 +743,19 @@ public final class BoardScreen extends ModularScreen {
     public void onClose() {
         session.close();
         super.onClose();
+    }
+
+    /**
+     * Where NEI's item list was, and how wide the screen, when the board last measured its width against it. ModularUI
+     * measures as the screen opens, before NEI has laid itself out for the board (back from a recipe page it still
+     * holds the recipe page's layout), so FlowchartLayoutStyle has the board measure again whenever the list is
+     * elsewhere.
+     */
+    private static int sizedPanelX = -1, sizedScreenW = -1;
+
+    /** Whether the board's width was measured against NEI's item list where it is now. */
+    public static boolean sizedFor(final int panelX, final int screenW) {
+        return panelX == sizedPanelX && screenW == sizedScreenW;
     }
 
     /**
