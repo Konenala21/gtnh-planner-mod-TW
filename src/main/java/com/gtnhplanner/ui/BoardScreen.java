@@ -73,6 +73,7 @@ public final class BoardScreen extends ModularScreen {
                 () -> (double) Math.max(120, LayoutManager.itemPanel.x - 4)
                     / Minecraft.getMinecraft().currentScreen.width,
                 0);
+        session.setPanel(panel);
         final BoardCanvas canvas = new BoardCanvas(session, panel);
         final OverviewRail rail = new OverviewRail(session, canvas);
         final java.util.Map<String, IWidget> parts = new java.util.HashMap<>();
