@@ -49,6 +49,7 @@ public final class NeiRecipeIndex implements RecipeIndex {
         if ("furnace".equals(recipe.category()) || "Furnace".equals(recipe.machineType()))
             return byOutput(recipe, h -> "smelting".equals(h.getOverlayIdentifier()));
         if (recipe.isCrop()) return crop(recipe);
+        if (recipe.isBee()) return bee(recipe);
         if (recipe.gregtech()) {
             Lookup found;
             if (!Compat.GREGTECH.isLoaded) found = Lookup.none("GregTech is not loaded");
@@ -131,6 +132,34 @@ public final class NeiRecipeIndex implements RecipeIndex {
             return Lookup.none("CropsNH's crops could not be read (" + e + ")");
         }
         if (ref == null) return Lookup.none("no crop " + slug + " in this game");
+        return Lookup.of(
+            List.of(
+                new GameRecipe(
+                    ref.handler,
+                    ref.recipeIndex,
+                    ref.handler.getRecipeName()
+                        .trim(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    null,
+                    null)));
+    }
+
+    /** A bee: its species on NEI's bee products page, found by the species' Forestry id (FF's bee card names it). */
+    private static Lookup bee(final FfRecipe recipe) {
+        if (!Compat.BEES.isLoaded || !Compat.FORESTRY.isLoaded) return Lookup.none("bees are not in this game");
+        final String slug = recipe.beeSlug();
+        if (slug == null) return Lookup.none("a bee card with no species");
+        final codechicken.nei.recipe.RecipeHandlerRef ref;
+        try {
+            ref = com.gtnhplanner.data.provider.BeeProvider.bee(
+                uid -> FfIds.slug(uid)
+                    .equals(slug));
+        } catch (final LinkageError e) {
+            return Lookup.none("the bees could not be read (" + e + ")");
+        }
+        if (ref == null) return Lookup.none("no bee " + slug + " in this game");
         return Lookup.of(
             List.of(
                 new GameRecipe(

@@ -98,6 +98,12 @@ public final class PlanExport {
         default JsonObject neiRecipe(final Node node) {
             return null;
         }
+
+        /** A bee card's species; null on any other card. */
+        @Nullable
+        default com.gtnhplanner.machines.Bees.Species bee(final Node node) {
+            return null;
+        }
     }
 
     /** A CropsNH crop: its id ({@code cropsnh:sugarBeet}) and the facts the website models it from. */
@@ -226,6 +232,8 @@ public final class PlanExport {
         if (n.isPower()) return powerRecipe(n, id, world, res);
         final Crop crop = world.crop(n);
         if (crop != null) return withNeiRecipe(cropRecipe(n, id, crop, world, res), world.neiRecipe(n));
+        final com.gtnhplanner.machines.Bees.Species bee = world.bee(n);
+        if (bee != null) return beeRecipe(n, id, bee, world, res);
         final Web.Recipe site = world.gregtech(n);
         final JsonObject r = new JsonObject();
         r.addProperty("id", id);
@@ -393,6 +401,73 @@ public final class PlanExport {
 
     /** The website's crop farm: its recipe map and machine type, which mark a recipe as a crop's. */
     private static final String CROP_FARM = "Crop Farm";
+
+    /**
+     * A bee, as the website's bee cards carry it: its species' produce at the base chances its dataset keeps (one bee
+     * cycle, the bee an input never used up, specialties as byproducts), which the card's housing and settings scale.
+     * The plain Apiary is not one of the site's bee machines, so the recipe brings it as its first.
+     */
+    private static JsonObject beeRecipe(final Node n, final String id, final com.gtnhplanner.machines.Bees.Species bee,
+        final World world, final Map<Port<?>, Res> res) {
+        // Each port's resource, for the wires; the outputs are the species' own, product by product.
+        for (final Port<?> p : n.outputs) {
+            final Res r = world.port(p);
+            if (r != null) res.put(p, r);
+        }
+        final JsonObject r = new JsonObject();
+        r.addProperty("id", id);
+        r.addProperty("name", bee.name() + " Produce");
+        r.addProperty("kind", "bee_produce");
+        r.addProperty("category", "forestry-bee");
+        r.addProperty("machineType", BEE_PRODUCE);
+        r.addProperty("minimumTier", "NONE");
+        r.addProperty("durationTicks", com.gtnhplanner.machines.Bees.CYCLE_TICKS);
+        r.addProperty("eut", 0);
+        final JsonArray inputs = new JsonArray();
+        final JsonObject species = new JsonObject();
+        species.addProperty("kind", "item");
+        species.addProperty("id", com.gtnhplanner.machines.Bees.websiteId(bee.uid()));
+        species.addProperty("amount", 1);
+        species.addProperty("displayName", bee.name() + " Bee");
+        species.addProperty("consumed", false);
+        inputs.add(species);
+        r.add("inputs", inputs);
+        final JsonArray outputs = new JsonArray();
+        for (final com.gtnhplanner.machines.Bees.Product p : bee.products()) {
+            final JsonObject o = new JsonObject();
+            o.addProperty("kind", "item");
+            o.addProperty("id", p.id());
+            o.addProperty("amount", p.stack());
+            o.addProperty("displayName", p.name());
+            o.addProperty("chance", (double) p.chance());
+            if (p.specialty()) o.addProperty("byproduct", true);
+            outputs.add(o);
+        }
+        r.add("outputs", outputs);
+        final JsonArray handlers = new JsonArray();
+        final JsonObject apiary = new JsonObject();
+        apiary.addProperty("id", com.gtnhplanner.machines.Bees.APIARY.key());
+        apiary.addProperty("label", com.gtnhplanner.machines.Bees.APIARY.label());
+        apiary.addProperty("machineType", com.gtnhplanner.machines.Bees.APIARY.label());
+        apiary.addProperty("minimumTier", "NONE");
+        apiary.addProperty("eut", 0);
+        apiary.addProperty("kind", "single");
+        handlers.add(apiary);
+        r.add("machineHandlers", handlers);
+        final JsonObject source = new JsonObject();
+        source.addProperty("recipeMap", BEE_PRODUCE);
+        source.addProperty("sourceMod", "GTNH Planner");
+        source.addProperty("rawRecipeId", bee.uid());
+        r.add("source", source);
+        final JsonObject meta = new JsonObject();
+        meta.addProperty("speciesUid", bee.uid());
+        meta.addProperty("speciesName", bee.name());
+        r.add("metadata", meta);
+        return r;
+    }
+
+    /** The website's bee recipes: their recipe map and machine type. */
+    private static final String BEE_PRODUCE = "Bee Produce";
 
     /**
      * A generator, as the site's power cards carry it (buildPowerRecipe): a one-second custom recipe, flows per second
@@ -608,17 +683,32 @@ public final class PlanExport {
             if (cfg.get(FfSettings.COIL) instanceof final String coil && !coil.isEmpty()) o.addProperty("coilTier", coil);
             if (cfg.get(FfSettings.HATCH_TYPE) instanceof final String type && !type.isEmpty())
                 o.addProperty("energyHatchType", type);
-            // A crop's harvester is the website's machine for it; our setting.
+            // A crop's harvester and a bee's housing are the website's machine for them; our settings.
             final boolean crop = world.crop(n) != null;
+            final com.gtnhplanner.machines.Bees.Species bee = crop ? null : world.bee(n);
             final String handler = crop ? cfg.get(com.gtnhplanner.machines.CropsNh.HARVESTER) instanceof final String h
-                && !h.isEmpty() ? h : com.gtnhplanner.machines.CropsNh.MANAGER : world.handlerId(n);
+                && !h.isEmpty() ? h : com.gtnhplanner.machines.CropsNh.MANAGER
+                : bee != null ? com.gtnhplanner.machines.Bees.setup(cfg, bee)
+                    .housing()
+                    .key() : world.handlerId(n);
             if (handler != null) o.addProperty("machineHandlerId", handler);
+            // A bee's housing has no voltage to pick: the Industrial Apiary's own tier, else none.
+            if (bee != null) o.addProperty(
+                "overclockTier",
+                com.gtnhplanner.machines.Bees.INDUSTRIAL.key()
+                    .equals(handler) ? "MV" : "NONE");
             // The machine's options under the website's own ids: the modelled machines' (machines/) as they are kept,
-            // every other machine's from machine:<id>.
+            // every other machine's from machine:<id>. The website's speed gene unset is Normal, ours the species'.
             final JsonObject settings = new JsonObject();
+            if (bee != null) settings.addProperty(
+                com.gtnhplanner.machines.Bees.SPEED,
+                com.gtnhplanner.machines.Bees.setup(cfg, bee)
+                    .speed()
+                    .key());
             for (final Map.Entry<String, Object> s : cfg.entrySet()) {
                 if (!(s.getValue() instanceof final String v) || v.isEmpty()) continue;
-                if (com.gtnhplanner.machines.CropsNh.HARVESTER.equals(s.getKey())) continue;
+                if (com.gtnhplanner.machines.CropsNh.HARVESTER.equals(s.getKey())
+                    || com.gtnhplanner.machines.Bees.HOUSING.equals(s.getKey())) continue;
                 if (FfSettings.modelled(s.getKey())) settings.addProperty(s.getKey(), v);
                 else if (s.getKey()
                     .startsWith(FfSettings.MACHINE))

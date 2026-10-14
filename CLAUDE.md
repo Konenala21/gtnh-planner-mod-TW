@@ -87,6 +87,13 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   count crops planted, harvested by a Crop Manager or the Industrial Farm (the `cropHarvester` setting, the website's
   `machineHandlerId`), its settings under the website's own keys. They import from and post to the website as its
   crop farm cards (`metadata.cropsNh`). The full pack has CropsNH; the dev pack does not.
+- Bees (issue 7, `docs/design/bees.md`): `machines/Bees` is worked from the game's code (Forestry's getFinalChance, the
+  Industrial Apiary's checkRecipe), not the website's bee maths, which it parts from in ways the doc lists; the goldens
+  check the parts they share. A card per species from NEI Addons' bee products page (`data/provider/BeeProvider`, read
+  through Forestry's API; `machines/game/BeeCards`), named for it, its housing a setting (`beeHousing`: Apiary, Magic
+  Apiary, Industrial Apiary) picked from its machine menu, the rest the website's keys (speed gene, `beeEnvironment` as
+  Jubilant, frames, aura, acceleration, production upgrades). Plans carry them both ways as the website's bee cards.
+  `PLANNH_GTNH=1 PLANNH_BEES=1 tools/dev/mc.sh start` adds Forestry and NEI Addons to the dev game.
 - GregTech's steam machines (bronze and steel single blocks, the steam multiblocks: `GtMachines.Kind.steam`, the
   website's "Steam ..." or "High Pressure ..." names) run at no voltage: no tier chip, a voltage left in their settings
   is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report).

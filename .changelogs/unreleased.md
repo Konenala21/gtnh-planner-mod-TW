@@ -7,6 +7,7 @@
 - **Update heads-up** – the planner tells you once when a new version is out.
 - **Bigger tour** – the "?" tour now goes all the way from NEI to placing machines in the world. Quit it whenever and you keep the plan you built as "Tour plan".
 - Inputs that take more than one item (Coal Dust also takes Carbon Dust) get a little orange mark. Scroll on one to swap the item, or just wire the other item in. New cards start on the items you favorited in NEI with Shift+F, and pasted plans keep their picks.
+- **Bees** – plan a bee from its page in NEI. Pick an Apiary, Magic Apiary or Industrial Apiary, set frames or upgrades and the speed gene, and say if it's jubilant to get its special products. Rates follow the game's own bee maths.
 
 ## Better
 

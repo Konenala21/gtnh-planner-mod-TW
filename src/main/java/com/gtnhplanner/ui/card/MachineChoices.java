@@ -47,7 +47,14 @@ public final class MachineChoices {
             // A lone machine outside GregTech: the card keeps the recipe's own name, as it always has.
             if (use == null && !all.isEmpty() && (gregtech(node) || all.size() > 1)) use = all.get(0);
         }
-        if (use != null) CardDefaults.useMachine(node, use.machine(), gregtech(node));
+        if (use != null) {
+            // A bee's housing is a setting of its card (BeeCards); any other machine is the card's machine.
+            final com.gtnhplanner.machines.Bees.Housing housing = com.gtnhplanner.machines.game.BeeCards.isBee(node)
+                ? com.gtnhplanner.machines.game.BeeCards.housingOf(use.machine())
+                : null;
+            if (housing != null) node.machineConfig.setString(com.gtnhplanner.machines.Bees.HOUSING, housing.key());
+            else CardDefaults.useMachine(node, use.machine(), gregtech(node));
+        }
         SettingMemory.applyTo(node);
         CardDefaults.seedHatches(node);
         com.gtnhplanner.nei.FavoriteInputs.apply(node);
@@ -62,6 +69,13 @@ public final class MachineChoices {
     }
 
     private static List<Choice> of(final Node node) {
+        if (com.gtnhplanner.machines.game.BeeCards.isBee(node)) {
+            // A bee lives in a housing of the card's choosing, whatever NEI lists for its page.
+            final List<Choice> out = new ArrayList<>();
+            for (final ItemStack m : com.gtnhplanner.machines.game.BeeCards.housingChoices())
+                out.add(new Choice(CardDefaults.itemKey(m), m, m.getDisplayName(), ""));
+            return out;
+        }
         final boolean gt = gregtech(node);
         final int recipeTier = gt ? CardDefaults.recipeTier(euPerTick(node)) : 0;
         final List<Choice> out = new ArrayList<>();

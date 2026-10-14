@@ -259,9 +259,9 @@ public final class FfConverter {
         Node placeSection(final FfNode card, final FfRecipe recipe, final Map<Integer, FfSlot> overrides,
             final int section, final String name) {
             final Lookup lookup = index.find(recipe);
-            // A crop is the crop it names: its drops are rates the card's settings scale, nothing to match by. A recipe
-            // found by its own id is the one.
-            final RecipeMatcher.Match match = recipe.isCrop() || lookup.exact() ? lookup.candidates()
+            // A crop is the crop it names, a bee the species: their rates are what the card's settings make of them,
+            // nothing to match by. A recipe found by its own id is the one.
+            final RecipeMatcher.Match match = recipe.isCrop() || recipe.isBee() || lookup.exact() ? lookup.candidates()
                 .isEmpty()
                     ? new RecipeMatcher.Match(null, RecipeMatcher.Grade.NONE, "", 0)
                     : new RecipeMatcher.Match(
