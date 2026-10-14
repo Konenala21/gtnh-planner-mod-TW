@@ -369,6 +369,12 @@ public final class Serializer {
                 }
                 obj.add("inputTargets", targets);
             }
+            if (!node.inputPicks.isEmpty()) {
+                final JsonObject picks = new JsonObject();
+                for (final Map.Entry<Integer, String> p : node.inputPicks.entrySet())
+                    picks.addProperty(String.valueOf(p.getKey()), p.getValue());
+                obj.add("inputPicks", picks);
+            }
 
             obj.add("inputs", portListToJson(node.inputs));
             obj.add("outputs", portListToJson(node.outputs));
@@ -465,6 +471,21 @@ public final class Serializer {
                     }
                 }
             } else node.initExtractor();
+            // Before the refresh, which sets each input to the item picked for it.
+            if (obj.has("inputPicks") && obj.get("inputPicks")
+                .isJsonObject()) {
+                for (final Map.Entry<String, JsonElement> p : obj.getAsJsonObject("inputPicks")
+                    .entrySet()) {
+                    try {
+                        node.inputPicks.put(
+                            Integer.parseInt(p.getKey()),
+                            p.getValue()
+                                .getAsString());
+                    } catch (final RuntimeException ignored) {
+                        // A malformed entry loses one pick, not the chart.
+                    }
+                }
+            }
             node.refresh();
 
             if (obj.has("machineCount")) {

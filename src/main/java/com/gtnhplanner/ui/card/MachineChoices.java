@@ -50,6 +50,7 @@ public final class MachineChoices {
         if (use != null) CardDefaults.useMachine(node, use.machine(), gregtech(node));
         SettingMemory.applyTo(node);
         CardDefaults.seedHatches(node);
+        com.gtnhplanner.nei.FavoriteInputs.apply(node);
         return node;
     }
 

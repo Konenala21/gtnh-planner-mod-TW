@@ -6,6 +6,7 @@
 - **Share in chat** – Share → Share in chat drops your plan into the game chat. Anyone on the server with the planner clicks its name to open it.
 - **Update heads-up** – the planner tells you once when a new version is out.
 - **Bigger tour** – the "?" tour now goes all the way from NEI to placing machines in the world. Quit it whenever and you keep the plan you built as "Tour plan".
+- Inputs that take more than one item (Coal Dust also takes Carbon Dust) get a little orange mark. Scroll on one to swap the item, or just wire the other item in. New cards start on the items you favorited in NEI with Shift+F, and pasted plans keep their picks.
 
 ## Better
 

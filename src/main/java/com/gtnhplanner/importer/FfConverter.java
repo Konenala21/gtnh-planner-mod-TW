@@ -305,6 +305,7 @@ public final class FfConverter {
             node.machineConfig.setMachineCount(mapped.machines());
             node.setMachineCountFixed(mapped.pinned());
             for (final String note : mapped.notes()) report.add(Kind.CONVERTED, name, note);
+            pickInputs(node, recipe, overrides, name);
             graph.addNode(node);
             final Placed p = new Placed(node, card, recipe, overrides, section, name);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())
@@ -318,6 +319,53 @@ public final class FfConverter {
                     .add(Kind.WIRE, name, "its target rate names " + target.resourceId() + ", which it does not make");
             }
             return node;
+        }
+
+        /**
+         * The card's picks among the items a slot takes (FF's {@code recipeInputOverrides}, by its recipe's input
+         * index): each slot's port set to the picked item, when the game lists it for that slot. A pick of a whole ore
+         * dictionary group is no pick.
+         */
+        void pickInputs(final Node node, final FfRecipe recipe, final Map<Integer, FfSlot> overrides,
+            final String name) {
+            boolean picked = false;
+            for (final Map.Entry<Integer, FfSlot> o : overrides.entrySet()) {
+                final FfSlot chosen = o.getValue();
+                final int slot = o.getKey();
+                if (slot < 0 || slot >= recipe.inputs()
+                    .size()
+                    || chosen.id()
+                        .startsWith("oredict:"))
+                    continue;
+                final FfSlot own = recipe.inputs()
+                    .get(slot);
+                if (FfIds.same(own.id(), chosen.id())) continue;
+                final List<String> ids = new ArrayList<>(own.ids());
+                ids.add(chosen.id());
+                final int port = findPort(node, false, chosen.kind(), ids);
+                final Port<?> p = port < 0 ? null : node.inputs.get(port);
+                Object item = null;
+                if (p != null) for (final Object alt : p.getAlternatives()) {
+                    if (FfIds.same(
+                        maker.describe(p.withAlternative(alt))
+                            .ids()
+                            .getFirst(),
+                        chosen.id())) {
+                        item = alt;
+                        break;
+                    }
+                }
+                if (item == null) {
+                    report.add(
+                        Kind.CONVERTED,
+                        name,
+                        "takes " + chosen.displayName() + " in the plan, which its slot does not take in game");
+                    continue;
+                }
+                picked |= node.pickInput(port, p.keyOf(item));
+            }
+            // The ports' items changed: what they hold is read again.
+            if (picked) inPorts.remove(node.id);
         }
 
         /**
