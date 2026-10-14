@@ -1194,6 +1194,23 @@ public final class BoardSession {
         PlanAPI.save();
     }
 
+    /**
+     * The board's own panel, set by the screen: every popup a card, drawer or note opens goes over it, as it is open
+     * for as long as the board is. Never the widget's own panel: the board builds its cards afresh whenever one changes
+     * shape, and a sheet or menu still open on one it let go of would ask a widget that is on no panel, which
+     * ModularUI throws for (issue 492: a boiler's fuel picked from its open gear sheet).
+     */
+    private com.cleanroommc.modularui.screen.ModularPanel panel;
+
+    public void setPanel(final com.cleanroommc.modularui.screen.ModularPanel panel) {
+        this.panel = panel;
+    }
+
+    /** The board's own panel, for popups to open over; null until the screen has set it. */
+    public com.cleanroommc.modularui.screen.ModularPanel panel() {
+        return panel;
+    }
+
     /** Opens the library in place of the board: set by the screen, used by the plan tabs' + menu. */
     private Runnable libraryOpener = () -> {};
 

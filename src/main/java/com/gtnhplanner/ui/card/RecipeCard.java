@@ -1210,7 +1210,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         switch (c.type()) {
             case TOGGLE -> changeSetting(node, c.key(), !CardDefaults.boolSetting(cfg, c.key()));
             case NUMBER -> Popup.open(
-                getPanel(),
+                session.panel(),
                 NumberPopup.create(
                     def.label,
                     def.minInt + " to " + def.maxInt,
@@ -1232,7 +1232,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                         option.equals(now),
                         () -> changeSetting(node, c.key(), option)));
                 Popup.open(
-                    getPanel(),
+                    session.panel(),
                     PickList.popup("gtnhplanner_setting_choice", null, rows, rows.size() > 10, 150),
                     sx,
                     sy);
@@ -1303,7 +1303,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (s == null) return;
         if (s.number()) {
             Popup.open(
-                getPanel(),
+                session.panel(),
                 NumberPopup.create(
                     s.label(),
                     plainNumber(s.min()) + (s.max() < Double.MAX_VALUE ? " to " + plainNumber(s.max()) : " or more"),
@@ -1332,8 +1332,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 o.key()
                     .equals(now),
                 () -> changeMachine(key, o.key())));
-        Popup
-            .open(getPanel(), PickList.popup("gtnhplanner_machine_setting", null, rows, rows.size() > 10, 190), sx, sy);
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_machine_setting", null, rows, rows.size() > 10, 190),
+            sx,
+            sy);
     }
 
     /** One step along a modelled machine's setting: the next choice, or one more or less. */
@@ -1425,7 +1428,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 } else openPowerOptions(sx, sy, select);
             }
             case com.gtnhplanner.power.PowerSetting.Number number -> Popup.open(
-                getPanel(),
+                session.panel(),
                 NumberPopup.create(
                     PowerTiles.caption(number),
                     PowerTiles.plain(number.min()) + " to " + PowerTiles.plain(number.max()),
@@ -1462,7 +1465,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     .equals(now),
                 () -> changePower(select.id(), option.key())));
         Popup.open(
-            getPanel(),
+            session.panel(),
             PickList.popup(
                 "gtnhplanner_power_setting",
                 select.label()
@@ -2125,7 +2128,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 Hyb.INK,
                 false,
                 () -> session.togglePinList(nodeId)));
-        Popup.open(getPanel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
+        Popup.open(session.panel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
     }
 
     /**
@@ -2221,7 +2224,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         }
         rows.add(new PickList.Entry(null, "Delete node", "", Hyb.RED_INK, false, () -> session.delete(node)));
         Popup.open(
-            getPanel(),
+            session.panel(),
             PickList.popup("gtnhplanner_actions", null, rows, false, 150),
             screenX(KEY_X),
             screenY(CHIP_Y + CHIP_H + 2));
@@ -2250,7 +2253,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }));
         }
         Popup.open(
-            getPanel(),
+            session.panel(),
             PickList.popup(
                 "gtnhplanner_machines",
                 crop() ? "MACHINES THAT HARVEST THIS CROP"
@@ -2277,12 +2280,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     () -> setCoil(coil)));
         }
         if (rows.isEmpty()) return;
-        Popup.open(getPanel(), PickList.popup("gtnhplanner_coils", null, rows, true, 200), sx, sy);
+        Popup.open(session.panel(), PickList.popup("gtnhplanner_coils", null, rows, true, 200), sx, sy);
     }
 
     private void openAmps() {
         Popup.open(
-            getPanel(),
+            session.panel(),
             NumberPopup.create(
                 "Energy hatch amps",
                 "amps, 1 or more",
@@ -2305,7 +2308,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     public void openPin(final int screenX, final int screenY) {
         if (model == null) return;
         Popup.open(
-            getPanel(),
+            session.panel(),
             NumberPopup.create(
                 "Pin the machine count (empty unpins)",
                 "machines",
@@ -2320,7 +2323,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     /** Every setting the machine's profile offers, as rows: toggles flip, lists step, numbers ask. */
     /** The card's settings, under its gear key. */
     private void openSheet() {
-        SettingsSheet.open(this, screenX(GEAR_X), screenY(CHIP_Y + CHIP_H + 2));
+        SettingsSheet.open(this, canvas(), screenX(GEAR_X), screenY(CHIP_Y + CHIP_H + 2));
     }
 
     // endregion
