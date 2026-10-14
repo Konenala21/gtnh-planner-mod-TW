@@ -87,9 +87,15 @@ public final class FfSettings {
         final Map<String, Object> s = new LinkedHashMap<>();
         final List<String> notes = new ArrayList<>();
         final FfHandler handler = recipe.handler(node.machineHandlerId());
-        final boolean multiblock = handler != null && handler.multiblock();
+        // A recipe that lists no machines (the game's own posts up to 0.2.0-alpha.5) names its block as its machine
+        // type, and gives hatches only to a multiblock.
+        final boolean oldPost = handler == null && recipe.fromGame() && recipe.gregtech();
+        final boolean multiblock = handler != null ? handler.multiblock() : oldPost && node.hatchVoltageTier() != null;
         final String handlerId = handler != null ? handler.id() : node.machineHandlerId();
-        final NodeMaker.Machine machine = new NodeMaker.Machine(handlerId, handler == null ? null : handler.label());
+        final String label = handler != null ? handler.label()
+            : oldPost && !recipe.machineType()
+                .isEmpty() ? recipe.machineType() : null;
+        final NodeMaker.Machine machine = new NodeMaker.Machine(handlerId, label);
         final boolean crop = recipe.isCrop();
 
         int tier = -1;
