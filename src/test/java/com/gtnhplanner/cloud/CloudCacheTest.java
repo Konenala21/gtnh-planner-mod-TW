@@ -1,0 +1,210 @@
+package com.gtnhplanner.cloud;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.gtnhplanner.cloud.net.CloudApi;
+import com.gtnhplanner.cloud.store.CloudCache;
+
+/** What the cache keeps across a restart, and that a crash in the middle of a write costs nothing. */
+class CloudCacheTest {
+
+    @TempDir
+    File root;
+
+    private static JsonObject plan(final String name) {
+        final JsonObject p = new JsonObject();
+        p.addProperty("name", name);
+        return p;
+    }
+
+    private static CloudCache.Batch batch(final String cid) {
+        final JsonArray ops = new JsonArray();
+        final JsonObject op = new JsonObject();
+        op.addProperty("o", "meta");
+        ops.add(op);
+        return new CloudCache.Batch(cid, 4, ops);
+    }
+
+    private static List<String> cids(final CloudCache c, final String key) {
+        return c.pending(key)
+            .stream()
+            .map(CloudCache.Batch::cid)
+            .toList();
+    }
+
+    @Test
+    void thePlanAndItsSeqComeBackAfterARestart() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        assertNull(a.doc("u1:d1"));
+        a.saveDoc("u1:d1", 12, plan("Smelter"));
+        a.close();
+        assertTrue(new File(root, "gtnhplanner/cloud/u1").isDirectory());
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(
+            12,
+            b.doc("u1:d1")
+                .seq());
+        assertEquals(
+            "Smelter",
+            b.doc("u1:d1")
+                .plan()
+                .get("name")
+                .getAsString());
+        assertNull(
+            CloudCache.forAccount(root, "u2")
+                .doc("u1:d1"));
+    }
+
+    @Test
+    void aBatchIsOnDiskWhenItsFutureIsDoneAndGoneWhenAcked() throws Exception {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.addPending("u1:d1", batch("c1"))
+            .get();
+        a.addPending("u1:d1", batch("c2"))
+            .get();
+        // Not closed, not flushed: as a crash leaves it.
+        final CloudCache crashed = CloudCache.forAccount(root, "u1");
+        assertEquals(List.of("c1", "c2"), cids(crashed, "u1:d1"));
+        assertEquals(
+            4,
+            crashed.pending("u1:d1")
+                .get(0)
+                .base());
+        assertEquals(
+            "meta",
+            crashed.pending("u1:d1")
+                .get(0)
+                .ops()
+                .get(0)
+                .getAsJsonObject()
+                .get("o")
+                .getAsString());
+        assertEquals(List.of("u1:d1"), crashed.keysWithPending());
+
+        a.ack("u1:d1", "c1")
+            .get();
+        a.ack("u1:d1", "nope")
+            .get();
+        assertEquals(List.of("c2"), cids(CloudCache.forAccount(root, "u1"), "u1:d1"));
+        a.ack("u1:d1", "c2")
+            .get();
+        final CloudCache empty = CloudCache.forAccount(root, "u1");
+        assertTrue(
+            empty.pending("u1:d1")
+                .isEmpty());
+        assertTrue(
+            empty.keysWithPending()
+                .isEmpty());
+    }
+
+    @Test
+    void aWriteThatDiedHalfwayLeavesTheLastGoodFile() throws IOException {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.saveDoc("u1:d1", 3, plan("Good"));
+        a.addPending("u1:d1", batch("c1"));
+        a.close();
+        final File dir = new File(root, "gtnhplanner/cloud/u1/docs/u1_d1");
+        // The writer was killed after starting the next copy: only the .new files are torn.
+        Files.write(
+            new File(dir, "plan.json.new").toPath(),
+            "{\"seq\":9,\"plan\":{\"na".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(dir, "pending.json.new").toPath(), "{".getBytes(StandardCharsets.UTF_8));
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(
+            3,
+            b.doc("u1:d1")
+                .seq());
+        assertEquals(
+            1,
+            b.pending("u1:d1")
+                .size());
+        assertFalse(new File(dir, "plan.json.new").exists());
+        // A torn real file (a disk that lied) is no copy rather than a crash.
+        Files.write(new File(dir, "plan.json").toPath(), "{\"seq\":".getBytes(StandardCharsets.UTF_8));
+        assertNull(
+            CloudCache.forAccount(root, "u1")
+                .doc("u1:d1"));
+        assertEquals(
+            1,
+            CloudCache.forAccount(root, "u1")
+                .pending("u1:d1")
+                .size());
+    }
+
+    @Test
+    void writesLandInTheOrderTheyWereMade() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        for (int i = 0; i < 50; i++) a.saveDoc("u1:d1", i, plan("v" + i));
+        a.flush();
+        assertEquals(
+            49,
+            CloudCache.forAccount(root, "u1")
+                .doc("u1:d1")
+                .seq());
+        final File[] left = new File(root, "gtnhplanner/cloud/u1/docs/u1_d1").listFiles((d, n) -> n.endsWith(".new"));
+        assertEquals(0, left.length);
+    }
+
+    @Test
+    void pinsAndTheListAreKeptPerPlan() throws Exception {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.setPins("u1:d1", List.of("n1", "n2"))
+            .get();
+        assertTrue(
+            a.pins("u1:d2")
+                .isEmpty());
+        final CloudApi.Library lib = CloudApi.Library.fromJson(
+            new JsonParser()
+                .parse(
+                    "{\"own\":[{\"id\":\"d1\",\"ownerId\":\"u1\",\"name\":\"Smelter\","
+                        + "\"members\":[{\"id\":\"u2\",\"username\":\"bob\"}]}],\"shared\":[]}")
+                .getAsJsonObject());
+        a.saveList(lib)
+            .get();
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(List.of("n1", "n2"), b.pins("u1:d1"));
+        assertEquals(
+            "Smelter",
+            b.list()
+                .own()
+                .get(0)
+                .name());
+        assertEquals(
+            "bob",
+            b.list()
+                .own()
+                .get(0)
+                .members()
+                .get(0)
+                .username());
+        assertNull(
+            CloudCache.forAccount(root, "u3")
+                .list());
+    }
+
+    @Test
+    void forgettingAPlanRemovesItsFiles() throws Exception {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.saveDoc("u1:d1", 1, plan("x"));
+        a.addPending("u1:d1", batch("c1"));
+        a.forget("u1:d1")
+            .get();
+        assertNull(a.doc("u1:d1"));
+        assertFalse(new File(root, "gtnhplanner/cloud/u1/docs/u1_d1").exists());
+    }
+}

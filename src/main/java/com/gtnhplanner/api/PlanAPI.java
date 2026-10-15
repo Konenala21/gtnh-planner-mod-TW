@@ -82,19 +82,35 @@ public final class PlanAPI {
         lastSavedPlans = plans;
         if (!saveFile.isFile() || backedUpThisSession && !fewer) return;
         backedUpThisSession = true;
+        copyToBackups(saveFile, fewer ? "-before-delete" : "");
+    }
+
+    /**
+     * Copies the save on disk into {@code backups} now, whatever the session has already backed up (a change about to
+     * touch every plan, such as uploading them). The newest ten are kept. False when there was nothing to copy or it
+     * failed.
+     */
+    public static boolean backUpNow(final String suffix) {
+        final File saveFile = getSaveFile();
+        return saveFile.isFile() && copyToBackups(saveFile, suffix);
+    }
+
+    private static boolean copyToBackups(final File saveFile, final String suffix) {
         try {
             final File dir = new File(saveFile.getParentFile(), "backups");
             dir.mkdirs();
             final String stamp = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date());
-            final File copy = new File(dir, "plans-" + stamp + (fewer ? "-before-delete" : "") + ".dat");
+            final File copy = new File(dir, "plans-" + stamp + suffix + ".dat");
             Files.copy(saveFile.toPath(), copy.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             final File[] all = dir.listFiles((d, name) -> name.startsWith("plans-") && name.endsWith(".dat"));
             if (all != null && all.length > 10) {
                 java.util.Arrays.sort(all, java.util.Comparator.comparing(File::getName));
                 for (int i = 0; i < all.length - 10; i++) all[i].delete();
             }
+            return true;
         } catch (final Exception e) {
             com.gtnhplanner.GtnhPlanner.LOG.warn("Could not back up the plans", e);
+            return false;
         }
     }
 

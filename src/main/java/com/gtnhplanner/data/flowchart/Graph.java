@@ -104,6 +104,15 @@ public class Graph {
     @Nullable
     private String postId;
 
+    /**
+     * The cloud plan this slot was uploaded as (its doc key, {@code <ownerId>:<designId>}), so it is never uploaded
+     * twice; null while it is only on this computer. Saved with the slot, never in a plan code.
+     */
+    @Getter
+    @Setter
+    @Nullable
+    private String cloudKey;
+
     /** A line or two about the plan: its post's description. Saved with the slot. */
     @Getter
     @Setter
@@ -210,6 +219,7 @@ public class Graph {
         this.lastOpen = replaced.lastOpen;
         this.open = replaced.open;
         this.postId = replaced.postId;
+        this.cloudKey = replaced.cloudKey;
         this.description = replaced.description;
         this.icon = replaced.icon;
     }
