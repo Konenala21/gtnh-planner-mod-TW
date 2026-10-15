@@ -156,7 +156,7 @@ public final class TaskEdits {
         final int i = Math.max(0, Math.min(others.size(), index));
         String order;
         try {
-            order = OrderKeys.between(
+            order = strictBetween(
                 i > 0 ? others.get(i - 1)
                     .order() : null,
                 i < others.size() ? others.get(i)
@@ -272,6 +272,15 @@ public final class TaskEdits {
             t.doneAt());
     }
 
+    /**
+     * A key between two neighbours of a move; throws when they are not in order (equal or reversed keys), so the
+     * caller numbers the list afresh instead of guessing a place.
+     */
+    private static String strictBetween(@Nullable final String a, @Nullable final String b) {
+        if (a != null && b != null && a.compareTo(b) >= 0) throw new IllegalArgumentException(a + " >= " + b);
+        return OrderKeys.between(a, b);
+    }
+
     /** Numbers a column afresh, in its order: for a column whose last key nothing can follow. */
     private static void renumber(final Graph g, final List<Tasks.Task> column) {
         final List<String> keys = OrderKeys.sequence(column.size());
@@ -325,7 +334,7 @@ public final class TaskEdits {
         final int i = Math.max(0, Math.min(others.size(), index));
         String order;
         try {
-            order = OrderKeys.between(
+            order = strictBetween(
                 i > 0 ? others.get(i - 1)
                     .order() : null,
                 i < others.size() ? others.get(i)
