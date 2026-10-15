@@ -1438,6 +1438,13 @@ public final class BoardSession {
         Sfx.PAGE.play();
     }
 
+    /** Puts the open plans' tabs in a new order (the open slots, in the order they should run) and saves it. */
+    public void reorderTabs(final List<Integer> order) {
+        if (!Plan.getInstance()
+            .reorderOpen(order)) return;
+        PlanAPI.save();
+    }
+
     /** Takes up the active plan when it changed (a tab, or the plan button on NEI's recipe page picking another). */
     private void follow() {
         final Graph active = Plan.getActiveGraph();

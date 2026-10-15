@@ -1,7 +1,9 @@
 package com.gtnhplanner.ui;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.cleanroommc.modularui.api.UpOrDown;
 import com.cleanroommc.modularui.api.widget.Interactable;
@@ -14,12 +16,18 @@ import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.popup.TextPopup;
+import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
  * The plan tabs on the top bar: one per open plan, then "+". A tab is only a plan that is open; closing it (its x,
  * or a middle click) keeps the plan, in the library's My plans, as on the website. Click switches; right-click
  * renames, copies, closes or deletes; the active tab is raised like a card.
+ *
+ * <p>
+ * A tab is carried as a card is: a press that moves 3 GUI pixels lifts it, it follows the mouse along the strip, the
+ * others glide aside to make room, the strip scrolls when the mouse is held near its edge, letting go drops it in place
+ * (and saves the order) and Esc puts it back. A press that does not move is a click and acts when let go.
  *
  * <p>
  * Every tab keeps its name readable. When they do not all fit, the strip scrolls sideways (the wheel, or the thin bar
@@ -44,6 +52,23 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     private boolean draggingBar;
     private int barGrab;
 
+    /** Pressed slop in GUI pixels before a tab is carried, as the board's. */
+    private static final int DRAG_SLOP = 3;
+    /** How near the strip's edge the mouse scrolls it, and how fast (pixels a second) at the very edge. */
+    private static final int EDGE = 20, EDGE_SPEED = 600;
+    /** How fast tabs glide to their places: about 120 ms to get there. */
+    private static final float GLIDE_SECONDS = 0.035f;
+
+    /** The plan slot pressed (left button, on a tab's body), or -1; a click when let go without moving. */
+    private int pressed = -1;
+    private int pressX, grabX;
+    /** Whether the pressed tab is in hand, and the open slots in the order they would take now. */
+    private boolean lifted;
+    private List<Integer> order = List.of();
+    /** Where each tab shows while it glides, in strip coordinates; empty once all are home. */
+    private final Map<Graph, Float> shown = new IdentityHashMap<>();
+    private long frameNanos;
+
     PlanTabs(final BoardSession session) {
         this.session = session;
     }
@@ -66,8 +91,9 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final List<Graph> slots = session.slots();
         final List<Tab> out = new ArrayList<>();
         int x = 0;
-        for (final int slot : Plan.getInstance()
-            .openSlots()) {
+        for (final int slot : lifted ? order
+            : Plan.getInstance()
+                .openSlots()) {
             final int w = tabWidth(slots.get(slot));
             out.add(new Tab(slot, x, w));
             x += w + TAB_GAP;
@@ -176,13 +202,24 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         follow(tabs);
         final List<Graph> slots = session.slots();
         final int h = getArea().height, strip = stripW(), max = maxScroll(tabs);
-        final Tab hover = isHovering() && !draggingBar ? tabAtMouse() : null;
+        final Tab hover = isHovering() && !draggingBar && !lifted ? tabAtMouse() : null;
+        final float dt = frameTime();
+        carry(tabs, slots, dt);
         Stencil.apply(0, 0, strip, h, context);
+        Tab inHand = null;
+        float handX = 0;
         for (final Tab t : tabs) {
-            final int x = t.x() - scroll, w = t.w();
+            final float fx = glided(slots.get(t.slot()), t.x(), dt);
+            if (lifted && t.slot() == pressed) {
+                inHand = t;
+                handX = fx;
+                continue;
+            }
+            final int x = Math.round(fx) - scroll, w = t.w();
             if (x + w <= 0 || x >= strip) continue;
             drawTab(t.slot(), x, w, h, slots, hover != null && hover.slot() == t.slot() ? hover : null);
         }
+        if (inHand != null) drawTab(inHand.slot(), Math.round(handX) - scroll, inHand.w(), h, slots, null);
         Stencil.remove();
         // More beyond an edge: the tabs fade out into the bar there.
         if (scroll > 0) fade(0, h, true);
@@ -196,6 +233,104 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         }
         final Tab plus = plus(tabs);
         drawTab(-1, plus.x(), plus.w(), h, slots, hover != null && hover.slot() < 0 ? hover : null);
+    }
+
+    /** Seconds since the last frame, at most 50 ms. */
+    private float frameTime() {
+        final long now = System.nanoTime();
+        final float dt = frameNanos == 0 ? 0 : Math.min(0.05f, (now - frameNanos) / 1e9f);
+        frameNanos = now;
+        return dt;
+    }
+
+    /**
+     * Where a tab shows this frame: where it belongs, unless it is still gliding there from where it was (or, in hand,
+     * where the mouse has it).
+     */
+    private float glided(final Graph g, final int target, final float dt) {
+        final Float from = shown.get(g);
+        if (from == null) return target;
+        if (lifted && g == slotGraph(pressed)) return from;
+        final float at = from + (target - from) * (1 - (float) Math.exp(-dt / GLIDE_SECONDS));
+        if (Math.abs(target - at) < 0.5f) {
+            shown.remove(g);
+            return target;
+        }
+        shown.put(g, at);
+        return at;
+    }
+
+    private Graph slotGraph(final int slot) {
+        final List<Graph> slots = session.slots();
+        return slot >= 0 && slot < slots.size() ? slots.get(slot) : null;
+    }
+
+    /** The tab in hand's frame: lifts it past the slop, follows the mouse, scrolls at the edge, finds its place. */
+    private void carry(final List<Tab> tabs, final List<Graph> slots, final float dt) {
+        if (pressed < 0) return;
+        if (pressed >= slots.size() || !Plan.getInstance()
+            .openSlots()
+            .contains(pressed)) {
+            cancel();
+            return;
+        }
+        if (!lifted) {
+            if (Math.abs(mouseX() - pressX) < DRAG_SLOP) return;
+            lifted = true;
+            order = new ArrayList<>(
+                Plan.getInstance()
+                    .openSlots());
+            for (final Tab t : tabs) shown.put(slots.get(t.slot()), (float) t.x());
+            Sfx.LIFT.play();
+        }
+        final int strip = stripW(), mx = mouseX();
+        final int into = mx < EDGE ? mx - EDGE : mx > strip - EDGE ? mx - (strip - EDGE) : 0;
+        if (into != 0 && dt > 0) {
+            final float speed = Math.min(1f, Math.abs(into) / (float) EDGE) * EDGE_SPEED;
+            scroll = Math.max(0, Math.min(maxScroll(tabs), scroll + Math.round(Math.signum(into) * speed * dt)));
+        }
+        final List<Integer> before = Plan.getInstance()
+            .openSlots();
+        final int[] widths = new int[before.size()];
+        int held = 0, width = 0;
+        for (int i = 0; i < widths.length; i++) {
+            widths[i] = tabWidth(slots.get(before.get(i)));
+            if (before.get(i) == pressed) {
+                held = i;
+                width = widths[i];
+            }
+        }
+        final float left = Math.max(0, Math.min(Math.max(0, contentW(tabs) - width), mx + scroll - grabX));
+        shown.put(slots.get(pressed), left);
+        final int slot = TabOrder.slotAt(widths, held, left + width / 2f, TAB_GAP);
+        final List<Integer> next = TabOrder.orderWith(before, pressed, slot);
+        if (!next.equals(order)) {
+            order = next;
+            Sfx.TICK.play();
+        }
+    }
+
+    /** Esc: puts a tab in hand back where it was; false when none is. */
+    boolean cancel() {
+        if (pressed < 0) return false;
+        pressed = -1;
+        lifted = false;
+        order = List.of();
+        return true;
+    }
+
+    /** Ctrl+Shift+Left or Right: moves the open plan's tab one place. */
+    boolean moveActive(final int by) {
+        if (lifted) return false;
+        final List<Integer> open = Plan.getInstance()
+            .openSlots();
+        final List<Integer> next = TabOrder.stepped(open, session.activeSlot(), by);
+        if (next.equals(open)) return true;
+        final List<Graph> slots = session.slots();
+        for (final Tab t : tabs()) shown.put(slots.get(t.slot()), (float) t.x());
+        Sfx.TICK.play();
+        session.reorderTabs(next);
+        return true;
     }
 
     /** A soft edge {@value #FADE} wide in the bar's colour: opaque at the strip's edge, clear inward. */
@@ -264,8 +399,28 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     @Override
     public boolean onMouseRelease(final int mouseButton) {
-        if (!draggingBar) return false;
-        draggingBar = false;
+        if (draggingBar) {
+            draggingBar = false;
+            return true;
+        }
+        if (mouseButton != 0 || pressed < 0) return false;
+        final int slot = pressed;
+        final boolean wasLifted = lifted;
+        final List<Integer> dropped = order;
+        pressed = -1;
+        lifted = false;
+        order = List.of();
+        if (!wasLifted) {
+            // Never moved: a click.
+            session.switchSlot(slot);
+            return true;
+        }
+        Sfx.DROP.play();
+        if (!dropped.equals(
+            Plan.getInstance()
+                .openSlots())) {
+            session.reorderTabs(dropped);
+        }
         return true;
     }
 
@@ -302,7 +457,11 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
             return Result.SUCCESS;
         }
         if (mouseButton == 0) {
-            session.switchSlot(slot);
+            // Acts when let go: a click switches, a move carries the tab.
+            pressed = slot;
+            pressX = mouseX();
+            grabX = mouseX() + scroll - t.x() - scroll;
+            lifted = false;
             return Result.SUCCESS;
         }
         final Graph g = session.slots()
@@ -357,7 +516,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     /** Tooltip lines for the tab under the mouse. */
     List<String> hoverLines() {
-        if (!isHovering() || draggingBar || onBar()) return null;
+        if (!isHovering() || draggingBar || onBar() || pressed >= 0) return null;
         final Tab t = tabAtMouse();
         if (t == null) return null;
         if (t.slot() < 0) return List.of("New plan, or open an existing one");

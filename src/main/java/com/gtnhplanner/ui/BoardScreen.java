@@ -604,6 +604,15 @@ public final class BoardScreen extends ModularScreen {
 
     @Override
     public boolean onKeyPressed(final char typedChar, final int keyCode) {
+        // A tab in hand: Esc puts it back; Ctrl+Shift+Left or Right moves the open plan's tab a place.
+        if (parts.get("tabs") instanceof final PlanTabs planTabs) {
+            if (keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE && planTabs.cancel()) return true;
+            if ((keyCode == org.lwjgl.input.Keyboard.KEY_LEFT || keyCode == org.lwjgl.input.Keyboard.KEY_RIGHT)
+                && net.minecraft.client.gui.GuiScreen.isCtrlKeyDown()
+                && net.minecraft.client.gui.GuiScreen.isShiftKeyDown()
+                && !textFocused(this)
+                && planTabs.moveActive(keyCode == org.lwjgl.input.Keyboard.KEY_LEFT ? -1 : 1)) return true;
+        }
         // Esc closes the open popup (a menu, a number box), not the whole planner.
         if (keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE
             && getPanelManager().getTopMostPanel() instanceof Popup popup) {
