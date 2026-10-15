@@ -301,6 +301,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         stepGhostWire();
         tickArrange();
         session.setHover(hoveredScope());
+        samplePresence();
         final Area a = getArea();
         Hyb.rect(0, 0, a.width, a.height, Hyb.seeThrough(Hyb.CANVAS));
         if (cards.isEmpty() && drawers.isEmpty() && notes.isEmpty()) {
@@ -419,8 +420,75 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             drawSpareHover();
             if (carry != null) drawSpareCarry();
             drawBox();
-        } else Stencil.remove();
+        } else {
+            // Over everything on the board, in its own screen pixels: the others in the plan.
+            if (!PlanPicture.drawing()) drawPresence();
+            Stencil.remove();
+        }
     }
+
+    // region Who else is here
+
+    private final PresenceLayer presence = new PresenceLayer(this);
+
+    /**
+     * Where this player is, for the others in the plan: the board point under the mouse while it is on the board
+     * itself (not a popup over it), and the view's middle; sent when it changed. The others' cursors glide on.
+     */
+    private void samplePresence() {
+        try {
+            final Area a = getArea();
+            final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+            final boolean on = a.isInside(mx, my) && onBoard(getContext().getHovered());
+            session.presenceOut()
+                .sample(
+                    on,
+                    Math.round(worldX(mx)),
+                    Math.round(worldY(my)),
+                    worldX(a.x + a.width / 2),
+                    worldY(a.y + a.height / 2),
+                    graph().getZoom());
+            session.sendPresence();
+            session.peers()
+                .step();
+        } catch (final RuntimeException e) {
+            presenceFailed(e);
+        }
+    }
+
+    private boolean presenceFailed;
+
+    /** Presence never takes the board down with it: a failure is logged once, and the board draws on. */
+    private void presenceFailed(final RuntimeException e) {
+        if (presenceFailed) return;
+        presenceFailed = true;
+        com.gtnhplanner.GtnhPlanner.LOG.error("Presence on the board failed", e);
+    }
+
+    /**
+     * Whether the widget under the mouse is the board or on it (not a popup or bar over it). One the board has just
+     * let go of (built afresh) was on it; asking it for its parent would throw.
+     */
+    private boolean onBoard(@Nullable final IWidget hovered) {
+        for (IWidget at = hovered; at != null; at = at.getParent()) {
+            if (at == this || !at.isValid()) return true;
+        }
+        return hovered == null;
+    }
+
+    private void drawPresence() {
+        final com.gtnhplanner.ui.live.Peers peers = session.peers();
+        if (peers.quiet()) return;
+        final long started = com.gtnhplanner.dev.DevPerf.on() ? System.nanoTime() : 0;
+        try {
+            presence.draw(peers, getArea(), graph().getPanX(), graph().getPanY(), graph().getZoom());
+        } catch (final RuntimeException e) {
+            presenceFailed(e);
+        }
+        if (started != 0) com.gtnhplanner.dev.DevPerf.time("presence", System.nanoTime() - started);
+    }
+
+    // endregion
 
     /** The wires as last drawn. */
     private List<WireLayer.Wire> routed = List.of();

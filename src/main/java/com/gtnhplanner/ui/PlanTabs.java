@@ -12,16 +12,19 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.cloud.session.CloudSession;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
+import com.gtnhplanner.ui.live.Peers;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.popup.TextPopup;
+import com.gtnhplanner.ui.task.TaskLook;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
  * The plan tabs on the top bar: one per open plan, then "+". A tab is only a plan that is open; closing it (its x,
  * or a middle click) keeps the plan, in the library's My plans, as on the website. Click switches; right-click
- * renames, copies, closes or deletes; the active tab is raised like a card. Signed in, the strip ends in how the
- * account's plans stand: live, connecting, or offline with edits kept here.
+ * renames, copies, closes or deletes; the active tab is raised like a card. Signed in, the strip ends in who else has
+ * the open plan open (their faces) and how the account's plans stand: live, connecting, or offline with edits kept
+ * here.
  *
  * <p>
  * Every tab keeps its name readable. When they do not all fit, the strip scrolls sideways (the wheel, or the thin bar
@@ -58,10 +61,89 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     /** One tab: the plan slot it shows, where it is in the strip (before scrolling) and how wide. */
     private record Tab(int slot, int x, int w) {}
 
-    /** The width the tabs scroll in: the bar less the "+" key and the account's status at its end. */
+    /** The width the tabs scroll in: the bar less the "+" key, and who is here and the account's status at its end. */
     private int stripW() {
-        return Math.max(0, getArea().width - PLUS - 4 - statusW());
+        return Math.max(0, getArea().width - PLUS - 4 - facesW() - statusW());
     }
+
+    // region Who else is here
+
+    /** How many faces show before the rest are a count; the room between them and the status. */
+    private static final int FACES_SHOWN = 5, FACES_GAP = 8;
+
+    private List<Peers.Face> faces() {
+        return session.peers()
+            .faces();
+    }
+
+    /** One face's width: its initials. */
+    private static int faceW(final Peers.Face f) {
+        return TaskLook.faceWidth(TaskLook.initials(f.username()));
+    }
+
+    /** The count of those past the faces shown: "+3". */
+    private static String more(final List<Peers.Face> faces) {
+        return "+" + (faces.size() - FACES_SHOWN);
+    }
+
+    /** The faces' width, a pixel between each: nothing when nobody else is here. */
+    private int facesW() {
+        final List<Peers.Face> faces = faces();
+        if (faces.isEmpty()) return 0;
+        int w = FACES_GAP;
+        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) w += faceW(faces.get(i)) + 1;
+        if (faces.size() > FACES_SHOWN) w += Hyb.width(more(faces)) + 5;
+        return w;
+    }
+
+    /** Who else has the plan open, their initials in their colours, left of the status. */
+    private void drawFaces(final int h) {
+        final List<Peers.Face> faces = faces();
+        if (faces.isEmpty()) return;
+        int x = getArea().width - statusW() - facesW() + FACES_GAP / 2;
+        final int y = (h - TaskLook.FACE) / 2;
+        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) {
+            final Peers.Face f = faces.get(i);
+            x += TaskLook.face(f.username(), f.colour(), x, y) + 1;
+        }
+        if (faces.size() > FACES_SHOWN) {
+            final String more = more(faces);
+            Hyb.rect(x, y, Hyb.width(more) + 4, TaskLook.FACE, 0xFF2D2F35);
+            Hyb.text(more, x + 2, y + 2, 1f, Hyb.MUTED, false);
+        }
+    }
+
+    /** The tooltip of the face under the mouse: who, and where they have the plan open; null off the faces. */
+    @org.jetbrains.annotations.Nullable
+    private List<String> faceLines() {
+        final List<Peers.Face> faces = faces();
+        if (faces.isEmpty()) return null;
+        final int mx = mouseX();
+        int x = getArea().width - statusW() - facesW() + FACES_GAP / 2;
+        if (mx < x) return null;
+        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) {
+            final Peers.Face f = faces.get(i);
+            final int w = faceW(f) + 1;
+            if (mx < x + w) return List.of(f.username(), "§7" + where(f));
+            x += w;
+        }
+        if (faces.size() > FACES_SHOWN && mx < x + Hyb.width(more(faces)) + 4) {
+            final List<String> rest = new ArrayList<>();
+            for (int i = FACES_SHOWN; i < faces.size(); i++) rest.add(
+                faces.get(i)
+                    .username());
+            return rest;
+        }
+        return null;
+    }
+
+    /** Where someone has the plan open. */
+    private static String where(final Peers.Face f) {
+        if (f.inGame() && f.inBrowser()) return "In game and in a browser";
+        return f.inGame() ? "In game" : "In a browser";
+    }
+
+    // endregion
 
     // region Where the account's plans stand
 
@@ -249,6 +331,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         }
         final Tab plus = plus(tabs);
         drawTab(-1, plus.x(), plus.w(), h, slots, hover != null && hover.slot() < 0 ? hover : null);
+        drawFaces(h);
         drawStatus(h);
     }
 
@@ -417,6 +500,8 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         if (!isHovering() || draggingBar || onBar()) return null;
         final CloudSession cloud = cloud();
         if (cloud != null && onStatus()) return List.of(statusTip(cloud));
+        final List<String> face = faceLines();
+        if (face != null) return face;
         final Tab t = tabAtMouse();
         if (t == null) return null;
         if (t.slot() < 0) return List.of("New plan, or open an existing one");

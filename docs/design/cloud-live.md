@@ -320,6 +320,30 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
 - Presence and sharing build on `BoardSession.live()` (the open plan's `LiveDoc`: `key`, `role`, `owner`, `members`,
   `present`, presence and people listeners, `sendPresence`, `planId`, `at`/`onBoard` for coordinates) and
   `CloudSession.client()`.
+- Presence out (`ui/live/PresenceOut`): the board samples the mouse as it draws; while it is on the board itself (not
+  a popup or bar over it) the cursor goes in the plan's coordinates, with the plan's ids of the selected cards, drawers
+  and notes and the view (`{x, y, zoom}`: the plan's point in the middle of the board, and the board's zoom), at most
+  ten a second and only when something changed. The cursor is null off the board, on the task board or the library;
+  closing the planner or opening another plan sends no cursor and nothing selected.
+- Presence in (`ui/live/Peers`, drawn by `ui/canvas/PresenceLayer`): each other connection's cursor, a small arrow in
+  its colour with its name on a tag, one size on screen at every zoom, gliding to where it was last heard and fading
+  out once quiet for 9 s; what it has selected outlined in its colour, two people on one thing one ring round the
+  other, their names over the first. This account's own other connections are not drawn, as on the website. Nothing
+  is drawn, and nothing measurable spent, while nobody is pointing at or holding anything. `call 'cloud?fake=N'`
+  (dev/DevPeople) puts stand-ins on the open plan without a live service.
+- Faces: the tab strip ends in who else has the open plan open (one face per account, its initials in its colour,
+  five and then a count; the tooltip names them and says in game, in a browser or both), then the status. Colours are
+  the service's own (`Peers.colourOf` is the website's `colorFor`), task faces included, so one person is one colour
+  everywhere. On a cloud plan a task's Assign key lists its owner and members (`TaskLook.people`) and a pick puts them
+  on the task or takes them off; a plan on this computer keeps Assign me.
+- Share with people (the top bar's Share menu; greyed with "Sign in to share" signed out, and for a plan on this
+  computer only): `ui/popup/SharePanel`, a box in the middle of the screen. Who can edit (the owner, then the members:
+  the owner removes them, a member leaves through the tab's own Leave plan), then for the owner the signed-in players in
+  this game (`CloudApi.nearby` with the tab list's names, at most 100; asked when the box opens and on Look again,
+  never on a timer, as the service limits it) and a search of every account as a name is typed (300 ms after the last
+  key). Each shows its username, an in-game one its Minecraft name too. The list follows the room (`members` pushes)
+  and `CloudApi.sharing` (`GET .../members`). The library's post is Publish to library (Update in library once
+  published): it never shares the live plan.
 
 ## Local development
 
@@ -329,6 +353,9 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   anywhere.
 - Game: `call 'library?url=http://localhost:3000'` points the game at it (the live URL follows: `ws://localhost:3001/
   live`, or `call 'library?live=...'`).
+- Game alone: `node tools/dev/mock-library.mjs` with `tools/dev/mock-live.mjs` is a stand-in for the site and the live
+  service in one process (in memory, kept in `build/dev-client/mock-*.json`), with two stand-in accounts who open a plan
+  shared with them and point at its cards: sharing, presence and faces end to end without the website.
 - Two people: the dev game plus the website in a browser, or two browser profiles; a headless test client in each
   repository drives the protocol.
 

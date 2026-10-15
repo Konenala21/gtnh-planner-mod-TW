@@ -9,9 +9,13 @@ import java.util.Locale;
 
 import javax.annotation.Nullable;
 
+import com.gtnhplanner.cloud.net.LiveClient;
+import com.gtnhplanner.cloud.session.CloudSession;
+import com.gtnhplanner.cloud.session.LiveDoc;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.library.Account;
+import com.gtnhplanner.ui.live.Peers;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
@@ -69,17 +73,57 @@ public final class TaskLook {
         return by != null && (by.equals(LOCAL) || by.equals(Account.userId()));
     }
 
-    /** Someone's name by account id: the player's own, else the name their comments on the plan carry; null if none. */
+    /**
+     * Someone's name by account id: the player's own, else as a shared plan's room names its owner, members and who
+     * is in it, else the name their comments on the plan carry; null if none.
+     */
     @Nullable
     public static String nameOf(final Graph g, final String id) {
         if (id.equals(Account.userId())) return Account.username();
         if (id.equals(LOCAL)) return YOU;
+        for (final Person p : people(g)) if (p.id()
+            .equals(id)) return p.name();
+        final LiveDoc d = live(g);
+        if (d != null) for (final LiveClient.Person p : d.present()) if (p.id()
+            .equals(id)) return p.username();
         for (final Tasks.Comment c : g.taskComments) if (c.by()
             .equals(id)
             && !c.byName()
                 .isEmpty())
             return c.byName();
         return null;
+    }
+
+    /** Someone who may be given a task: an account and its name. */
+    public record Person(String id, String name) {}
+
+    /**
+     * Who may be given a task on a cloud plan: its owner and its members (the player among them), as its room last
+     * said; the player alone before it has. Empty for a plan on this computer.
+     */
+    public static List<Person> people(final Graph g) {
+        final LiveDoc d = live(g);
+        if (d == null) return List.of();
+        final java.util.Map<String, Person> out = new java.util.LinkedHashMap<>();
+        if (d.owner() != null) out.put(
+            d.owner()
+                .id(),
+            new Person(
+                d.owner()
+                    .id(),
+                d.owner()
+                    .username()));
+        for (final LiveClient.Member m : d.members()) out.putIfAbsent(m.id(), new Person(m.id(), m.username()));
+        final String me = Account.userId();
+        if (me != null) out.putIfAbsent(me, new Person(me, myName()));
+        return List.copyOf(out.values());
+    }
+
+    /** The cloud plan behind a board, or null. */
+    @Nullable
+    private static LiveDoc live(final Graph g) {
+        final CloudSession s = CloudSession.current();
+        return s == null ? null : s.doc(g);
     }
 
     /** Up to two initials: a name's first letter, or the first letters of its first two words. */
@@ -97,12 +141,12 @@ public final class TaskLook {
             .toUpperCase(Locale.ROOT);
     }
 
-    /** Faces' colours, picked by account id so one person is the same colour everywhere. */
-    private static final int[] FACES = { 0xFFF59E0B, 0xFF10B981, 0xFF3B82F6, 0xFFEC4899, 0xFF8B5CF6, 0xFFEF4444,
-        0xFF14B8A6, 0xFF84CC16 };
-
+    /**
+     * A face's colour by account id: the one the live service gives the account, so a person is the same colour on the
+     * task board, their cursor and the website.
+     */
     public static int faceColour(final String id) {
-        return FACES[Math.floorMod(id.hashCode(), FACES.length)];
+        return Peers.colourOf(id);
     }
 
     public static final int FACE = 12;
@@ -114,11 +158,16 @@ public final class TaskLook {
 
     /** Someone's face, flat: their initials on their colour. Returns its width. */
     public static int face(final Graph g, final String id, final float x, final float y) {
-        final String in = initials(nameOf(g, id));
-        final int w = faceWidth(in), bg = faceColour(id);
-        Hyb.rect(x + 1, y, w - 2, FACE, bg);
-        Hyb.rect(x, y + 1, w, FACE - 2, bg);
-        Hyb.text(in, x + (w - Hyb.width(in) + 1) / 2f, y + 2, 1f, Hyb.contrastInk(bg), false);
+        return face(nameOf(g, id), faceColour(id), x, y);
+    }
+
+    /** A face for a name, on a colour. Returns its width. */
+    public static int face(@Nullable final String name, final int colour, final float x, final float y) {
+        final String in = initials(name);
+        final int w = faceWidth(in);
+        Hyb.rect(x + 1, y, w - 2, FACE, colour);
+        Hyb.rect(x, y + 1, w, FACE - 2, colour);
+        Hyb.text(in, x + (w - Hyb.width(in) + 1) / 2f, y + 2, 1f, Hyb.contrastInk(colour), false);
         return w;
     }
 

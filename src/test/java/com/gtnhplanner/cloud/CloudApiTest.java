@@ -353,16 +353,45 @@ class CloudApiTest {
     }
 
     @Test
-    void nearbyAsksTheLiveServicesHttp() throws IOException {
+    void nearbyAsksTheLiveServicesHttpWithTheNamesThisGameSees() throws IOException {
         CloudApi.useLive(
             "ws://127.0.0.1:" + server.getAddress()
                 .getPort() + "/live");
-        on("GET /live/nearby", 200, "{\"accounts\":[{\"id\":\"u5\",\"username\":\"dee\"}]}");
-        final List<CloudApi.Account> near = CloudApi.nearby("tok");
-        assertEquals(
-            "dee",
-            near.get(0)
-                .username());
+        on(
+            "GET /live/nearby?names=Dee_Mines%2CAda",
+            200,
+            "{\"accounts\":[{\"id\":\"u5\",\"username\":\"dee\",\"mcName\":\"Dee_Mines\"}]}");
+        final List<CloudApi.Player> near = CloudApi.nearby("tok", List.of("Dee_Mines", " ", "Ada"));
+        assertEquals(new CloudApi.Player("u5", "dee", "Dee_Mines"), near.get(0));
         assertEquals("gtnh_session=tok", last().cookie());
+        // At most a hundred names go.
+        final List<String> many = new ArrayList<>();
+        for (int i = 0; i < 150; i++) many.add("p" + i);
+        on("GET /live/nearby?names=" + String.join("%2C", many.subList(0, 100)), 200, "{\"accounts\":[]}");
+        assertTrue(
+            CloudApi.nearby("tok", many)
+                .isEmpty());
+        final String asked = java.net.URLDecoder.decode(
+            last().path()
+                .substring("/live/nearby?names=".length()),
+            StandardCharsets.UTF_8);
+        assertEquals(100, asked.split(",").length);
+        assertTrue(asked.endsWith(",p99"));
+    }
+
+    @Test
+    void aPlansSharing() throws IOException {
+        on(
+            "GET /api/library/designs/d1/members?owner=u9",
+            200,
+            "{\"ownerId\":\"u9\",\"ownerName\":\"zed\",\"role\":\"editor\",\"members\":[{\"id\":\"u1\",\"username\":\"ada\"}]}");
+        final CloudApi.Sharing s = CloudApi.sharing("tok", "d1", "u9");
+        assertEquals("zed", s.ownerName());
+        assertEquals("editor", s.role());
+        assertEquals(
+            "ada",
+            s.members()
+                .get(0)
+                .username());
     }
 }

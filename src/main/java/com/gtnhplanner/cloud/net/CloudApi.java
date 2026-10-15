@@ -315,6 +315,20 @@ public final class CloudApi {
         return readMembers(arrayIn(body, "members"));
     }
 
+    /** Whose a plan is, the caller's role in it ("owner" or "editor"), and who else may edit it. */
+    public record Sharing(String ownerId, String ownerName, String role, List<LiveClient.Member> members) {}
+
+    /** A plan's sharing as the site has it now ({@code ownerId} null: the account's own). */
+    public static Sharing sharing(final String token, final String designId, @Nullable final String ownerId)
+        throws IOException {
+        final JsonObject root = json(send("GET", membersUrl(designId, null, ownerId), null, token).body);
+        return new Sharing(
+            string(root, "ownerId"),
+            string(root, "ownerName"),
+            string(root, "role"),
+            readMembers(root.get("members")));
+    }
+
     /** Lets an account edit a plan (owner only; {@code ownerId} null: the account's own). */
     public static void addMember(final String token, final String designId, final String userId,
         @Nullable final String ownerId) throws IOException {
@@ -347,9 +361,38 @@ public final class CloudApi {
                 "accounts"));
     }
 
-    /** Signed-in accounts on the same game server as this one, who the live service has heard from. */
-    public static List<Account> nearby(final String token) throws IOException {
-        return accounts(arrayIn(send("GET", liveHttp("/nearby"), null, token).body, "accounts"));
+    /** An account playing in this game, and the Minecraft name it plays as. */
+    public record Player(String id, String username, String mcName) {}
+
+    /** At most this many Minecraft names go with one {@link #nearby} call. */
+    public static final int NEARBY_NAMES = 100;
+
+    /**
+     * Signed-in accounts on the same game server as this one, among the Minecraft {@code names} given: the players
+     * this game sees on its tab list (the service answers only for names the asker can see), the first
+     * {@value #NEARBY_NAMES}; none given, none found, and the service is not asked. It limits how often it is asked:
+     * ask when the player wants to know, never on a timer. The hello names this game's player ({@code game.mcName}).
+     */
+    public static List<Player> nearby(final String token, final List<String> names) throws IOException {
+        final StringBuilder q = new StringBuilder();
+        int n = 0;
+        for (final String name : names) {
+            if (name == null || name.isBlank()) continue;
+            if (n++ == NEARBY_NAMES) break;
+            if (q.length() > 0) q.append(',');
+            q.append(name.trim());
+        }
+        if (q.length() == 0) return new ArrayList<>();
+        final JsonElement found = arrayIn(
+            send("GET", liveHttp("/nearby") + "?names=" + enc(q.toString()), null, token).body,
+            "accounts");
+        final List<Player> out = new ArrayList<>();
+        if (found != null && found.isJsonArray()) for (final JsonElement e : found.getAsJsonArray()) {
+            if (!e.isJsonObject()) continue;
+            final JsonObject o = e.getAsJsonObject();
+            out.add(new Player(string(o, "id"), string(o, "username"), string(o, "mcName")));
+        }
+        return out;
     }
 
     /**

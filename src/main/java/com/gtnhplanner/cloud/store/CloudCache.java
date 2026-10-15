@@ -295,8 +295,9 @@ public final class CloudCache {
             .join();
     }
 
-    /** Waits for the writes and stops the writer thread. */
+    /** Waits for the writes and stops the writer thread; once is enough, and again does nothing. */
     public void close() {
+        if (writer.isShutdown()) return;
         flush();
         writer.shutdown();
     }
