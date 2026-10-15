@@ -281,6 +281,18 @@ public final class Serializer {
         return sb.toString();
     }
 
+    /** A graph as its save holds it, uncompressed: what {@link #encode} compresses. */
+    @Nonnull
+    public static JsonObject toJson(final Graph graph) {
+        return graphToJson(graph);
+    }
+
+    /** A graph from {@link #toJson}. */
+    @Nonnull
+    public static Graph fromJson(final JsonObject root) {
+        return jsonToGraph(root);
+    }
+
     @Nonnull
     private static JsonObject graphToJson(final Graph graph) {
         final JsonObject root = new JsonObject();
@@ -293,15 +305,7 @@ public final class Serializer {
         root.addProperty("panX", graph.getPanX());
         root.addProperty("panY", graph.getPanY());
         root.addProperty("name", graph.getName());
-        if (!graph.settingPins.isEmpty()) {
-            final JsonObject pins = new JsonObject();
-            for (final java.util.Map.Entry<String, java.util.List<String>> e : graph.settingPins.entrySet()) {
-                final JsonArray keys = new JsonArray();
-                for (final String k : e.getValue()) keys.add(new com.google.gson.JsonPrimitive(k));
-                pins.add(e.getKey(), keys);
-            }
-            root.add("settingPins", pins);
-        }
+        if (!graph.settingPins.isEmpty()) root.add("settingPins", settingPinsToJson(graph));
         if (!graph.pinList.isEmpty()) {
             final JsonArray pinList = new JsonArray();
             // Cards since deleted are left out.
@@ -309,94 +313,14 @@ public final class Serializer {
                 if (graph.nodes.containsKey(id)) pinList.add(new com.google.gson.JsonPrimitive(id.toString()));
             if (pinList.size() > 0) root.add("pinList", pinList);
         }
-        if (!graph.spareShares.isEmpty()) {
-            final JsonObject spares = new JsonObject();
-            for (final java.util.Map.Entry<String, java.util.Map<String, Double>> e : graph.spareShares.entrySet()) {
-                final JsonObject shares = new JsonObject();
-                for (final java.util.Map.Entry<String, Double> s : e.getValue()
-                    .entrySet()) shares.addProperty(s.getKey(), s.getValue());
-                spares.add(e.getKey(), shares);
-            }
-            root.add("spareShares", spares);
-        }
+        if (!graph.spareShares.isEmpty()) root.add("spareShares", spareSharesToJson(graph));
 
         final JsonArray nodesArray = new JsonArray();
-        for (final Node node : graph.getNodes()) {
-            final JsonObject obj = new JsonObject();
-            obj.addProperty("id", node.id.toString());
-            obj.addProperty("x", node.x);
-            obj.addProperty("y", node.y);
-            obj.addProperty("machine", node.machineName);
-            if (node.isPower()) {
-                // A non-recipe machine: its source and settings; its ports are rebuilt from them on load.
-                obj.addProperty("power", node.powerSource);
-                final JsonObject settings = new JsonObject();
-                for (final Map.Entry<String, String> s : node.powerSettings.entrySet())
-                    settings.addProperty(s.getKey(), s.getValue());
-                obj.add("powerSettings", settings);
-            }
-            // Null-tolerant on both sides: an unresolved recipe must not make the slot
-            // unsaveable, and downstream treats a null recipeId as "handler unavailable".
-            if (node.recipeId != null) {
-                obj.add("recipeId", node.recipeId.toJsonObject());
-            }
-            obj.addProperty("handlerRecipeIndex", node.handlerRecipeIndex);
-            obj.addProperty("extractorIndex", node.getExtractorIndex());
-            obj.addProperty("machineCount", node.machineConfig.getMachineCount());
-            if (node.isMachineCountFixed()) {
-                obj.addProperty("machineCountFixed", true);
-            }
-            if (!node.worldLinks.isEmpty()) {
-                final JsonArray links = new JsonArray();
-                for (final int[] l : node.worldLinks) {
-                    final JsonArray at = new JsonArray();
-                    for (final int v : l) at.add(new com.google.gson.JsonPrimitive(v));
-                    links.add(at);
-                }
-                obj.add("worldLinks", links);
-            }
-            if (!node.targetOutputRates.isEmpty()) {
-                final JsonObject targets = new JsonObject();
-                for (final Map.Entry<Integer, Double> t : node.targetOutputRates.entrySet()) {
-                    targets.addProperty(String.valueOf(t.getKey()), t.getValue());
-                }
-                obj.add("targets", targets);
-            }
-            if (!node.targetInputRates.isEmpty()) {
-                final JsonObject targets = new JsonObject();
-                for (final Map.Entry<Integer, Double> t : node.targetInputRates.entrySet()) {
-                    targets.addProperty(String.valueOf(t.getKey()), t.getValue());
-                }
-                obj.add("inputTargets", targets);
-            }
-            if (!node.inputPicks.isEmpty()) {
-                final JsonObject picks = new JsonObject();
-                for (final Map.Entry<Integer, String> p : node.inputPicks.entrySet())
-                    picks.addProperty(String.valueOf(p.getKey()), p.getValue());
-                obj.add("inputPicks", picks);
-            }
-
-            obj.add("inputs", portListToJson(node.inputs));
-            obj.add("outputs", portListToJson(node.outputs));
-
-            if (node.machineConfig.hasAnyBoost()) {
-                obj.add("machineConfig", machineConfigToJson(node.machineConfig));
-            }
-
-            nodesArray.add(obj);
-        }
+        for (final Node node : graph.getNodes()) nodesArray.add(nodeToJson(node));
         root.add("nodes", nodesArray);
 
         final JsonArray edgesArray = new JsonArray();
-        for (final Edge edge : graph.getEdges()) {
-            final JsonObject obj = new JsonObject();
-            obj.addProperty("id", edge.id.toString());
-            obj.addProperty("src", edge.sourceNodeId.toString());
-            obj.addProperty("dst", edge.targetNodeId.toString());
-            obj.addProperty("srcOut", edge.sourceOutputIndex);
-            obj.addProperty("dstIn", edge.targetInputIndex);
-            edgesArray.add(obj);
-        }
+        for (final Edge edge : graph.getEdges()) edgesArray.add(edgeToJson(edge));
         root.add("edges", edgesArray);
 
         final JsonArray notesArray = new JsonArray();
@@ -442,139 +366,11 @@ public final class Serializer {
                 .getAsFloat());
 
         final JsonArray nodesArray = root.getAsJsonArray("nodes");
-        for (final JsonElement elem : nodesArray) {
-            final JsonObject obj = elem.getAsJsonObject();
-            final UUID id = UUID.fromString(
-                obj.get("id")
-                    .getAsString());
-            final int x = obj.get("x")
-                .getAsInt();
-            final int y = obj.get("y")
-                .getAsInt();
-            final Node node = new Node(id, x, y);
-            node.machineName = obj.get("machine")
-                .getAsString();
-            if (obj.has("recipeId")) {
-                node.recipeId = Recipe.RecipeId.of(
-                    obj.get("recipeId")
-                        .getAsJsonObject());
-            }
-            node.handlerRecipeIndex = obj.has("handlerRecipeIndex") ? obj.get("handlerRecipeIndex")
-                .getAsInt() : 0;
-            if (obj.has("power")) {
-                node.powerSource = obj.get("power")
-                    .getAsString();
-                if (obj.has("powerSettings")) {
-                    for (final Map.Entry<String, JsonElement> s : obj.getAsJsonObject("powerSettings")
-                        .entrySet()) {
-                        node.powerSettings.put(
-                            s.getKey(),
-                            s.getValue()
-                                .getAsString());
-                    }
-                }
-            } else node.initExtractor();
-            // Before the refresh, which sets each input to the item picked for it.
-            if (obj.has("inputPicks") && obj.get("inputPicks")
-                .isJsonObject()) {
-                for (final Map.Entry<String, JsonElement> p : obj.getAsJsonObject("inputPicks")
-                    .entrySet()) {
-                    try {
-                        node.inputPicks.put(
-                            Integer.parseInt(p.getKey()),
-                            p.getValue()
-                                .getAsString());
-                    } catch (final RuntimeException ignored) {
-                        // A malformed entry loses one pick, not the chart.
-                    }
-                }
-            }
-            node.refresh();
-
-            if (obj.has("machineCount")) {
-                node.machineConfig.setMachineCount(
-                    obj.get("machineCount")
-                        .getAsInt());
-            }
-            node.setMachineCountFixed(
-                obj.has("machineCountFixed") && obj.get("machineCountFixed")
-                    .getAsBoolean());
-            if (obj.has("worldLinks")) {
-                for (final JsonElement l : obj.getAsJsonArray("worldLinks")) {
-                    final JsonArray at = l.getAsJsonArray();
-                    // {dimension, x, y, z}, then the facing and a structure's size when there are.
-                    if (at.size() < 4 || at.size() > 6) continue;
-                    final int[] link = new int[at.size()];
-                    for (int k = 0; k < link.length; k++) link[k] = at.get(k)
-                        .getAsInt();
-                    node.worldLinks.add(link);
-                }
-            }
-            // Read independently of every other key.
-            if (obj.has("inputTargets")) {
-                for (final Map.Entry<String, JsonElement> t : obj.getAsJsonObject("inputTargets")
-                    .entrySet()) {
-                    try {
-                        node.targetInputRates.put(
-                            Integer.parseInt(t.getKey()),
-                            t.getValue()
-                                .getAsDouble());
-                    } catch (final NumberFormatException ignored) {
-                        // A malformed key loses one target, not the chart.
-                    }
-                }
-            }
-            if (obj.has("targets")) {
-                for (final Map.Entry<String, JsonElement> t : obj.getAsJsonObject("targets")
-                    .entrySet()) {
-                    try {
-                        node.targetOutputRates.put(
-                            Integer.parseInt(t.getKey()),
-                            t.getValue()
-                                .getAsDouble());
-                    } catch (final NumberFormatException ignored) {
-                        // A malformed key loses one target, not the chart.
-                    }
-                }
-            }
-
-            if (obj.has("inputs")) {
-                applySavedPortChances(obj.getAsJsonArray("inputs"), node.inputs);
-            }
-            if (obj.has("outputs")) {
-                applySavedPortChances(obj.getAsJsonArray("outputs"), node.outputs);
-            }
-
-            if (obj.has("machineConfig")) {
-                jsonToMachineConfig(obj.getAsJsonObject("machineConfig"), node.machineConfig);
-            }
-            node.machineConfig.seedRouteDefaults();
-            // The node was refreshed before its settings were read: what they decide comes now (a modelled
-            // machine's multipliers and radio hatch input, machines/game/MachineModels).
-            if (!node.isPower()) Node.afterRefresh.accept(node);
-
-            graph.addNode(node);
-        }
+        for (final JsonElement elem : nodesArray) graph.addNode(jsonToNode(elem.getAsJsonObject()));
 
         final JsonArray edgesArray = root.getAsJsonArray("edges");
         final List<Edge> loadedEdges = new ArrayList<>(edgesArray.size());
-        for (final JsonElement elem : edgesArray) {
-            final JsonObject obj = elem.getAsJsonObject();
-            final UUID id = UUID.fromString(
-                obj.get("id")
-                    .getAsString());
-            final UUID src = UUID.fromString(
-                obj.get("src")
-                    .getAsString());
-            final UUID dst = UUID.fromString(
-                obj.get("dst")
-                    .getAsString());
-            final int srcOut = obj.get("srcOut")
-                .getAsInt();
-            final int dstIn = obj.get("dstIn")
-                .getAsInt();
-            loadedEdges.add(new Edge(id, src, dst, srcOut, dstIn));
-        }
+        for (final JsonElement elem : edgesArray) loadedEdges.add(jsonToEdge(elem.getAsJsonObject()));
         graph.addEdgesLoaded(loadedEdges);
 
         for (final JsonElement elem : root.getAsJsonArray("notes")) {
@@ -590,18 +386,7 @@ public final class Serializer {
         }
 
         // Absent from saves written before pins existed; those show each machine's defaults.
-        if (root.has("settingPins") && root.get("settingPins")
-            .isJsonObject()) {
-            for (final java.util.Map.Entry<String, JsonElement> e : root.getAsJsonObject("settingPins")
-                .entrySet()) {
-                if (!e.getValue()
-                    .isJsonArray()) continue;
-                final java.util.List<String> keys = new java.util.ArrayList<>();
-                for (final JsonElement k : e.getValue()
-                    .getAsJsonArray()) keys.add(k.getAsString());
-                graph.settingPins.put(e.getKey(), keys);
-            }
-        }
+        readSettingPins(root.get("settingPins"), graph);
 
         if (root.has("pinList") && root.get("pinList")
             .isJsonArray()) {
@@ -612,26 +397,7 @@ public final class Serializer {
             }
         }
 
-        if (root.has("spareShares") && root.get("spareShares")
-            .isJsonObject()) {
-            for (final java.util.Map.Entry<String, JsonElement> e : root.getAsJsonObject("spareShares")
-                .entrySet()) {
-                if (!e.getValue()
-                    .isJsonObject()) continue;
-                final java.util.Map<String, Double> shares = new java.util.TreeMap<>();
-                for (final java.util.Map.Entry<String, JsonElement> s : e.getValue()
-                    .getAsJsonObject()
-                    .entrySet()) {
-                    try {
-                        shares.put(
-                            s.getKey(),
-                            s.getValue()
-                                .getAsDouble());
-                    } catch (final RuntimeException ignored) {}
-                }
-                if (!shares.isEmpty()) graph.spareShares.put(e.getKey(), shares);
-            }
-        }
+        readSpareShares(root.get("spareShares"), graph);
 
         // Absent from saves written before drawers existed; those load with none.
         if (root.has("drawers")) {
@@ -649,9 +415,280 @@ public final class Serializer {
         return graph;
     }
 
+    /** One node as the save writes it: its id, place, recipe, settings, pins and world links. */
+    @Nonnull
+    public static JsonObject nodeToJson(final Node node) {
+        final JsonObject obj = new JsonObject();
+        obj.addProperty("id", node.id.toString());
+        obj.addProperty("x", node.x);
+        obj.addProperty("y", node.y);
+        obj.addProperty("machine", node.machineName);
+        if (node.isPower()) {
+            // A non-recipe machine: its source and settings; its ports are rebuilt from them on load.
+            obj.addProperty("power", node.powerSource);
+            final JsonObject settings = new JsonObject();
+            for (final Map.Entry<String, String> s : node.powerSettings.entrySet())
+                settings.addProperty(s.getKey(), s.getValue());
+            obj.add("powerSettings", settings);
+        }
+        // Null-tolerant on both sides: an unresolved recipe must not make the slot
+        // unsaveable, and downstream treats a null recipeId as "handler unavailable".
+        if (node.recipeId != null) {
+            obj.add("recipeId", node.recipeId.toJsonObject());
+        }
+        obj.addProperty("handlerRecipeIndex", node.handlerRecipeIndex);
+        obj.addProperty("extractorIndex", node.getExtractorIndex());
+        obj.addProperty("machineCount", node.machineConfig.getMachineCount());
+        if (node.isMachineCountFixed()) {
+            obj.addProperty("machineCountFixed", true);
+        }
+        if (!node.worldLinks.isEmpty()) {
+            final JsonArray links = new JsonArray();
+            for (final int[] l : node.worldLinks) {
+                final JsonArray at = new JsonArray();
+                for (final int v : l) at.add(new com.google.gson.JsonPrimitive(v));
+                links.add(at);
+            }
+            obj.add("worldLinks", links);
+        }
+        if (!node.targetOutputRates.isEmpty()) {
+            final JsonObject targets = new JsonObject();
+            for (final Map.Entry<Integer, Double> t : node.targetOutputRates.entrySet()) {
+                targets.addProperty(String.valueOf(t.getKey()), t.getValue());
+            }
+            obj.add("targets", targets);
+        }
+        if (!node.targetInputRates.isEmpty()) {
+            final JsonObject targets = new JsonObject();
+            for (final Map.Entry<Integer, Double> t : node.targetInputRates.entrySet()) {
+                targets.addProperty(String.valueOf(t.getKey()), t.getValue());
+            }
+            obj.add("inputTargets", targets);
+        }
+        if (!node.inputPicks.isEmpty()) {
+            final JsonObject picks = new JsonObject();
+            for (final Map.Entry<Integer, String> p : node.inputPicks.entrySet())
+                picks.addProperty(String.valueOf(p.getKey()), p.getValue());
+            obj.add("inputPicks", picks);
+        }
+
+        obj.add("inputs", portListToJson(node.inputs));
+        obj.add("outputs", portListToJson(node.outputs));
+
+        if (node.machineConfig.hasAnyBoost()) {
+            obj.add("machineConfig", machineConfigToJson(node.machineConfig));
+        }
+        return obj;
+    }
+
+    /**
+     * One node as the save wrote it ({@link #nodeToJson}), its ports read again from its recipe (or its power source)
+     * and its saved chances, settings and multipliers put back: as a load reads it.
+     */
+    @Nonnull
+    public static Node jsonToNode(final JsonObject obj) {
+        final UUID id = UUID.fromString(
+            obj.get("id")
+                .getAsString());
+        final int x = obj.get("x")
+            .getAsInt();
+        final int y = obj.get("y")
+            .getAsInt();
+        final Node node = new Node(id, x, y);
+        node.machineName = obj.get("machine")
+            .getAsString();
+        if (obj.has("recipeId")) {
+            node.recipeId = Recipe.RecipeId.of(
+                obj.get("recipeId")
+                    .getAsJsonObject());
+        }
+        node.handlerRecipeIndex = obj.has("handlerRecipeIndex") ? obj.get("handlerRecipeIndex")
+            .getAsInt() : 0;
+        if (obj.has("power")) {
+            node.powerSource = obj.get("power")
+                .getAsString();
+            if (obj.has("powerSettings")) {
+                for (final Map.Entry<String, JsonElement> s : obj.getAsJsonObject("powerSettings")
+                    .entrySet()) {
+                    node.powerSettings.put(
+                        s.getKey(),
+                        s.getValue()
+                            .getAsString());
+                }
+            }
+        } else node.initExtractor();
+        // Before the refresh, which sets each input to the item picked for it.
+        if (obj.has("inputPicks") && obj.get("inputPicks")
+            .isJsonObject()) {
+            for (final Map.Entry<String, JsonElement> p : obj.getAsJsonObject("inputPicks")
+                .entrySet()) {
+                try {
+                    node.inputPicks.put(
+                        Integer.parseInt(p.getKey()),
+                        p.getValue()
+                            .getAsString());
+                } catch (final RuntimeException ignored) {
+                    // A malformed entry loses one pick, not the chart.
+                }
+            }
+        }
+        node.refresh();
+
+        if (obj.has("machineCount")) {
+            node.machineConfig.setMachineCount(
+                obj.get("machineCount")
+                    .getAsInt());
+        }
+        node.setMachineCountFixed(
+            obj.has("machineCountFixed") && obj.get("machineCountFixed")
+                .getAsBoolean());
+        readWorldLinks(obj.get("worldLinks"), node);
+        // Read independently of every other key.
+        readRates(obj.get("inputTargets"), node.targetInputRates);
+        readRates(obj.get("targets"), node.targetOutputRates);
+
+        if (obj.has("inputs")) {
+            applySavedPortChances(obj.getAsJsonArray("inputs"), node.inputs);
+        }
+        if (obj.has("outputs")) {
+            applySavedPortChances(obj.getAsJsonArray("outputs"), node.outputs);
+        }
+
+        if (obj.has("machineConfig")) {
+            jsonToMachineConfig(obj.getAsJsonObject("machineConfig"), node.machineConfig);
+        }
+        node.machineConfig.seedRouteDefaults();
+        // The node was refreshed before its settings were read: what they decide comes now (a modelled
+        // machine's multipliers and radio hatch input, machines/game/MachineModels).
+        if (!node.isPower()) Node.afterRefresh.accept(node);
+        return node;
+    }
+
+    /** A node's saved world links ({@link #nodeToJson}'s {@code worldLinks}) onto it; nothing when there are none. */
+    public static void readWorldLinks(@Nullable final JsonElement saved, final Node node) {
+        if (saved == null || !saved.isJsonArray()) return;
+        for (final JsonElement l : saved.getAsJsonArray()) {
+            final JsonArray at = l.getAsJsonArray();
+            // {dimension, x, y, z}, then the facing and a structure's size when there are.
+            if (at.size() < 4 || at.size() > 6) continue;
+            final int[] link = new int[at.size()];
+            for (int k = 0; k < link.length; k++) link[k] = at.get(k)
+                .getAsInt();
+            node.worldLinks.add(link);
+        }
+    }
+
+    /** Saved target rates by port index ({@link #nodeToJson}'s {@code targets} and {@code inputTargets}). */
+    public static void readRates(@Nullable final JsonElement saved, final Map<Integer, Double> into) {
+        if (saved == null || !saved.isJsonObject()) return;
+        for (final Map.Entry<String, JsonElement> t : saved.getAsJsonObject()
+            .entrySet()) {
+            try {
+                into.put(
+                    Integer.parseInt(t.getKey()),
+                    t.getValue()
+                        .getAsDouble());
+            } catch (final NumberFormatException ignored) {
+                // A malformed key loses one target, not the chart.
+            }
+        }
+    }
+
+    /** One wire as the save writes it. */
+    @Nonnull
+    public static JsonObject edgeToJson(final Edge edge) {
+        final JsonObject obj = new JsonObject();
+        obj.addProperty("id", edge.id.toString());
+        obj.addProperty("src", edge.sourceNodeId.toString());
+        obj.addProperty("dst", edge.targetNodeId.toString());
+        obj.addProperty("srcOut", edge.sourceOutputIndex);
+        obj.addProperty("dstIn", edge.targetInputIndex);
+        return obj;
+    }
+
+    /** One wire as the save wrote it ({@link #edgeToJson}). */
+    @Nonnull
+    public static Edge jsonToEdge(final JsonObject obj) {
+        final UUID id = UUID.fromString(
+            obj.get("id")
+                .getAsString());
+        final UUID src = UUID.fromString(
+            obj.get("src")
+                .getAsString());
+        final UUID dst = UUID.fromString(
+            obj.get("dst")
+                .getAsString());
+        final int srcOut = obj.get("srcOut")
+            .getAsInt();
+        final int dstIn = obj.get("dstIn")
+            .getAsInt();
+        return new Edge(id, src, dst, srcOut, dstIn);
+    }
+
+    /** The settings each machine's cards show, as the save writes them ({@link Graph#settingPins}). */
+    @Nonnull
+    public static JsonObject settingPinsToJson(final Graph graph) {
+        final JsonObject pins = new JsonObject();
+        for (final java.util.Map.Entry<String, java.util.List<String>> e : graph.settingPins.entrySet()) {
+            final JsonArray keys = new JsonArray();
+            for (final String k : e.getValue()) keys.add(new com.google.gson.JsonPrimitive(k));
+            pins.add(e.getKey(), keys);
+        }
+        return pins;
+    }
+
+    /** Reads {@link #settingPinsToJson} onto the graph; nothing when it is not there. */
+    public static void readSettingPins(@Nullable final JsonElement saved, final Graph graph) {
+        if (saved == null || !saved.isJsonObject()) return;
+        for (final java.util.Map.Entry<String, JsonElement> e : saved.getAsJsonObject()
+            .entrySet()) {
+            if (!e.getValue()
+                .isJsonArray()) continue;
+            final java.util.List<String> keys = new java.util.ArrayList<>();
+            for (final JsonElement k : e.getValue()
+                .getAsJsonArray()) keys.add(k.getAsString());
+            graph.settingPins.put(e.getKey(), keys);
+        }
+    }
+
+    /** How each leftover is split, as the save writes it ({@link Graph#spareShares}). */
+    @Nonnull
+    public static JsonObject spareSharesToJson(final Graph graph) {
+        final JsonObject spares = new JsonObject();
+        for (final java.util.Map.Entry<String, java.util.Map<String, Double>> e : graph.spareShares.entrySet()) {
+            final JsonObject shares = new JsonObject();
+            for (final java.util.Map.Entry<String, Double> s : e.getValue()
+                .entrySet()) shares.addProperty(s.getKey(), s.getValue());
+            spares.add(e.getKey(), shares);
+        }
+        return spares;
+    }
+
+    /** Reads {@link #spareSharesToJson} onto the graph; nothing when it is not there. */
+    public static void readSpareShares(@Nullable final JsonElement saved, final Graph graph) {
+        if (saved == null || !saved.isJsonObject()) return;
+        for (final java.util.Map.Entry<String, JsonElement> e : saved.getAsJsonObject()
+            .entrySet()) {
+            if (!e.getValue()
+                .isJsonObject()) continue;
+            final java.util.Map<String, Double> shares = new java.util.TreeMap<>();
+            for (final java.util.Map.Entry<String, JsonElement> s : e.getValue()
+                .getAsJsonObject()
+                .entrySet()) {
+                try {
+                    shares.put(
+                        s.getKey(),
+                        s.getValue()
+                            .getAsDouble());
+                } catch (final RuntimeException ignored) {}
+            }
+            if (!shares.isEmpty()) graph.spareShares.put(e.getKey(), shares);
+        }
+    }
+
     /** One saved drawer, repaired; null when the entry is not a drawer at all (no id). */
     @Nullable
-    static Drawer readDrawer(final JsonElement elem) {
+    public static Drawer readDrawer(final JsonElement elem) {
         final Drawer drawer = GSON.fromJson(elem, Drawer.class);
         if (drawer == null || drawer.getId() == null) return null;
         drawer.sanitize();
@@ -740,18 +777,7 @@ public final class Serializer {
             cfg.profileId = obj.get("profile")
                 .getAsString();
         }
-        if (obj.has("settings")) {
-            final JsonObject settingsObj = obj.getAsJsonObject("settings");
-            for (final Map.Entry<String, JsonElement> entry : settingsObj.entrySet()) {
-                final JsonElement el = entry.getValue();
-                if (el.isJsonPrimitive()) {
-                    final var prim = el.getAsJsonPrimitive();
-                    if (prim.isBoolean()) cfg.settings.put(entry.getKey(), prim.getAsBoolean());
-                    else if (prim.isNumber()) cfg.settings.put(entry.getKey(), prim.getAsInt());
-                    else cfg.settings.put(entry.getKey(), prim.getAsString());
-                }
-            }
-        }
+        if (obj.has("settings")) readSettings(obj.getAsJsonObject("settings"), cfg.settings);
 
         migrateCoil(cfg);
 
@@ -760,6 +786,19 @@ public final class Serializer {
         }
         if (obj.has("outMul")) {
             jsonToMultiplierArray(obj.getAsJsonArray("outMul"), cfg.outputProductivity);
+        }
+    }
+
+    /** Saved machine settings ({@code machineConfig.settings}) by key, as the types they were saved as. */
+    public static void readSettings(final JsonObject saved, final Map<String, Object> into) {
+        for (final Map.Entry<String, JsonElement> entry : saved.entrySet()) {
+            final JsonElement el = entry.getValue();
+            if (el.isJsonPrimitive()) {
+                final var prim = el.getAsJsonPrimitive();
+                if (prim.isBoolean()) into.put(entry.getKey(), prim.getAsBoolean());
+                else if (prim.isNumber()) into.put(entry.getKey(), prim.getAsInt());
+                else into.put(entry.getKey(), prim.getAsString());
+            }
         }
     }
 

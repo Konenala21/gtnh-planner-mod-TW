@@ -150,20 +150,43 @@ public final class PlanExport {
         return o;
     }
 
+    /**
+     * One card as the site keeps it: its recipe (written out in full under {@code recipeId}), the node, and each port's
+     * resource as the recipe names it (for the wires).
+     */
+    public record Card(JsonObject recipe, JsonObject node, Map<Port<?>, Res> ports) {}
+
+    /**
+     * A card at a machine count: {@code machines} is how many machines the plan runs it at (a fluid tank's crafts a
+     * second, which the site counts a tick a craft).
+     */
+    public static Card card(final Node n, final String recipeId, final World world, final double machines) {
+        final Map<Port<?>, Res> res = new HashMap<>();
+        // The card's picks among the items a slot takes, by the recipe's input index: the site's overrides.
+        final JsonObject picks = new JsonObject();
+        final JsonObject recipe = recipe(n, recipeId, world, res, picks);
+        final JsonObject node = node(n, recipeId, world, machines);
+        if (picks.entrySet()
+            .size() > 0) node.add("recipeInputOverrides", picks);
+        return new Card(recipe, node, res);
+    }
+
+    /** A drawer's resource as the site names it: EU, else what the game calls its resource key; null if nothing. */
+    @Nullable
+    public static Res resource(final Drawer d, final World world) {
+        return Energy.KEY.equals(d.getResourceKey()) ? EU : world.resource(d.getResourceKey());
+    }
+
     public static JsonObject project(final Graph g, final String name, final World world) {
         final JsonArray recipes = new JsonArray(), nodes = new JsonArray(), storages = new JsonArray(),
             edges = new JsonArray();
         // Each port's resource, once: edges and drawers name them as the recipes do.
         final Map<Port<?>, Res> res = new HashMap<>();
         for (final Node n : g.getNodes()) {
-            final String recipeId = "gtnhplanner:" + n.id;
-            // The card's picks among the items a slot takes, by the recipe's input index: the site's overrides.
-            final JsonObject picks = new JsonObject();
-            recipes.add(recipe(n, recipeId, world, res, picks));
-            final JsonObject node = node(n, recipeId, world);
-            if (picks.entrySet()
-                .size() > 0) node.add("recipeInputOverrides", picks);
-            nodes.add(node);
+            final Card card = card(n, "gtnhplanner:" + n.id, world, world.machines(n));
+            res.putAll(card.ports());
+            recipes.add(card.recipe());
+            nodes.add(card.node());
         }
         for (final Edge e : g.getEdges()) {
             final Node from = g.nodes.get(e.sourceNodeId), to = g.nodes.get(e.targetNodeId);
@@ -173,7 +196,7 @@ public final class PlanExport {
             edges.add(edge(e.id.toString(), from.id.toString(), to.id.toString(), r));
         }
         for (final Drawer d : g.getDrawers()) {
-            final Res r = Energy.KEY.equals(d.getResourceKey()) ? EU : world.resource(d.getResourceKey());
+            final Res r = resource(d, world);
             if (r == null) continue;
             final boolean source = d.getKind()
                 .linksInputs();
@@ -647,12 +670,12 @@ public final class PlanExport {
         return out;
     }
 
-    private static JsonObject node(final Node n, final String recipeId, final World world) {
+    private static JsonObject node(final Node n, final String recipeId, final World world, final double machines) {
         final JsonObject o = new JsonObject();
         o.addProperty("id", n.id.toString());
         o.addProperty("recipeId", recipeId);
         // A fluid tank runs a craft a second here, a tick there (its Tank map): the count is in its crafts.
-        final double count = Math.max(0, world.machines(n)) / (com.gtnhplanner.power.FluidTank.is(n) ? 20.0 : 1.0);
+        final double count = Math.max(0, machines) / (com.gtnhplanner.power.FluidTank.is(n) ? 20.0 : 1.0);
         o.addProperty("machineCount", count);
         o.addProperty("parallel", 1);
         o.addProperty("overclockTier", CustomRate.is(n) || com.gtnhplanner.power.FluidTank.is(n) ? "NONE" : n.isPower() ? "LV" : world.tier(n));
@@ -725,7 +748,8 @@ public final class PlanExport {
         return o;
     }
 
-    private static JsonObject storage(final Drawer d, final Res r) {
+    /** A drawer as the site's storage of resource {@code r}: a source, or a product with its rule. */
+    public static JsonObject storage(final Drawer d, final Res r) {
         final JsonObject o = new JsonObject();
         o.addProperty(
             "id",
@@ -756,7 +780,7 @@ public final class PlanExport {
      * A note as the site's text annotation, placed as a card is. Its size is rounded to whole cells: the site grows a
      * size to the next cell when it loads, so a size a pixel over one could gain a whole cell on a trip there and back.
      */
-    private static JsonObject note(final Note n) {
+    public static JsonObject note(final Note n) {
         final JsonObject o = new JsonObject();
         o.addProperty(
             "id",
@@ -779,7 +803,8 @@ public final class PlanExport {
         return Math.max(CELL, (int) Math.round(length / CELL) * CELL);
     }
 
-    private static JsonObject edge(final String id, final String source, final String target, final Res r) {
+    /** A wire of resource {@code r} between two things the site knows by these ids. */
+    public static JsonObject edge(final String id, final String source, final String target, final Res r) {
         final JsonObject o = new JsonObject();
         o.addProperty("id", id);
         o.addProperty("source", source);
@@ -805,11 +830,25 @@ public final class PlanExport {
         return o;
     }
 
-    private static JsonObject position(final int x, final int y) {
+    /** A place on the board at the site's scale; {@link #gameX} and {@link #gameY} turn it back exactly. */
+    public static JsonObject position(final int x, final int y) {
         final JsonObject o = new JsonObject();
         o.addProperty("x", Math.round(x * SCALE_X));
         o.addProperty("y", Math.round(y * SCALE_Y));
         return o;
+    }
+
+    /**
+     * The board's x for the site's: the inverse of {@link #position}, exact for every board place (the site's scale is
+     * larger both ways, so rounding there and back lands on the same pixel).
+     */
+    public static int gameX(final double siteX) {
+        return (int) Math.round(siteX / SCALE_X);
+    }
+
+    /** The board's y for the site's; see {@link #gameX}. */
+    public static int gameY(final double siteY) {
+        return (int) Math.round(siteY / SCALE_Y);
     }
 
     private static int intProperty(final Node n, final String key) {
