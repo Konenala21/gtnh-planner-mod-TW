@@ -42,6 +42,12 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     private static final int HEAD_H = 24, PAD = 8, GAP = 8, COL_HEAD = 20, INSET = 4, CARD_GAP = 4, LINE = 10,
         CARD_PAD = 6, KEY_H = 16;
+    /**
+     * The narrowest a column gets: its name, count and + key, and titles that wrap readably. Narrower than four of
+     * them, the board scrolls sideways (Shift and the wheel, the wheel over the column names, or the bar along the
+     * bottom), as the website's does.
+     */
+    private static final int MIN_COL = 112, BAR_H = 3;
     private static final int COLUMN_BG = 0xFF18191C, COLUMN_EDGE = 0xFF26282D, CARD_HOT = 0xFF2A2C32;
     /** How far the mouse goes before a press on a card carries it, as on the board. */
     private static final int DRAG_SLOP = 3;
@@ -50,6 +56,10 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     private final BoardSession session;
     private final int[] scroll = new int[4], contentH = new int[4];
+    /** How far the columns are scrolled sideways, and the bar's thumb while it is dragged (where it was taken). */
+    private int across;
+    private boolean draggingBar;
+    private int barGrab;
 
     /** Where each card is drawn, gliding to where it belongs: task id to {x, y}. */
     private final Map<String, float[]> shown = new HashMap<>();
@@ -98,11 +108,16 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     // region Layout
 
     private int columnW() {
-        return (getArea().width - 2 * PAD - 3 * GAP) / 4;
+        return Math.max(MIN_COL, (getArea().width - 2 * PAD - 3 * GAP) / 4);
     }
 
     private int columnX(final int c) {
-        return PAD + c * (columnW() + GAP);
+        return PAD + c * (columnW() + GAP) - across;
+    }
+
+    /** How far the columns scroll sideways: nothing while all four fit. */
+    private int maxAcross() {
+        return Math.max(0, 2 * PAD + 4 * columnW() + 3 * GAP - getArea().width);
     }
 
     private int bodyTop() {
@@ -239,9 +254,12 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             edgeScroll(dt);
             findDrop(localX(), localY());
         }
+        across = Math.max(0, Math.min(maxAcross(), across));
         drawHeader(w, hover);
         final List<Placed> cards = layout();
         final Tasks.Status[] statuses = Tasks.Status.values();
+        // The columns in the view: scrolled sideways, those past an edge are cut there.
+        Stencil.apply(0, HEAD_H, w, h - HEAD_H, context);
         for (int c = 0; c < statuses.length; c++) drawColumn(c, statuses[c], hover, context);
         // The cards, column by column, each clipped to its column's body.
         final int top = bodyTop(), bottom = bodyBottom();
@@ -280,6 +298,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             Stencil.remove();
             scroll[c] = Math.max(0, Math.min(scroll[c], contentH[c] - (bottom - top - INSET)));
         }
+        Stencil.remove();
+        drawAcrossBar(w, h);
         // The carried card over everything, lifted.
         if (carrying) {
             final Tasks.Task t = TaskEdits.task(graph(), pressed);
@@ -293,25 +313,58 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         lastHits.addAll(hits);
     }
 
+    /**
+     * The board's title and how many tasks are open and done, then (right to left) a new task and a task from the
+     * cards selected on the plan. Narrow, the counts go first, then the second key's words shorten, then it goes (a
+     * right-click on the cards does the same).
+     */
     private void drawHeader(final int w, @Nullable final Hit hover) {
         Hyb.rect(0, 0, w, HEAD_H, 0xFF2A2D33);
         Hyb.rect(0, HEAD_H - 1, w, 1, Hyb.RING);
         Hyb.text("Tasks", PAD, (HEAD_H - 8) / 2f, Hyb.INK);
+        int right = w - PAD;
+        right = key(right, "New task", Kind.NEW, null, hover) - 6;
+        final int left = PAD + Hyb.width("Tasks") + 8;
+        final int selected = TaskActions.selectedCards(session)
+            .size();
+        if (selected > 0) {
+            final String cards = selected + (selected == 1 ? " card" : " cards");
+            for (final String label : new String[] { "Make a task from " + cards, "Task from " + cards }) {
+                if (right - Hyb.width(label) - 12 < left - 8) continue;
+                right = key(right, label, Kind.FROM_CARDS, null, hover) - 6;
+                break;
+            }
+        }
         int open = 0, done = 0;
         for (final Tasks.Task t : graph().tasks) if (t.status() == Tasks.Status.DONE) done++;
         else open++;
-        Hyb.text(open + " open and " + done + " done", PAD + Hyb.width("Tasks") + 8, (HEAD_H - 8) / 2f, Hyb.MUTED);
-        // Right to left: a new task; a task from the cards selected on the board.
-        int right = w - PAD;
-        right = key(right, "New task", Kind.NEW, null, hover) - 6;
-        final int selected = TaskActions.selectedCards(session)
-            .size();
-        if (selected > 0) key(
-            right,
-            "Make a task from " + selected + (selected == 1 ? " card" : " cards"),
-            Kind.FROM_CARDS,
-            null,
-            hover);
+        final String counts = open + " open and " + done + " done";
+        if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, (HEAD_H - 8) / 2f, Hyb.MUTED);
+    }
+
+    /** While the columns are wider than the view: a thin bar along the bottom, its thumb where the view is. */
+    private void drawAcrossBar(final int w, final int h) {
+        final int max = maxAcross();
+        if (max <= 0) return;
+        final int thumb = thumbW(), tx = (w - thumb) * across / max, y = h - PAD / 2 - BAR_H / 2 - 1;
+        Hyb.rect(0, y, w, BAR_H, 0x60000000);
+        Hyb.rect(tx, y, thumb, BAR_H, draggingBar || onAcrossBar() ? Hyb.INK : 0xFF6A6C74);
+    }
+
+    private int thumbW() {
+        final int w = getArea().width;
+        return Math.max(16, w * w / Math.max(1, w + maxAcross()));
+    }
+
+    /** Whether the mouse is on the bar's band, in the bottom padding, while there is one. */
+    private boolean onAcrossBar() {
+        return maxAcross() > 0 && isHovering() && localY() >= bodyBottom();
+    }
+
+    /** Scrolls so the bar's thumb starts at {@code x}. */
+    private void acrossTo(final int x) {
+        final int room = getArea().width - thumbW();
+        if (room > 0) across = Math.max(0, Math.min(maxAcross(), Math.round((float) x * maxAcross() / room)));
     }
 
     /** A key in the header, right-aligned at {@code right}; returns its left edge. */
@@ -344,7 +397,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         if (hot) Hyb.rect(ax, ay, 16, 16, Hyb.KEY_HOVER);
         Hyb.rect(ax + 4, ay + 7, 8, 2, hot ? Hyb.INK : Hyb.MUTED);
         Hyb.rect(ax + 7, ay + 4, 2, 8, hot ? Hyb.INK : Hyb.MUTED);
-        hits.add(new Hit(Kind.ADD, ax, ay, ax + 16, ay + 16, status));
+        // Only while it shows: a column scrolled past an edge has its key cut there.
+        if (ax >= 0 && ax + 16 <= getArea().width) hits.add(new Hit(Kind.ADD, ax, ay, ax + 16, ay + 16, status));
         // The column's well, lit faintly while a carried card would land in it.
         final int bt = bodyTop(), bh = bodyBottom() - bt;
         Hyb.rect(x, bt, w, bh, COLUMN_EDGE);
@@ -489,6 +543,14 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public Result onMousePressed(final int mouseButton) {
+        if (mouseButton == 0 && onAcrossBar()) {
+            // On the thumb it is taken where it was grabbed; on the track the thumb jumps to centre on the mouse.
+            final int max = maxAcross(), thumb = thumbW(), tx = (getArea().width - thumb) * across / max, mx = localX();
+            barGrab = mx >= tx && mx < tx + thumb ? mx - tx : thumb / 2;
+            draggingBar = true;
+            acrossTo(mx - barGrab);
+            return Result.SUCCESS;
+        }
         final Hit hit = hitAt(lastHits);
         if (hit == null) return Result.ACCEPT;
         if (mouseButton == 1 && hit.kind() == Kind.CARD) {
@@ -524,6 +586,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public void onMouseDrag(final int mouseButton, final long timeSinceClick) {
+        if (draggingBar) acrossTo(localX() - barGrab);
         lift();
     }
 
@@ -548,6 +611,10 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public boolean onMouseRelease(final int mouseButton) {
+        if (draggingBar) {
+            draggingBar = false;
+            return true;
+        }
         if (mouseButton != 0 || pressed == null) return false;
         release();
         return true;
@@ -559,6 +626,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
      * ends here all the same.
      */
     public void screenReleased(final int mouseButton) {
+        if (mouseButton == 0) draggingBar = false;
         if (mouseButton == 0 && pressed != null) release();
     }
 
@@ -584,11 +652,14 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         Sfx.DROP.play();
     }
 
-    /** Close to the top or bottom of a column, a carried card scrolls it. */
+    /** Close to the top or bottom of a column, a carried card scrolls it; close to the view's sides, the columns. */
     private void edgeScroll(final float dt) {
-        if (dropStatus == null) return;
-        final int c = dropStatus.ordinal(), my = localY(), zone = 24;
+        final int mx = localX(), zone = 24;
         final float speed = 400 * dt;
+        if (mx < zone) across = Math.max(0, across - Math.round(speed));
+        else if (mx > getArea().width - zone) across = Math.min(maxAcross(), across + Math.round(speed));
+        if (dropStatus == null) return;
+        final int c = dropStatus.ordinal(), my = localY();
         if (my < bodyTop() + zone) scroll[c] = Math.max(0, scroll[c] - Math.round(speed));
         else if (my > bodyBottom() - zone) scroll[c] += Math.round(speed);
     }
@@ -596,6 +667,12 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
         final int mx = localX();
+        // Sideways: Shift held, or over the column names or the bar.
+        if (maxAcross() > 0 && (net.minecraft.client.gui.GuiScreen.isShiftKeyDown() || localY() < bodyTop()
+            || localY() >= bodyBottom())) {
+            across = Math.max(0, Math.min(maxAcross(), across + (direction == UpOrDown.UP ? -1 : 1) * 40));
+            return true;
+        }
         for (int c = 0; c < 4; c++) if (mx >= columnX(c) && mx < columnX(c) + columnW()) {
             scroll[c] = Math.max(0, scroll[c] + (direction == UpOrDown.UP ? -1 : 1) * 24);
             return true;

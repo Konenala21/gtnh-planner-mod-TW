@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import org.lwjgl.opengl.GL11;
+
 import com.cleanroommc.modularui.api.UpOrDown;
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.Stencil;
@@ -42,11 +44,22 @@ import com.gtnhplanner.ui.theme.Icons;
  * the right its checklist (tick, write, drag to reorder, delete, link a line to one of its cards) and its comments
  * (who wrote each and when; your own can be deleted). Every change is one undoable edit of the plan, made as it
  * happens; the box follows the plan, so undo shows here too, and a task undone away closes it.
+ *
+ * <p>
+ * The box fits the planner it opens in. Narrow (GTNH's GUI scale 4 leaves the planner 330 to 440 pixels wide), the two
+ * sides go one under the other; short, everything between the title bar and the foot scrolls as a page, and a field
+ * the page has scrolled part way out of view hides until it is back.
  */
 public final class TaskPanel extends ParentWidget<TaskPanel> implements Interactable {
 
-    private static final int W = 460, TITLE = 26, PAD = 10, LEFT_W = 196, RIGHT_X = PAD + LEFT_W + 16,
-        RIGHT_W = W - RIGHT_X - PAD, CHIP_H = 16, LABEL = 12, FIELD_H = 14, KEY_H = 16, FOOT = 26;
+    /**
+     * The box's widest, and the least width that holds two columns side by side (narrower, the parts go one under the
+     * other); the least body that holds both columns' lists (shorter, the page scrolls).
+     */
+    private static final int MAX_W = 460, TWO_COLUMNS = 400, MIN_BODY = 136;
+    private static final int TITLE = 26, PAD = 10, CHIP_H = 16, LABEL = 12, FIELD_H = 14, KEY_H = 16, FOOT = 26;
+    /** Room the assign key and a few faces need beside the column chips; with less they go on a row of their own. */
+    private static final int PEOPLE_ROOM = 130;
     private static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
         ROW_HOVER = 0xFF2A2C31;
     private static final int DRAG_SLOP = 3;
@@ -56,13 +69,21 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     private final BoardSession session;
     private final String taskId;
-    private final int h;
+    /** The box's size, fitted to the planner when it opened. */
+    private final int boxW, h;
+    /** The two columns, left and right; on a narrow box both span it, one under the other. */
+    private final int leftW, rightX, rightW;
     private final TextFieldWidget titleField, addField;
     private final TextArea notes, comment;
-    /** Where the parts go, top to bottom. */
-    private final int statusY, columnsY, notesY, notesH, cardsY, cardsBottom, itemsY, itemsBottom, addY, commentsY,
-        commentsBottom, commentBoxY;
+    /**
+     * Where the parts go, top to bottom, on the box's page: everything between the title bar and the foot, which
+     * scrolls when the planner is too short for it.
+     */
+    private final int statusY, peopleY, notesY, notesH, cardsY, cardsBottom, itemsY, itemsBottom, addY, commentsY,
+        commentsBottom, commentBoxY, pageBottom;
     private int cardsScroll, itemsScroll, commentsScroll, cardsH, itemsH, commentsH;
+    /** How far the page is scrolled, and where the fields were last put for it. */
+    private int page, fieldsAt = -1;
 
     /** A checklist line pressed, where, and whether it is being carried to a new place. */
     @Nullable
@@ -97,27 +118,61 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     private final List<Hit> hits = new ArrayList<>(), lastHits = new ArrayList<>();
 
-    private TaskPanel(final BoardSession session, final String taskId, final int h) {
+    /** The column chips side by side: their width. */
+    private static int chipsW() {
+        int w = 0;
+        for (final Tasks.Status s : Tasks.Status.values()) w += Hyb.width(TaskLook.name(s)) + 20 + 4;
+        return w - 4;
+    }
+
+    private TaskPanel(final BoardSession session, final String taskId, final int boxW, final int roomH) {
         this.session = session;
         this.taskId = taskId;
-        this.h = h;
-        size(W, h);
+        this.boxW = boxW;
         statusY = TITLE + 8;
-        columnsY = statusY + CHIP_H + 12;
-        final int bottom = h - FOOT - 4;
-        // Left: the notes, then the cards.
-        notesY = columnsY + LABEL;
-        notesH = Math.max(40, Math.min(84, (bottom - columnsY) / 3));
-        cardsY = notesY + notesH + 10 + LABEL;
-        cardsBottom = bottom;
-        // Right: the checklist and its box, then the comments and theirs.
-        final int share = bottom - columnsY - 2 * LABEL - FIELD_H - 10 - 28;
-        itemsY = columnsY + LABEL;
-        itemsBottom = itemsY + share / 2;
-        addY = itemsBottom + 2;
-        commentsY = addY + FIELD_H + 10 + LABEL;
-        commentBoxY = bottom - 26;
-        commentsBottom = commentBoxY - 4;
+        // Who is on it at the chips' row end, or on a row of its own under them when they would not fit beside.
+        peopleY = boxW - 2 * PAD - chipsW() - 8 >= PEOPLE_ROOM ? statusY : statusY + CHIP_H + 6;
+        final int columnsY = peopleY + CHIP_H + 12;
+        if (boxW >= TWO_COLUMNS) {
+            leftW = (boxW - 2 * PAD - 16) * 196 / (MAX_W - 2 * PAD - 16);
+            rightX = PAD + leftW + 16;
+            rightW = boxW - rightX - PAD;
+            h = roomH;
+            // The body fills the box down to the foot, or takes its least and the page scrolls.
+            final int bottom = Math.max(h - FOOT - 4, columnsY + MIN_BODY);
+            // Left: the notes, then the cards.
+            notesY = columnsY + LABEL;
+            notesH = Math.max(40, Math.min(84, (bottom - columnsY) / 3));
+            cardsY = notesY + notesH + 10 + LABEL;
+            cardsBottom = bottom;
+            // Right: the checklist and its box, then the comments and theirs.
+            final int share = bottom - columnsY - 2 * LABEL - FIELD_H - 10 - 28;
+            itemsY = columnsY + LABEL;
+            itemsBottom = itemsY + share / 2;
+            addY = itemsBottom + 2;
+            commentsY = addY + FIELD_H + 10 + LABEL;
+            commentBoxY = bottom - 26;
+            commentsBottom = commentBoxY - 4;
+            pageBottom = bottom + 4;
+        } else {
+            // One under the other: the notes, the cards, the checklist and its box, the comments and theirs.
+            leftW = boxW - 2 * PAD;
+            rightX = PAD;
+            rightW = leftW;
+            notesY = columnsY + LABEL;
+            notesH = 44;
+            cardsY = notesY + notesH + 10 + LABEL;
+            cardsBottom = cardsY + 40;
+            itemsY = cardsBottom + 10 + LABEL;
+            itemsBottom = itemsY + 44;
+            addY = itemsBottom + 2;
+            commentsY = addY + FIELD_H + 10 + LABEL;
+            commentsBottom = commentsY + 56;
+            commentBoxY = commentsBottom + 4;
+            pageBottom = commentBoxY + 26 + 6;
+            h = Math.min(roomH, pageBottom + FOOT);
+        }
+        size(boxW, h);
 
         titleField = new TextFieldWidget().value(new StringValue.Dynamic(() -> {
             final Tasks.Task t = task();
@@ -125,34 +180,79 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }, this::setTitle));
         titleField.setMaxLength(TaskEdits.TITLE_MAX)
             .pos(PAD + 12, (TITLE - FIELD_H) / 2)
-            .size(W - PAD - 12 - 30, FIELD_H);
+            .size(boxW - PAD - 12 - 30, FIELD_H);
         child(titleField);
 
         notes = new TextArea("Add notes").maxLength(TaskEdits.TEXT_MAX)
             .onDone(this::setText);
-        child(
-            notes.pos(PAD + 1, notesY + 1)
-                .size(LEFT_W - 2, notesH - 2));
+        child(notes.size(leftW - 2, notesH - 2));
 
         addField = new TextFieldWidget().value(new StringValue.Dynamic(() -> "", this::addItem));
         addField.setMaxLength(TaskEdits.ITEM_MAX)
             .hintText("Add a line")
-            .pos(RIGHT_X, addY)
-            .size(RIGHT_W, FIELD_H);
+            .size(rightW, FIELD_H);
         child(addField);
 
         comment = new TextArea("Write a comment").maxLength(TaskEdits.COMMENT_MAX);
-        child(
-            comment.pos(RIGHT_X + 1, commentBoxY + 1)
-                .size(RIGHT_W - 64 - 2, 24));
+        child(comment.size(rightW - 64 - 2, 24));
+        placeFields();
     }
 
-    /** Opens a task in a box in the middle of the screen. */
+    // region The page
+
+    /** The page's window: from under the title bar to the foot. */
+    private int pageTop() {
+        return TITLE + 1;
+    }
+
+    private int pageEnd() {
+        return h - FOOT;
+    }
+
+    private int maxPage() {
+        return Math.max(0, pageBottom - pageEnd());
+    }
+
+    /**
+     * The fields where the page puts them; one the page has scrolled part way out of the window hides until it is
+     * back.
+     */
+    private void placeFields() {
+        fieldsAt = page;
+        place(notes, PAD + 1, notesY + 1, notesH - 2);
+        place(addField, rightX, addY, FIELD_H);
+        place(comment, rightX + 1, commentBoxY + 1, 24);
+    }
+
+    private void place(final com.cleanroommc.modularui.widget.Widget<?> field, final int x, final int pageY,
+        final int fieldH) {
+        final int y = pageY - page;
+        field.pos(x, y);
+        field.setEnabled(y >= pageTop() && y + fieldH <= pageEnd());
+    }
+
+    /** The mouse on the page: the box's y, scrolled. */
+    private int pageMouseY() {
+        return mouseY() + page;
+    }
+
+    /**
+     * Clips to a rectangle on the page. The stencil's shape is drawn under the page's own shift, so it takes the page's
+     * coordinates.
+     */
+    private void clip(final int x, final int pageY, final int w, final int ch, final ModularGuiContext context) {
+        Stencil.apply(x, pageY, w, ch, context);
+    }
+
+    // endregion
+
+    /** Opens a task in a box in the middle of the planner, as big as it has room for. */
     public static void open(final BoardSession session, final String taskId) {
         if (TaskEdits.task(session.graph(), taskId) == null) return;
-        final int h = Math.max(260, Math.min(380, PlannerScale.height() - 24));
-        final TaskPanel panel = new TaskPanel(session, taskId, h);
-        final Popup popup = new Popup("gtnhplanner_task", W, h) {
+        final int[] room = Popup.room(session.panel());
+        final int w = Math.min(MAX_W, room[2] - 8);
+        final TaskPanel panel = new TaskPanel(session, taskId, w, Math.min(380, room[3] - 8));
+        final Popup popup = new Popup("gtnhplanner_task", w, panel.h) {
 
             @Override
             public void drawBackground(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
@@ -164,7 +264,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         popup.child(panel.pos(0, 0));
         popup.onCloseAction(panel::closing);
         showing = new WeakReference<>(panel);
-        Popup.open(session.panel(), popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - h) / 2);
+        Popup.openCentred(session.panel(), popup, 0.5f);
     }
 
     @Nullable
@@ -343,20 +443,44 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final float z = context.getCurrentDrawingZ();
         // The title bar: the task's colour, its title (a field), the close key.
         TaskLook.dot(PAD, (TITLE - 7) / 2f, 7, TaskLook.colour(t.status()));
-        Hyb.rect(PAD + 11, (TITLE - FIELD_H) / 2 - 1, W - PAD - 11 - 29, FIELD_H + 2, CardPaint.EDGE);
-        final int cx = W - 20, cy = (TITLE - 14) / 2;
+        Hyb.rect(PAD + 11, (TITLE - FIELD_H) / 2 - 1, boxW - PAD - 11 - 29, FIELD_H + 2, CardPaint.EDGE);
+        final int cx = boxW - 20, cy = (TITLE - 14) / 2;
         final boolean closeHot = is(hover, Kind.CLOSE);
         if (closeHot) Hyb.rect(cx, cy, 14, 14, CONTROL_HOVER);
         cross(cx + 7f, cy + 7f, closeHot ? Hyb.INK : Hyb.MUTED);
         hits.add(new Hit(Kind.CLOSE, cx, cy, cx + 14, cy + 14, null));
-        Hyb.rect(1, TITLE, W - 2, 1, CardPaint.HAIR);
+        Hyb.rect(1, TITLE, boxW - 2, 1, CardPaint.HAIR);
 
+        // The page between the title bar and the foot, scrolled when it is taller than its window.
+        page = Math.max(0, Math.min(maxPage(), page));
+        if (page != fieldsAt) {
+            placeFields();
+            scheduleResize();
+        }
+        final int pageHits = hits.size();
+        Stencil.apply(0, pageTop(), boxW, pageEnd() - pageTop(), context);
+        GL11.glPushMatrix();
+        GL11.glTranslatef(0, -page, 0);
         drawStatus(t, hover);
         drawPeople(t, hover);
         drawNotes();
         drawCards(t, hover, z, context);
         drawChecklist(t, hover, context);
         drawComments(t, hover, context);
+        GL11.glPopMatrix();
+        Stencil.remove();
+        // What was hit on the page, where it shows in its window.
+        for (int i = hits.size() - 1; i >= pageHits; i--) {
+            final Hit p = hits.get(i);
+            final int y0 = Math.max(pageTop(), p.y0() - page), y1 = Math.min(pageEnd(), p.y1() - page);
+            if (y1 <= y0) hits.remove(i);
+            else hits.set(i, new Hit(p.kind(), p.x0(), y0, p.x1(), y1, p.data()));
+        }
+        if (maxPage() > 0) {
+            // A thin bar down the right edge: how far down the page the window is.
+            final int track = pageEnd() - pageTop() - 4, bar = Math.max(12, track * track / (track + maxPage()));
+            Hyb.rect(boxW - 4, pageTop() + 2 + (track - bar) * page / maxPage(), 2, bar, 0xFF4A4C54);
+        }
         drawFoot(t, hover);
         lastHits.clear();
         lastHits.addAll(hits);
@@ -396,15 +520,15 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
      * yourself off (signed in, a plan on this computer), or to sign in.
      */
     private void drawPeople(final Tasks.Task t, @Nullable final Hit hover) {
-        int right = W - PAD;
+        int right = boxW - PAD;
         final String me = Account.userId();
         final boolean shared = !TaskLook.people(graph())
             .isEmpty();
         if (me == null) {
             final String s = "Sign in to assign";
             right -= Hyb.width(s);
-            Hyb.text(s, right, statusY + 4, is(hover, Kind.SIGN_IN) ? 0xFFFFFFFF : CYAN);
-            hits.add(new Hit(Kind.SIGN_IN, right, statusY, right + Hyb.width(s), statusY + CHIP_H, null));
+            Hyb.text(s, right, peopleY + 4, is(hover, Kind.SIGN_IN) ? 0xFFFFFFFF : CYAN);
+            hits.add(new Hit(Kind.SIGN_IN, right, peopleY, right + Hyb.width(s), peopleY + CHIP_H, null));
         } else {
             final String s = shared ? "Assign"
                 : t.assignees()
@@ -413,7 +537,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             right -= kw;
             Hyb.bevel(
                 right,
-                statusY,
+                peopleY,
                 kw,
                 KEY_H,
                 is(hover, Kind.ASSIGN) ? Hyb.KEY_HOVER : Hyb.KEY,
@@ -421,15 +545,15 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 Hyb.KEY_LO,
                 0,
                 1);
-            Hyb.text(s, right + 6, statusY + 4, Hyb.INK);
-            hits.add(new Hit(Kind.ASSIGN, right, statusY, right + kw, statusY + KEY_H, shared ? Boolean.TRUE : null));
+            Hyb.text(s, right + 6, peopleY + 4, Hyb.INK);
+            hits.add(new Hit(Kind.ASSIGN, right, peopleY, right + kw, peopleY + KEY_H, shared ? Boolean.TRUE : null));
         }
         if (t.assignees()
             .isEmpty()) return;
         int w = 0;
         for (final String id : t.assignees())
             w += TaskLook.faceWidth(TaskLook.initials(TaskLook.nameOf(graph(), id))) - 2;
-        TaskLook.faces(graph(), t.assignees(), right - 6 - w, statusY + 2);
+        TaskLook.faces(graph(), t.assignees(), right - 6 - w, peopleY + 2);
     }
 
     /** A shared plan's owner and members, under the Assign key: a pick puts them on the task or takes them off. */
@@ -466,8 +590,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     private void drawNotes() {
         Hyb.text("Notes", PAD, notesY - LABEL + 1, Hyb.MUTED);
-        Hyb.rect(PAD, notesY, LEFT_W, notesH, CardPaint.EDGE);
-        Hyb.rect(PAD + 1, notesY + 1, LEFT_W - 2, notesH - 2, WELL);
+        Hyb.rect(PAD, notesY, leftW, notesH, CardPaint.EDGE);
+        Hyb.rect(PAD + 1, notesY + 1, leftW - 2, notesH - 2, WELL);
     }
 
     /** The cards the task is about: each a row to click to see it on the plan, and the key to link those selected. */
@@ -480,17 +604,17 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final int fresh = newlySelected(t);
         if (fresh > 0) {
             final String s = "Link " + fresh + " selected";
-            final int x = PAD + LEFT_W - Hyb.width(s);
+            final int x = PAD + leftW - Hyb.width(s);
             Hyb.text(s, x, labelY, is(hover, Kind.LINK_SELECTED) ? 0xFFFFFFFF : CYAN);
-            hits.add(new Hit(Kind.LINK_SELECTED, x, labelY - 2, PAD + LEFT_W, labelY + 9, null));
+            hits.add(new Hit(Kind.LINK_SELECTED, x, labelY - 2, PAD + leftW, labelY + 9, null));
         }
-        final int top = cardsY, bottom = cardsBottom, tw = LEFT_W - 22 - 14;
+        final int top = cardsY, bottom = cardsBottom, tw = leftW - 22 - 14;
         if (cards.isEmpty()) {
             final List<String> hint = List.of("Select cards on the plan", "to link them here.");
             for (int i = 0; i < hint.size(); i++) Hyb.text(hint.get(i), PAD + 2, top + 4 + i * 10, 0xFF6A6C74);
             return;
         }
-        Stencil.apply(PAD, top, LEFT_W, bottom - top, context);
+        clip(PAD, top, leftW, bottom - top, context);
         int y = top - cardsScroll;
         for (final TaskActions.Card c : cards) {
             final NoteText words = NoteText.of(c.line(), tw, Hyb::width);
@@ -500,7 +624,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     .size() * 10 + 8);
             final boolean hot = y + rh > top && y < bottom
                 && (is(hover, Kind.CARD, c.id()) || is(hover, Kind.UNLINK, c.id()));
-            if (hot) Hyb.rect(PAD, y, LEFT_W, rh, ROW_HOVER);
+            if (hot) Hyb.rect(PAD, y, leftW, rh, ROW_HOVER);
             if (c.icon() != null) Hyb.item(c.icon(), PAD + 2, y + (rh - 16) / 2f, 16, z);
             org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
             for (int i = 0; i < words.lines()
@@ -512,17 +636,17 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                         .size() * 10) / 2f + 1 + i * 10,
                     Hyb.INK);
             final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-            if (y1 > y0) hits.add(new Hit(Kind.CARD, PAD, y0, PAD + LEFT_W, y1, c.id()));
+            if (y1 > y0) hits.add(new Hit(Kind.CARD, PAD, y0, PAD + leftW, y1, c.id()));
             // Hovered, the key that unlinks it; else the dot of another task it is on, where that one presses more.
             final Tasks.Status dot = session.taskStatus(c.id());
             if (hot) {
-                final int ux = PAD + LEFT_W - 12, uy = y + (rh - 10) / 2;
+                final int ux = PAD + leftW - 12, uy = y + (rh - 10) / 2;
                 final boolean onX = is(hover, Kind.UNLINK, c.id());
                 cross(ux + 5f, uy + 5f, onX ? Hyb.RED_INK : Hyb.MUTED);
                 if (y >= top && y + rh <= bottom)
                     hits.add(new Hit(Kind.UNLINK, ux - 2, uy - 2, ux + 12, uy + 12, c.id()));
             } else if (dot != null && dot != t.status())
-                TaskLook.dot(PAD + LEFT_W - 9, y + (rh - 5) / 2f, 5, TaskLook.colour(dot));
+                TaskLook.dot(PAD + leftW - 9, y + (rh - 5) / 2f, 5, TaskLook.colour(dot));
             y += rh;
         }
         Stencil.remove();
@@ -537,23 +661,23 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             .filter(Tasks.Item::done)
             .count();
         final int labelY = itemsY - LABEL + 1;
-        Hyb.text("Checklist", RIGHT_X, labelY, Hyb.MUTED);
+        Hyb.text("Checklist", rightX, labelY, Hyb.MUTED);
         if (!items.isEmpty()) {
             final String n = ticked + "/" + items.size();
-            final int nx = RIGHT_X + Hyb.width("Checklist") + 4;
+            final int nx = rightX + Hyb.width("Checklist") + 4;
             Hyb.text(n, nx, labelY, ticked == items.size() ? Hyb.OK_INK : 0xFF6A6C74);
-            final int bx = nx + Hyb.width(n) + 6, bw = RIGHT_X + RIGHT_W - bx;
+            final int bx = nx + Hyb.width(n) + 6, bw = rightX + rightW - bx;
             if (bw > 10) {
                 Hyb.rect(bx, labelY + 3, bw, 3, 0xFF2C2E34);
                 Hyb.rect(bx, labelY + 3, Math.round(bw * ticked / (float) items.size()), 3, Hyb.OK_INK);
             }
         }
-        final int top = itemsY, bottom = itemsBottom, tw = RIGHT_W - 14 - 30;
+        final int top = itemsY, bottom = itemsBottom, tw = rightW - 14 - 30;
         if (items.isEmpty()) {
-            Hyb.text("Nothing on it yet.", RIGHT_X + 2, top + 4, 0xFF6A6C74);
+            Hyb.text("Nothing on it yet.", rightX + 2, top + 4, 0xFF6A6C74);
             return;
         }
-        Stencil.apply(RIGHT_X, top, RIGHT_W, bottom - top, context);
+        clip(rightX, top, rightW, bottom - top, context);
         int y = top - itemsScroll;
         int dropY = -1, index = 0;
         final boolean anyCards = !t.nodeIds()
@@ -571,10 +695,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             final boolean rowHot = !itemCarrying && hover != null
                 && item.id()
                     .equals(hover.data());
-            if (rowHot) Hyb.rect(RIGHT_X, y, RIGHT_W, rh, ROW_HOVER);
-            if (carried) Hyb.rect(RIGHT_X, y, RIGHT_W, rh, 0x3022D3EE);
+            if (rowHot) Hyb.rect(rightX, y, rightW, rh, ROW_HOVER);
+            if (carried) Hyb.rect(rightX, y, rightW, rh, 0x3022D3EE);
             // The box.
-            final int bx = RIGHT_X + 2, by = y + 3;
+            final int bx = rightX + 2, by = y + 3;
             final boolean boxHot = is(hover, Kind.BOX, item.id());
             Hyb.rect(bx, by, 9, 9, item.done() ? Hyb.OK_INK : boxHot ? 0xFF8F939C : 0xFF5A5D66);
             if (!item.done()) Hyb.rect(bx + 1, by + 1, 7, 7, WELL);
@@ -587,16 +711,15 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 Hyb.rect(bx + 6, by + 2, 1, 2, 0xFF0B1A12);
             }
             for (int i = 0; i < words.lines()
-                .size(); i++)
-                Hyb.text(words.shown(i), RIGHT_X + 15, y + 3 + i * 10, item.done() ? 0xFF8A8C94 : Hyb.INK);
+                .size(); i++) Hyb.text(words.shown(i), rightX + 15, y + 3 + i * 10, item.done() ? 0xFF8A8C94 : Hyb.INK);
             final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
             if (y1 > y0) {
-                hits.add(new Hit(Kind.ITEM, RIGHT_X, y0, RIGHT_X + RIGHT_W, y1, item.id()));
-                hits.add(new Hit(Kind.BOX, RIGHT_X, y0, RIGHT_X + 13, y1, item.id()));
+                hits.add(new Hit(Kind.ITEM, rightX, y0, rightX + rightW, y1, item.id()));
+                hits.add(new Hit(Kind.BOX, rightX, y0, rightX + 13, y1, item.id()));
             }
             final boolean inView = y >= top && y + rh <= bottom;
             // A line pointing at a card shows it; hovered, its keys.
-            final int kx = RIGHT_X + RIGHT_W - 24, ky = y + 2;
+            final int kx = rightX + rightW - 24, ky = y + 2;
             if (item.nodeId() != null || rowHot && anyCards) {
                 final boolean on = is(hover, Kind.ITEM_LINK, item.id());
                 Icons.card(kx, ky + 1, item.nodeId() != null ? on ? 0xFFFFFFFF : CYAN : on ? Hyb.INK : Hyb.MUTED);
@@ -610,7 +733,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             y += rh;
         }
         if (itemCarrying && dropY < 0) dropY = y;
-        if (itemCarrying) Hyb.rect(RIGHT_X, dropY - 1, RIGHT_W, 2, CYAN);
+        if (itemCarrying) Hyb.rect(rightX, dropY - 1, rightW, 2, CYAN);
         Stencil.remove();
         // The line in hand follows the mouse, lifted.
         final Tasks.Item carried = itemCarrying ? TaskEdits.item(graph(), itemPressed) : null;
@@ -620,12 +743,12 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 14,
                 words.lines()
                     .size() * 10 + 4),
-                cy = Math.max(top, Math.min(bottom, mouseY())) - rh / 2;
-            Hyb.rect(RIGHT_X + 3, cy + 4, RIGHT_W, rh, 0x50000000);
-            Hyb.rect(RIGHT_X, cy, RIGHT_W, rh, CardPaint.EDGE);
-            Hyb.rect(RIGHT_X + 1, cy + 1, RIGHT_W - 2, rh - 2, ROW_HOVER);
+                cy = Math.max(top, Math.min(bottom, pageMouseY())) - rh / 2;
+            Hyb.rect(rightX + 3, cy + 4, rightW, rh, 0x50000000);
+            Hyb.rect(rightX, cy, rightW, rh, CardPaint.EDGE);
+            Hyb.rect(rightX + 1, cy + 1, rightW - 2, rh - 2, ROW_HOVER);
             for (int i = 0; i < words.lines()
-                .size(); i++) Hyb.text(words.shown(i), RIGHT_X + 15, cy + 3 + i * 10, Hyb.INK);
+                .size(); i++) Hyb.text(words.shown(i), rightX + 15, cy + 3 + i * 10, Hyb.INK);
         }
         itemsH = y + itemsScroll - top;
         itemsScroll = Math.max(0, Math.min(itemsScroll, itemsH - (bottom - top)));
@@ -634,7 +757,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     /** Where a carried line would land: before the first other line whose middle is below the mouse. */
     private void findItemDrop(final List<Tasks.Item> items) {
-        final int tw = RIGHT_W - 14 - 30, my = mouseY();
+        final int tw = rightW - 14 - 30, my = pageMouseY();
         int y = itemsY - itemsScroll, index = 0, drop = -1;
         for (final Tasks.Item item : items) {
             final int rh = Math.max(
@@ -656,13 +779,13 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     private void drawComments(final Tasks.Task t, @Nullable final Hit hover, final ModularGuiContext context) {
         final List<Tasks.Comment> comments = TaskEdits.comments(graph(), taskId);
         final int labelY = commentsY - LABEL + 1;
-        Hyb.text("Comments", RIGHT_X, labelY, Hyb.MUTED);
+        Hyb.text("Comments", rightX, labelY, Hyb.MUTED);
         if (!comments.isEmpty())
-            Hyb.text(Integer.toString(comments.size()), RIGHT_X + Hyb.width("Comments") + 4, labelY, 0xFF6A6C74);
-        final int top = commentsY, bottom = commentsBottom, tw = RIGHT_W - 6;
-        if (comments.isEmpty()) Hyb.text("No comments yet.", RIGHT_X + 2, top + 4, 0xFF6A6C74);
+            Hyb.text(Integer.toString(comments.size()), rightX + Hyb.width("Comments") + 4, labelY, 0xFF6A6C74);
+        final int top = commentsY, bottom = commentsBottom, tw = rightW - 6;
+        if (comments.isEmpty()) Hyb.text("No comments yet.", rightX + 2, top + 4, 0xFF6A6C74);
         else {
-            Stencil.apply(RIGHT_X, top, RIGHT_W, bottom - top, context);
+            clip(rightX, top, rightW, bottom - top, context);
             int y = top - commentsScroll;
             for (final Tasks.Comment c : comments) {
                 final NoteText words = NoteText.of(c.text(), tw, Hyb::width);
@@ -670,24 +793,24 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     .size() * 10 + 6;
                 // The whole comment is a row, so hovering it shows its Delete.
                 final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-                if (y1 > y0) hits.add(new Hit(Kind.COMMENT, RIGHT_X, y0, RIGHT_X + RIGHT_W, y1, c.id()));
+                if (y1 > y0) hits.add(new Hit(Kind.COMMENT, rightX, y0, rightX + rightW, y1, c.id()));
                 final boolean rowHot = hover != null && c.id()
                     .equals(hover.data());
-                final int fw = TaskLook.face(graph(), c.by(), RIGHT_X + 1, y);
+                final int fw = TaskLook.face(graph(), c.by(), rightX + 1, y);
                 final String who = c.byName()
                     .isEmpty() ? "Someone" : c.byName();
-                Hyb.text(who, RIGHT_X + fw + 5, y + 2, Hyb.INK);
-                Hyb.text(TaskLook.ago(c.at()), RIGHT_X + fw + 5 + Hyb.width(who) + 5, y + 2, 0xFF6A6C74);
+                Hyb.text(who, rightX + fw + 5, y + 2, Hyb.INK);
+                Hyb.text(TaskLook.ago(c.at()), rightX + fw + 5 + Hyb.width(who) + 5, y + 2, 0xFF6A6C74);
                 if (TaskLook.mine(c.by()) && rowHot) {
                     final String del = "Delete";
-                    final int dx = RIGHT_X + RIGHT_W - Hyb.width(del) - 2;
+                    final int dx = rightX + rightW - Hyb.width(del) - 2;
                     final boolean on = is(hover, Kind.COMMENT_DELETE, c.id());
                     Hyb.text(del, dx, y + 2, on ? 0xFFFF8080 : Hyb.RED_INK);
                     if (y >= top)
                         hits.add(new Hit(Kind.COMMENT_DELETE, dx - 2, y, dx + Hyb.width(del) + 2, y + 12, c.id()));
                 }
                 for (int i = 0; i < words.lines()
-                    .size(); i++) Hyb.text(words.shown(i), RIGHT_X + 2, y + 15 + i * 10, 0xFFD4D5DA);
+                    .size(); i++) Hyb.text(words.shown(i), rightX + 2, y + 15 + i * 10, 0xFFD4D5DA);
                 y += rh;
             }
             Stencil.remove();
@@ -695,9 +818,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             commentsScroll = Math.max(0, Math.min(commentsScroll, commentsH - (bottom - top)));
         }
         // The box to write in, and its key.
-        Hyb.rect(RIGHT_X, commentBoxY, RIGHT_W - 64, 26, CardPaint.EDGE);
-        Hyb.rect(RIGHT_X + 1, commentBoxY + 1, RIGHT_W - 66, 24, WELL);
-        final int kx = RIGHT_X + RIGHT_W - 58, ky = commentBoxY + 5;
+        Hyb.rect(rightX, commentBoxY, rightW - 64, 26, CardPaint.EDGE);
+        Hyb.rect(rightX + 1, commentBoxY + 1, rightW - 66, 24, WELL);
+        final int kx = rightX + rightW - 58, ky = commentBoxY + 5;
         final boolean hot = is(hover, Kind.POST);
         Hyb.rect(kx, ky, 58, KEY_H, hot ? 0xFF38E1F5 : CYAN);
         Hyb.rect(kx, ky, 58, 1, 0x66FFFFFF);
@@ -708,14 +831,14 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     /** Who made it and when; the key that deletes it. */
     private void drawFoot(final Tasks.Task t, @Nullable final Hit hover) {
         final int y = h - FOOT;
-        Hyb.rect(1, y, W - 2, 1, CardPaint.HAIR);
+        Hyb.rect(1, y, boxW - 2, 1, CardPaint.HAIR);
         final String by = t.createdBy() == null ? null : TaskLook.nameOf(graph(), t.createdBy());
         final String when = TaskLook.ago(t.createdAt());
         final String made = TaskLook.mine(t.createdBy()) ? "You made it" + (when.isEmpty() ? "" : " " + when)
             : by != null ? "Made by " + by + (when.isEmpty() ? "" : " " + when) : when.isEmpty() ? "" : "Made " + when;
         Hyb.text(made, PAD, y + 9, 0xFF6A6C74);
         final String del = "Delete task";
-        final int kw = Hyb.width(del) + 12, kx = W - PAD - kw, ky = y + 5;
+        final int kw = Hyb.width(del) + 12, kx = boxW - PAD - kw, ky = y + 5;
         Hyb.bevel(kx, ky, kw, KEY_H, is(hover, Kind.DELETE) ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
         Hyb.text(del, kx + 6, ky + 4, Hyb.RED_INK);
         hits.add(new Hit(Kind.DELETE, kx, ky, kx + kw, ky + KEY_H, null));
@@ -740,7 +863,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final Hit hover = itemCarrying ? null : hitAt(lastHits);
         if (!tipWait.ready(hover == null ? null : hover.kind() + ":" + hover.data())) return;
         final Tip tip = tip(hover);
-        if (tip != null) tip.drawNear(mouseX(), mouseY(), W, h);
+        if (tip != null) tip.drawNear(mouseX(), mouseY(), boxW, h);
     }
 
     @Nullable
@@ -896,13 +1019,26 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
-        final int step = (direction == UpOrDown.UP ? -1 : 1) * 20, x = mouseX(), y = mouseY();
-        if (x >= PAD && x < PAD + LEFT_W && y >= cardsY && y < cardsBottom)
-            cardsScroll = Math.max(0, cardsScroll + step);
-        else if (x >= RIGHT_X && y >= itemsY && y < itemsBottom) itemsScroll = Math.max(0, itemsScroll + step);
-        else if (x >= RIGHT_X && y >= commentsY && y < commentsBottom)
+        final int step = (direction == UpOrDown.UP ? -1 : 1) * 20, x = mouseX(), y = pageMouseY();
+        // A list under the mouse scrolls while it has further to go that way; else the page does.
+        if (x >= PAD && x < PAD + leftW
+            && y >= cardsY
+            && y < cardsBottom
+            && moves(cardsScroll, cardsH - (cardsBottom - cardsY), step)) cardsScroll = Math.max(0, cardsScroll + step);
+        else if (x >= rightX && y >= itemsY
+            && y < itemsBottom
+            && moves(itemsScroll, itemsH - (itemsBottom - itemsY), step)) itemsScroll = Math.max(0, itemsScroll + step);
+        else if (x >= rightX && y >= commentsY
+            && y < commentsBottom
+            && moves(commentsScroll, commentsH - (commentsBottom - commentsY), step))
             commentsScroll = Math.max(0, commentsScroll + step);
+        else page = Math.max(0, Math.min(maxPage(), page + step));
         return true;
+    }
+
+    /** Whether a list scrolled {@code at} of {@code max} goes anywhere by {@code step}. */
+    private static boolean moves(final int at, final int max, final int step) {
+        return step < 0 ? at > 0 : at < max;
     }
 
     /** Which of the task's cards a checklist line points at: one of them, none, or show the one it has. */
