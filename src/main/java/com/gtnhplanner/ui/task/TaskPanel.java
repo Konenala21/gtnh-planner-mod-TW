@@ -60,7 +60,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     /** Colours: the wells written in, keys and rows lit, the side column's panel, the quieter words. */
     static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
         ROW_HOVER = 0xFF2A2C31, SIDE = 0xFF1D1F23, SIDE_EDGE = 0xFF2C2E34, DIM = 0xFF7E8089, FAINT = 0xFF6A6C74;
-    private static final int DRAG_SLOP = 3;
+    private static final int DRAG_SLOP = 6;
 
     /** The box open now, for the dev harness and the screen's releases. */
     private static WeakReference<TaskPanel> showing = new WeakReference<>(null);

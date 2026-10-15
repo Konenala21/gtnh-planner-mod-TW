@@ -198,7 +198,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `tools/dev/mock-live.mjs` without the website. Nothing of this reaches players before the owner's rollout
   (staging at new.gtnhplanner.com, then a one-line Caddy switch; the website's `docs/live-rollout.md`).
 - On the board a left press on anything (a card's keys and chips too, a drawer's, a note's) is a click when let go
-  within 3 GUI pixels (`BoardCanvas.DRAG_SLOP`) and acts then; moved further, it carries the thing. Carried things
+  within 6 GUI pixels (`BoardCanvas.DRAG_SLOP`; tabs and task cards too) and acts then; moved further, it carries the thing. Carried things
   glide (about 120 ms) between 10 px grid spots and never land on another card or drawer: each frame they go to the
   clear spot nearest the mouse (`BoardCanvas.nearestClear`, the website's ring search), so they hug what is in the way
   and come out its far side past its middle; notes pass over. Hovering a port, drawer or wire lights only it, its

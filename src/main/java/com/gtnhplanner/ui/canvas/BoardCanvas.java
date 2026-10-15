@@ -763,7 +763,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
      */
     private boolean moveStarted;
     /** How far the mouse goes, in GUI pixels, before a press on a card, drawer or note moves it. */
-    private static final int DRAG_SLOP = 3;
+    private static final int DRAG_SLOP = 6;
     /** The grid moves snap to, in board pixels. */
     private static final int MOVE_STEP = 10;
     /** How far the clear spot is looked for around the mouse, in grid steps, before giving up and overlapping. */

@@ -62,7 +62,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     private int barGrab;
 
     /** Pressed slop in GUI pixels before a tab is carried, as the board's. */
-    private static final int DRAG_SLOP = 3;
+    private static final int DRAG_SLOP = 6;
     /** How near the strip's edge the mouse scrolls it, and how fast (pixels a second) at the very edge. */
     private static final int EDGE = 20, EDGE_SPEED = 600;
     /** How fast tabs glide to their places: about 120 ms to get there. */

@@ -53,7 +53,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     private static final int MIN_COL = 112, BAR_H = 3;
     private static final int COLUMN_BG = 0xFF18191C, COLUMN_EDGE = 0xFF26282D, CARD_HOT = 0xFF2A2C32;
     /** How far the mouse goes before a press on a card carries it, as on the board. */
-    private static final int DRAG_SLOP = 3;
+    private static final int DRAG_SLOP = 6;
     /** How quickly cards glide to their places: about 120 ms, as on the board. */
     private static final float EASE_SECONDS = 0.035f;
 
