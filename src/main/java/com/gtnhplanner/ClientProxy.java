@@ -66,6 +66,7 @@ public class ClientProxy extends CommonProxy {
         // The planner's screens coming and going (its other sounds play where they happen: ui/sound/Sfx).
         MinecraftForge.EVENT_BUS.register(com.gtnhplanner.ui.sound.ScreenSounds.INSTANCE);
         ClientCommandHandler.instance.registerCommand(new ImportCommand());
+        ClientCommandHandler.instance.registerCommand(new com.gtnhplanner.client.OpenPlanCommand());
         // The website's "Open in the mod": plans it sends to this game, asked about before they open.
         ClientCommandHandler.instance.registerCommand(new com.gtnhplanner.client.WebsiteCommand());
         com.gtnhplanner.client.WebsiteInbox.start();

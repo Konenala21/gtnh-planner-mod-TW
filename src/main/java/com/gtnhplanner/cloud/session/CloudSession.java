@@ -79,6 +79,12 @@ public final class CloudSession {
         void notice(String text);
 
         /**
+         * Another account added this one to a plan (or this player is told again after a reconnect): the board says so
+         * with a key that opens it, or, with the planner shut, a chat line with a clickable [Open].
+         */
+        default void shared(final String ownerName, final String planName, final String key) {}
+
+        /**
          * The player's plans in hand now (the tour's sandbox aside), or null when none are loaded: when they are no
          * longer the session's, it lets go of its own.
          */
@@ -195,6 +201,8 @@ public final class CloudSession {
     private JsonObject deviceKept;
     private final Map<String, List<String>> pinsKept = new HashMap<>();
     private boolean migrated;
+    /** Plans the player was told were shared with them this session: a repeated frame for one is ignored. */
+    private final Set<String> announced = new HashSet<>();
 
     private CloudSession(final String accountId, final Supplier<String> token, final CloudCache cache,
         final Host host) {
@@ -359,8 +367,10 @@ public final class CloudSession {
         }
         // An account with no plans yet still opens on one, empty; the world's plans take its place when they arrive.
         standIn = null;
+        standInHeld = false;
         if (p.getGraphs()
             .isEmpty()) {
+            standInHeld = true;
             standIn = new Graph("Plan 1");
             p.getGraphs()
                 .add(standIn);
@@ -374,6 +384,8 @@ public final class CloudSession {
     /** The empty plan the planner opened on while the account had none, until the world's plans arrive. */
     @Nullable
     private Graph standIn;
+    /** Whether the stand-in still waits for the world's plans (settled once they have gone up, or there are none). */
+    private boolean standInHeld;
 
     /**
      * The world's plans arrived: the empty stand-in goes (unless the player has put something on it, which makes it a
@@ -382,6 +394,7 @@ public final class CloudSession {
     private void replaceStandIn(final Plan local, final List<Migration.Item> items) {
         final Graph s = standIn;
         standIn = null;
+        standInHeld = false;
         if (s == null || plan == null || s.getCloudKey() != null || Migration.eligible(s)) return;
         final int at = plan.getGraphs()
             .indexOf(s);
@@ -443,7 +456,7 @@ public final class CloudSession {
         for (final Graph g : new ArrayList<>(p.getGraphs())) {
             final String key = g.getCloudKey();
             if (key == null || !docs.containsKey(key)) {
-                if (Migration.eligible(g)) slots.put(make(g), g);
+                if (makeable(g)) slots.put(make(g), g);
                 continue;
             }
             slots.put(key, g);
@@ -467,6 +480,28 @@ public final class CloudSession {
             if (!host.busy(g)) commit(d);
         }
         keepDevice();
+    }
+
+    /**
+     * Whether a plan new to the planner goes to the account now: every plan is in the account from the moment it
+     * exists, empty ones too (a new plan, a new task board, one pasted or imported). Not a slot that failed to read,
+     * and
+     * not the empty plan the planner opened on while the world's plans have not arrived: they take its place.
+     */
+    private boolean makeable(final Graph g) {
+        if (g.getUnreadable() != null && g.nodes.isEmpty()) return false;
+        if (g == standIn && standInHeld && !Migration.eligible(g)) return false;
+        return true;
+    }
+
+    /**
+     * The world's plans have been dealt with (or there are none): the empty plan the planner opened on is a plan of the
+     * account like any other, made now.
+     */
+    private void releaseStandIn() {
+        if (!standInHeld) return;
+        standInHeld = false;
+        if (plan != null && host.inHand() == plan) save(plan);
     }
 
     /** Plans the player is deleting (or leaving, shared), by doc key: the next save lets go of them. */
@@ -809,6 +844,32 @@ public final class CloudSession {
         }
 
         @Override
+        public void onShared(final String doc, final LiveClient.Member owner, final String name) {
+            // The list at once: the plan joins the planner (no tab) and the Shared with me shelf has it.
+            listAt = -LIST_EVERY_MS;
+            if (doc.isEmpty() || doc.startsWith(accountId + ":") || !announced.add(doc)) return;
+            // Shared again after it was left: it comes back with the list.
+            if (letGo.remove(doc)) keepDevice();
+            // Each time it is told: the player hears it once per time they are added.
+            host.shared(
+                owner.username()
+                    .isEmpty() ? "Someone" : owner.username(),
+                name.isEmpty() ? "a plan" : name,
+                doc);
+        }
+
+        @Override
+        public void onUnshared(final String doc) {
+            listAt = -LIST_EVERY_MS;
+            announced.remove(doc);
+            final LiveDoc d = docs.get(doc);
+            if (d != null && !d.creating()
+                && !d.ownerId()
+                    .equals(accountId))
+                dropped(d, "is no longer shared with you");
+        }
+
+        @Override
         public void onKicked(final String doc, final String reason) {
             final LiveDoc d = docs.get(doc);
             if (d == null || d.creating()) return;
@@ -1126,12 +1187,18 @@ public final class CloudSession {
      */
     private void migrate() {
         final Plan local = host.worldPlans();
-        if (local == null || library == null) return;
+        if (local == null || library == null) {
+            releaseStandIn();
+            return;
+        }
         final Set<String> known = new HashSet<>();
         for (final CloudApi.Design d : library.own()) known.add(d.id());
         final Function<Graph, JsonObject> write = g -> CloudPlans.write(g, game(), null, null)
             .plan();
-        if (Migration.prepareless(local, accountId, known)) return;
+        if (Migration.prepareless(local, accountId, known)) {
+            releaseStandIn();
+            return;
+        }
         if (!host.backUpWorld()) {
             GtnhPlanner.LOG.warn("The world's plans could not be backed up; they stay here for now");
             return;
@@ -1143,7 +1210,10 @@ public final class CloudSession {
             GtnhPlanner.LOG.error("Could not ready the world's plans for the account", e);
             return;
         }
-        if (items.isEmpty() || !host.saveWorld(local)) return;
+        if (items.isEmpty() || !host.saveWorld(local)) {
+            releaseStandIn();
+            return;
+        }
         call("migrate", () -> Migration.upload(items, token.get(), null), result -> {
             int arrived = 0;
             for (final Migration.Item item : items) {
@@ -1166,6 +1236,7 @@ public final class CloudSession {
                 replaceStandIn(local, items);
                 host.notice("Your plans from this world are now in your account");
             }
+            releaseStandIn();
             listAt = -LIST_EVERY_MS;
             keepDevice();
         }, e -> GtnhPlanner.LOG.warn("The world's plans did not go to the account yet", e));

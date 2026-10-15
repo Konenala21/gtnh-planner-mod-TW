@@ -228,6 +228,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
 
     /** Who may edit the plan, as the site has it now. */
     private void refresh() {
+        if (doc.creating()) return;
         final String ownerId = owns() ? null : doc.ownerId();
         call(t -> CloudApi.sharing(t, doc.designId(), ownerId), s -> {
             if (!s.ownerName()
@@ -273,6 +274,10 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
     }
 
     private void add(final String id, final String username) {
+        if (doc.creating()) {
+            error = "The plan is still being made in your account";
+            return;
+        }
         if (!busy.add(id)) return;
         error = null;
         call(t -> {

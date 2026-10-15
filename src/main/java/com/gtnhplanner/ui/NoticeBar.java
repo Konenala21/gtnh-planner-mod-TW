@@ -21,7 +21,6 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
     static final int ROW = 14;
     static final int MAX_ROWS = 4;
     private static final int LINE = 10;
-    private static final String SHOW_ME = "Show me";
 
     /** Which card "Show me" went to last, per notice, for notices it walks through. */
     private final java.util.Map<String, Integer> turns = new java.util.HashMap<>();
@@ -50,9 +49,7 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
     }
 
     private static int textRoom(final Notice n, final int rw) {
-        return rw - 10
-            - (n.focus()
-                .isEmpty() ? 0 : Hyb.width(SHOW_ME) + 10);
+        return rw - 10 - (n.hasKey() ? Hyb.width(n.keyLabel()) + 10 : 0);
     }
 
     /** A row's height: a line, or as many as its sentence wraps to. */
@@ -98,7 +95,6 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final List<Notice> notices = session.notices();
         final int w = getArea().width;
-        final int showW = Hyb.width(SHOW_ME);
         final int hover = isHovering() ? rowAt(localY()) : -1;
         int y = 0;
         for (int i = 0; i < Math.min(notices.size(), MAX_ROWS); i++) {
@@ -115,11 +111,11 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
                     7,
                     y + 3 + l * LINE,
                     Hyb.INK);
-            if (!n.focus()
-                .isEmpty()) {
+            if (n.hasKey()) {
+                final int showW = Hyb.width(n.keyLabel());
                 final boolean hot = hover == i && localX() >= rw - showW - 8 && localX() < rw;
                 final int color = hot ? 0xFFFFFFFF : Hyb.SELECTION;
-                Hyb.text(SHOW_ME, rw - showW - 5, y + 3, color);
+                Hyb.text(n.keyLabel(), rw - showW - 5, y + 3, color);
                 Hyb.rect(rw - showW - 5, y + 12, showW, 1, color);
             }
             y += rh;
@@ -145,8 +141,7 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
 
     /** A row is as wide as its sentence and "Show me", so the board stays visible beside it. */
     private static int rowWidth(final Notice n, final int max) {
-        final int show = n.focus()
-            .isEmpty() ? 0 : Hyb.width(SHOW_ME) + 10;
+        final int show = n.hasKey() ? Hyb.width(n.keyLabel()) + 10 : 0;
         return Math.min(max, 7 + Hyb.width(n.text()) + 8 + show);
     }
 
@@ -159,8 +154,13 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
         final Notice n = notices.get(row);
         final int rw = rowWidth(n, getArea().width);
         if (localX() >= rw) return Result.IGNORE;
-        if (n.focus()
-            .isEmpty() || localX() < rw - Hyb.width(SHOW_ME) - 8) return Result.SUCCESS;
+        if (!n.hasKey() || localX() < rw - Hyb.width(n.keyLabel()) - 8) return Result.SUCCESS;
+        if (n.action() != null) {
+            Hyb.click();
+            n.action()
+                .run();
+            return Result.SUCCESS;
+        }
         // All at once while that still shows their ports; else one at a time, in turn, close enough to read.
         Hyb.click();
         final List<UUID> focus = n.focus();

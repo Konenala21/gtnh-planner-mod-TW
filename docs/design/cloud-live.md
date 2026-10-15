@@ -23,15 +23,30 @@ website (`jackwrichards/gtnh-factory-flow`, branch `cloud-live`, worktree `C:\Us
 
 ## What players see
 
-- **My plans** (game and website): every plan in your account, and every plan shared with you, marked with the faces
-  (initials, coloured) of who else is in it. No save button: every edit is saved as you make it. Make a copy replaces
-  Save as.
+- **My plans** (game and website): every plan in your account, marked with the faces (initials, coloured) of who
+  else is in it. No save button: every edit is saved as you make it. Make a copy replaces Save as. Signed in, every
+  plan is in the account from the moment it exists (a new plan, a new task board, one imported, pasted, shared in chat,
+  from the library or from NEI's plan button), empty ones too; there is no upload step.
+- **Shared with me** (game and website): the Library's shelf beside My plans and Public setups, always there when signed
+  in ("Nothing shared with you yet" when empty), each plan's tile naming its owner. When an account is added to a plan
+  it is told at once (`shared` below): a notice on the board ("<owner> shared <plan> with you", with Open), or with the
+  game's planner shut a chat line with a clickable [Open].
 - **Share**: invite accounts as editors. Everyone with the plan open sees the others' cursors (name tag, colour) and
   what they have selected, and their edits as they make them.
 - **Publish**: posts a one-time public copy to the library (today's "Share to library"). Update in library refreshes
   it. Publishing never shares the live plan.
-- **Task board**: any plan can hold tasks; a plan made as a board opens on its task view. Columns To do, Doing,
-  Blocked, Done; a task has a title, text, assignees (members of the plan), a checklist, linked cards and comments.
+- **Task board**: its own kind of plan (`primaryView: "tasks"`, made with the + menu's New task board, or from "Make a
+  task" on cards). It always shows its tasks and never cards, and a normal plan never shows tasks. Columns To do, Doing,
+  Blocked, Done; a task has a title, text, assignees (members of the plan), a checklist, links to cards and comments.
+  Right-click cards on a plan, "Make a task": a menu of your task boards and New task board; the task goes into the one
+  chosen, a checklist line per card (how many to build, from the solve), each linked to its card. A link is
+  `{ plan, node }`: the plan's id (its doc key; a plan on one computer only, its local id) and the card's id in that plan.
+  It opens that plan and centres the card, or says "That plan is gone". A card shows the dot of the most pressing task
+  that links it, from the task boards loaded.
+- The game's top bar is the account's: plan tabs and +, live status and faces, Library, Share, the account key
+  ("Sign in" signed out; signed in the account's face, whose menu has the username and Sign out), feedback, settings,
+  help. What edits or views the board (Non-recipe, undo, redo, Arrange, Fit, the rate unit, EU/t, Avg/Peak) is the
+  toolbar along the top of the board; a task board shows its own header (title, New task) there instead.
 - Signed out: My plans is this computer's plans, as today; Share is greyed out with "Sign in to share".
 
 ## Accounts and auth
@@ -155,6 +170,8 @@ Server to client:
 | `{ t:"present", doc, present:[Person] }` | someone joined or left; `Person = { id, username, color, client, conn }` (one account can be in a room twice: `conn` tells them apart) |
 | `{ t:"members", doc, members }` | sharing changed |
 | `{ t:"kicked", doc, reason:"unshared"\|"deleted" }` | |
+| `{ t:"shared", doc, owner:{id,username}, name }` | this account was added to a plan: sent to **every open socket of the account**, in a room or not, each time it is added; the client asks the list again at once and tells the player |
+| `{ t:"unshared", doc }` | this account was taken off a plan (or left it): to every open socket of the account; a client in its room also gets `kicked` |
 | `{ t:"error", doc?, cid?, code:"auth"\|"forbidden"\|"not_found"\|"too_big"\|"rate"\|"bad_op"\|"version", msg }` | `cid` when it is about a batch |
 | `{ t:"pong" }` | |
 
@@ -201,8 +218,12 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
   64 KB per thing.
 - `primaryView?: "plan" | "tasks"`: which view the plan opens on. A task board is a plan with `"tasks"`.
 - `tasks?: PlanTask[]`: `{ id, title (1-120), text? (≤4000), status: "todo"|"doing"|"blocked"|"done", order: string
-  (fractional index), assignees?: string[] (account ids), nodeIds?: string[], createdBy?, createdAt?, doneAt? }`
-- `taskItems?: PlanTaskItem[]`: `{ id, taskId, text (1-200), done: boolean, order: string, nodeId? }` (the
+  (fractional index), assignees?: string[] (account ids), links?: PlanLink[], createdBy?, createdAt?, doneAt? }`
+- `PlanLink`: `{ plan: string, node: string }`: a card on a plan, `plan` the plan's id (its doc key
+  `<ownerId>:<designId>`, or a local id for a plan not in an account) and `node` the card's id in that plan, as that
+  plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read
+  (as links to the plan holding them), never written.
+- `taskItems?: PlanTaskItem[]`: `{ id, taskId, text (1-200), done: boolean, order: string, link?: PlanLink }` (the
   checklist; separate things so two people can tick two lines at once)
 - `taskComments?: PlanTaskComment[]`: `{ id, taskId, by (account id), byName, at (server time), text (1-2000) }`
 
@@ -357,9 +378,10 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
   Reading never sends anything and never runs the edit-time cleanups.
 - Rooms: the open plan's, and any plan with edits still to send (at most 8); others are left after 10 s. A refused
   batch is dropped and the board goes back (`rate` is sent again from the next snapshot instead).
-- A plan new to the planner (made, pasted, imported, shared in chat, a library download, the tour's) becomes a new cloud
-  plan once it holds anything (a card, a drawer, a note or a task): an empty new plan stays a tab on this device until
-  it does. It is created with REST (retried until it goes), then joined. Renaming is an edit (`meta name`; changing a
+- A plan new to the planner (made, pasted, imported, shared in chat, a library download, a task board, the tour's)
+  becomes a new cloud plan at once, empty or not (only a slot that failed to read, and the empty plan an account with
+  none opens on while the world's plans have not arrived, wait). It is created with REST (retried until it goes), then
+  joined. Renaming is an edit (`meta name`; changing a
   plan's name, description, icon or view moves the board's version like any edit) and also renames the list entry
   (REST, the owner's or, with `?owner=`, a member's). The list's name is the plan's name: the website renames the list
   alone and leaves the plan's `name` as it was, so the game takes a list rename it hears into the board (unless its
@@ -392,8 +414,11 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
   the service's own (`Peers.colourOf` is the website's `colorFor`), task faces included, so one person is one colour
   everywhere. On a cloud plan a task's Assign key lists its owner and members (`TaskLook.people`) and a pick puts them
   on the task or takes them off; a plan on this computer keeps Assign me.
-- Share with people (the top bar's Share menu; greyed with "Sign in to share" signed out, and for a plan on this
-  computer only): `ui/popup/SharePanel`, a box in the middle of the screen. Who can edit (the owner, then the members:
+- Being shared with: `shared` and `unshared` reach `LiveClient.Listener`; `CloudSession` asks the list at once and tells
+  the host (`Host.shared`): the board's notice with Open (`BoardSession.openPlanByKey`), or with the planner shut a chat
+  line whose [Open] runs `/gtnhplanner_open <key>` (`client/OpenPlanCommand`). The Library's Shared with me shelf is the
+  plans whose key is another account's.
+- Share with people (the top bar's Share menu; always there on a cloud plan, greyed with "Sign in to share" signed out): `ui/popup/SharePanel`, a box in the middle of the screen. Who can edit (the owner, then the members:
   the owner removes them, a member leaves through the tab's own Leave plan), then for the owner the signed-in players in
   this game (`CloudApi.nearby` with the tab list's names, at most 100; asked when the box opens and on Look again,
   never on a timer, as the service limits it) and a search of every account as a name is typed (300 ms after the last

@@ -108,6 +108,13 @@ class CloudSessionTest {
             notices.add(text);
         }
 
+        final List<String> sharedWithMe = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void shared(final String ownerName, final String planName, final String key) {
+            sharedWithMe.add(ownerName + "|" + planName + "|" + key);
+        }
+
         @Override
         @Nullable
         public Plan inHand() {
@@ -579,12 +586,15 @@ class CloudSessionTest {
             live.plans.get(made.getCloudKey())
                 .getAsJsonArray("nodes")
                 .size());
-        // An empty new plan waits until it holds something.
+        // An empty new plan is in the account too, from the moment it exists.
         final Graph empty = new Graph("Empty");
         p.getGraphs()
             .add(empty);
         session.save(p);
-        assertNull(empty.getCloudKey());
+        assertNotNull(empty.getCloudKey());
+        final String emptyId = empty.getCloudKey()
+            .substring(ME.length() + 1);
+        tickUntil("the empty plan is made in the account", () -> designs.containsKey(emptyId));
 
         // The player deletes the first plan: the account is told.
         final Graph first = slot(p, ME + ":d1");
@@ -611,6 +621,26 @@ class CloudSessionTest {
         ticks(60);
         assertNull(slot(again, ME + ":d1"));
         assertTrue(host.notices.isEmpty(), "no word of a delete the player made: " + host.notices);
+    }
+
+    @Test
+    void beingSharedWithIsToldAtOnceAndTheListIsAskedAgain() {
+        inAccount("d1", "mv");
+        begin();
+        tickUntil("the live service said hello", () -> session.status() == CloudSession.Status.LIVE);
+        final int listed = (int) calls.stream()
+            .filter(c -> c.equals("GET /api/library"))
+            .count();
+        live.send(
+            "{\"t\":\"shared\",\"doc\":\"other-id:plan9\",\"owner\":{\"id\":\"other-id\",\"username\":\"Ann\"},"
+                + "\"name\":\"Her boiler\"}");
+        tickUntil("told", () -> !host.sharedWithMe.isEmpty());
+        assertEquals(List.of("Ann|Her boiler|other-id:plan9"), host.sharedWithMe);
+        tickUntil(
+            "the list asked again",
+            () -> calls.stream()
+                .filter(c -> c.equals("GET /api/library"))
+                .count() > listed);
     }
 
     @Test

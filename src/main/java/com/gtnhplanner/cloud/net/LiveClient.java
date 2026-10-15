@@ -81,6 +81,14 @@ public final class LiveClient {
         /** {@code doc} is empty for an error about the connection. */
         default void onError(final String doc, final String code, final String message) {}
 
+        /**
+         * The account was added to a plan: {@code doc} is its key, {@code owner} whose it is, {@code name} its name.
+         */
+        default void onShared(final String doc, final Member owner, final String name) {}
+
+        /** The account was taken off a plan it was shared on. */
+        default void onUnshared(final String doc) {}
+
         /** The service refused one of this client's batches ({@code cid}): it never happened. After its error. */
         default void onRefused(final String doc, final String cid, final String code, final String message) {}
     }
@@ -377,6 +385,15 @@ public final class LiveClient {
                 case "members" -> {
                     final List<Member> m = members(o.get("members"));
                     for (final Listener l : listeners) l.onMembers(doc, m);
+                }
+                case "shared" -> {
+                    final JsonObject owner = object(o, "owner");
+                    final Member who = owner == null ? new Member("", "")
+                        : new Member(str(owner, "id"), str(owner, "username"));
+                    for (final Listener l : listeners) l.onShared(doc, who, str(o, "name"));
+                }
+                case "unshared" -> {
+                    for (final Listener l : listeners) l.onUnshared(doc);
                 }
                 case "kicked" -> {
                     joined.remove(doc);

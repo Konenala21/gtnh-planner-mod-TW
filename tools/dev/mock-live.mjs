@@ -1,7 +1,12 @@
 // Cloud plans and the live service for tools/dev/mock-library.mjs (docs/design/cloud-live.md), in memory: the account's
 // plans and the ones shared with it (REST), who may edit them, finding accounts, and the live service on the same port
 // (GET /live/health, GET /live/nearby, and the WebSocket at /live: hello, join, ops applied in order, presence relayed,
-// who is present, members pushed). A WebSocket by hand, so it runs on plain node with nothing installed.
+// who is present, members pushed, and {t:"shared"} / {t:"unshared"} to every open socket of an account added to or
+// taken off a plan). A WebSocket by hand, so it runs on plain node with nothing installed.
+//
+// For the notification: GET /mock/share?owner=dee&to=<account name>&name=<plan name> makes a plan owned by the stand-in
+// (dee or eve) and shares it with that account, as if they had pressed Share; GET /mock/unshare?key=<doc key>&to=<name>
+// takes it back.
 //
 // Two stand-in players, dee (in the game, as Dee_Mines) and eve (in a browser), have accounts here. Share a plan with
 // one and they open it at once: present in its room, a cursor wandering over its cards and a card or two selected,
@@ -68,6 +73,29 @@ export function mockLive(server, { who, ids, users, stateFile }) {
       return json(res, 200, out), true;
     }
     const me = who(req);
+    if (req.method === "GET" && path === "/mock/share") {
+      const owner = ids.get(url.searchParams.get("owner") ?? "dee"), to = ids.get(url.searchParams.get("to") ?? "");
+      if (!owner || !to) return json(res, 404, { error: "No such account." }), true;
+      const id = randomUUID(), key = `${owner}:${id}`;
+      const stamp = new Date().toISOString();
+      const row = {
+        name: url.searchParams.get("name") ?? "A shared plan", closed: false, favorite: false, createdAt: stamp,
+        updatedAt: stamp, planUpdatedAt: stamp,
+      };
+      designs.set(key, { ownerId: owner, id, row, plan: {}, seq: 0, members: [to] });
+      save();
+      toAccount(to, { t: "shared", doc: key, owner: { id: owner, username: nameOf(owner) }, name: row.name });
+      return json(res, 200, { key }), true;
+    }
+    if (req.method === "GET" && path === "/mock/unshare") {
+      const key = url.searchParams.get("key") ?? "", d = designs.get(key), to = ids.get(url.searchParams.get("to") ?? "");
+      if (!d || !to) return json(res, 404, { error: "No such plan or account." }), true;
+      d.members = d.members.filter((m) => m !== to);
+      save();
+      membersChanged(key, to);
+      toAccount(to, { t: "unshared", doc: key });
+      return json(res, 200, { ok: true }), true;
+    }
     if (path === "/live/nearby" && req.method === "GET") {
       if (!me) return json(res, 401, { error: "Sign in first." }), true;
       const names = (url.searchParams.get("names") ?? "").split(",").filter(Boolean);
@@ -115,9 +143,11 @@ export function mockLive(server, { who, ids, users, stateFile }) {
         if (!nameOf(target) || nameOf(target) === "someone") return json(res, 404, { error: "No such account." }), true;
         if (d.members.length >= 20 && !d.members.includes(target))
           return json(res, 400, { error: "A plan can be shared with at most 20 accounts." }), true;
-        if (!d.members.includes(target)) d.members.push(target);
+        const added = !d.members.includes(target);
+        if (added) d.members.push(target);
         console.log(`  shared ${key} with ${nameOf(target)}`);
         membersChanged(key);
+        if (added) toAccount(target, { t: "shared", doc: key, owner: { id: d.ownerId, username: nameOf(d.ownerId) }, name: d.row.name ?? "A plan" });
         save();
         return json(res, 200, sharing()), true;
       }
@@ -126,6 +156,7 @@ export function mockLive(server, { who, ids, users, stateFile }) {
         d.members = d.members.filter((id) => id !== target);
         console.log(`  ${target === me.id ? `${nameOf(target)} left` : `unshared from ${nameOf(target)}`} ${key}`);
         membersChanged(key, target);
+        if (target !== me.id) toAccount(target, { t: "unshared", doc: key });
         save();
         return json(res, 200, { ok: true }), true;
       }
@@ -168,6 +199,12 @@ export function mockLive(server, { who, ids, users, stateFile }) {
   const rooms = new Map();
   const person = (c) => ({ id: c.userId, username: c.username, color: colorFor(c.userId), client: c.client, conn: c.id });
   const present = (room) => [...room.conns].map(person);
+  /** Every open socket, so an account hears of a plan added to it or taken from it whatever room it is in. */
+  const sockets = new Set();
+  const toAccount = (userId, frame) => {
+    const text = JSON.stringify(frame);
+    for (const c of sockets) if (c.userId === userId) c.send(text);
+  };
   const toRoom = (room, frame, except) => {
     const text = JSON.stringify(frame);
     for (const c of room.conns) if (c !== except) c.send(text);
@@ -315,6 +352,7 @@ export function mockLive(server, { who, ids, users, stateFile }) {
       id: randomUUID().slice(0, 8), userId: me.id, username: me.name, client: "game", rooms: new Set(),
       send: (text) => socket.writable && socket.write(wsFrame(0x1, Buffer.from(text))),
     };
+    sockets.add(c);
     let buffered = Buffer.alloc(0), parts = [];
     socket.on("data", (chunk) => {
       buffered = Buffer.concat([buffered, chunk]);
@@ -338,6 +376,7 @@ export function mockLive(server, { who, ids, users, stateFile }) {
       }
     });
     const gone = () => {
+      sockets.delete(c);
       for (const key of [...c.rooms]) leave(c, key);
     };
     socket.on("close", gone);

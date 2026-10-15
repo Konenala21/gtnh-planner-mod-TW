@@ -132,19 +132,29 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   to move (even while writing), drag the folded corner or an edge to resize, click to write, right-click for colour,
   text size and delete; hovering or writing shows keys (delete top left, text size top right) at a fixed size on
   screen whenever they fit on the note. A selection outline shows only when several things are selected.
-- Task boards (`ui/task/`; the model is `data/flowchart/Tasks`, docs/design/cloud-live.md): the top bar's Tasks key
-  swaps the board for the open plan's tasks, the overview staying (`TaskBoardView`; per plan, never saved,
-  `BoardSession.showsTasks`; a plan whose `primaryView` is "tasks" opens on them, and the + tab menu's New task board
-  makes one). Four columns of task cards, carried by the board's rules, ordered by fractional keys
-  (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did not write; both
-  sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A
-  click opens `TaskPanel`: title, column, assignees, notes, the cards it is about (a click shows one on the plan,
-  centred and selected, `BoardSession.focusCard`), a checklist and comments. Every change is
-  `BoardSession.editTasks` (undoable and saved, never solved). Right-click cards, or a card's actions key, to make a
-  task from them (`TaskActions.fromCards`: a checklist line per card with how many to build); a card on a task shows
-  its most pressing task's colour as a dot before its name. People are account ids: assigning and comments use the
-  signed-in account (`Account.userId`, from the session); signed out a comment is by "You" (`local`). `call tasks`
-  reports the view and the parts' rects (`show=1|0` switches, `open=<id>` opens a task).
+- Task boards (`ui/task/`; the model is `data/flowchart/Tasks`, docs/design/cloud-live.md) are their own kind of plan
+  (`primaryView` "tasks", `BoardSession.showsTasks`; the + tab menu's New task board, or "Make a task" on cards): the
+  plan always shows its tasks (`TaskBoardView`, its own header in the place of the toolbar: title, count, New task; no
+  overview) and a normal plan never does. Four columns of task cards, carried by the board's rules, ordered by
+  fractional keys (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did
+  not write; both sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A click opens
+  `TaskPanel`: title, column, assignees, notes, the cards it is about, a checklist and comments. Every change is
+  `BoardSession.editTasks` (undoable and saved, never solved). A link is `Tasks.Link {plan, node}`: the plan's id
+  (`Graph.planId()`: its cloud doc key, else its saved local id; `isPlan` takes either) and the card's id as that plan
+  spells it (`BoardSession.linkOf`, `PlanIds.uuid` back); older saves' `nodeIds`/`nodeId` read as links with no plan
+  (the holder's own) and are written with its id. A click on one is `BoardSession.openLink`: opens that plan and centres
+  the card, or says "That plan is gone". Right-click cards, or a card's actions key: "Make a task" opens a menu of the
+  task boards and New task board (`TaskActions.makeMenu`); the task goes into the one chosen, without leaving the plan,
+  a checklist line per card with how many to build. A card shows the dot of its most pressing task from every task board
+  loaded (`BoardSession.taskStatus`). People are account ids: assigning and comments use the signed-in account
+  (`Account.userId`); signed out a comment is by "You" (`local`). `call tasks` reports the view and the parts' rects
+  (`open=<id>` opens a task).
+- The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
+  key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
+  views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,
+  Arrange, Fit, the rate unit, EU/t, Avg; wraps like the top bar). Signed in, every plan is in the account from the
+  moment it exists (`CloudSession.makeable`); being added to a plan arrives as `shared` (a board notice with Open, or a
+  chat line with a clickable [Open], `client/OpenPlanCommand`) and the Library's Shared with me shelf lists them.
 - Cloud plans and live co-editing (the owner, 2026-10-14; `docs/design/cloud-live.md` is the contract with the
   website, whose side is on its branch `cloud-live`, worktree `C:\Users\jack\ff-cloud`): signed in, the planner's
   plans are the account's (own and shared), saved as every edit is made, the same on every device; signed out,
