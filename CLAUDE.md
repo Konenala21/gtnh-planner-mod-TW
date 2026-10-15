@@ -105,6 +105,14 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `call 'nei?item=<key>&planner=0&tab=<name>'` opens a recipe page from the inventory.
 - Plans work as on the website: a tab is an open plan (`Graph.open`); closing one keeps it, in the Library's My
   plans, where every plan is listed, most recently open first (`Plan.byRecency`, `lastOpen`). Deleting asks first.
+- Groups (`docs/design/groups.md`, the website's boards/pockets): `data/flowchart/BoardGroup` in `Graph.boardGroups`, membership on
+  `Node.group`, `Drawer.group`, `Note.group`, rules in `Groups`; `ui/group/` draws them (`GroupCard`: open frame or the
+  collapsed summary from the solve; bodies under the wires) and edits them (`GroupEdits`). Made with the selection bar's
+  Group key or Ctrl+G; a carried card joins the group it is aimed at (`BoardCanvas.aim`, lit while carried) and leaves the
+  same way; wires to a collapsed group dock on its summary (`WireLayer.groupBox`); Arrange moves a group as one block.
+  They take no part in the solve, and travel as the website's `pockets` both ways (`FfConverter.placeBoards`,
+  `PlanExport.pocket`). Every menu is a `PickList` with the website's rows and words (a right click on a card or drawer
+  opens its key's menu).
 - Sticky notes (`ui/note/NoteCard`, a `Note` in `graph.notes`): right-click empty board to add one; drag anywhere
   to move (even while writing), drag the folded corner or an edge to resize, click to write, right-click for colour,
   text size and delete; hovering or writing shows keys (delete top left, text size top right) at a fixed size on
