@@ -96,6 +96,26 @@ public record PlanSnapshot(Graph graph, String planName, long graphVersion, List
         latest = snapshot;
     }
 
+    /**
+     * A plan's slot took a new graph (a shared plan read again): the last snapshot, if it was of the old one, is of the
+     * new one now, so what the world edits goes to the plan; it shows the old drawing until the board draws again.
+     */
+    public static void regraph(final Graph old, final Graph next) {
+        final PlanSnapshot s = latest;
+        if (s == null || s.graph() != old) return;
+        latest = new PlanSnapshot(
+            next,
+            s.planName(),
+            s.graphVersion(),
+            s.cards(),
+            s.drawers(),
+            s.wires(),
+            s.viewX(),
+            s.viewY(),
+            s.rateUnit(),
+            s.pinList());
+    }
+
     @Nullable
     public static PlanSnapshot latest() {
         return latest;

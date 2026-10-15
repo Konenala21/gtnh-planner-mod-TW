@@ -333,6 +333,10 @@ class LiveClientTest {
         client.join("b");
         await(() -> heard.snapshots.size() == 2);
         client.leave("b");
+        // The leave reaches the service before the drop, or the count below races it.
+        await(
+            () -> server.framesOf("leave")
+                .size() == 1);
         server.dropAll();
         await(() -> heard.snapshots.size() == 3);
         assertEquals(

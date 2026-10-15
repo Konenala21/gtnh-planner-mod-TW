@@ -228,6 +228,24 @@ public class Graph {
         return slot;
     }
 
+    /**
+     * This graph is a cloud plan read again (others' edits, an undo) in {@code old}'s place: it takes over what this
+     * device keeps of the slot and is never part of the plan (the slot, the camera, its tab, the pin list, its post).
+     */
+    public void takeDeviceStateOf(final Graph old) {
+        this.slot = old.slot;
+        this.zoom = old.zoom;
+        this.panX = old.panX;
+        this.panY = old.panY;
+        this.snapToGrid = old.snapToGrid;
+        this.lastOpen = old.lastOpen;
+        this.open = old.open;
+        this.postId = old.postId;
+        this.cloudKey = old.cloudKey;
+        pinList.clear();
+        pinList.addAll(old.pinList);
+    }
+
     /** This graph takes over {@code replaced}'s slot: it is that slot's state after an undo or redo. */
     void takeSlotOf(final Graph replaced) {
         this.slot = replaced.slot;
@@ -453,6 +471,25 @@ public class Graph {
                 final Drawer other = holder.put(held(d, l), d);
                 if (other != null && other != d) other.removeLink(l);
             }
+        }
+        bumpVersion();
+    }
+
+    /**
+     * Links read from a plan, in order, as {@link #linkDrawer} would one at a time (a port belongs to at most one
+     * drawer
+     * each way: a later link takes it from an earlier drawer), without looking through every drawer for each.
+     */
+    public void linkDrawersLoaded(final List<Map.Entry<UUID, Drawer.Link>> loaded) {
+        if (loaded.isEmpty()) return;
+        final Map<String, Drawer> holder = new HashMap<>();
+        for (final Drawer d : drawers.values()) for (final Drawer.Link l : d.getLinks()) holder.put(held(d, l), d);
+        for (final Map.Entry<UUID, Drawer.Link> e : loaded) {
+            final Drawer d = drawers.get(e.getKey());
+            if (d == null) continue;
+            final Drawer other = holder.put(held(d, e.getValue()), d);
+            if (other != null && other != d) other.removeLink(e.getValue());
+            d.addLink(e.getValue());
         }
         bumpVersion();
     }

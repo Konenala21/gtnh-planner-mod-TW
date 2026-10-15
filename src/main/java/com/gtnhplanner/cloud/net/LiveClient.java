@@ -35,21 +35,26 @@ public final class LiveClient {
 
     public static final int PROTOCOL = 1;
 
-    /** An account in a room: {@code client} is "game" or "web". */
-    public record Person(String id, String username, String color, String client) {}
+    /**
+     * An account in a room: {@code client} is "game" or "web"; {@code conn} tells one account's two connections apart.
+     */
+    public record Person(String id, String username, String color, String client, String conn) {}
 
     /** An account that may edit a plan. */
     public record Member(String id, String username) {}
 
-    /** The whole plan as the service holds it at {@code seq}, and who is in it. */
-    public record Snapshot(String doc, long seq, JsonObject plan, String role, List<Member> members,
-        List<Person> present) {}
+    /**
+     * The whole plan as the service holds it at {@code seq}, this session's role in it, whose it is (null when the
+     * service did not say), who may edit it, and who is in it.
+     */
+    public record Snapshot(String doc, long seq, JsonObject plan, String role, @Nullable Member owner,
+        List<Member> members, List<Person> present) {}
 
     /** An accepted batch, to everyone in the room; {@code cid} is the sender's batch id (its ack, for the sender). */
     public record OpsBatch(String doc, long seq, String by, String cid, JsonArray ops) {}
 
-    /** Where someone is looking; {@code cursor} null when off the board. */
-    public record Presence(String doc, String who, @Nullable JsonObject cursor, JsonArray sel,
+    /** Where someone ({@code who}, on connection {@code conn}) is looking; {@code cursor} null when off the board. */
+    public record Presence(String doc, String who, String conn, @Nullable JsonObject cursor, JsonArray sel,
         @Nullable JsonObject view) {}
 
     /** What the service sends, one method each. Called from {@link #poll}; override what is needed. */
@@ -75,6 +80,9 @@ public final class LiveClient {
 
         /** {@code doc} is empty for an error about the connection. */
         default void onError(final String doc, final String code, final String message) {}
+
+        /** The service refused one of this client's batches ({@code cid}): it never happened. After its error. */
+        default void onRefused(final String doc, final String cid, final String code, final String message) {}
     }
 
     /**
@@ -285,11 +293,13 @@ public final class LiveClient {
                     for (final Listener l : listeners) l.onWelcome(you);
                 }
                 case "snapshot" -> {
+                    final JsonObject owner = object(o, "owner");
                     final Snapshot s = new Snapshot(
                         doc,
                         num(o, "seq"),
                         o.getAsJsonObject("plan"),
                         str(o, "role"),
+                        owner == null ? null : new Member(str(owner, "id"), str(owner, "username")),
                         members(o.get("members")),
                         people(o.get("present")));
                     for (final Listener l : listeners) l.onSnapshot(s);
@@ -304,6 +314,7 @@ public final class LiveClient {
                         doc,
                         who != null && who.isJsonObject() ? str(who.getAsJsonObject(), "id")
                             : who == null || who.isJsonNull() ? "" : who.getAsString(),
+                        str(o, "conn"),
                         object(o, "cursor"),
                         array(o, "sel"),
                         object(o, "view"));
@@ -324,14 +335,18 @@ public final class LiveClient {
                 }
                 case "error" -> {
                     final String code = str(o, "code");
-                    // The service will not have us in that room: stop joining it on every reconnect.
-                    final boolean refused = !doc.isEmpty() && (code.equals("forbidden") || code.equals("not_found"));
+                    final String cid = str(o, "cid");
+                    // The service will not have us in that room (a join refused, not a batch): stop joining it on every
+                    // reconnect.
+                    final boolean refused = !doc.isEmpty() && cid.isEmpty()
+                        && (code.equals("forbidden") || code.equals("not_found"));
                     if (refused) {
                         joined.remove(doc);
                         presenceWaiting.remove(doc);
                         presenceSentAt.remove(doc);
                     }
                     for (final Listener l : listeners) l.onError(doc, code, str(o, "msg"));
+                    if (!cid.isEmpty()) for (final Listener l : listeners) l.onRefused(doc, cid, code, str(o, "msg"));
                     if (refused) for (final Listener l : listeners) l.onKicked(doc, code);
                 }
                 default -> {
@@ -353,8 +368,8 @@ public final class LiveClient {
     // region JSON
 
     private static Person person(@Nullable final JsonObject o) {
-        if (o == null) return new Person("", "", "", "");
-        return new Person(str(o, "id"), str(o, "username"), str(o, "color"), str(o, "client"));
+        if (o == null) return new Person("", "", "", "", "");
+        return new Person(str(o, "id"), str(o, "username"), str(o, "color"), str(o, "client"), str(o, "conn"));
     }
 
     private static List<Person> people(@Nullable final JsonElement e) {

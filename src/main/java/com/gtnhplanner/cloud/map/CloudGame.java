@@ -30,6 +30,14 @@ public interface CloudGame extends PlanExport.World {
     }
 
     /**
+     * The world this game is in, as placed machines are kept by world: a card shows the placements made in its own
+     * world and carries the rest. Empty for none.
+     */
+    default String world() {
+        return "";
+    }
+
+    /**
      * A node read back from the game's own data for it ({@code Serializer.jsonToNode}, which reads its ports from its
      * recipe in NEI, or its power source): nothing more to do in game. Tests, with no NEI, give it its ports here.
      */

@@ -242,6 +242,8 @@ class CloudCacheTest {
         assertEquals(List.of("u1:d1"), b.keysWithPending());
         b.addPending("u1:d3", batch("c3"));
         assertEquals(java.util.Set.of("u1:d1", "u1:d3"), new java.util.HashSet<>(b.keysWithPending()));
+        // Written before the folder is cleared away, or the writer races the clean-up.
+        b.flush();
     }
 
     @Test
@@ -258,6 +260,31 @@ class CloudCacheTest {
         assertTrue(
             a.pins("u1:d1")
                 .isEmpty());
+    }
+
+    @Test
+    void aPlanKeptAsItIsReadsBackFromDisk() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.addPending("u1:d1", batch("c1"));
+        a.saveDocAsIs("u1:d1", 7, plan("Kept"));
+        a.ack("u1:d1", "c1");
+        a.close();
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(
+            7,
+            b.doc("u1:d1")
+                .seq());
+        assertEquals(
+            "Kept",
+            b.doc("u1:d1")
+                .plan()
+                .get("name")
+                .getAsString());
+        assertTrue(
+            b.pending("u1:d1")
+                .isEmpty(),
+            "written in the order asked");
+        b.close();
     }
 
     @Test

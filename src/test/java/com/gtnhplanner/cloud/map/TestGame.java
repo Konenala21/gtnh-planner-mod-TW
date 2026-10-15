@@ -22,14 +22,17 @@ import com.gtnhplanner.library.PlanExport;
  * export's names read off those, and, standing in for NEI, a registry of each card's ports by its id: a card read back
  * from its game data gets the ports NEI would give its recipe.
  */
-final class TestGame implements CloudGame {
+public final class TestGame implements CloudGame {
 
     final FakeGame fake = new FakeGame();
+    /** The world placements are kept under, as the game names it. */
+    public String world = "";
+
     /** What NEI would read for each card: its ports and recipe numbers, by card id. */
     private final Map<UUID, Node> nei = new HashMap<>();
 
     /** Every card of a board becomes one NEI knows, so it reads back with its ports. */
-    TestGame knowing(final Graph g) {
+    public TestGame knowing(final Graph g) {
         for (final Node n : g.getNodes()) nei.put(n.id, n);
         return this;
     }
@@ -37,6 +40,11 @@ final class TestGame implements CloudGame {
     @Override
     public RecipeIndex recipes() {
         return fake;
+    }
+
+    @Override
+    public String world() {
+        return world;
     }
 
     @Override

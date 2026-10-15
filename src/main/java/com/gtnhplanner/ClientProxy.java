@@ -78,6 +78,9 @@ public class ClientProxy extends CommonProxy {
         // Whether a newer release is out, asked of GitHub in the background; the planner says so when it opens.
         com.gtnhplanner.client.UpdateCheck.start();
 
+        // Signed in, the planner's plans are the account's: kept in it on every edit and edited together live.
+        com.gtnhplanner.cloud.session.game.CloudHooks.init();
+
         DevHarness.initIfDev();
     }
 

@@ -3,6 +3,7 @@ package com.gtnhplanner.cloud.map;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
@@ -117,12 +118,17 @@ final class Fresh {
 
     /** Every board thing written, by game key, cards first, then drawers, their links, wires, notes and tasks. */
     static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names) {
+        return of(g, game, names, Set.of());
+    }
+
+    /** As {@link #of(Graph, CloudGame, Basis)}, leaving out the cards, links, wires and notes {@code skip} names. */
+    static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names, final Set<String> skip) {
         final Map<String, Thing> out = new LinkedHashMap<>();
         for (final Node n : g.getNodes()) {
             final String gameKey = "node:" + n.id;
-            if (names.isCarried(gameKey)) continue;
+            if (names.isCarried(gameKey) || skip.contains(gameKey)) continue;
             final String id = names.id("node", n.id);
-            final JsonObject data = nodeGame(n);
+            final JsonObject data = nodeGame(n, game.world());
             out.put(gameKey, new Thing("nodes", id, gameKey, Canon.of(data), data, true, n.x, n.y, () -> {
                 final PlanExport.Card card = PlanExport
                     .card(n, FfPlan.GAME_RECIPE_PREFIX + id, game, n.machineConfig.getMachineCount());
@@ -148,7 +154,7 @@ final class Fresh {
             for (final Drawer.Link link : d.getLinks()) {
                 final Node n = g.nodes.get(link.nodeId());
                 final String gameKey = linkKey(d, link);
-                if (n == null || unwritable(names, gameKey, n)) continue;
+                if (n == null || skip.contains(gameKey) || unwritable(names, gameKey, n)) continue;
                 final String nodeId = names.id("node", n.id);
                 final String id = drawerId + ":" + nodeId + ":" + link.portIndex();
                 final JsonObject data = new JsonObject();
@@ -164,7 +170,7 @@ final class Fresh {
             if (from == null || to == null || e.sourceOutputIndex < 0 || e.sourceOutputIndex >= from.outputs.size())
                 continue;
             final String gameKey = "edge:" + e.id;
-            if (unwritable(names, gameKey, from) || unwritable(names, gameKey, to)) continue;
+            if (skip.contains(gameKey) || unwritable(names, gameKey, from) || unwritable(names, gameKey, to)) continue;
             final String id = names.id("edge", e.id), source = names.id("node", from.id),
                 target = names.id("node", to.id);
             final Port<?> carried = from.outputs.get(e.sourceOutputIndex);
@@ -189,6 +195,7 @@ final class Fresh {
         }
         for (final Note n : g.getNotes()) {
             final String gameKey = "note:" + n.getId();
+            if (skip.contains(gameKey)) continue;
             final String id = names.id("note", n.getId());
             final JsonObject data = graphData(Serializer.GSON.toJsonTree(n));
             out.put(
@@ -199,8 +206,11 @@ final class Fresh {
                     return new JsonObject[] { site };
                 }));
         }
-        for (final Tasks.Task t : g.tasks) task(out, "tasks", "task:", t.id(), Tasks.toJson(t));
-        for (final Tasks.Item i : g.taskItems) task(out, "taskItems", "item:", i.id(), Tasks.toJson(i));
+        // A task names its cards by the plan's ids: a card the website made by the website's, not the board's UUID.
+        for (final Tasks.Task t : g.tasks)
+            task(out, "tasks", "task:", t.id(), Tasks.toJson(cards(t, id -> planCard(g, names, id))));
+        for (final Tasks.Item i : g.taskItems)
+            task(out, "taskItems", "item:", i.id(), Tasks.toJson(card(i, id -> planCard(g, names, id))));
         for (final Tasks.Comment c : g.taskComments) task(out, "taskComments", "comment:", c.id(), Tasks.toJson(c));
         return out;
     }
@@ -212,6 +222,59 @@ final class Fresh {
     private static boolean unwritable(final Basis names, final String gameKey, final Node card) {
         return names.isCarried("node:" + card.id) && names.thingOf(gameKey) == null;
     }
+
+    // region Tasks' cards
+
+    /**
+     * A board card's id ({@code Node.id} as a string) as the plan names the card: the id it was read from (a card the
+     * website made keeps the website's), else its UUID. An id that is no card on the board stays as it is.
+     */
+    static String planCard(final Graph g, final Basis names, final String boardId) {
+        final java.util.UUID u;
+        try {
+            u = java.util.UUID.fromString(boardId);
+        } catch (final IllegalArgumentException e) {
+            return boardId;
+        }
+        return u.toString()
+            .equals(boardId) && g.nodes.containsKey(u) ? names.id("node", u) : boardId;
+    }
+
+    /**
+     * A plan's card id as the board names the card: the UUID the card was given ({@link PlanIds#uuid}), when it is on
+     * the board; else as it is (a card the game has no place for).
+     */
+    static String boardCard(final Graph g, final String planId) {
+        final java.util.UUID u = PlanIds.uuid(planId);
+        return g.nodes.containsKey(u) ? u.toString() : planId;
+    }
+
+    /** A task with its cards named another way. */
+    static Tasks.Task cards(final Tasks.Task t, final java.util.function.UnaryOperator<String> name) {
+        final List<String> ids = new java.util.ArrayList<>();
+        for (final String id : t.nodeIds()) ids.add(name.apply(id));
+        return ids.equals(t.nodeIds()) ? t
+            : new Tasks.Task(
+                t.id(),
+                t.title(),
+                t.text(),
+                t.status(),
+                t.order(),
+                t.assignees(),
+                ids,
+                t.createdBy(),
+                t.createdAt(),
+                t.doneAt());
+    }
+
+    /** A checklist line with its card named another way. */
+    static Tasks.Item card(final Tasks.Item i, final java.util.function.UnaryOperator<String> name) {
+        if (i.nodeId() == null) return i;
+        final String id = name.apply(i.nodeId());
+        return id.equals(i.nodeId()) ? i : new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), id);
+    }
+
+    // endregion
 
     private static void task(final Map<String, Thing> out, final String c, final String kind, final String id,
         final JsonObject json) {
@@ -256,13 +319,56 @@ final class Fresh {
 
     // region The game's own data
 
-    /** A node's save, without its id and place (the plan's id and position say them). */
-    static JsonObject nodeGame(final Node n) {
+    /**
+     * A node's save, without its id and place (the plan's id and position say them), its placements by world: this
+     * world's ({@code world}) and the ones kept from others, as {@code worlds: {<world>: [[dim, x, y, z, ...]]}}.
+     */
+    static JsonObject nodeGame(final Node n, final String world) {
         final JsonObject o = Serializer.nodeToJson(n);
         o.remove("id");
         o.remove("x");
         o.remove("y");
+        final JsonElement here = o.remove("worldLinks");
+        if (here != null || !n.elsewhere.isEmpty()) {
+            final java.util.SortedMap<String, JsonElement> by = new java.util.TreeMap<>();
+            for (final Map.Entry<String, List<int[]>> e : n.elsewhere.entrySet()) if (!e.getValue()
+                .isEmpty()) by.put(e.getKey(), links(e.getValue()));
+            if (here != null) by.put(world, here);
+            final JsonObject worlds = new JsonObject();
+            for (final Map.Entry<String, JsonElement> e : by.entrySet()) worlds.add(e.getKey(), e.getValue());
+            if (!by.isEmpty()) o.add("worlds", worlds);
+        }
         return o;
+    }
+
+    /**
+     * A card's placements from its game data onto it: {@code world}'s as its own, every other world's kept apart
+     * ({@link Node#elsewhere}). Game data from before worlds were told apart has one list: this world's.
+     */
+    static void readWorlds(final JsonObject data, final Node node, final String world) {
+        final JsonElement worlds = data.get("worlds");
+        if (worlds == null || !worlds.isJsonObject()) {
+            if (node.worldLinks.isEmpty()) Serializer.readWorldLinks(data.get("worldLinks"), node);
+            return;
+        }
+        for (final Map.Entry<String, JsonElement> e : worlds.getAsJsonObject()
+            .entrySet()) {
+            final List<int[]> links = Serializer.readLinks(e.getValue());
+            if (e.getKey()
+                .equals(world)) {
+                if (node.worldLinks.isEmpty()) node.worldLinks.addAll(links);
+            } else if (!links.isEmpty()) node.elsewhere.put(e.getKey(), links);
+        }
+    }
+
+    private static JsonArray links(final List<int[]> links) {
+        final JsonArray out = new JsonArray();
+        for (final int[] l : links) {
+            final JsonArray at = new JsonArray();
+            for (final int v : l) at.add(new JsonPrimitive(v));
+            out.add(at);
+        }
+        return out;
     }
 
     /** A drawer's save, without its id and place, and without its links: the plan's wires are its links. */

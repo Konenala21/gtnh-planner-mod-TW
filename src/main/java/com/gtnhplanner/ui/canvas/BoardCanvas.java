@@ -80,6 +80,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         this.session = session;
         this.panel = panel;
         this.wires = new WireLayer(session);
+        // A shared plan reads others' edits only while nothing is in hand.
+        session.setInHand(() -> inHand() || moveStart != null);
     }
 
     private Graph graph() {

@@ -116,6 +116,21 @@ public final class CloudCache {
         return write(file(key, "plan.json"), GSON.toJson(o));
     }
 
+    /**
+     * As {@link #saveDoc}, for a plan nobody will change (the live engine's plans are values): kept as it is, and its
+     * text made on the writer's thread in its turn, so a big plan costs the caller nothing.
+     */
+    public synchronized CompletableFuture<Void> saveDocAsIs(final String key, final long seq, final JsonObject plan) {
+        state(key).doc = new Doc(seq, plan);
+        return write(file(key, "plan.json"), () -> {
+            final JsonObject o = new JsonObject();
+            o.addProperty("key", key);
+            o.addProperty("seq", seq);
+            o.add("plan", plan);
+            return GSON.toJson(o);
+        });
+    }
+
     // endregion
 
     // region Pending batches
@@ -240,6 +255,26 @@ public final class CloudCache {
         return write(new File(dir, "list.json"), GSON.toJson(library.toJson()));
     }
 
+    @Nullable
+    private JsonObject device;
+
+    /**
+     * What this device keeps for the account beside the plans (which have tabs, the open one, plans still to send):
+     * a copy, empty before the first save.
+     */
+    public synchronized JsonObject device() {
+        if (device == null) {
+            final JsonObject read = readJson(new File(dir, "device.json"));
+            device = read == null ? new JsonObject() : read;
+        }
+        return copy(device);
+    }
+
+    public synchronized CompletableFuture<Void> saveDevice(final JsonObject state) {
+        device = copy(state);
+        return write(new File(dir, "device.json"), GSON.toJson(device));
+    }
+
     // endregion
 
     /** Forgets a plan on this device: the plan, its pending batches and its pins. */
@@ -360,13 +395,20 @@ public final class CloudCache {
     }
 
     private CompletableFuture<Void> write(final File file, final String text) {
+        return write(file, () -> text);
+    }
+
+    /** Writes a file whole, its text made when the writer comes to it (in the order writes were asked for). */
+    private CompletableFuture<Void> write(final File file, final java.util.function.Supplier<String> text) {
         return CompletableFuture.runAsync(() -> {
             try {
                 file.getParentFile()
                     .mkdirs();
                 final File next = new File(file.getParentFile(), file.getName() + ".new");
                 try (FileOutputStream out = new FileOutputStream(next)) {
-                    out.write(text.getBytes(StandardCharsets.UTF_8));
+                    out.write(
+                        text.get()
+                            .getBytes(StandardCharsets.UTF_8));
                     out.getFD()
                         .sync();
                 }

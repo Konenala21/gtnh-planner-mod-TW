@@ -623,6 +623,46 @@ public final class DevHarness {
                     r.put("signedInAs", com.gtnhplanner.library.Account.username());
                     return r;
                 });
+            case "/cloud":
+                // The account's cloud plans on this device: where they stand, and each plan's copy and room.
+                return onClient(() -> {
+                    final Map<String, Object> r = new LinkedHashMap<>();
+                    final com.gtnhplanner.cloud.session.CloudSession s = com.gtnhplanner.cloud.session.CloudSession
+                        .current();
+                    final com.gtnhplanner.data.flowchart.Plan p = com.gtnhplanner.data.flowchart.Plan.player();
+                    r.put("signedInAs", com.gtnhplanner.library.Account.username());
+                    r.put("account", com.gtnhplanner.library.Account.accountId());
+                    r.put("cloudPlans", p != null && p.isCloud());
+                    if (s == null) return r;
+                    r.put("status", s.status());
+                    r.put("editsWaiting", s.editsWaiting());
+                    final List<Map<String, Object>> plans = new ArrayList<>();
+                    if (p != null) for (final com.gtnhplanner.data.flowchart.Graph g : p.getGraphs()) {
+                        final Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("name", g.getName());
+                        m.put("key", g.getCloudKey());
+                        m.put("tab", g.isOpen());
+                        m.put("cards", g.nodes.size());
+                        final com.gtnhplanner.cloud.session.LiveDoc d = s.doc(g);
+                        if (d != null) {
+                            m.put("seq", d.seq());
+                            m.put("waiting", d.waiting());
+                            m.put("making", d.creating());
+                            m.put("known", d.known());
+                            m.put("inRoom", d.inRoom());
+                            m.put("role", d.role());
+                            m.put("sharedBy", s.sharedBy(g));
+                            final List<String> present = new ArrayList<>();
+                            for (final com.gtnhplanner.cloud.net.LiveClient.Person who : d.present())
+                                present.add(who.username() + " (" + who.client() + ")");
+                            m.put("present", present);
+                            m.put("canUndo", d.canUndo());
+                        }
+                        plans.add(m);
+                    }
+                    r.put("plans", plans);
+                    return r;
+                });
             case "/nei":
                 // NEI's recipes for item=<modid:name[:meta] or ore name>; uses=1 for its uses; planner=0 from the
                 // inventory (the planner closed); tab=<part of a tab's name> to open on that tab.
@@ -1047,6 +1087,7 @@ public final class DevHarness {
                 "/nei?item[&uses=1][&planner=0][&tab] - open NEI's recipes for an item, over the planner or (planner=0) from the inventory",
                 "/sound[?volume=0..1] - the master volume, set or read",
                 "/library[?url=<base>][&live=<ws url>] - the site the library uses (tools/dev/mock-library.mjs is a local stand-in) and its live service",
+                "/cloud - signed in: the account's cloud plans on this device (status, each plan's seq, edits waiting, room, who is in it)",
                 "/chat[?lines=N][&share=1] - the chat's newest lines and what clicking each part runs; share=1 shares the open plan there first",
                 "/gtmachines?q=turbine[&all=1][&art=1] - GregTech multiblocks (all=1: every machine) as the game names them; art=1 adds the bundled picture each resolves to",
                 "/machinedata?dir=<path> - writes the website's TGS, Bacterial Vat and radio hatch side files from this game (run in the full pack)",

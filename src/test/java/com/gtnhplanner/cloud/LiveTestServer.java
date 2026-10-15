@@ -2,6 +2,8 @@ package com.gtnhplanner.cloud;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,6 +14,8 @@ import javax.net.ssl.SSLEngine;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.gtnhplanner.cloud.sync.LiveOp;
+import com.gtnhplanner.cloud.sync.LiveOps;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -54,9 +58,106 @@ final class LiveTestServer implements AutoCloseable {
     /** The doc's plan in the snapshot a join gets. */
     volatile JsonObject plan = new JsonObject();
 
+    /**
+     * Rooms, as the real service keeps them: each doc's plan and seq ({@link #plans}, {@link #seqs}), every batch
+     * applied once by its cid (one sent again is acknowledged to its sender alone, with no ops) and sent to everyone in
+     * the room. Off, a join gets {@link #plan} and a batch is echoed to its sender.
+     */
+    volatile boolean rooms;
+    final Map<String, JsonObject> plans = new ConcurrentHashMap<>();
+    final Map<String, Long> seqs = new ConcurrentHashMap<>();
+    /** Batches applied, by doc and cid: the seq each got. */
+    final Map<String, Long> applied = new ConcurrentHashMap<>();
+    /** Every batch is refused with this code while set (rooms only). */
+    volatile String refuse;
+    private final Map<Channel, java.util.Set<String>> in = new ConcurrentHashMap<>();
+    private final AtomicInteger others = new AtomicInteger();
+
     private final NioEventLoopGroup group = new NioEventLoopGroup(2);
     private final Channel server;
     private final AtomicInteger seq = new AtomicInteger();
+
+    /** Someone else's batch on a doc (rooms only): applied, and sent to everyone in its room. */
+    synchronized void others(final String doc, final JsonArray ops) {
+        apply(doc, "other-" + others.incrementAndGet(), "u2", ops);
+    }
+
+    /** Applies a batch to a doc and sends it to its room; its seq. */
+    private synchronized long apply(final String doc, final String cid, final String by, final JsonArray ops) {
+        final JsonObject was = plans.getOrDefault(doc, new JsonObject());
+        plans.put(doc, LiveOps.apply(was, LiveOp.fromJson(ops)));
+        final long s = seqs.getOrDefault(doc, 0L) + 1;
+        seqs.put(doc, s);
+        applied.put(doc + " " + cid, s);
+        final JsonObject o = new JsonObject();
+        o.addProperty("t", "ops");
+        o.addProperty("doc", doc);
+        o.addProperty("seq", s);
+        o.addProperty("by", by);
+        o.addProperty("cid", cid);
+        o.add("ops", ops);
+        for (final Map.Entry<Channel, java.util.Set<String>> e : in.entrySet()) if (e.getValue()
+            .contains(doc))
+            e.getKey()
+                .writeAndFlush(new TextWebSocketFrame(o.toString()));
+        return s;
+    }
+
+    private synchronized void room(final ChannelHandlerContext ctx, final JsonObject f, final String t) {
+        final String doc = f.has("doc") ? f.get("doc")
+            .getAsString() : "";
+        switch (t) {
+            case "join" -> {
+                in.computeIfAbsent(ctx.channel(), c -> java.util.concurrent.ConcurrentHashMap.newKeySet())
+                    .add(doc);
+                final JsonObject s = new JsonObject();
+                s.addProperty("t", "snapshot");
+                s.addProperty("doc", doc);
+                s.addProperty("seq", seqs.getOrDefault(doc, 0L));
+                s.add("plan", plans.getOrDefault(doc, new JsonObject()));
+                s.addProperty("role", "owner");
+                final JsonObject owner = new JsonObject();
+                owner.addProperty("id", "u1");
+                owner.addProperty("username", "ada");
+                s.add("owner", owner);
+                s.add("members", new JsonArray());
+                s.add("present", new JsonArray());
+                ctx.writeAndFlush(new TextWebSocketFrame(s.toString()));
+            }
+            case "leave" -> {
+                final java.util.Set<String> docs = in.get(ctx.channel());
+                if (docs != null) docs.remove(doc);
+            }
+            case "ops" -> {
+                final String cid = f.get("cid")
+                    .getAsString();
+                if (refuse != null) {
+                    final JsonObject e = new JsonObject();
+                    e.addProperty("t", "error");
+                    e.addProperty("doc", doc);
+                    e.addProperty("cid", cid);
+                    e.addProperty("code", refuse);
+                    e.addProperty("msg", "refused");
+                    ctx.writeAndFlush(new TextWebSocketFrame(e.toString()));
+                    return;
+                }
+                final Long had = applied.get(doc + " " + cid);
+                if (had != null) {
+                    final JsonObject o = new JsonObject();
+                    o.addProperty("t", "ops");
+                    o.addProperty("doc", doc);
+                    o.addProperty("seq", had);
+                    o.addProperty("by", "u1");
+                    o.addProperty("cid", cid);
+                    o.add("ops", new JsonArray());
+                    ctx.writeAndFlush(new TextWebSocketFrame(o.toString()));
+                    return;
+                }
+                apply(doc, cid, "u1", f.getAsJsonArray("ops"));
+            }
+            default -> {}
+        }
+    }
 
     LiveTestServer(@Nullable final SSLContext ssl) throws InterruptedException {
         server = new ServerBootstrap().group(group)
@@ -130,6 +231,13 @@ final class LiveTestServer implements AutoCloseable {
         protected void channelRead0(final ChannelHandlerContext ctx, final Object msg) {
             if (msg instanceof FullHttpRequest) {
                 final FullHttpRequest req = (FullHttpRequest) msg;
+                if (req.getUri()
+                    .endsWith("/health")) {
+                    // The service's health route, as the real one answers it: it runs.
+                    ctx.writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK))
+                        .addListener(ChannelFutureListener.CLOSE);
+                    return;
+                }
                 final String cookie = req.headers()
                     .get(HttpHeaders.Names.COOKIE);
                 cookies.add(cookie == null ? "" : cookie);
@@ -162,6 +270,10 @@ final class LiveTestServer implements AutoCloseable {
         private void respond(final ChannelHandlerContext ctx, final JsonObject f) {
             final String t = f.get("t")
                 .getAsString();
+            if (rooms && (t.equals("join") || t.equals("leave") || t.equals("ops"))) {
+                room(ctx, f, t);
+                return;
+            }
             switch (t) {
                 case "ping" -> {
                     pings.incrementAndGet();
@@ -213,6 +325,7 @@ final class LiveTestServer implements AutoCloseable {
         @Override
         public void channelInactive(final ChannelHandlerContext ctx) {
             clients.remove(ctx.channel());
+            in.remove(ctx.channel());
         }
 
         @Override

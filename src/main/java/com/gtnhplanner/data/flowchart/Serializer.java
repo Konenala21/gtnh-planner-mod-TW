@@ -570,7 +570,13 @@ public final class Serializer {
 
     /** A node's saved world links ({@link #nodeToJson}'s {@code worldLinks}) onto it; nothing when there are none. */
     public static void readWorldLinks(@Nullable final JsonElement saved, final Node node) {
-        if (saved == null || !saved.isJsonArray()) return;
+        node.worldLinks.addAll(readLinks(saved));
+    }
+
+    /** Saved world links ({@link #nodeToJson}'s {@code worldLinks}); none when there are none. */
+    public static List<int[]> readLinks(@Nullable final JsonElement saved) {
+        final List<int[]> out = new ArrayList<>();
+        if (saved == null || !saved.isJsonArray()) return out;
         for (final JsonElement l : saved.getAsJsonArray()) {
             final JsonArray at = l.getAsJsonArray();
             // {dimension, x, y, z}, then the facing and a structure's size when there are.
@@ -578,8 +584,9 @@ public final class Serializer {
             final int[] link = new int[at.size()];
             for (int k = 0; k < link.length; k++) link[k] = at.get(k)
                 .getAsInt();
-            node.worldLinks.add(link);
+            out.add(link);
         }
+        return out;
     }
 
     /** Saved target rates by port index ({@link #nodeToJson}'s {@code targets} and {@code inputTargets}). */

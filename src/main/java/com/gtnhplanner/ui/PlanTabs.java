@@ -9,6 +9,7 @@ import com.cleanroommc.modularui.drawable.Stencil;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
+import com.gtnhplanner.cloud.session.CloudSession;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.ui.popup.PickList;
@@ -19,7 +20,8 @@ import com.gtnhplanner.ui.theme.Hyb;
 /**
  * The plan tabs on the top bar: one per open plan, then "+". A tab is only a plan that is open; closing it (its x,
  * or a middle click) keeps the plan, in the library's My plans, as on the website. Click switches; right-click
- * renames, copies, closes or deletes; the active tab is raised like a card.
+ * renames, copies, closes or deletes; the active tab is raised like a card. Signed in, the strip ends in how the
+ * account's plans stand: live, connecting, or offline with edits kept here.
  *
  * <p>
  * Every tab keeps its name readable. When they do not all fit, the strip scrolls sideways (the wheel, or the thin bar
@@ -56,10 +58,61 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     /** One tab: the plan slot it shows, where it is in the strip (before scrolling) and how wide. */
     private record Tab(int slot, int x, int w) {}
 
-    /** The width the tabs scroll in: the bar less the "+" key at its end. */
+    /** The width the tabs scroll in: the bar less the "+" key and the account's status at its end. */
     private int stripW() {
-        return Math.max(0, getArea().width - PLUS - 4);
+        return Math.max(0, getArea().width - PLUS - 4 - statusW());
     }
+
+    // region Where the account's plans stand
+
+    /** The session whose plans the planner shows, or null when they are this world's (signed out). */
+    private static CloudSession cloud() {
+        final CloudSession s = CloudSession.current();
+        return s != null && Plan.getInstance()
+            .isCloud() ? s : null;
+    }
+
+    private static String statusText(final CloudSession s) {
+        return switch (s.status()) {
+            case LIVE -> "Live";
+            case CONNECTING -> "Connecting";
+            case OFFLINE -> s.editsWaiting() ? "Offline: edits kept" : "Offline";
+        };
+    }
+
+    private static String statusTip(final CloudSession s) {
+        return switch (s.status()) {
+            case LIVE -> "Every edit is saved to your account";
+            case CONNECTING -> "Reaching your account";
+            case OFFLINE -> s.editsWaiting() ? "Your edits are kept here until you are back online"
+                : "Not connected to your account";
+        };
+    }
+
+    /** The status's width: a dot and its words, nothing when signed out. */
+    private static int statusW() {
+        final CloudSession s = cloud();
+        return s == null ? 0 : Hyb.width(statusText(s)) + 14;
+    }
+
+    private void drawStatus(final int h) {
+        final CloudSession s = cloud();
+        if (s == null) return;
+        final int x = getArea().width - statusW() + 4;
+        final int dot = switch (s.status()) {
+            case LIVE -> 0xFF4ADE80;
+            case CONNECTING -> 0xFFFBBF24;
+            case OFFLINE -> 0xFF8A8C94;
+        };
+        Hyb.rect(x, (h - 4) / 2, 4, 4, dot);
+        Hyb.text(statusText(s), x + 7, (h - 8) / 2f, Hyb.MUTED);
+    }
+
+    private boolean onStatus() {
+        return statusW() > 0 && mouseX() >= getArea().width - statusW();
+    }
+
+    // endregion
 
     /** Every open plan's tab, side by side at full width; the strip shows a window of them. */
     private List<Tab> tabs() {
@@ -196,6 +249,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         }
         final Tab plus = plus(tabs);
         drawTab(-1, plus.x(), plus.w(), h, slots, hover != null && hover.slot() < 0 ? hover : null);
+        drawStatus(h);
     }
 
     /** A soft edge {@value #FADE} wide in the bar's colour: opaque at the strip's edge, clear inward. */
@@ -326,6 +380,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
+        rows.add(PickList.Entry.of("Make a copy", () -> session.copySlot(slot)));
         rows.add(com.gtnhplanner.ui.library.AccountForms.shareRow(getPanel(), session, g));
         if (canClose()) {
             rows.add(
@@ -348,7 +403,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         rows.add(
             new PickList.Entry(
                 null,
-                "Delete plan",
+                session.shared(g) ? "Leave plan" : "Delete plan",
                 "",
                 Hyb.RED_INK,
                 false,
@@ -360,6 +415,8 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     /** Tooltip lines for the tab under the mouse. */
     List<String> hoverLines() {
         if (!isHovering() || draggingBar || onBar()) return null;
+        final CloudSession cloud = cloud();
+        if (cloud != null && onStatus()) return List.of(statusTip(cloud));
         final Tab t = tabAtMouse();
         if (t == null) return null;
         if (t.slot() < 0) return List.of("New plan, or open an existing one");

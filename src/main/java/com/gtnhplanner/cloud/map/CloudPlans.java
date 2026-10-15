@@ -31,8 +31,17 @@ import com.gtnhplanner.importer.ImportReport;
  */
 public final class CloudPlans {
 
-    /** A plan read: the board, what each of its things was read as, and what did not come over as it was. */
-    public record Read(Graph graph, Basis basis, ImportReport report) {}
+    /**
+     * A plan read: the board, what each of its things was read as, what did not come over as it was, and the plan it
+     * was read from (after the board was written, the plan it now stands for: {@link #after}).
+     */
+    public record Read(Graph graph, Basis basis, ImportReport report, JsonObject plan) {
+
+        /** The same board once written as {@code w} and that write applied: {@code plan} is what it now stands for. */
+        public Read after(final Written w, final JsonObject plan) {
+            return new Read(graph, w.basis(), report, plan);
+        }
+    }
 
     /** A board written: the plan, and the basis to write the board against next time. */
     public record Written(JsonObject plan, Basis basis) {}
@@ -41,7 +50,17 @@ public final class CloudPlans {
 
     /** A shared plan as a board. */
     public static Read read(final JsonObject plan, final CloudGame game) {
-        return new PlanRead(plan, game).run();
+        return new PlanRead(plan, game, null).run();
+    }
+
+    /**
+     * A shared plan as a board, following {@code previous}: a card whose JSON (and its recipe's) is the very object the
+     * previous plan held is the previous board's card again, and every thing unchanged that way keeps what it was read
+     * as, so only what a batch touched is read afresh (plans from {@link LiveOps#apply} share what a batch did not
+     * touch). The previous board must not be used afterwards: its cards are the new board's.
+     */
+    public static Read read(final JsonObject plan, final CloudGame game, @Nullable final Read previous) {
+        return new PlanRead(plan, game, previous).run();
     }
 
     /**

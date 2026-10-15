@@ -159,7 +159,7 @@ public final class Migration {
     }
 
     /** True when {@link #prepare} would have nothing to do. */
-    private static boolean prepareless(final Plan plan, final String accountId, final Set<String> known) {
+    public static boolean prepareless(final Plan plan, final String accountId, final Set<String> known) {
         for (final Graph g : plan.getGraphs()) {
             if (!eligible(g)) continue;
             final String key = g.getCloudKey();

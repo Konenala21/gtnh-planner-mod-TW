@@ -92,6 +92,12 @@ public class Node {
      */
     public final List<int[]> worldLinks = new ArrayList<>();
 
+    /**
+     * A shared plan's placements in other worlds, by world ({@code cloud/map/game/GameCloud.world}): kept, never shown,
+     * so the plan carries them. {@link #worldLinks} are this world's. Never in a local save.
+     */
+    public final transient java.util.SortedMap<String, List<int[]>> elsewhere = new java.util.TreeMap<>();
+
     /** The recipe page this node was made from, for its first read (a page NEI cannot find again by id). */
     private transient RecipeHandlerRef madeFrom;
     @Getter

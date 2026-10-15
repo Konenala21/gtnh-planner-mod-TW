@@ -200,6 +200,78 @@ public final class LiveState {
         return local(redo.remove(redo.size() - 1), true, true);
     }
 
+    // region Edits too big for one batch (the game's: the website's edits are a person's, never a whole plan)
+
+    /** The most ops the service takes in one batch. */
+    public static final int MAX_OPS = 5000;
+
+    /**
+     * A local edit as batches the service takes: each at most {@code maxBytes} of ops (as JSON) and {@link #MAX_OPS}
+     * ops, cut between ops (one op bigger than that goes alone). They are undone as one. Empty when there are no ops.
+     */
+    public List<Batch> local(final List<LiveOp> ops, final int maxBytes) {
+        return group(ops, maxBytes, false, true);
+    }
+
+    /** {@link #undo()} for edits made with {@link #local(List, int)}: the batches that undo the last one. */
+    public List<Batch> undo(final int maxBytes) {
+        if (undo.isEmpty()) return List.of();
+        final List<Batch> out = group(undo.remove(undo.size() - 1), maxBytes, true, false);
+        if (!out.isEmpty()) redo.add(inverseOf(out));
+        return out;
+    }
+
+    /** {@link #redo()} for edits made with {@link #local(List, int)}. */
+    public List<Batch> redo(final int maxBytes) {
+        if (redo.isEmpty()) return List.of();
+        return group(redo.remove(redo.size() - 1), maxBytes, true, true);
+    }
+
+    private List<Batch> group(final List<LiveOp> ops, final int maxBytes, final boolean keepRedo,
+        final boolean undoable) {
+        final List<Batch> out = new ArrayList<>();
+        for (final List<LiveOp> part : split(ops, maxBytes)) {
+            final Batch b = local(part, true, false);
+            if (b != null) out.add(b);
+        }
+        if (out.isEmpty()) return out;
+        if (undoable) undo.add(inverseOf(out));
+        if (!keepRedo) redo.clear();
+        return out;
+    }
+
+    /** What undoes several batches made one after another: each one's inverse, the last first. */
+    private static List<LiveOp> inverseOf(final List<Batch> batches) {
+        final List<LiveOp> inverse = new ArrayList<>();
+        for (int i = batches.size() - 1; i >= 0; i--) inverse.addAll(
+            batches.get(i)
+                .inverse());
+        return inverse;
+    }
+
+    /** Ops cut into runs of at most {@code maxBytes} (as JSON) and {@link #MAX_OPS} ops each, in order. */
+    public static List<List<LiveOp>> split(final List<LiveOp> ops, final int maxBytes) {
+        final List<List<LiveOp>> out = new ArrayList<>();
+        List<LiveOp> run = new ArrayList<>();
+        long bytes = 0;
+        for (final LiveOp op : ops) {
+            final int size = op.toJson()
+                .toString()
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8).length + 1;
+            if (!run.isEmpty() && (bytes + size > maxBytes || run.size() >= MAX_OPS)) {
+                out.add(run);
+                run = new ArrayList<>();
+                bytes = 0;
+            }
+            run.add(op);
+            bytes += size;
+        }
+        if (!run.isEmpty()) out.add(run);
+        return out;
+    }
+
+    // endregion
+
     // region Saving
 
     /** What to keep on disk: the seq, the confirmed plan and the pending batches (undo lasts a session). */

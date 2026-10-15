@@ -183,6 +183,68 @@ class CloudEditsTest {
         }
     }
 
+    /**
+     * Reading only what a batch touched (the read following the last one) gives the board a whole read gives, and that
+     * board writes back as the plan, whatever someone else and this player did in between.
+     */
+    @Test
+    void aReadFollowingTheLastIsAWholeRead() {
+        final Random random = new Random(5);
+        for (final String name : Boards.CORPUS) {
+            final Graph g = Boards.dress(Boards.corpus(name));
+            final TestGame game = new TestGame().knowing(g);
+            followingReads(
+                name,
+                game,
+                CloudPlans.write(g, game, null, null)
+                    .plan(),
+                random);
+        }
+        for (final String name : Boards.WEBSITE) followingReads(name, new TestGame(), Boards.website(name), random);
+    }
+
+    private static void followingReads(final String name, final TestGame game, final JsonObject start,
+        final Random random) {
+        final LiveState state = new LiveState(1, start);
+        CloudPlans.Read mine = CloudPlans.read(state.view(), game);
+        for (int round = 0; round < 16; round++) {
+            final String what = name + " round " + round;
+            if (round % 2 == 0) {
+                edit(mine.graph(), random);
+                final CloudPlans.Written w = CloudPlans.write(mine.graph(), game, state.view(), mine.basis());
+                state.local(CloudPlans.diff(state.view(), w.plan()));
+                mine = mine.after(w, state.view());
+                game.knowing(mine.graph());
+            }
+            final CloudPlans.Read theirs = CloudPlans.read(state.view(), game);
+            edit(theirs.graph(), random);
+            state.receive(
+                state.seq() + 1,
+                null,
+                CloudPlans.diff(
+                    state.view(),
+                    CloudPlans.write(theirs.graph(), game, state.view(), theirs.basis())
+                        .plan()));
+            final CloudPlans.Read touched = CloudPlans.read(state.view(), game, mine);
+            final CloudPlans.Read whole = CloudPlans.read(state.view(), game);
+            assertEquals(
+                Canon.of(Boards.persisted(whole.graph())),
+                Canon.of(Boards.persisted(touched.graph())),
+                what + ": "
+                    + CloudPlansTest
+                        .firstDifference(Boards.persisted(whole.graph()), Boards.persisted(touched.graph())));
+            assertEquals(whole.basis().byGame, touched.basis().byGame, what + ": read as the same things");
+            assertEquals(
+                List.of(),
+                CloudPlans.diff(
+                    state.view(),
+                    CloudPlans.write(touched.graph(), game, state.view(), touched.basis())
+                        .plan()),
+                what + ": written straight back");
+            mine = touched;
+        }
+    }
+
     /** One edit a player might make, picked at random. */
     private static void edit(final Graph g, final Random random) {
         final List<Node> nodes = new ArrayList<>(g.getNodes());

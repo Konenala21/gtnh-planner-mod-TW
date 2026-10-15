@@ -16,6 +16,8 @@ import net.minecraft.item.ItemStack;
 
 import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.api.PlanAPI;
+import com.gtnhplanner.cloud.session.CloudSession;
+import com.gtnhplanner.cloud.session.LiveDoc;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
@@ -1383,17 +1385,33 @@ public final class BoardSession {
     // region Undo, plan slots, board keys
 
     public boolean canUndo() {
+        final LiveDoc shared = live();
+        if (shared != null) return shared.canUndo();
         return PlanAPI.undoHistory(graph)
             .canUndo();
     }
 
     public boolean canRedo() {
+        final LiveDoc shared = live();
+        if (shared != null) return shared.canRedo();
         return PlanAPI.undoHistory(graph)
             .canRedo();
     }
 
+    /**
+     * Undoes the last edit. On a cloud plan, only this player's own edits are undone (the inverse of each, sent as a
+     * new edit: a field someone changed since goes back too); a local plan goes back to the snapshot before.
+     */
     public void undo() {
         settleLive(true);
+        if (live() != null) {
+            if (CloudSession.current()
+                .undo(graph)) {
+                follow();
+                Sfx.UNDO.play();
+            } else Sfx.DENY.play();
+            return;
+        }
         if (!canUndo()) {
             Sfx.DENY.play();
             return;
@@ -1406,6 +1424,14 @@ public final class BoardSession {
 
     public void redo() {
         settleLive(true);
+        if (live() != null) {
+            if (CloudSession.current()
+                .redo(graph)) {
+                follow();
+                Sfx.REDO.play();
+            } else Sfx.DENY.play();
+            return;
+        }
         if (!canRedo()) {
             Sfx.DENY.play();
             return;
@@ -1415,6 +1441,35 @@ public final class BoardSession {
                 .redo(graph));
         Sfx.REDO.play();
     }
+
+    // region The open plan as a cloud plan (presence and sharing build on this)
+
+    /**
+     * The open plan as one of the signed-in account's cloud plans: its room, who is in it, presence out and in. Null
+     * for a plan on this computer (signed out, or the tour's).
+     */
+    @Nullable
+    public LiveDoc live() {
+        final CloudSession cloud = CloudSession.current();
+        return cloud == null ? null : cloud.doc(graph);
+    }
+
+    /** Whether something is in hand on the board (set by the canvas). */
+    private java.util.function.BooleanSupplier inHand = () -> false;
+
+    public void setInHand(final java.util.function.BooleanSupplier inHand) {
+        this.inHand = inHand;
+    }
+
+    /**
+     * Whether the board is in the middle of a change to {@code g}: a wheel spin not settled yet, or something in hand.
+     * Others' edits wait until it is at rest.
+     */
+    public boolean busyWith(final Graph g) {
+        return !closed && g == graph && (liveBefore != null || inHand.getAsBoolean());
+    }
+
+    // endregion
 
     /**
      * Puts a graph restored by undo or redo into the active slot. The view is not part of an edit, so it carries over;
@@ -1545,19 +1600,64 @@ public final class BoardSession {
         Sfx.ADJUST.play();
     }
 
-    /** Removes a plan slot; the last one stays. */
+    /**
+     * Removes a plan slot; the last one stays. A cloud plan is deleted from the account, or left when it is shared with
+     * the player.
+     */
     public void deleteSlot(final int index) {
         final Plan plan = Plan.getInstance();
         if (index < 0 || index >= plan.getGraphs()
             .size()) return;
-        final String name = plan.getGraphs()
-            .get(index)
-            .getName();
+        final Graph g = plan.getGraphs()
+            .get(index);
+        final String name = g.getName();
+        final boolean leaving = shared(g);
+        final CloudSession cloud = CloudSession.current();
+        if (cloud != null && plan.getGraphs()
+            .size() > 1) cloud.deleting(g);
         plan.removeSlot(index);
         follow();
         PlanAPI.save();
         Sfx.NOTE_CRUMPLE.play();
-        flash(Severity.INFO, "Deleted '" + name + "'");
+        flash(Severity.INFO, (leaving ? "Left '" : "Deleted '") + name + "'");
+    }
+
+    /** Whether a plan is a cloud plan someone else shared with the player: theirs to leave, never to delete. */
+    public boolean shared(final Graph g) {
+        final CloudSession cloud = CloudSession.current();
+        return cloud != null && cloud.doc(g) != null && cloud.shared(g);
+    }
+
+    /**
+     * Makes a copy of a plan as a new plan of the player's, opened in a tab: everything but its placements in the
+     * world (a spot holds one card) and its post. Signed in, it becomes a new plan in the account.
+     */
+    public void copySlot(final int index) {
+        final Plan plan = Plan.getInstance();
+        if (index < 0 || index >= plan.getGraphs()
+            .size()) return;
+        final Graph from = plan.getGraphs()
+            .get(index);
+        final Graph copy;
+        try {
+            copy = com.gtnhplanner.data.flowchart.Serializer
+                .decode(com.gtnhplanner.data.flowchart.Serializer.encode(from));
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Could not copy '{}'", from.getName(), e);
+            flash(Severity.ERROR, "That plan could not be copied");
+            return;
+        }
+        for (final Node n : copy.getNodes()) n.worldLinks.clear();
+        copy.setName(from.getName() + " copy");
+        plan.getGraphs()
+            .add(copy);
+        plan.setActiveIndex(
+            plan.getGraphs()
+                .size() - 1);
+        follow();
+        PlanAPI.save();
+        Sfx.PAGE.play();
+        flash(Severity.INFO, "Made a copy of '" + from.getName() + "'");
     }
 
     /** Closes a plan's tab; the plan stays in the library's My plans. */
@@ -1589,10 +1689,12 @@ public final class BoardSession {
         if (index < 0 || index >= slots().size()) return;
         final String name = slots().get(index)
             .getName();
+        // A plan someone shared is theirs: the player leaves it, and it stays in its owner's account.
+        final boolean leave = shared(slots().get(index));
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = List.of(
             new com.gtnhplanner.ui.popup.PickList.Entry(
                 null,
-                "Delete it",
+                leave ? "Leave it" : "Delete it",
                 "",
                 Hyb.RED_INK,
                 false,
@@ -1600,8 +1702,12 @@ public final class BoardSession {
             com.gtnhplanner.ui.popup.PickList.Entry.of("Keep it", () -> {}));
         com.gtnhplanner.ui.popup.Popup.open(
             panel,
-            com.gtnhplanner.ui.popup.PickList
-                .popup("gtnhplanner_delete", "Delete '" + name + "' for good?", rows, false, 150),
+            com.gtnhplanner.ui.popup.PickList.popup(
+                "gtnhplanner_delete",
+                leave ? "Leave '" + name + "'?" : "Delete '" + name + "' for good?",
+                rows,
+                false,
+                150),
             x,
             y);
     }

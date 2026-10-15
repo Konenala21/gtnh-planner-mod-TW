@@ -238,8 +238,8 @@ class CloudPlansTest {
             final Node back = again.graph().nodes.get(card.id);
             assertEquals(card.machineConfig.getMachineCount(), back.machineConfig.getMachineCount(), name);
             assertEquals(
-                Canon.of(Fresh.nodeGame(card)),
-                Canon.of(Fresh.nodeGame(back)),
+                Canon.of(Fresh.nodeGame(card, "")),
+                Canon.of(Fresh.nodeGame(back, "")),
                 name + ": rebuilt from its game data");
         }
     }
