@@ -411,6 +411,9 @@ public final class Serializer {
         for (final Drawer drawer : graph.getDrawers()) drawersArray.add(GSON.toJsonTree(drawer, Drawer.class));
         root.add("drawers", drawersArray);
 
+        // The task board, as the shared plan spells it; absent when the plan has none.
+        Tasks.write(graph, root);
+
         return root;
     }
 
@@ -639,6 +642,9 @@ public final class Serializer {
             }
             graph.addDrawersLoaded(loadedDrawers);
         }
+
+        // Absent from saves written before task boards existed; those load with none.
+        Tasks.read(root, graph);
 
         return graph;
     }
