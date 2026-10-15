@@ -203,7 +203,7 @@ public final class LiveState {
     // region Edits too big for one batch (the game's: the website's edits are a person's, never a whole plan)
 
     /** The most ops the service takes in one batch. */
-    public static final int MAX_OPS = 5000;
+    public static final int MAX_OPS = 1000;
 
     /**
      * A local edit as batches the service takes: each at most {@code maxBytes} of ops (as JSON) and {@link #MAX_OPS}
@@ -227,9 +227,27 @@ public final class LiveState {
         return group(redo.remove(redo.size() - 1), maxBytes, true, true);
     }
 
-    private List<Batch> group(final List<LiveOp> ops, final int maxBytes, final boolean keepRedo,
+    /** Ops left out of the last edit made with a size limit, each bigger than the limit alone. */
+    private final List<LiveOp> tooBig = new ArrayList<>();
+
+    /**
+     * The ops the last {@link #local(List, int)}, {@link #undo(int)} or {@link #redo(int)} left out because one op
+     * alone was over the size limit (the service would refuse it, and the batch it was in with it); cleared by this.
+     */
+    public List<LiveOp> takeTooBig() {
+        final List<LiveOp> out = new ArrayList<>(tooBig);
+        tooBig.clear();
+        return out;
+    }
+
+    private List<Batch> group(final List<LiveOp> all, final int maxBytes, final boolean keepRedo,
         final boolean undoable) {
         final List<Batch> out = new ArrayList<>();
+        final List<LiveOp> ops = new ArrayList<>();
+        for (final LiveOp op : all) {
+            if (size(op) > maxBytes) tooBig.add(op);
+            else ops.add(op);
+        }
         for (final List<LiveOp> part : split(ops, maxBytes)) {
             final Batch b = local(part, true, false);
             if (b != null) out.add(b);
@@ -249,15 +267,20 @@ public final class LiveState {
         return inverse;
     }
 
+    /** What one op adds to a batch: its JSON as UTF-8 and a comma. */
+    public static int size(final LiveOp op) {
+        return op.toJson()
+            .toString()
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8).length + 1;
+    }
+
     /** Ops cut into runs of at most {@code maxBytes} (as JSON) and {@link #MAX_OPS} ops each, in order. */
     public static List<List<LiveOp>> split(final List<LiveOp> ops, final int maxBytes) {
         final List<List<LiveOp>> out = new ArrayList<>();
         List<LiveOp> run = new ArrayList<>();
         long bytes = 0;
         for (final LiveOp op : ops) {
-            final int size = op.toJson()
-                .toString()
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8).length + 1;
+            final int size = size(op);
             if (!run.isEmpty() && (bytes + size > maxBytes || run.size() >= MAX_OPS)) {
                 out.add(run);
                 run = new ArrayList<>();

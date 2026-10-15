@@ -66,15 +66,16 @@ class LiveStateSplitTest {
     @Test
     void manySmallOpsAreCutAtTheServicesCount() {
         final List<LiveOp> ops = new ArrayList<>();
-        for (int i = 0; i < 12_000; i++) ops.add(LiveOp.del("nodes", "n" + i));
+        for (int i = 0; i < 2_500; i++) ops.add(LiveOp.del("nodes", "n" + i));
         final List<List<LiveOp>> runs = LiveState.split(ops, 10_000_000);
         assertEquals(3, runs.size());
+        assertEquals(1000, LiveState.MAX_OPS);
         assertEquals(
             LiveState.MAX_OPS,
             runs.getFirst()
                 .size());
         assertEquals(
-            12_000 - 2 * LiveState.MAX_OPS,
+            2_500 - 2 * LiveState.MAX_OPS,
             runs.getLast()
                 .size());
     }
@@ -89,5 +90,49 @@ class LiveStateSplitTest {
             3,
             LiveState.split(ops, 1000)
                 .size());
+    }
+
+    @Test
+    void aSingleOpOverTheLimitIsKeptOutOfPendingAndReported() {
+        final LiveState s = new LiveState(1, json("{\"name\":\"Big\",\"nodes\":[]}"));
+        final List<LiveOp> ops = List.of(
+            LiveOp.put("nodes", "a", json("{\"id\":\"a\"}")),
+            LiveOp.put("nodes", "huge", json("{\"id\":\"huge\",\"t\":\"" + "y".repeat(5000) + "\"}")),
+            LiveOp.put("nodes", "b", json("{\"id\":\"b\"}")));
+        final List<LiveState.Batch> sent = s.local(ops, 1000);
+        assertEquals(1, sent.size());
+        assertEquals(
+            2,
+            sent.getFirst()
+                .ops()
+                .size());
+        assertEquals(
+            1,
+            s.takeTooBig()
+                .size());
+        assertTrue(
+            s.takeTooBig()
+                .isEmpty(),
+            "taken once");
+        assertEquals(2, nodes(s.view()), "the huge one never entered the live copy");
+    }
+
+    @Test
+    void everyFrameStaysUnderTheServicesLimits() {
+        final LiveState s = new LiveState(1, json("{\"name\":\"Big\",\"nodes\":[]}"));
+        final List<LiveOp> ops = new ArrayList<>();
+        final String filler = "é".repeat(3000);
+        for (int i = 0; i < 1500; i++)
+            ops.add(LiveOp.put("nodes", "n" + i, json("{\"id\":\"n" + i + "\",\"label\":\"" + filler + "\"}")));
+        final int max = 240 * 1024 - 512;
+        for (final LiveState.Batch b : s.local(ops, max)) {
+            assertTrue(
+                b.ops()
+                    .size() <= 1000);
+            final int bytes = s.frame("u1:doc", b)
+                .toString()
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            assertTrue(bytes <= 256 * 1024, "frame " + bytes);
+        }
     }
 }
