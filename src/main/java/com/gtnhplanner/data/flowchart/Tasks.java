@@ -260,7 +260,7 @@ public final class Tasks {
     @Nullable
     public static Picture picture(final JsonObject o) {
         final String thumb = str(o, "thumb");
-        if (thumb == null || thumb.isEmpty()) return null;
+        if (thumb == null) return null;
         final Integer w = integer(o, "w"), h = integer(o, "h");
         return new Picture(thumb, w == null ? 0 : w, h == null ? 0 : h, orEmpty(str(o, "takenAt")), str(o, "file"));
     }
@@ -419,6 +419,14 @@ public final class Tasks {
 
     /** Writes the graph's task board into {@code root} as the plan spells it; nothing for a plan without one. */
     public static void write(final Graph g, final JsonObject root) {
+        write(g, root, true);
+    }
+
+    /**
+     * {@link #write(Graph, JsonObject)}, with the screenshots' thumbnails left empty when {@code pictures} is false
+     * (a plan code or a chat link: the things stay, the pictures do not travel).
+     */
+    public static void write(final Graph g, final JsonObject root, final boolean pictures) {
         if (g.getPrimaryView() != null) root.addProperty("primaryView", g.getPrimaryView());
         if (!g.tasks.isEmpty()) {
             final JsonArray a = new JsonArray();
@@ -427,7 +435,10 @@ public final class Tasks {
         }
         if (!g.taskItems.isEmpty()) {
             final JsonArray a = new JsonArray();
-            for (final Item i : g.taskItems) a.add(toJson(claimed(i, g.planId())));
+            for (final Item i : g.taskItems) {
+                final Item c = claimed(i, g.planId());
+                a.add(toJson(pictures ? c : withoutThumb(c)));
+            }
             root.add("taskItems", a);
         }
         if (!g.taskComments.isEmpty()) {
@@ -435,6 +446,23 @@ public final class Tasks {
             for (final Comment c : g.taskComments) a.add(toJson(c));
             root.add("taskComments", a);
         }
+    }
+
+    /** The thing with its screenshot's thumbnail emptied (a picture thing keeps its place, size and file name). */
+    public static Item withoutThumb(final Item i) {
+        final Picture p = i.picture();
+        if (p == null || p.thumb()
+            .isEmpty()) return i;
+        return new Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            i.text(),
+            i.done(),
+            i.order(),
+            i.link(),
+            i.place(),
+            new Picture("", p.w(), p.h(), p.takenAt(), p.file()));
     }
 
     /** Reads a task board {@link #write} wrote (or a plan holds) onto the graph; what does not read is skipped. */

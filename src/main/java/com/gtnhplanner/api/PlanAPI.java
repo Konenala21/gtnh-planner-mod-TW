@@ -50,7 +50,7 @@ public final class PlanAPI {
 
     /** Copies the serialised graph to the system clipboard. */
     public static void copyToClipboard(final Graph graph) {
-        GuiScreen.setClipboardString(Serializer.encode(graph));
+        GuiScreen.setClipboardString(Serializer.encodeShared(graph));
     }
 
     /**

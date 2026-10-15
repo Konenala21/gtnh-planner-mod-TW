@@ -48,6 +48,33 @@ class TaskThingsTest {
     }
 
     @Test
+    void aPlanCodeKeepsTheScreenshotThingButNotItsPicture() {
+        final Graph g = board();
+        final Graph shared = Serializer.decode(Serializer.encodeShared(g));
+        final Tasks.Item p = TaskEdits.firstPicture(shared, "t");
+        assertEquals(
+            "",
+            p.picture()
+                .thumb());
+        assertEquals(
+            1920,
+            p.picture()
+                .w());
+        assertEquals(
+            SHOT.file(),
+            p.picture()
+                .file());
+        assertEquals("Screenshot", p.text());
+        assertEquals(g.taskItems.size(), shared.taskItems.size());
+        // A save and the account's copy still carry it.
+        assertEquals(
+            SHOT.thumb(),
+            TaskEdits.firstPicture(Serializer.decode(Serializer.encode(g)), "t")
+                .picture()
+                .thumb());
+    }
+
+    @Test
     void everyKindOfThingGoesThroughASaveAndAPlanCode() {
         final Graph g = board();
         final Graph back = Serializer.decode(Serializer.encode(g));

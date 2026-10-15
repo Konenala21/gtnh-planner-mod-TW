@@ -44,8 +44,22 @@ public final class Serializer {
      */
     @Nonnull
     public static String encode(final Graph graph) {
+        return encode(graph, true);
+    }
+
+    /**
+     * {@link #encode(Graph)} for a plan code or a chat link: screenshots stay as things but carry no picture, which
+     * would make the code huge (saves, undo and the account's copy keep them).
+     */
+    @Nonnull
+    public static String encodeShared(final Graph graph) {
+        return encode(graph, false);
+    }
+
+    @Nonnull
+    private static String encode(final Graph graph, final boolean pictures) {
         try {
-            final String json = GSON.toJson(graphToJson(graph));
+            final String json = GSON.toJson(graphToJson(graph, pictures));
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
             try (final GZIPOutputStream gzip = new GZIPOutputStream(baos);
                 final OutputStreamWriter writer = new OutputStreamWriter(gzip, StandardCharsets.UTF_8)) {
@@ -303,6 +317,11 @@ public final class Serializer {
 
     @Nonnull
     private static JsonObject graphToJson(final Graph graph) {
+        return graphToJson(graph, true);
+    }
+
+    @Nonnull
+    private static JsonObject graphToJson(final Graph graph, final boolean pictures) {
         final JsonObject root = new JsonObject();
 
         root.addProperty(
@@ -351,7 +370,7 @@ public final class Serializer {
         root.add("drawers", drawersArray);
 
         // The task board, as the shared plan spells it; absent when the plan has none.
-        Tasks.write(graph, root);
+        Tasks.write(graph, root, pictures);
 
         return root;
     }

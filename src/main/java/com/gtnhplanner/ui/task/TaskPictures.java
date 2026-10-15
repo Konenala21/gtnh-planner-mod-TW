@@ -26,6 +26,7 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.event.world.WorldEvent;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -42,11 +43,13 @@ import com.gtnhplanner.ui.theme.Hyb;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.common.network.FMLNetworkEvent;
 
 /**
  * A task's screenshots: taking one (the planner steps aside, the world is drawn without the game's overlays and read
  * back, the planner comes back with the task open), keeping it (the full shot in the screenshots folder, a small JPEG
- * thumbnail in the task, as a data URL, which is all that goes to the account), and drawing them (textures made from
+ * thumbnail in the task, as a data URL; it stays in saves and the account's copy, not in plan codes or chat links), and
+ * drawing them (textures made from
  * the thumbnails, and from the full shot when it is on this computer).
  */
 public final class TaskPictures {
@@ -54,23 +57,61 @@ public final class TaskPictures {
     public static final TaskPictures INSTANCE = new TaskPictures();
 
     /** A thumbnail's width, and the most bytes its JPEG may take (it rides in the plan, and in every batch). */
-    static final int THUMB_W = 320, THUMB_BYTES = 40_000;
+    static final int THUMB_W = 240, THUMB_BYTES = 12_000;
     /** Frames drawn without the planner before the shot is read: the world settles after the screen goes. */
     private static final int SETTLE_FRAMES = 4;
 
-    private TaskPictures() {}
+    TaskPictures() {}
 
     // region Taking one
 
     /** A shot asked for: its task and board, frames drawn since the planner went, and the overlays as they were. */
     @Nullable
-    private Graph board;
+    Graph board;
     @Nullable
-    private String taskId;
-    private int frames;
-    private boolean hidGui;
+    String taskId;
+    int frames;
+    /** Whether the game's overlays were already hidden before the shot hid them. */
+    boolean hidGui;
+    /** Puts the game's overlays back (hidden or shown) when the shot is done or called off. */
+    @Nullable
+    private java.util.function.Consumer<Boolean> hud;
     /** Set once the shot is in: the planner comes back on the next tick. */
-    private boolean reopen;
+    boolean reopen;
+
+    /** A shot asked for: it waits for the planner to go and the world to settle. */
+    void begin(final Graph board, final String taskId, final boolean hidGui,
+        final java.util.function.Consumer<Boolean> hud) {
+        this.board = board;
+        this.taskId = taskId;
+        this.frames = 0;
+        this.hidGui = hidGui;
+        this.hud = hud;
+        this.reopen = false;
+    }
+
+    /**
+     * Calls off a shot still waiting (the world went, or the player left): the overlays come back, nothing is taken.
+     */
+    void cancel() {
+        if (board == null && !reopen) return;
+        if (board != null && hud != null) hud.accept(hidGui);
+        board = null;
+        taskId = null;
+        frames = 0;
+        hud = null;
+        reopen = false;
+    }
+
+    @SubscribeEvent
+    public void onWorldUnload(final WorldEvent.Unload event) {
+        if (event.world != null && event.world.isRemote) cancel();
+    }
+
+    @SubscribeEvent
+    public void onLoggedOut(final FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        cancel();
+    }
 
     /** Whether a screenshot can be taken: in a world, with none being taken. */
     public static boolean canTake() {
@@ -87,10 +128,7 @@ public final class TaskPictures {
             return;
         }
         final Minecraft mc = Minecraft.getMinecraft();
-        INSTANCE.board = board;
-        INSTANCE.taskId = taskId;
-        INSTANCE.frames = 0;
-        INSTANCE.hidGui = mc.gameSettings.hideGUI;
+        INSTANCE.begin(board, taskId, mc.gameSettings.hideGUI, hide -> mc.gameSettings.hideGUI = hide);
         mc.gameSettings.hideGUI = true;
         mc.displayGuiScreen(null);
     }
@@ -111,6 +149,7 @@ public final class TaskPictures {
         final String id = taskId;
         board = null;
         taskId = null;
+        hud = null;
         if (shot != null && g != null && id != null) attach(g, id, shot);
         if (g != null && id != null) {
             final Plan plan = Plan.getInstance();
@@ -225,13 +264,29 @@ public final class TaskPictures {
 
     /** A JPEG data URL of the picture, at the best quality that keeps it under {@value #THUMB_BYTES} bytes. */
     static String dataUrl(final BufferedImage img) throws IOException {
-        byte[] bytes = null;
-        for (float q = 0.85f; q > 0.2f; q -= 0.1f) {
-            bytes = jpeg(img, q);
-            if (bytes.length <= THUMB_BYTES) break;
-        }
         return "data:image/jpeg;base64," + Base64.getEncoder()
-            .encodeToString(bytes);
+            .encodeToString(fit(img).bytes());
+    }
+
+    /** A JPEG and the quality it was made at. */
+    record Encoded(byte[] bytes, float quality) {}
+
+    /**
+     * The picture as a JPEG of at most {@value #THUMB_BYTES} bytes: the best quality that fits, stepping down; a
+     * picture that is still too big at the lowest is made smaller and tried again.
+     */
+    static Encoded fit(final BufferedImage img) throws IOException {
+        BufferedImage at = img;
+        while (true) {
+            byte[] bytes = null;
+            float q = 0.85f;
+            for (; q >= 0.1f; q -= 0.05f) {
+                bytes = jpeg(at, q);
+                if (bytes.length <= THUMB_BYTES) return new Encoded(bytes, q);
+            }
+            if (at.getWidth() <= 16) return new Encoded(bytes, q);
+            at = scaled(at, at.getWidth() * 3 / 4, Math.max(1, at.getHeight() * 3 / 4));
+        }
     }
 
     private static byte[] jpeg(final BufferedImage img, final float quality) throws IOException {
