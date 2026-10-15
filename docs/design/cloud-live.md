@@ -235,11 +235,16 @@ made.
 ## Rollout (last step, with the owner)
 
 1. Apply the migration SQL to production Supabase (additive).
-2. Merge `cloud-live` into the website's `main`, bump the version and changelog, deploy.
-3. Install the live service: systemd unit, env (`COMMUNITY_HASH_SALT`, Supabase keys, `LIVE_INTERNAL_TOKEN`,
-   `LIVE_JOURNAL_DIR`), Caddy route, check WebSockets through Cloudflare; then set `NEXT_PUBLIC_LIVE_URL` and deploy
-   once more.
+2. Staging at `new.gtnhplanner.com` (the owner's call): a second Next.js instance from `cloud-live` (unit
+   `gtnh-flow-next`, 127.0.0.1:3002) and the live service (`gtnh-live`, 127.0.0.1:3001, env `COMMUNITY_HASH_SALT`,
+   Supabase keys, `LIVE_INTERNAL_TOKEN`, `LIVE_JOURNAL_DIR`, `LIVE_ALLOWED_ORIGINS`), on the production database. A
+   Caddy site block and a proxied Cloudflare DNS record; WebSockets checked through Cloudflare. Session cookies are
+   host-only, so staging has its own sign-in (same accounts). The owner tests there with plans they don't mind
+   losing; a game test build points at it with `-Dgtnhplanner.library.url=https://new.gtnhplanner.com`.
+3. The switch: Caddy sends `gtnhplanner.com` to 3002 and its `/live` to 3001. Rollback is the same line back to 3000.
+   Then merge `cloud-live` into the website's `main`, bump the version and changelog, so the next ordinary deploy
+   carries it.
 4. The mod ships in its next release, as usual.
 
-Each step is reversible on its own: the columns and table are unused by old code; unsetting `NEXT_PUBLIC_LIVE_URL`
-turns the live features off.
+Each step is reversible on its own: the columns and table are unused by old code; the switch is one Caddy line;
+unsetting `NEXT_PUBLIC_LIVE_URL` turns the live features off. The runbook is the website's `docs/live-rollout.md`.
