@@ -111,6 +111,24 @@ public class Plan {
         return out;
     }
 
+    /**
+     * Puts the open plans' tabs in a new order: {@code order} lists the open slots (as {@link #openSlots()} does) in
+     * the order they should now run. The plans move among the places the open ones held, so a closed plan keeps its
+     * own place and the active plan stays active. Anything that is not a permutation of the open slots changes nothing.
+     *
+     * @return whether the order changed
+     */
+    public boolean reorderOpen(final List<Integer> order) {
+        final List<Integer> open = openSlots();
+        if (order.size() != open.size() || !new java.util.HashSet<>(order).equals(new java.util.HashSet<>(open))
+            || order.equals(open)) return false;
+        final List<Graph> before = new ArrayList<>(graphs);
+        final Graph active = activeIndex >= 0 && activeIndex < before.size() ? before.get(activeIndex) : null;
+        for (int k = 0; k < open.size(); k++) graphs.set(open.get(k), before.get(order.get(k)));
+        if (active != null) activeIndex = graphs.indexOf(active);
+        return true;
+    }
+
     /** The slots' indices, most recently open first: the active one, then by when each was last open. */
     public List<Integer> byRecency() {
         final List<Integer> order = new ArrayList<>();
