@@ -35,14 +35,27 @@ website (`jackwrichards/gtnh-factory-flow`, branch `cloud-live`, worktree `C:\Us
   what they have selected, and their edits as they make them.
 - **Publish**: posts a one-time public copy to the library (today's "Share to library"). Update in library refreshes
   it. Publishing never shares the live plan.
-- **Task board**: its own kind of plan (`primaryView: "tasks"`, made with the + menu's New task board, or from "Make a
-  task" on cards). It always shows its tasks and never cards, and a normal plan never shows tasks. Columns To do, Doing,
-  Blocked, Done; a task has a title, text, assignees (members of the plan), a checklist, links to cards and comments.
-  Right-click cards on a plan, "Make a task": a menu of your task boards and New task board; the task goes into the one
-  chosen, a checklist line per card (how many to build, from the solve), each linked to its card. A link is
-  `{ plan, node }`: the plan's id (its doc key; a plan on one computer only, its local id) and the card's id in that plan.
-  It opens that plan and centres the card, or says "That plan is gone". A card shows the dot of the most pressing task
-  that links it, from the task boards loaded.
+- **Task board**: its own kind of plan (`primaryView: "tasks"`, made with the + menu's New task board, or from "Add to
+  a task" on cards). It always shows its tasks and never cards, and a normal plan never shows tasks. Columns To do,
+  Doing, Blocked, Done; a task has a title, text (its notes), assignees (members of the plan), a list of **things** and
+  comments (the owner, 2026-10-15: "like Jira"; no separate cards section and checklist). Every thing has its own
+  checkbox and is one of:
+  - a **machine**: a card on a plan (`link`), "4× Electric Blast Furnace (HV)"; a click opens that plan with the card
+    centred and selected, or says "That plan is gone";
+  - a **location**: a spot in a world (`place`: x y z, dimension, the world it belongs to, an optional label); in the
+    game a key on it shows where it is (a beam on the block, its name and distance) and its line says how far and which
+    way it is from the player, or which dimension or world it is in;
+  - a **screenshot** (`picture`; made in the game only: the planner steps aside, the world is shot without the GUI and
+    the planner comes back with it attached): a thumbnail in the list, big on a click.
+  Cards go into a task from a card's pin key (Place in the world, Pin to the screen, **Add to a task**) or a right
+  click on selected cards ("Add to a task"): a menu of your task boards (and New task board), then of the board's tasks
+  with their status dots (and New task); one machine thing per card, with how many to build from the solve. The task
+  box (the website's task drawer) is laid out as Jira's issue view: a main column (title, notes, things with their
+  add keys, the comment thread, the comment box at its foot) and a side column (Status as a picker, People, the board,
+  who made it and when, Delete task at its foot); narrow, the side column goes under the title. A task's card on the
+  board shows its title, faces, things done of all of them ("3/5"), how many comments, and its first screenshot. A
+  card on a plan shows the dot of the most pressing task that names it (a machine thing, or an older task's link),
+  from the task boards loaded.
 - The game's top bar is the account's: plan tabs and +, live status and faces, Library, Share, the account key
   ("Sign in" signed out; signed in the account's face, whose menu has the username and Sign out), feedback, settings,
   help. What edits or views the board (Non-recipe, undo, redo, Arrange, Fit, the rate unit, EU/t, Avg/Peak) is the
@@ -223,8 +236,19 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
   `<ownerId>:<designId>`, or a local id for a plan not in an account) and `node` the card's id in that plan, as that
   plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read
   (as links to the plan holding them), never written.
-- `taskItems?: PlanTaskItem[]`: `{ id, taskId, text (1-200), done: boolean, order: string, link?: PlanLink }` (the
-  checklist; separate things so two people can tick two lines at once)
+- `taskItems?: PlanTaskItem[]`: a task's things, separate so two people can tick two at once: `{ id, taskId,
+  kind?: "machine"|"location"|"picture", text (1-200), done: boolean, order: string, link?: PlanLink,
+  place?: PlanPlace, picture?: PlanPicture }`. `text` is always written, the thing in words ("4× Electric Blast Furnace
+  (HV)", "Ore field at 120 64 -30 in Overworld", "Screenshot"), so a reader that knows only lines shows something
+  true. An item with no `kind` is an older checklist line: a machine when it has a `link`, else plain words with its
+  checkbox; it is written back without a kind. **The website's schema must accept `kind`, `place` and `picture`**
+  (its Zod schemas strip unknown keys: undeclared, a game's spot or screenshot is lost on the first website edit).
+- `PlanPlace`: `{ x, y, z: integer (the block), dim: integer, dimName: string (as the game names it: "Overworld",
+  "Nether"), world: string (as placed machines key worlds: `server:<16 hex>` or `world:<uuid>`), label?: string
+  (≤60) }`.
+- `PlanPicture`: `{ thumb: string (a JPEG data URL, 320 px wide, the game keeps it under 40 KB), w, h: integer (the full
+  shot's size), takenAt: string (ISO time), file?: string (the full shot's file name in the screenshots folder of the
+  game that took it; only that game can show it big, everyone else sees the thumbnail) }`. Only the thumbnail syncs.
 - `taskComments?: PlanTaskComment[]`: `{ id, taskId, by (account id), byName, at (server time), text (1-2000) }`
 
 ## Ops in detail (both engines must agree exactly)
@@ -341,6 +365,10 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
   or save. The board's `Node.worldLinks` are this world's; the rest ride in `Node.elsewhere`.
 - Tasks are part of `Graph` (`tasks`, `taskItems`, `taskComments`, `primaryView`) for local plans too, saved by
   `Serializer` as the plan spells them (so plan codes carry them), and mapped one to one to the plan's collections.
+  A thing's `place` and `picture` are written and read by `Tasks` as the plan spells them (`Tasks.Place`,
+  `Tasks.Picture`), so `cloud/map` carries them with no mapping of its own. New machine things name their card on the
+  item only; a task's own `links` are an older task's and still read (shown as machines, a loose card counting as a
+  thing not done), and taking a machine off a task takes its link too.
   A task's cards (`nodeIds`, a line's `nodeId`) are the board's card ids on the board and the plan's ids in the plan:
   a card the website made is linked by the website's id there, by the UUID it reads as here; an id that is no card
   stays as it is both ways.

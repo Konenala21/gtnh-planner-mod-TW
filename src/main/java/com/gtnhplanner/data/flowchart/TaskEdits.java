@@ -2,8 +2,10 @@ package com.gtnhplanner.data.flowchart;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -74,11 +76,57 @@ public final class TaskEdits {
      * do and done. A link with no plan is one to a card of the board itself.
      */
     public static void statusByLink(final Graph g, final Map<Tasks.Link, Tasks.Status> out) {
-        for (final Tasks.Task t : g.tasks) for (final Tasks.Link l : t.links()) out.merge(
+        final Map<String, Tasks.Status> status = new java.util.HashMap<>();
+        for (final Tasks.Task t : g.tasks) {
+            status.put(t.id(), t.status());
+            for (final Tasks.Link l : t.links()) mark(g, l, t.status(), out);
+        }
+        // A task's machines are its cards too.
+        for (final Tasks.Item i : g.taskItems) {
+            final Tasks.Status s = status.get(i.taskId());
+            if (s != null && i.link() != null) mark(g, i.link(), s, out);
+        }
+    }
+
+    private static void mark(final Graph g, final Tasks.Link l, final Tasks.Status s,
+        final Map<Tasks.Link, Tasks.Status> out) {
+        out.merge(
             l.plan()
                 .isEmpty() ? new Tasks.Link(g.planId(), l.node()) : l,
-            t.status(),
+            s,
             (a, b) -> urgency(a) >= urgency(b) ? a : b);
+    }
+
+    /**
+     * The cards a task links that none of its things names: an older task's cards, made before every card was a thing
+     * of its own. Each once, in its order.
+     */
+    public static List<Tasks.Link> looseLinks(final Graph g, final String taskId) {
+        final Tasks.Task t = task(g, taskId);
+        if (t == null) return List.of();
+        final Set<Tasks.Link> named = new HashSet<>();
+        for (final Tasks.Item i : items(g, taskId)) if (i.link() != null) named.add(i.link());
+        final List<Tasks.Link> out = new ArrayList<>();
+        for (final Tasks.Link l : t.links()) if (named.add(l)) out.add(l);
+        return out;
+    }
+
+    /**
+     * Takes a thing off its task; a card it was also linked by (an older task's) goes with it, so it does not come
+     * back as a loose card.
+     */
+    public static void removeThing(final Graph g, final String id) {
+        final Tasks.Item item = item(g, id);
+        if (item == null) return;
+        removeItem(g, id);
+        final Tasks.Task t = task(g, item.taskId());
+        if (t == null || item.link() == null
+            || !t.links()
+                .contains(item.link()))
+            return;
+        final List<Tasks.Link> links = new ArrayList<>(t.links());
+        links.remove(item.link());
+        put(g, withLinks(t, links));
     }
 
     /** How much a status asks for attention: blocked most, done least. */
@@ -289,9 +337,9 @@ public final class TaskEdits {
 
     // endregion
 
-    // region Checklists
+    // region Things
 
-    /** Puts a checklist line in place of the one with its id, or adds it. */
+    /** Puts a thing in place of the one with its id, or adds it. */
     public static void putItem(final Graph g, final Tasks.Item item) {
         for (int i = 0; i < g.taskItems.size(); i++) if (g.taskItems.get(i)
             .id()
@@ -302,9 +350,19 @@ public final class TaskEdits {
         g.taskItems.add(item);
     }
 
-    /** A new line at the bottom of a task's checklist. */
+    /** A new line of words at the bottom of a task's things (how an older checklist was made). */
     public static Tasks.Item addItem(final Graph g, final String id, final String taskId, final String text,
         @Nullable final Tasks.Link link) {
+        return addThing(g, id, taskId, "", text, link, null, null);
+    }
+
+    /**
+     * A new thing at the bottom of a task's things, not done: a machine ({@code link}), a location ({@code place}) or
+     * a screenshot ({@code picture}); {@code text} is the thing in words.
+     */
+    public static Tasks.Item addThing(final Graph g, final String id, final String taskId, final String kind,
+        final String text, @Nullable final Tasks.Link link, @Nullable final Tasks.Place place,
+        @Nullable final Tasks.Picture picture) {
         final List<Tasks.Item> list = items(g, taskId);
         String order;
         try {
@@ -318,9 +376,36 @@ public final class TaskEdits {
             for (int k = 0; k < list.size(); k++) putItem(g, withOrder(list.get(k), keys.get(k)));
             order = keys.get(list.size());
         }
-        final Tasks.Item item = new Tasks.Item(id, taskId, clip(text, ITEM_MAX), false, order, link);
+        final Tasks.Item item = new Tasks.Item(
+            id,
+            taskId,
+            kind,
+            clip(text, ITEM_MAX),
+            false,
+            order,
+            link,
+            place,
+            picture);
         g.taskItems.add(item);
         return item;
+    }
+
+    /** A task's things done and all of them: {done, total}. */
+    public static int[] progress(final Graph g, final String taskId) {
+        int done = 0, all = 0;
+        for (final Tasks.Item i : g.taskItems) if (i.taskId()
+            .equals(taskId)) {
+                all++;
+                if (i.done()) done++;
+            }
+        return new int[] { done, all };
+    }
+
+    /** A task's first screenshot, in its order; null when it has none. */
+    @Nullable
+    public static Tasks.Item firstPicture(final Graph g, final String taskId) {
+        for (final Tasks.Item i : items(g, taskId)) if (Tasks.PICTURE.equals(i.shownKind())) return i;
+        return null;
     }
 
     /** Moves a line to {@code index} among the other lines of its checklist (0 the top). */
@@ -358,19 +443,122 @@ public final class TaskEdits {
     }
 
     public static Tasks.Item withDone(final Tasks.Item i, final boolean done) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), done, i.order(), i.link());
+        return new Tasks.Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            i.text(),
+            done,
+            i.order(),
+            i.link(),
+            i.place(),
+            i.picture());
     }
 
     public static Tasks.Item withText(final Tasks.Item i, final String text) {
-        return new Tasks.Item(i.id(), i.taskId(), clip(text, ITEM_MAX), i.done(), i.order(), i.link());
+        return new Tasks.Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            clip(text, ITEM_MAX),
+            i.done(),
+            i.order(),
+            i.link(),
+            i.place(),
+            i.picture());
     }
 
     public static Tasks.Item withLink(final Tasks.Item i, @Nullable final Tasks.Link link) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), link);
+        return new Tasks.Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            i.text(),
+            i.done(),
+            i.order(),
+            link,
+            i.place(),
+            i.picture());
+    }
+
+    /**
+     * A location with its label (blank is none); its words follow it, as {@link #placeText} spells them.
+     */
+    public static Tasks.Item withLabel(final Tasks.Item i, @Nullable final String label) {
+        final Tasks.Place p = i.place();
+        if (p == null) return i;
+        final String l = label == null || label.isBlank() ? null : clip(label, LABEL_MAX);
+        final Tasks.Place next = new Tasks.Place(p.x(), p.y(), p.z(), p.dim(), p.dimName(), p.world(), l);
+        return new Tasks.Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            placeText(next),
+            i.done(),
+            i.order(),
+            i.link(),
+            next,
+            i.picture());
     }
 
     private static Tasks.Item withOrder(final Tasks.Item i, final String order) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), order, i.link());
+        return new Tasks.Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            i.text(),
+            i.done(),
+            order,
+            i.link(),
+            i.place(),
+            i.picture());
+    }
+
+    /** The most a location's label holds. */
+    public static final int LABEL_MAX = 60;
+
+    /** A location in words: its label and its block, "Ore field at 120 64 -30 in the Overworld". */
+    public static String placeText(final Tasks.Place p) {
+        final String at = p.x() + " "
+            + p.y()
+            + " "
+            + p.z()
+            + (p.dimName()
+                .isEmpty() ? "" : " in " + p.dimName());
+        return p.label() == null ? at : p.label() + " at " + at;
+    }
+
+    // endregion
+
+    // region Where a spot is
+
+    /**
+     * Which way a spot lies from someone, in eight points of the compass as the game draws them (north is toward -z,
+     * east toward +x); "" when they are on it.
+     */
+    public static String compass(final double dx, final double dz) {
+        if (Math.abs(dx) < 0.5 && Math.abs(dz) < 0.5) return "";
+        // 0 east, counter-clockwise in the game's x and -z.
+        final double deg = Math.toDegrees(Math.atan2(-dz, dx));
+        final int sector = (int) Math.floorMod(Math.round(deg / 45), 8);
+        return switch (sector) {
+            case 0 -> "east";
+            case 1 -> "north-east";
+            case 2 -> "north";
+            case 3 -> "north-west";
+            case 4 -> "west";
+            case 5 -> "south-west";
+            case 6 -> "south";
+            default -> "south-east";
+        };
+    }
+
+    /** "12 m north-east", "here": how far a spot is and which way, across the ground. */
+    public static String howFar(final double dx, final double dz) {
+        final long d = Math.round(Math.sqrt(dx * dx + dz * dz));
+        final String way = compass(dx, dz);
+        if (d < 1 || way.isEmpty()) return "here";
+        return (d >= 10_000 ? Math.round(d / 1000.0) + " km " : d + " m ") + way;
     }
 
     // endregion

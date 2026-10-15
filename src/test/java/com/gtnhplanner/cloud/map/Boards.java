@@ -226,6 +226,29 @@ public final class Boards {
                 false,
                 "a0",
                 new Tasks.Link("11111111-1111-4111-8111-111111111111:plan", first.id.toString())));
+        // A spot in a world and a screenshot go to the account as the plan's own fields.
+        g.taskItems.add(
+            new Tasks.Item(
+                "i2",
+                "t1",
+                Tasks.LOCATION,
+                "Ore field at 1 64 -2 in Overworld",
+                true,
+                "a1",
+                null,
+                new Tasks.Place(1, 64, -2, 0, "Overworld", "server:0123456789abcdef", "Ore field"),
+                null));
+        g.taskItems.add(
+            new Tasks.Item(
+                "i3",
+                "t1",
+                Tasks.PICTURE,
+                "Screenshot",
+                false,
+                "a2",
+                null,
+                null,
+                new Tasks.Picture("data:image/jpeg;base64,/9j/AA==", 1920, 1080, "2026-10-15T09:00:00.000Z", null)));
         g.taskComments.add(
             new Tasks.Comment(
                 "c1",
