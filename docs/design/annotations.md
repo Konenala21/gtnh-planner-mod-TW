@@ -51,7 +51,7 @@ above. Old builds ignore `arrowHeads` and `arrowWidth` and draw a normal one-hea
 
 Colours are the colour tag's swatch (`GT_NODE_COLORS` / `NoteColors.SWATCH`, same 22). Sizes are in board px, the
 website's and the mod's one to one since the website's board draws the mod's card (2026-10-15; its `drawing-look.ts`
-`K` of 380/320 is from before).
+`DRAWING`).
 
 - **Box**: a square rectangle. Border 2 px in the border colour (`dashed`: 8 on, 6 off), nothing rounded, no
   shadow. Surface: `tint` is the fill colour at 8% alpha (`0x14`), `solid` at 28% (`0x47`), flat; `none` is empty.

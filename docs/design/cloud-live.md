@@ -237,13 +237,16 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
 - Positions are one to one: the website's board draws the game's card (320 wide, rows of two cells) and drawers (116
   by 48) and places every plan, old ones too, where its positions say, so the plan's coordinates are the board's
   pixels (`PlanExport.position`, `gameX`; the posting export and the importer the same). A website position between two
-  pixels reads as the nearest and is written back untouched unless the game moves the thing.
+  pixels reads as the nearest and is written back untouched unless the game moves the thing. Sizes are written to the
+  pixel too (a group's frame, a note's, a drawing's): the website draws a shared plan's sizes as they are, and a plan
+  it loads from a file or a post grows each to whole cells, which only adds room.
 - Groups (`docs/design/groups.md`): a `BoardGroup` is a pocket (`name`, `colorTag`, `expanded`, `size`, `theme`,
   `pattern`), nested by `parentPocketId`; each card, drawer, note and group in one carries its `pocketId`, and every
   position is measured from its pocket's frame corner in the board's pixels (a pocket's from its parent's). The game
   writes each place as the board's pixels from the frame, so a group moved moves only its pocket and everything comes
   back to the pixel; a pocket the website never opened (no `size`) is read with the shift the website gives its
-  members when it first opens it. A thing's place is its position and its pocket: both are left out of its `sum`, so
+  members when it first opens it, and once the game writes it standing open it gets a size and every member is
+  written measured from its frame (`PlanWrite.opened`), as the website does when it opens one. A thing's place is its position and its pocket: both are left out of its `sum`, so
   a card the website drops into a pocket stays the game's own.
 - Annotations: sticky notes, boxes, zones, arrows (`arrowHeads`, `arrowWidth`, a level arrow's 0 axis) and pictures
   (kept, never shown) are the board's notes of that kind, both ways (`FfConverter.note`, `PlanExport.note`).
@@ -321,10 +324,12 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
   a card the website made is linked by the website's id there, by the UUID it reads as here; an id that is no card
   stays as it is both ways.
 - The website's side must keep what the game writes: its live service stores each thing as its schema's output, so a
-  field the schema does not declare is dropped. `gtnhplanner` is declared on the project, nodes, storages, edges and
-  annotations; pockets need it too (`factoryPocketSchema`), or a group the website keeps comes back to the game built
-  from its website fields (its size to whole cells, its imported id lost). A pocket's `name` must not be empty: the
-  game writes "Group" for a nameless group.
+  field the schema does not declare is dropped. `gtnhplanner` is declared on the project, nodes, storages, edges,
+  annotations and pockets (`factoryPocketSchema`; without it a group the website keeps came back to the game built from
+  its website fields, its imported id lost). A pocket's `name` must not be empty: the game writes "Group" for a
+  nameless group. A card the website copies or pastes drops the original's `gtnhplanner` (its placed machines are
+  the original's), and an edit naming a recipe the shared plan lacks carries it (the website's dataset refresh re-keys
+  a game card's `gtnhplanner:<card>` recipe on its screen only).
 - WebSocket: Minecraft's own netty (`io.netty.handler.codec.http.websocketx`, TLS through the JDK's SSLEngine), so no
   new library ships; the jar still runs on Java 8.
 - Undo for a cloud plan applies recorded inverses (above) instead of restoring snapshots; local plans keep today's

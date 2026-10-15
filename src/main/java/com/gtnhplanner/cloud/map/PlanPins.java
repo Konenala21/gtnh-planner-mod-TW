@@ -27,7 +27,10 @@ import com.gtnhplanner.data.flowchart.Node;
  * Setting pins: the board keys a machine by {@code machine:<its name>} and a power source by {@code power:<source>},
  * its settings as its sheet does ({@code machine:coil}, {@code machine:machine:<id>}, {@code power:<id>}); the website
  * keys a machine by its handler id and a power source the same, its settings by their own ids ({@code heatingCoil},
- * {@code <id>}). A pin the other side has no word for stays on its own side: a board key the website cannot spell
+ * {@code <id>}). A modelled machine's settings (a bee's, a crop's, the TGS's, the vat's) are the website's own keys on
+ * both sides: {@code machine:beeSpeedGene} here, {@code beeSpeedGene} there; the housing and the harvester are the
+ * website's machine, not a setting. A pin the other side has no word for stays on its own side: a board key the website
+ * cannot spell
  * rides in the game's data only, and a website machine with no card on the board is kept on the board as
  * {@code site:<its key>}, which goes back as it came.
  *
@@ -81,17 +84,37 @@ final class PlanPins {
             final String name = key.substring(MACHINE.length());
             for (final Node n : g.getNodes()) {
                 if (n.isPower()) continue;
-                final String handler = game.handlerId(n);
+                final String handler = com.gtnhplanner.library.PlanExport.siteHandler(game, n);
                 if (handler != null && name.equals(game.machine(n))) out.add(handler);
             }
         }
         return out;
     }
 
+    /** A board setting pin as the website spells it; null for one it has no word for (a voltage, a reading). */
     @Nullable
-    private static String siteControl(final String control) {
+    static String siteControl(final String control) {
         if (COIL.equals(control)) return SITE_COIL;
-        return control.startsWith(OPTION) ? control.substring(OPTION.length()) : null;
+        if (control.startsWith(OPTION)) return control.substring(OPTION.length());
+        if (control.startsWith(MACHINE) && modelKey(control.substring(MACHINE.length())))
+            return control.substring(MACHINE.length());
+        return null;
+    }
+
+    /** A website setting pin as the board spells it. */
+    static String boardControl(final String control) {
+        if (SITE_COIL.equals(control)) return COIL;
+        return modelKey(control) ? MACHINE + control : OPTION + control;
+    }
+
+    /**
+     * Whether a setting key is a modelled machine's (machines/: {@code Bees}, {@code CropsNh},
+     * {@code TreeGrowthSimulator}, {@code BacterialVat}), kept under the website's own key on both sides; the bee's
+     * housing and the crop's harvester are the website's machine instead.
+     */
+    private static boolean modelKey(final String key) {
+        return com.gtnhplanner.importer.FfSettings.modelled(key) && !com.gtnhplanner.machines.Bees.HOUSING.equals(key)
+            && !com.gtnhplanner.machines.CropsNh.HARVESTER.equals(key);
     }
 
     @Nullable
@@ -122,7 +145,7 @@ final class PlanPins {
                 }
                 final boolean power = key.startsWith(POWER);
                 final List<String> board = new ArrayList<>();
-                for (final String c : controls) board.add(power ? POWER + c : SITE_COIL.equals(c) ? COIL : OPTION + c);
+                for (final String c : controls) board.add(power ? POWER + c : boardControl(c));
                 for (final String b : boardKeys) pins.putIfAbsent(b, new ArrayList<>(board));
             }
         for (final Map.Entry<String, List<String>> e : had.entrySet()) {
@@ -146,7 +169,7 @@ final class PlanPins {
         final Set<String> out = new LinkedHashSet<>();
         if (key.startsWith(POWER)) out.add(key);
         else for (final Node n : g.getNodes()) {
-            if (n.isPower() || !key.equals(game.handlerId(n))) continue;
+            if (n.isPower() || !key.equals(com.gtnhplanner.library.PlanExport.siteHandler(game, n))) continue;
             final String name = game.machine(n);
             if (name != null) out.add(MACHINE + name);
         }

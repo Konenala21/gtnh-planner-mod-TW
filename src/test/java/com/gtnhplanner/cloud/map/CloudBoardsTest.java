@@ -335,6 +335,42 @@ class CloudBoardsTest {
         }
     }
 
+    /**
+     * A board the website never opened (no size) keeps its members in a space of their own; opened in the game, it is
+     * written with a size, and each member is written measured from its frame, where the board has it.
+     */
+    @Test
+    void aBoardTheWebsiteNeverOpenedHasItsMembersPlacedInItsFrameOnceTheGameOpensIt() {
+        final Open o = dressed("platline");
+        final Node card = outside(o.board);
+        final JsonObject old = new JsonParser()
+            .parse("{\"id\":\"pocket-old\",\"name\":\"Old board\",\"position\":{\"x\":-700,\"y\":-200}}")
+            .getAsJsonObject();
+        final JsonObject f = new JsonObject();
+        f.addProperty("pocketId", "pocket-old");
+        f.add("position", PlanExport.position(0, 0));
+        o.read(
+            LiveOps.apply(
+                o.plan,
+                List.of(LiveOp.put("pockets", "pocket-old", old), LiveOp.patch("nodes", card.id.toString(), f, null))));
+        final BoardGroup board = o.group("Old board");
+        assertTrue(board.isCollapsed());
+        final Node there = o.board.nodes.get(card.id);
+        assertEquals(board.getX() + 20, there.x, "the shift the website gives its members when it opens it");
+        assertEquals(board.getY() + 60, there.y);
+        assertEquals(List.of(), o.send("read and written back"));
+        board.setCollapsed(false);
+        o.send("opened in the game");
+        assertTrue(
+            o.thing("pockets", "pocket-old")
+                .has("size"));
+        assertEquals(
+            PlanExport.position(there.x - board.getX(), there.y - board.getY()),
+            o.thing("nodes", card.id.toString())
+                .get("position"),
+            "measured from the frame now");
+    }
+
     // endregion
 
     // region Drawings
@@ -497,6 +533,23 @@ class CloudBoardsTest {
             "[\"mode\"]",
             pins.get("handler:elsewhere")
                 .toString());
+    }
+
+    /** A bee's, a crop's, the TGS's and the vat's settings are the website's own keys on both sides. */
+    @Test
+    void aModelledMachinesSettingPinsAreTheWebsitesKeys() {
+        assertEquals("beeSpeedGene", PlanPins.siteControl("machine:beeSpeedGene"));
+        assertEquals("cropGrowthStat", PlanPins.siteControl("machine:cropGrowthStat"));
+        assertEquals("tgsHeight", PlanPins.siteControl("machine:tgsHeight"));
+        assertEquals("bioVatGlass", PlanPins.siteControl("machine:bioVatGlass"));
+        assertEquals("heatingCoil", PlanPins.siteControl("machine:coil"));
+        assertEquals("mode", PlanPins.siteControl("machine:machine:mode"));
+        assertNull(PlanPins.siteControl("machine:beeHousing"), "the housing is the website's machine");
+        assertNull(PlanPins.siteControl("machine:cropHarvester"), "and so is the harvester");
+        assertNull(PlanPins.siteControl("machine:voltage"));
+        for (final String c : List
+            .of("beeSpeedGene", "cropGrowthStat", "tgsHeight", "bioVatGlass", "heatingCoil", "mode"))
+            assertEquals(c, PlanPins.siteControl(PlanPins.boardControl(c)), c);
     }
 
     @Test

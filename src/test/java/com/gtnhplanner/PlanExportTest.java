@@ -631,13 +631,13 @@ class PlanExportTest {
                 .get("y")
                 .getAsInt());
         assertEquals(
-            200,
+            202,
             t.getAsJsonObject("size")
                 .get("width")
                 .getAsInt(),
-            "202 to whole 20 px cells");
+            "sized as the board has it, to the pixel");
         assertEquals(
-            40,
+            48,
             t.getAsJsonObject("size")
                 .get("height")
                 .getAsInt());

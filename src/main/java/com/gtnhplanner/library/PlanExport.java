@@ -115,8 +115,6 @@ public final class PlanExport {
      * cells, drawers 116 by 48), and it places every plan, old ones too, where its positions say.
      */
     private static final double SCALE_X = 1, SCALE_Y = 1;
-    /** Factory Flow's board cell: it grows every drawing's size to whole cells when it loads a plan. */
-    private static final int CELL = 20;
     /** The colour tags the site's schema takes (its factoryNodeColorTagSchema); a note in any other goes untagged. */
     private static final Set<String> COLOR_TAGS = Set.of(
         "white",
@@ -764,11 +762,7 @@ public final class PlanExport {
             // A crop's harvester and a bee's housing are the website's machine for them; our settings.
             final boolean crop = world.crop(n) != null;
             final com.gtnhplanner.machines.Bees.Species bee = crop ? null : world.bee(n);
-            final String handler = crop ? cfg.get(com.gtnhplanner.machines.CropsNh.HARVESTER) instanceof final String h
-                && !h.isEmpty() ? h : com.gtnhplanner.machines.CropsNh.MANAGER
-                : bee != null ? com.gtnhplanner.machines.Bees.setup(cfg, bee)
-                    .housing()
-                    .key() : world.handlerId(n);
+            final String handler = siteHandler(world, n);
             if (handler != null) o.addProperty("machineHandlerId", handler);
             // A bee's housing has no voltage to pick: the Industrial Apiary's own tier, else none.
             if (bee != null) o.addProperty(
@@ -837,8 +831,9 @@ public final class PlanExport {
     }
 
     /**
-     * A note as the site's text annotation, placed as a card is. Its size is rounded to whole cells: the site grows a
-     * size to the next cell when it loads, so a size a pixel over one could gain a whole cell on a trip there and back.
+     * A note as the site's text annotation, placed and sized as a card is, to the pixel: the website's board draws a
+     * shared plan's sizes as they are (a plan it loads from a file or a post grows each to whole cells, which only adds
+     * room).
      */
     public static JsonObject note(final Note n) {
         final JsonObject o = new JsonObject();
@@ -896,14 +891,33 @@ public final class PlanExport {
         return o;
     }
 
-    /** A length to the nearest whole number of the site's cells, possibly none (a level arrow). */
-    private static int axis(final double length) {
-        return (int) Math.round(length / CELL) * CELL;
+    /**
+     * The website's machine for a card: a crop's harvester and a bee's housing (our settings), else the handler the
+     * card's recipe map gives it; null for none.
+     */
+    @Nullable
+    public static String siteHandler(final World world, final Node n) {
+        if (n.machineConfig != null) {
+            final Map<String, Object> cfg = n.machineConfig.settings;
+            if (world.crop(n) != null)
+                return cfg.get(com.gtnhplanner.machines.CropsNh.HARVESTER) instanceof final String h && !h.isEmpty() ? h
+                    : com.gtnhplanner.machines.CropsNh.MANAGER;
+            final com.gtnhplanner.machines.Bees.Species bee = world.bee(n);
+            if (bee != null) return com.gtnhplanner.machines.Bees.setup(cfg, bee)
+                .housing()
+                .key();
+        }
+        return world.handlerId(n);
     }
 
-    /** A length to the nearest whole number of the site's cells, at least one. */
+    /** A length to the pixel, possibly none (a level arrow). */
+    private static int axis(final double length) {
+        return (int) Math.round(length);
+    }
+
+    /** A length to the pixel, at least one. */
     private static int cells(final double length) {
-        return Math.max(CELL, (int) Math.round(length / CELL) * CELL);
+        return Math.max(1, (int) Math.round(length));
     }
 
     /** A wire of resource {@code r} between two things the site knows by these ids. */
@@ -946,8 +960,8 @@ public final class PlanExport {
     }
 
     /**
-     * A group as the website's board ({@code FactoryPocket}): its frame (corner from its parent's, size in the card
-     * scale), open or not, its colour and the paper it came with.
+     * A group as the website's board ({@code FactoryPocket}): its frame (corner from its parent's, size to the pixel,
+     * as the website now fits a group's frame too), open or not, its colour and the paper it came with.
      */
     public static JsonObject pocket(final Graph g, final BoardGroup b) {
         final JsonObject o = new JsonObject();

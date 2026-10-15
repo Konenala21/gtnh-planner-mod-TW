@@ -41,6 +41,12 @@ final class PlanWrite {
     private final Map<String, JsonObject> recipes = new LinkedHashMap<>();
     /** Plan ids of the cards and drawers the board lost. */
     private final Set<String> gone = new HashSet<>();
+    /**
+     * Plan ids of the boards the website never opened (no size; their members sit in a space of their own, which
+     * {@link PlanRead} reads with the website's shift) that this write gives a size: their members are measured from
+     * the frame from now on, so each is placed again.
+     */
+    private final Set<String> opened = new HashSet<>();
 
     PlanWrite(final Graph graph, final CloudGame game, @Nullable final JsonObject base, @Nullable final Basis basis) {
         this.graph = graph;
@@ -59,36 +65,94 @@ final class PlanWrite {
             final String id = PlanRead.str(r, "id");
             if (id != null) baseRecipes.putIfAbsent(id, r);
         }
+        // The boards first: which of the website's never-opened ones this write gives a size decides where their
+        // members are written.
+        final List<Fresh.Thing> pocketsNow = new java.util.ArrayList<>();
+        final JsonArray written = collection("pockets", fresh, baseRecipes, pocketsNow);
+        // A board inside one that gained a size is measured from that frame now too.
+        final JsonArray pockets = new JsonArray();
+        for (int i = 0; i < written.size(); i++) {
+            final Fresh.Thing now = pocketsNow.get(i);
+            pockets.add(now != null && opened.contains(now.pocket()) ? placed(written.get(i), now) : written.get(i));
+        }
         for (final String c : LiveOps.COLLECTIONS) {
             if ("recipes".equals(c)) continue;
-            final JsonArray list = new JsonArray();
-            for (final JsonElement e : LiveOps.collection(base, c)) {
-                final String id = LiveJson.idOf(e);
-                final Basis.Entry entry = id == null ? null : basis.entry(Basis.key(c, id));
-                if (entry == null) {
-                    // Nothing the game has a place for: as it was, unless it is a wire to something the board lost.
-                    if (!"edges".equals(c) || !touchesGone(e.getAsJsonObject())) list.add(e);
-                    continue;
-                }
-                final Fresh.Thing now = fresh.remove(entry.gameKey());
-                if (now == null) {
-                    if ("nodes".equals(c) || "storages".equals(c)) gone.add(id);
-                    continue;
-                }
-                list.add(emit(id, e.getAsJsonObject(), entry, now, baseRecipes));
-            }
-            for (final Iterator<Fresh.Thing> it = fresh.values()
-                .iterator(); it.hasNext();) {
-                final Fresh.Thing now = it.next();
-                if (!now.c()
-                    .equals(c)) continue;
-                it.remove();
-                list.add(add(now));
-            }
+            final JsonArray list = "pockets".equals(c) ? pockets : collection(c, fresh, baseRecipes, null);
             if (list.size() > 0 || base.has(c) || ALWAYS.contains(c)) out.add(c, list);
         }
         out.add("recipes", recipes(baseRecipes, out));
         return new CloudPlans.Written(out, next);
+    }
+
+    /**
+     * One collection written: the plan's things in its order, then the board's new ones. {@code nows}, when given,
+     * gets the board thing each written one is (null for one the board has no place for), and the boards that gain a
+     * size go in {@link #opened}.
+     */
+    private JsonArray collection(final String c, final Map<String, Fresh.Thing> fresh,
+        final Map<String, JsonObject> baseRecipes, @Nullable final List<Fresh.Thing> nows) {
+        final JsonArray list = new JsonArray();
+        for (final JsonElement e : LiveOps.collection(base, c)) {
+            final String id = LiveJson.idOf(e);
+            final Basis.Entry entry = id == null ? null : basis.entry(Basis.key(c, id));
+            if (entry == null) {
+                // Nothing the game has a place for: as it was, unless it is a wire to something the board lost.
+                if (!"edges".equals(c) || !touchesGone(e.getAsJsonObject())) {
+                    list.add(e);
+                    if (nows != null) nows.add(null);
+                }
+                continue;
+            }
+            final Fresh.Thing now = fresh.remove(entry.gameKey());
+            if (now == null) {
+                if ("nodes".equals(c) || "storages".equals(c)) gone.add(id);
+                continue;
+            }
+            JsonObject written = emit(id, e.getAsJsonObject(), entry, now, baseRecipes);
+            if ("pockets".equals(c) && !e.getAsJsonObject()
+                .has("size") && (written.has("size") || open(now))) {
+                // A board standing open has a frame on the website (it rebases a never-opened one's members as it
+                // opens it): written with the size the board has.
+                if (!written.has("size")) {
+                    written = LiveJson.shallow(written);
+                    written.add(
+                        "size",
+                        LiveJson.copy(
+                            now.site()
+                                .get("size")));
+                }
+                opened.add(id);
+            }
+            list.add(written);
+            if (nows != null) nows.add(now);
+        }
+        for (final Iterator<Fresh.Thing> it = fresh.values()
+            .iterator(); it.hasNext();) {
+            final Fresh.Thing now = it.next();
+            if (!now.c()
+                .equals(c)) continue;
+            it.remove();
+            list.add(add(now));
+            if (nows != null) nows.add(now);
+        }
+        return list;
+    }
+
+    /** Whether a board (a pocket) stands open in the game. */
+    private static boolean open(final Fresh.Thing pocket) {
+        final JsonElement expanded = pocket.site()
+            .get("expanded");
+        return expanded != null && expanded.isJsonPrimitive()
+            && expanded.getAsBoolean()
+            && pocket.site()
+                .has("size");
+    }
+
+    /** A written thing placed again where the board has it (a copy when it is the plan's own object). */
+    private static JsonObject placed(final JsonElement written, final Fresh.Thing now) {
+        final JsonObject o = LiveJson.shallow(written.getAsJsonObject());
+        place(o, now);
+        return o;
     }
 
     // region The plan's own fields
@@ -130,7 +194,7 @@ final class PlanWrite {
     private JsonObject emit(final String id, final JsonObject thing, final Basis.Entry entry, final Fresh.Thing now,
         final Map<String, JsonObject> baseRecipes) {
         next.map(now.c(), id, now.gameKey());
-        final boolean moved = now.placed() && !entry.at(now);
+        final boolean moved = now.placed() && (!entry.at(now) || opened.contains(now.pocket()));
         if (now.state()
             .equals(entry.state())) {
             next.things.put(
