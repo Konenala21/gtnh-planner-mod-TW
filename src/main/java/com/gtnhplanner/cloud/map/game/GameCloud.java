@@ -155,4 +155,14 @@ public final class GameCloud implements CloudGame {
     public Bees.Species bee(final Node node) {
         return world.bee(node);
     }
+
+    /** As the card names its machine (ui/card/CardModel): a crop's harvester, a bee's species, else its machine. */
+    @Override
+    public String pinName(final Node node) {
+        final com.gtnhplanner.machines.CropsNh.Setup crop = com.gtnhplanner.machines.game.CropCards.setup(node);
+        if (crop != null) return com.gtnhplanner.machines.game.CropCards.harvesterName(crop);
+        if (com.gtnhplanner.machines.game.BeeCards.setup(node) != null)
+            return com.gtnhplanner.machines.game.BeeCards.cardName(node);
+        return world.machine(node);
+    }
 }

@@ -100,6 +100,14 @@ public final class PlanExport {
             return null;
         }
 
+        /**
+         * The name a card's setting pins are kept under on the board ({@code SettingPins.machine}): its machine's, a
+         * bee card's species', a crop card's harvester's.
+         */
+        default String pinName(final Node node) {
+            return machine(node);
+        }
+
         /** A bee card's species; null on any other card. */
         @Nullable
         default com.gtnhplanner.machines.Bees.Species bee(final Node node) {

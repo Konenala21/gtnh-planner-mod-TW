@@ -85,7 +85,7 @@ final class PlanPins {
             for (final Node n : g.getNodes()) {
                 if (n.isPower()) continue;
                 final String handler = com.gtnhplanner.library.PlanExport.siteHandler(game, n);
-                if (handler != null && name.equals(game.machine(n))) out.add(handler);
+                if (handler != null && name.equals(game.pinName(n))) out.add(handler);
             }
         }
         return out;
@@ -170,7 +170,7 @@ final class PlanPins {
         if (key.startsWith(POWER)) out.add(key);
         else for (final Node n : g.getNodes()) {
             if (n.isPower() || !key.equals(com.gtnhplanner.library.PlanExport.siteHandler(game, n))) continue;
-            final String name = game.machine(n);
+            final String name = game.pinName(n);
             if (name != null) out.add(MACHINE + name);
         }
         return new ArrayList<>(out);
