@@ -1,9 +1,11 @@
 package com.gtnhplanner.cloud.map;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -44,6 +46,11 @@ public final class Basis {
      * the card's thing. They are written only as part of the card.
      */
     final Map<String, String> carried = new HashMap<>();
+    /**
+     * Whether each thing of the plan read still matched the sum its game data was written with, by the very object:
+     * a later read of a plan sharing the object need not hash it again.
+     */
+    final Map<JsonObject, Boolean> sums = new IdentityHashMap<>();
     /** The plan-wide game data then, in one spelling, and the plan's website fields the game would have written. */
     @Nullable
     String metaState;
@@ -73,11 +80,30 @@ public final class Basis {
      * gone (a later wire took its ports) leaves its plan thing to be kept untouched, as one the game has no place for.
      */
     void settle(final Map<String, Fresh.Thing> fresh) {
+        settle(fresh, null, Set.of(), Set.of());
+    }
+
+    /**
+     * As {@link #settle(Map)}, following an earlier read ({@code previous}): a thing in {@code same} (the earlier
+     * plan's very object) keeps the entry it had there while its state and place are the same, and a board thing in
+     * {@code kept} (taken over from the earlier board, so left out of {@code fresh}) keeps its entry whole. Nothing of
+     * those is worked out again.
+     */
+    void settle(final Map<String, Fresh.Thing> fresh, @Nullable final Basis previous, final Set<String> same,
+        final Set<String> kept) {
         for (final Iterator<Map.Entry<String, String>> it = byGame.entrySet()
             .iterator(); it.hasNext();) {
             final Map.Entry<String, String> m = it.next();
+            final Entry was = previous == null || !same.contains(m.getValue()) ? null
+                : previous.things.get(m.getValue());
+            final boolean usable = was != null && was.gameKey()
+                .equals(m.getKey());
             final Fresh.Thing t = fresh.get(m.getKey());
-            if (t == null) it.remove();
+            if (t == null) {
+                if (usable && kept.contains(m.getKey())) things.put(m.getValue(), was);
+                else it.remove();
+            } else if (usable && was.state()
+                .equals(t.state()) && was.x() == t.x() && was.y() == t.y()) things.put(m.getValue(), was);
             else things.put(m.getValue(), Entry.of(t));
         }
     }

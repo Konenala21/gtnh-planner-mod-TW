@@ -2,9 +2,11 @@ package com.gtnhplanner.cloud.map;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -53,7 +55,51 @@ import com.gtnhplanner.library.PlanExport;
 final class PlanRead {
 
     /** One recipe of a card on the board: what its wires find their ports by. */
-    private record Section(Node node, @Nullable FfRecipe recipe, Map<Integer, FfSlot> overrides) {}
+    private final class Section {
+
+        private final Node node;
+        /** A card taken over from the previous board: its JSON, read only if a wire needs its recipe. */
+        @Nullable
+        private final JsonObject card;
+        @Nullable
+        private FfRecipe recipe;
+        @Nullable
+        private Map<Integer, FfSlot> overrides;
+
+        Section(final Node node, @Nullable final FfRecipe recipe, final Map<Integer, FfSlot> overrides) {
+            this.node = node;
+            this.card = null;
+            this.recipe = recipe;
+            this.overrides = overrides;
+        }
+
+        Section(final Node node, final JsonObject card) {
+            this.node = node;
+            this.card = card;
+        }
+
+        Node node() {
+            return node;
+        }
+
+        @Nullable
+        FfRecipe recipe() {
+            read();
+            return recipe;
+        }
+
+        Map<Integer, FfSlot> overrides() {
+            read();
+            return overrides;
+        }
+
+        private void read() {
+            if (overrides != null) return;
+            final FfNode n = card == null ? null : things.node(card);
+            overrides = n == null ? Map.of() : n.overrides();
+            recipe = n == null ? null : PlanRead.this.recipe(n.recipeId());
+        }
+    }
 
     private final JsonObject plan;
     private final CloudGame game;
@@ -63,6 +109,7 @@ final class PlanRead {
     private final FfCards.Ports ports;
     private final Graph graph;
     private final Basis basis = new Basis();
+    /** Recipes read so far, by id (null for one that does not read): each is read when a card first needs it. */
     private final Map<String, FfRecipe> recipes = new HashMap<>();
     /** The cards on the board by plan id, each its recipes by section. */
     private final Map<String, Map<Integer, Section>> cards = new HashMap<>();
@@ -71,21 +118,75 @@ final class PlanRead {
     /** Drawers the website made, by plan id: their resource key and name come from the first port they hold. */
     private final Map<String, Drawer> unkeyed = new LinkedHashMap<>();
 
-    PlanRead(final JsonObject plan, final CloudGame game) {
+    /** The read this one follows, or null; its plan's things by key and its recipes by id. */
+    @Nullable
+    private final CloudPlans.Read previous;
+    private final Map<String, JsonObject> before = new HashMap<>(), beforeRecipes = new HashMap<>();
+    /** This plan's recipes by id, as JSON. */
+    private final Map<String, JsonObject> recipeJson = new HashMap<>();
+    /** Things that are the previous plan's very objects (a wire's ends too): what they were read as still holds. */
+    private final Set<String> same = new HashSet<>();
+    /** Board things taken over from the previous board, by game key: nothing of them is worked out again. */
+    private final Set<String> kept = new HashSet<>();
+    /** The wires and drawer links read, put on the board together once all are read. */
+    private final List<Edge> newWires = new ArrayList<>();
+    private final List<Map.Entry<UUID, Drawer.Link>> newLinks = new ArrayList<>();
+
+    PlanRead(final JsonObject plan, final CloudGame game, @Nullable final CloudPlans.Read previous) {
         this.plan = plan;
         this.game = game;
+        this.previous = previous;
         this.things = new FfPlanParser.Things(plan);
         this.ctx = new FfCards.Context(game.recipes(), game.maker(), things.solveMode, report);
         this.ports = new FfCards.Ports(game.maker());
         final String name = str(plan, "name");
         this.graph = new Graph(name == null ? "" : name);
+        if (previous != null) {
+            for (final String c : List.of("nodes", "storages", "edges", "annotations")) {
+                for (final JsonObject o : objects(previous.plan(), c)) {
+                    final String id = str(o, "id");
+                    if (id != null) before.put(Basis.key(c, id), o);
+                }
+            }
+            for (final JsonObject r : objects(previous.plan(), "recipes")) {
+                final String id = str(r, "id");
+                if (id != null) beforeRecipes.putIfAbsent(id, r);
+            }
+        }
+    }
+
+    /** Whether a thing of this plan is the previous plan's very object. */
+    private boolean unchanged(final String c, final String id, final JsonObject json) {
+        return previous != null && before.get(Basis.key(c, id)) == json;
+    }
+
+    /**
+     * Whether a thing's website fields are still the ones its game data was written with: told by the previous read
+     * when it is the same object (a sum is a hash of the whole thing), else worked out. Remembered for the next read.
+     */
+    private boolean matches(final Ext ext, final JsonObject json) {
+        final Boolean known = previous == null ? null : previous.basis().sums.get(json);
+        final boolean m = known != null ? known : ext.matches(json);
+        basis.sums.put(json, m);
+        return m;
+    }
+
+    /** The plan's recipe by id, read on first ask; null when it has none or it does not read. */
+    @Nullable
+    private FfRecipe recipe(@Nullable final String id) {
+        if (id == null) return null;
+        if (recipes.containsKey(id)) return recipes.get(id);
+        final JsonObject json = recipeJson.get(id);
+        final FfRecipe r = json == null ? null : things.recipe(json);
+        recipes.put(id, r);
+        return r;
     }
 
     CloudPlans.Read run() {
         final JsonObject data = meta();
         for (final JsonObject r : objects(plan, "recipes")) {
-            final FfRecipe recipe = things.recipe(r);
-            if (recipe != null) recipes.putIfAbsent(recipe.id(), recipe);
+            final String id = str(r, "id");
+            if (id != null) recipeJson.putIfAbsent(id, r);
         }
         for (final JsonObject n : objects(plan, "nodes")) node(n);
         final List<FfEdge> wires = new ArrayList<>();
@@ -115,6 +216,9 @@ final class PlanRead {
                 List.of()));
         for (final JsonObject s : objects(plan, "storages")) storage(s, roles);
         for (int i = 0; i < wires.size(); i++) edge(wireJson.get(i), wires.get(i));
+        // All at once: one by one, each wire and link looks through every other.
+        graph.addEdgesLoaded(newWires);
+        graph.linkDrawersLoaded(newLinks);
         // A drawer the website made that none of its wires reached is not on the board, as the importer leaves it.
         for (final Map.Entry<String, Drawer> d : unkeyed.entrySet()) {
             graph.removeDrawer(
@@ -129,11 +233,54 @@ final class PlanRead {
         for (final JsonObject a : objects(plan, "annotations")) note(a);
         groups(data);
         tasks();
-        basis.settle(Fresh.of(graph, game, basis));
+        if (previous != null) {
+            sameThings();
+            // A note the previous plan read as this same note is that note still. Wires and links are worked out
+            // again (cheaply): which port a wire finds, and whether a later one takes it, hangs on more than its ends.
+            for (final Map.Entry<String, String> m : basis.byGame.entrySet()) if (same.contains(m.getValue())
+                && m.getKey()
+                    .startsWith("note:")
+                && m.getValue()
+                    .equals(
+                        previous.basis()
+                            .thingOf(m.getKey())))
+                kept.add(m.getKey());
+        }
+        basis.settle(Fresh.of(graph, game, basis, kept), previous == null ? null : previous.basis(), same, kept);
         final Fresh.Meta meta = Fresh.meta(graph, game, basis);
         basis.metaState = Canon.of(meta.game());
         basis.metaSite = meta.site();
-        return new CloudPlans.Read(graph, basis, report);
+        return new CloudPlans.Read(graph, basis, report, plan);
+    }
+
+    /**
+     * The drawers, wires and notes that are the previous plan's very objects (a wire's two ends too, which name what
+     * it carries): what they were read as still holds while the board writes them the same.
+     */
+    private void sameThings() {
+        for (final String c : List.of("storages", "annotations")) {
+            for (final JsonObject o : objects(plan, c)) {
+                final String id = str(o, "id");
+                if (id != null && unchanged(c, id, o)) same.add(Basis.key(c, id));
+            }
+        }
+        final Map<String, JsonObject> ends = new HashMap<>();
+        for (final String c : List.of("nodes", "storages")) for (final JsonObject o : objects(plan, c)) {
+            final String id = str(o, "id");
+            if (id != null) ends.put(id, o);
+        }
+        for (final JsonObject e : objects(plan, "edges")) {
+            final String id = str(e, "id"), source = str(e, "source"), target = str(e, "target");
+            if (id == null || source == null || target == null || !unchanged("edges", id, e)) continue;
+            if (sameEnd(source, ends) && sameEnd(target, ends)) same.add(Basis.key("edges", id));
+        }
+    }
+
+    /** A wire's end: a drawer that is the previous plan's object, or a card taken over from the previous board. */
+    private boolean sameEnd(final String id, final Map<String, JsonObject> ends) {
+        final JsonObject now = ends.get(id);
+        return now != null
+            && (before.get(Basis.key("storages", id)) == now || kept.contains("node:" + PlanIds.uuid(id)));
     }
 
     // region The plan
@@ -219,14 +366,26 @@ final class PlanRead {
 
     private void node(final JsonObject json) {
         final String id = str(json, "id");
-        final FfNode card = id == null ? null : things.node(json);
-        if (card == null) return;
+        if (id == null) return;
         final UUID uuid = PlanIds.uuid(id);
+        final Node was = keptCard(json, id, uuid);
+        if (was != null) {
+            graph.addNode(was);
+            basis.map("nodes", id, "node:" + uuid);
+            kept.add("node:" + uuid);
+            same.add(Basis.key("nodes", id));
+            final Map<Integer, Section> sections = new HashMap<>();
+            sections.put(0, new Section(was, json));
+            cards.put(id, sections);
+            return;
+        }
+        final FfNode card = things.node(json);
+        if (card == null) return;
         final int x = PlanExport.gameX(card.x()), y = PlanExport.gameY(card.y());
-        final FfRecipe recipe = recipes.get(card.recipeId());
+        final FfRecipe recipe = recipe(card.recipeId());
         final Ext ext = Ext.of(json);
         // A shared machine the website made is always its recipes the importer's way: its game data is its first's.
-        final Node own = ext != null && ext.matches(json)
+        final Node own = ext != null && matches(ext, json)
             && card.extraRecipes()
                 .isEmpty() ? fromGame(ext.game(), uuid, x, y) : null;
         // A recipe this game's NEI does not know by its id (another pack version) reads with no ports: the importer
@@ -261,6 +420,31 @@ final class PlanRead {
             for (final Section s : made.values())
                 if (s.node() != first) basis.carry("node:" + s.node().id, "nodes", id);
         }
+    }
+
+    /**
+     * The previous board's card for a card that is the previous plan's very object, its recipe too, and was one card
+     * there (not a shared machine the website made); else null.
+     */
+    @Nullable
+    private Node keptCard(final JsonObject json, final String id, final UUID uuid) {
+        if (previous == null || !unchanged("nodes", id, json)) return null;
+        final JsonElement extra = json.get("extraRecipes");
+        if (extra != null && extra.isJsonArray()
+            && extra.getAsJsonArray()
+                .size() > 0)
+            return null;
+        final String recipeId = str(json, "recipeId");
+        if (recipeId != null && recipeJson.get(recipeId) != beforeRecipes.get(recipeId)) return null;
+        final String gameKey = "node:" + uuid;
+        if (!Basis.key("nodes", id)
+            .equals(
+                previous.basis()
+                    .thingOf(gameKey))
+            || previous.basis()
+                .isCarried(gameKey))
+            return null;
+        return previous.graph().nodes.get(uuid);
     }
 
     /** A card from its game data, as a load reads it; null when that does not read. */
@@ -305,7 +489,7 @@ final class PlanRead {
         sections.add(new FfSection(card.recipeId(), card.overrides()));
         sections.addAll(card.extraRecipes());
         for (int i = 0; i < sections.size(); i++) {
-            final FfRecipe r = recipes.get(
+            final FfRecipe r = recipe(
                 sections.get(i)
                     .recipeId());
             if (r == null) {
@@ -419,7 +603,7 @@ final class PlanRead {
         final int x = PlanExport.gameX(s.x()), y = PlanExport.gameY(s.y());
         final Ext ext = Ext.of(json);
         final Drawer had = ext == null ? null : drawerFromGame(ext.game(), uuid, x, y);
-        Drawer d = had != null && ext.matches(json) ? had : null;
+        Drawer d = had != null && matches(ext, json) ? had : null;
         if (d == null) {
             FfDrawers.Role role = roles.getOrDefault(id, FfDrawers.Role.IDLE);
             Drawer.Kind kind = FfDrawers.kindOf(role);
@@ -487,7 +671,7 @@ final class PlanRead {
         final Map<Integer, Section> from = cards.get(e.source()), to = cards.get(e.target());
         final Drawer feeds = drawers.get(e.source()), takes = drawers.get(e.target());
         final Ext ext = Ext.of(json);
-        if (ext != null && ext.matches(json) && fromGame(id, e, ext.game(), from, to, feeds, takes)) return;
+        if (ext != null && matches(ext, json) && fromGame(id, e, ext.game(), from, to, feeds, takes)) return;
         if (e.crossForm()) {
             report
                 .add(Kind.WIRE, e.resourceId(), "a loose cell wire left in the plan; GTNH Planner needs a tank there");
@@ -571,7 +755,7 @@ final class PlanRead {
 
     private void wire(final String id, final Node from, final Node to, final int out, final int in) {
         final UUID uuid = PlanIds.uuid(id);
-        graph.addEdge(new Edge(uuid, from.id, to.id, out, in));
+        newWires.add(new Edge(uuid, from.id, to.id, out, in));
         basis.map("edges", id, "edge:" + uuid);
     }
 
@@ -579,7 +763,7 @@ final class PlanRead {
     private void link(final String id, @Nullable final String drawerId, final Drawer d, final Node node,
         final int port) {
         final Drawer.Link link = new Drawer.Link(node.id, port);
-        graph.linkDrawer(d.getId(), link);
+        newLinks.add(Map.entry(d.getId(), link));
         basis.map("edges", id, Fresh.linkKey(d, link));
         if (drawerId != null && unkeyed.remove(drawerId) != null) {
             final NodeMaker.PortInfo info = ports.describe(
@@ -606,7 +790,7 @@ final class PlanRead {
         final int x = PlanExport.gameX(at[0]), y = PlanExport.gameY(at[1]);
         final Ext ext = Ext.of(json);
         Note note = null;
-        if (ext != null && ext.matches(json)) {
+        if (ext != null && matches(ext, json)) {
             final JsonObject saved = LiveJson.copy(ext.game());
             saved.addProperty("id", uuid.toString());
             saved.addProperty("x", x);

@@ -457,6 +457,25 @@ public class Graph {
         bumpVersion();
     }
 
+    /**
+     * Links read from a plan, in order, as {@link #linkDrawer} would one at a time (a port belongs to at most one
+     * drawer
+     * each way: a later link takes it from an earlier drawer), without looking through every drawer for each.
+     */
+    public void linkDrawersLoaded(final List<Map.Entry<UUID, Drawer.Link>> loaded) {
+        if (loaded.isEmpty()) return;
+        final Map<String, Drawer> holder = new HashMap<>();
+        for (final Drawer d : drawers.values()) for (final Drawer.Link l : d.getLinks()) holder.put(held(d, l), d);
+        for (final Map.Entry<UUID, Drawer.Link> e : loaded) {
+            final Drawer d = drawers.get(e.getKey());
+            if (d == null) continue;
+            final Drawer other = holder.put(held(d, e.getValue()), d);
+            if (other != null && other != d) other.removeLink(e.getValue());
+            d.addLink(e.getValue());
+        }
+        bumpVersion();
+    }
+
     private static String held(final Drawer d, final Drawer.Link l) {
         return d.getKind()
             .linksInputs() + ">"

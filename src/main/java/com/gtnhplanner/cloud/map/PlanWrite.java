@@ -140,7 +140,11 @@ final class PlanWrite {
             next.things.put(
                 Basis.key(now.c(), id),
                 new Basis.Entry(entry.gameKey(), entry.state(), entry.site(), entry.recipe(), now.x(), now.y()));
-            if (!moved) return thing;
+            final Boolean sum = basis.sums.get(thing);
+            if (!moved) {
+                if (sum != null) next.sums.put(thing, sum);
+                return thing;
+            }
             final JsonObject o = LiveJson.shallow(thing);
             o.add("position", position(now, thing));
             return o;

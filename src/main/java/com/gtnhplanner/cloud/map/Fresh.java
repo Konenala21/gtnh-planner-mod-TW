@@ -3,6 +3,7 @@ package com.gtnhplanner.cloud.map;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
@@ -117,10 +118,15 @@ final class Fresh {
 
     /** Every board thing written, by game key, cards first, then drawers, their links, wires, notes and tasks. */
     static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names) {
+        return of(g, game, names, Set.of());
+    }
+
+    /** As {@link #of(Graph, CloudGame, Basis)}, leaving out the cards, links, wires and notes {@code skip} names. */
+    static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names, final Set<String> skip) {
         final Map<String, Thing> out = new LinkedHashMap<>();
         for (final Node n : g.getNodes()) {
             final String gameKey = "node:" + n.id;
-            if (names.isCarried(gameKey)) continue;
+            if (names.isCarried(gameKey) || skip.contains(gameKey)) continue;
             final String id = names.id("node", n.id);
             final JsonObject data = nodeGame(n);
             out.put(gameKey, new Thing("nodes", id, gameKey, Canon.of(data), data, true, n.x, n.y, () -> {
@@ -148,7 +154,7 @@ final class Fresh {
             for (final Drawer.Link link : d.getLinks()) {
                 final Node n = g.nodes.get(link.nodeId());
                 final String gameKey = linkKey(d, link);
-                if (n == null || unwritable(names, gameKey, n)) continue;
+                if (n == null || skip.contains(gameKey) || unwritable(names, gameKey, n)) continue;
                 final String nodeId = names.id("node", n.id);
                 final String id = drawerId + ":" + nodeId + ":" + link.portIndex();
                 final JsonObject data = new JsonObject();
@@ -164,7 +170,7 @@ final class Fresh {
             if (from == null || to == null || e.sourceOutputIndex < 0 || e.sourceOutputIndex >= from.outputs.size())
                 continue;
             final String gameKey = "edge:" + e.id;
-            if (unwritable(names, gameKey, from) || unwritable(names, gameKey, to)) continue;
+            if (skip.contains(gameKey) || unwritable(names, gameKey, from) || unwritable(names, gameKey, to)) continue;
             final String id = names.id("edge", e.id), source = names.id("node", from.id),
                 target = names.id("node", to.id);
             final Port<?> carried = from.outputs.get(e.sourceOutputIndex);
@@ -189,6 +195,7 @@ final class Fresh {
         }
         for (final Note n : g.getNotes()) {
             final String gameKey = "note:" + n.getId();
+            if (skip.contains(gameKey)) continue;
             final String id = names.id("note", n.getId());
             final JsonObject data = graphData(Serializer.GSON.toJsonTree(n));
             out.put(

@@ -66,14 +66,46 @@ final class Boards {
 
     /** A corpus plan as a board: its cards, wires, drawers, shared machines and spare shares, laid out in rows. */
     static Graph corpus(final String name) {
-        com.gtnhplanner.harness.GtnhFlowLoader.ensureDefaultMachineProfile();
-        final SolveInput in = SolveInputJson.read(json("/solver-corpus/" + name + ".json"));
         final Graph g = new Graph(name);
+        corpusInto(g, name, json("/solver-corpus/" + name + ".json"), 0);
+        return g;
+    }
+
+    /**
+     * {@code copies} of a corpus plan on one board, each with ids of its own and below the one before: a plan of many
+     * cards, for timing.
+     */
+    static Graph corpusCopies(final String name, final int copies) {
+        final String text = json("/solver-corpus/" + name + ".json").toString();
+        final java.util.regex.Pattern uuid = java.util.regex.Pattern
+            .compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        final Graph g = new Graph(name);
+        for (int k = 0; k < copies; k++) {
+            final java.util.regex.Matcher m = uuid.matcher(text);
+            final StringBuilder out = new StringBuilder();
+            while (m.find()) m.appendReplacement(
+                out,
+                UUID.nameUUIDFromBytes((k + ":" + m.group()).getBytes(StandardCharsets.UTF_8))
+                    .toString());
+            m.appendTail(out);
+            corpusInto(
+                g,
+                name + " " + k,
+                new JsonParser().parse(out.toString())
+                    .getAsJsonObject(),
+                k * 4000);
+        }
+        return g;
+    }
+
+    private static void corpusInto(final Graph g, final String name, final JsonObject json, final int dy) {
+        com.gtnhplanner.harness.GtnhFlowLoader.ensureDefaultMachineProfile();
+        final SolveInput in = SolveInputJson.read(json);
         g.setBalanceMode(in.mode());
         int i = 0;
         for (final SolveInput.Machine m : in.machines()) {
             // Places off the board's grid too: the mapping must keep every pixel.
-            final Node n = new Node(m.id(), 37 + i % 6 * 361, 41 + i / 6 * 263);
+            final Node n = new Node(m.id(), 37 + i % 6 * 361, dy + 41 + i / 6 * 263);
             n.machineName = m.name();
             for (final SolveInput.PortIn p : m.inputs()) n.inputs.add(port(p));
             for (final SolveInput.PortIn p : m.outputs()) n.outputs.add(port(p));
@@ -107,7 +139,7 @@ final class Boards {
             drawer.setLabel(d.label());
             drawer.setTarget(d.rule(), d.rate());
             drawer.setX(-303);
-            drawer.setY(13 + j++ * 97);
+            drawer.setY(dy + 13 + j++ * 97);
             for (final Drawer.Link l : d.links()) drawer.addLink(l);
             g.addDrawer(drawer);
         }
@@ -124,7 +156,6 @@ final class Boards {
         }
         for (final Map.Entry<String, Map<String, Double>> s : in.spares()
             .entrySet()) g.setSpareSplit(s.getKey(), s.getValue());
-        return g;
     }
 
     private static Port<?> port(final SolveInput.PortIn p) {
