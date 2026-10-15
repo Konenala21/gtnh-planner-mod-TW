@@ -37,7 +37,8 @@ import com.gtnhplanner.ui.theme.Hyb;
  * <p>
  * Every tab keeps its name readable. When they do not all fit, the strip scrolls sideways (the wheel, or the thin bar
  * along its bottom), fades at an edge with more beyond it, and keeps the open plan's tab in view; "+" stays put at the
- * end.
+ * end. On a narrow bar the open plan's tab and "+" always fit: the faces fold to two and a count first, then the
+ * status keeps only its dot ({@link TopBar} gives the tabs at least {@link #reserve()}).
  */
 final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
@@ -52,8 +53,11 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     private final BoardSession session;
     private int scroll;
-    /** The plan whose tab was last brought into view; a change of plan scrolls to the new one. */
-    private int shownActive = -1;
+    /**
+     * The plan whose tab was last brought into view, and the strip's width then: a change of plan scrolls to the new
+     * one, and so does a strip that narrows (the top bar laid out again).
+     */
+    private int shownActive = -1, shownStrip;
     private boolean draggingBar;
     private int barGrab;
 
@@ -88,13 +92,45 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     /** The width the tabs scroll in: the bar less the "+" key, and who is here and the account's status at its end. */
     private int stripW() {
-        return Math.max(0, getArea().width - PLUS - 4 - facesW() - statusW());
+        final End end = end();
+        return Math.max(0, getArea().width - PLUS - 4 - facesW(end.faces()) - statusW(end.words()));
+    }
+
+    /**
+     * How the strip's end gives way when the bar is narrow, so the open plan's tab and "+" always fit: first the faces
+     * fold to {@value #FACES_FOLDED} and a count, then the status keeps only its dot (its tip says the rest).
+     */
+    private record End(int faces, boolean words) {}
+
+    private static final End[] ENDS = { new End(5, true), new End(2, true), new End(2, false) };
+
+    private End end() {
+        final int need = activeTabW() + TAB_GAP + PLUS + 4, w = getArea().width;
+        for (final End e : ENDS) if (need + facesW(e.faces()) + statusW(e.words()) <= w) return e;
+        return ENDS[ENDS.length - 1];
+    }
+
+    /** The open plan's tab at its own width. */
+    private int activeTabW() {
+        final Graph g = slotGraph(session.activeSlot());
+        return g == null ? TAB_MIN : tabWidth(g);
+    }
+
+    /** The narrowest a tab is ever made, however narrow the bar: a short name still reads. */
+    private static final int TAB_LEAST = 60;
+
+    /**
+     * The least room the tabs need on the top bar (it gives them more when it has it): a tab, "+", and the strip's end
+     * given way as far as it goes.
+     */
+    int reserve() {
+        return TAB_LEAST + TAB_GAP + PLUS + 4 + facesW(FACES_FOLDED) + statusW(false);
     }
 
     // region Who else is here
 
-    /** How many faces show before the rest are a count; the room between them and the status. */
-    private static final int FACES_SHOWN = 5, FACES_GAP = 8;
+    /** The faces shown before the rest are a count once the bar is narrow; the room between them and the status. */
+    private static final int FACES_FOLDED = 2, FACES_GAP = 8;
 
     private List<Peers.Face> faces() {
         return session.peers()
@@ -107,17 +143,17 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     }
 
     /** The count of those past the faces shown: "+3". */
-    private static String more(final List<Peers.Face> faces) {
-        return "+" + (faces.size() - FACES_SHOWN);
+    private static String more(final List<Peers.Face> faces, final int shown) {
+        return "+" + (faces.size() - shown);
     }
 
-    /** The faces' width, a pixel between each: nothing when nobody else is here. */
-    private int facesW() {
+    /** The faces' width when {@code shown} of them show, a pixel between each: nothing when nobody else is here. */
+    private int facesW(final int shown) {
         final List<Peers.Face> faces = faces();
         if (faces.isEmpty()) return 0;
         int w = FACES_GAP;
-        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) w += faceW(faces.get(i)) + 1;
-        if (faces.size() > FACES_SHOWN) w += Hyb.width(more(faces)) + 5;
+        for (int i = 0; i < Math.min(shown, faces.size()); i++) w += faceW(faces.get(i)) + 1;
+        if (faces.size() > shown) w += Hyb.width(more(faces, shown)) + 5;
         return w;
     }
 
@@ -125,14 +161,16 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     private void drawFaces(final int h) {
         final List<Peers.Face> faces = faces();
         if (faces.isEmpty()) return;
-        int x = getArea().width - statusW() - facesW() + FACES_GAP / 2;
+        final End end = end();
+        final int shown = end.faces();
+        int x = getArea().width - statusW(end.words()) - facesW(shown) + FACES_GAP / 2;
         final int y = (h - TaskLook.FACE) / 2;
-        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) {
+        for (int i = 0; i < Math.min(shown, faces.size()); i++) {
             final Peers.Face f = faces.get(i);
             x += TaskLook.face(f.username(), f.colour(), x, y) + 1;
         }
-        if (faces.size() > FACES_SHOWN) {
-            final String more = more(faces);
+        if (faces.size() > shown) {
+            final String more = more(faces, shown);
             Hyb.rect(x, y, Hyb.width(more) + 4, TaskLook.FACE, 0xFF2D2F35);
             Hyb.text(more, x + 2, y + 2, 1f, Hyb.MUTED, false);
         }
@@ -143,18 +181,20 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     private List<String> faceLines() {
         final List<Peers.Face> faces = faces();
         if (faces.isEmpty()) return null;
+        final End end = end();
+        final int shown = end.faces();
         final int mx = mouseX();
-        int x = getArea().width - statusW() - facesW() + FACES_GAP / 2;
+        int x = getArea().width - statusW(end.words()) - facesW(shown) + FACES_GAP / 2;
         if (mx < x) return null;
-        for (int i = 0; i < Math.min(FACES_SHOWN, faces.size()); i++) {
+        for (int i = 0; i < Math.min(shown, faces.size()); i++) {
             final Peers.Face f = faces.get(i);
             final int w = faceW(f) + 1;
             if (mx < x + w) return List.of(f.username(), "§7" + where(f));
             x += w;
         }
-        if (faces.size() > FACES_SHOWN && mx < x + Hyb.width(more(faces)) + 4) {
+        if (faces.size() > shown && mx < x + Hyb.width(more(faces, shown)) + 4) {
             final List<String> rest = new ArrayList<>();
-            for (int i = FACES_SHOWN; i < faces.size(); i++) rest.add(
+            for (int i = shown; i < faces.size(); i++) rest.add(
                 faces.get(i)
                     .username());
             return rest;
@@ -196,27 +236,29 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         };
     }
 
-    /** The status's width: a dot and its words, nothing when signed out. */
-    private static int statusW() {
+    /** The status's width: a dot and its words (or the dot alone), nothing when signed out. */
+    private static int statusW(final boolean words) {
         final CloudSession s = cloud();
-        return s == null ? 0 : Hyb.width(statusText(s)) + 14;
+        return s == null ? 0 : words ? Hyb.width(statusText(s)) + 14 : 12;
     }
 
     private void drawStatus(final int h) {
         final CloudSession s = cloud();
         if (s == null) return;
-        final int x = getArea().width - statusW() + 4;
+        final boolean words = end().words();
+        final int x = getArea().width - statusW(words) + 4;
         final int dot = switch (s.status()) {
             case LIVE -> 0xFF4ADE80;
             case CONNECTING -> 0xFFFBBF24;
             case OFFLINE -> 0xFF8A8C94;
         };
         Hyb.rect(x, (h - 4) / 2, 4, 4, dot);
-        Hyb.text(statusText(s), x + 7, (h - 8) / 2f, Hyb.MUTED);
+        if (words) Hyb.text(statusText(s), x + 7, (h - 8) / 2f, Hyb.MUTED);
     }
 
     private boolean onStatus() {
-        return statusW() > 0 && mouseX() >= getArea().width - statusW();
+        final int w = statusW(end().words());
+        return w > 0 && mouseX() >= getArea().width - w;
     }
 
     // endregion
@@ -226,10 +268,11 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final List<Graph> slots = session.slots();
         final List<Tab> out = new ArrayList<>();
         int x = 0;
+        final int most = Math.max(TAB_MIN, stripW());
         for (final int slot : lifted ? order
             : Plan.getInstance()
                 .openSlots()) {
-            final int w = tabWidth(slots.get(slot));
+            final int w = Math.min(most, tabWidth(slots.get(slot)));
             out.add(new Tab(slot, x, w));
             x += w + TAB_GAP;
         }
@@ -251,11 +294,15 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         return new Tab(-1, Math.min(contentW(tabs) + TAB_GAP, stripW() + 4), PLUS);
     }
 
-    /** Scrolls the open plan's tab into view when the open plan changes; keeps the scroll in range. */
+    /**
+     * Scrolls the open plan's tab into view when the open plan changes or the strip's width does; keeps the scroll in
+     * range.
+     */
     private void follow(final List<Tab> tabs) {
-        final int active = session.activeSlot();
-        if (active != shownActive) {
+        final int active = session.activeSlot(), strip = stripW();
+        if (active != shownActive || strip != shownStrip) {
             shownActive = active;
+            shownStrip = strip;
             for (final Tab t : tabs) {
                 if (t.slot() != active) continue;
                 if (t.x() < scroll) scroll = t.x();
@@ -429,9 +476,10 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final List<Integer> before = Plan.getInstance()
             .openSlots();
         final int[] widths = new int[before.size()];
+        final int most = Math.max(TAB_MIN, stripW());
         int held = 0, width = 0;
         for (int i = 0; i < widths.length; i++) {
-            widths[i] = tabWidth(slots.get(before.get(i)));
+            widths[i] = Math.min(most, tabWidth(slots.get(before.get(i))));
             if (before.get(i) == pressed) {
                 held = i;
                 width = widths[i];
@@ -658,7 +706,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
     List<String> hoverLines() {
         if (!isHovering() || draggingBar || onBar() || pressed >= 0) return null;
         final CloudSession cloud = cloud();
-        if (cloud != null && onStatus()) return List.of(statusTip(cloud));
+        if (cloud != null && onStatus()) return List.of(statusText(cloud), "§7" + statusTip(cloud));
         final List<String> face = faceLines();
         if (face != null) return face;
         final Tab t = tabAtMouse();

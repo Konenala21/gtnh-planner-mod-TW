@@ -39,8 +39,6 @@ import codechicken.nei.guihook.GuiContainerManager;
  */
 public final class BoardScreen extends ModularScreen {
 
-    private static final int TOP_BAR = 20;
-
     private final BoardSession session;
     private final BoardCanvas canvas;
     private final LibraryDoor library;
@@ -97,23 +95,9 @@ public final class BoardScreen extends ModularScreen {
             library.set(true);
         });
 
-        final Flow topBar = Flow.row()
-            .widthRel(1f)
-            .height(TOP_BAR)
-            .padding(4, 2)
-            .childPadding(3)
-            .background((IDrawable) (ctx, x, y, w, h, theme) -> {
-                Hyb.rect(x, y, w, h, 0xFF0E0F12);
-                Hyb.rect(x, y + h - 1, w, 1, 0xFF2A2C31);
-            });
-        // The tabs take all the room the keys leave; the keys come in groups, a gap between each: editing, the view,
-        // the library, then help.
-        topBar.child(
-            named(
-                parts,
-                "tabs",
-                new PlanTabs(session).expanded()
-                    .height(16)));
+        // The tabs take all the room the keys leave; the keys come in groups, a gap between each: the non-recipe
+        // machines, editing, the board, the view, the plan's other places, then help. Narrow, it gives way (TopBar).
+        final TopBar topBar = new TopBar(named(parts, "tabs", new PlanTabs(session)));
         // Over the board (and the library): the non-recipe machines, opened from their key.
         final PickerDoor pickerDoor = new PickerDoor();
         final PowerPicker picker = new PowerPicker(session, () -> {
@@ -131,25 +115,32 @@ public final class BoardScreen extends ModularScreen {
             picker.setEnabled(true);
         };
         session.setPowerPickerOpener(openPicker);
-        topBar.child(
+        topBar.key(
+            0,
             named(parts, "nonrecipe", boltKey("Non-recipe machines: generators, turbines, boilers, reactors", () -> {
                 // The key opens the picker and closes it again.
                 if (picker.isEnabled()) {
                     com.gtnhplanner.ui.sound.Sfx.CLOSE.play();
                     picker.setEnabled(false);
                 } else openPicker.run();
-            }).marginLeft(GROUP_GAP)));
-        topBar.child(
-            named(
-                parts,
-                "undo",
-                iconKey(Picture.UNDO, session::canUndo, "Undo (Ctrl+Z)", session::undo).marginLeft(GROUP_GAP)));
-        topBar.child(
+            })),
+            Hyb.width(BOLT_LABEL) + 22,
+            18);
+        topBar.key(
+            1,
+            named(parts, "undo", iconKey(Picture.UNDO, session::canUndo, "Undo (Ctrl+Z)", session::undo)),
+            18,
+            18);
+        topBar.key(
+            1,
             named(
                 parts,
                 "redo",
-                iconKey(Picture.REDO, session::canRedo, "Redo (Ctrl+Shift+Z or Ctrl+Y)", session::redo)));
-        topBar.child(
+                iconKey(Picture.REDO, session::canRedo, "Redo (Ctrl+Shift+Z or Ctrl+Y)", session::redo)),
+            18,
+            18);
+        topBar.key(
+            2,
             named(
                 parts,
                 "arrange",
@@ -158,8 +149,11 @@ public final class BoardScreen extends ModularScreen {
                     () -> !session.showsTasks(),
                     "Auto-arrange the plan (press again to stop)",
                     fit("Arrange", "Arranging 100%"),
-                    canvas::arrange).marginLeft(GROUP_GAP)));
-        topBar.child(
+                    canvas::arrange)),
+            fit("Arrange", "Arranging 100%"),
+            tight("Arrange", "Stopping", "100%"));
+        topBar.key(
+            2,
             named(
                 parts,
                 "fit",
@@ -168,8 +162,11 @@ public final class BoardScreen extends ModularScreen {
                     () -> !session.showsTasks(),
                     "Zoom to fit the whole plan",
                     fit("Fit"),
-                    canvas::frameAll)));
-        topBar.child(
+                    canvas::frameAll)),
+            fit("Fit"),
+            tight("Fit"));
+        topBar.key(
+            3,
             named(
                 parts,
                 "rate",
@@ -183,8 +180,11 @@ public final class BoardScreen extends ModularScreen {
                             .next()),
                     step -> session.setRateUnit(
                         session.rateUnit()
-                            .step(step))).marginLeft(GROUP_GAP)));
-        topBar.child(
+                            .step(step)))),
+            fit("/t", "/s", "/min", "/hr"),
+            tight("/t", "/s", "/min", "/hr"));
+        topBar.key(
+            3,
             named(
                 parts,
                 "power",
@@ -194,8 +194,11 @@ public final class BoardScreen extends ModularScreen {
                     "Show power as EU/t, or as amps at each machine's tier",
                     fit("EU/t", "Amps"),
                     session::togglePowerKey,
-                    step -> session.togglePowerKey())));
-        topBar.child(
+                    step -> session.togglePowerKey())),
+            fit("EU/t", "Amps"),
+            tight("EU/t", "Amps"));
+        topBar.key(
+            3,
             named(
                 parts,
                 "peak",
@@ -205,9 +208,12 @@ public final class BoardScreen extends ModularScreen {
                     "Average or peak power use (peak: every machine running at once)",
                     fit("Peak", "Avg"),
                     session::togglePeakPower,
-                    step -> session.togglePeakPower())));
+                    step -> session.togglePeakPower())),
+            fit("Peak", "Avg"),
+            tight("Peak", "Avg"));
         // The plan's task board in the board's place, and back.
-        topBar.child(
+        topBar.key(
+            4,
             named(
                 parts,
                 "tasks",
@@ -221,8 +227,11 @@ public final class BoardScreen extends ModularScreen {
                         library.set(false);
                         session.showTasks(tasks);
                         library.apply();
-                    }).marginLeft(GROUP_GAP)));
-        topBar.child(
+                    })),
+            fit("Tasks", "Plan"),
+            tight("Tasks", "Plan"));
+        topBar.key(
+            4,
             named(
                 parts,
                 "library",
@@ -231,8 +240,11 @@ public final class BoardScreen extends ModularScreen {
                     () -> true,
                     "Library: your plans, and plans other players shared",
                     fit("Library", "Board"),
-                    () -> library.set(!library.open))));
-        topBar.child(
+                    () -> library.set(!library.open))),
+            fit("Library", "Board"),
+            tight("Library", "Board"));
+        topBar.key(
+            4,
             named(
                 parts,
                 "share",
@@ -241,8 +253,11 @@ public final class BoardScreen extends ModularScreen {
                     () -> true,
                     "Share this plan: with people, to the library, as a code or in chat",
                     fit("Share"),
-                    () -> openShare(panel, session, canvas, parts.get("share")))));
-        topBar.child(
+                    () -> openShare(panel, session, canvas, parts.get("share")))),
+            fit("Share"),
+            tight("Share"));
+        topBar.key(
+            5,
             named(
                 parts,
                 "feedback",
@@ -250,9 +265,11 @@ public final class BoardScreen extends ModularScreen {
                     Picture.FEEDBACK,
                     () -> true,
                     "Feedback: report a bug, share an idea, or ask for help",
-                    () -> com.gtnhplanner.ui.popup.FeedbackPanel.open(panel, session, canvas, null))
-                        .marginLeft(GROUP_GAP)));
-        topBar.child(
+                    () -> com.gtnhplanner.ui.popup.FeedbackPanel.open(panel, session, canvas, null))),
+            18,
+            18);
+        topBar.key(
+            5,
             named(
                 parts,
                 "settings",
@@ -260,12 +277,17 @@ public final class BoardScreen extends ModularScreen {
                     Picture.GEAR,
                     () -> true,
                     "Settings",
-                    () -> com.gtnhplanner.ui.popup.SettingsPanel.open(panel))));
-        topBar.child(
+                    () -> com.gtnhplanner.ui.popup.SettingsPanel.open(panel))),
+            18,
+            18);
+        topBar.key(
+            5,
             named(
                 parts,
                 "help",
-                iconKey(Picture.HELP, () -> true, "Help: the tour, and every control", () -> openHelp(panel))));
+                iconKey(Picture.HELP, () -> true, "Help: the tour, and every control", () -> openHelp(panel, parts))),
+            18,
+            18);
 
         final Flow column = Flow.column()
             .widthRel(1f)
@@ -295,7 +317,7 @@ public final class BoardScreen extends ModularScreen {
         final NoticeBar notices = new NoticeBar(session, canvas)
             .left(() -> rail.currentWidth() + 6, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
             .right(6)
-            .top(TOP_BAR + 4);
+            .top(() -> topBar.barHeight() + 4, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
         panel.child(notices);
         parts.put("notices", notices);
         final SelectionBar selectionBar = new SelectionBar(session, canvas, notices);
@@ -305,12 +327,12 @@ public final class BoardScreen extends ModularScreen {
         final TourOffer offer = new TourOffer();
         offer.left(0)
             .right(0)
-            .top(TOP_BAR)
+            .top(topBar::barHeight, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
             .bottom(0);
         parts.put("tourOffer", offer);
         picker.left(0)
             .right(0)
-            .top(TOP_BAR)
+            .top(topBar::barHeight, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
             .bottom(0);
         panel.child(picker);
         // Over everything, so the board waits under it.
@@ -423,11 +445,11 @@ public final class BoardScreen extends ModularScreen {
             panel,
             com.gtnhplanner.ui.popup.PickList.popup("gtnhplanner_share_menu", null, rows, false, 0),
             key.getArea().x,
-            TOP_BAR + 2);
+            key.getArea().y + key.getArea().height + 4);
     }
 
     /** The "?" key: the tour, or the list of every control. */
-    private static void openHelp(final ModularPanel panel) {
+    private static void openHelp(final ModularPanel panel, final java.util.Map<String, IWidget> parts) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
         rows.add(
             new com.gtnhplanner.ui.popup.PickList.Entry(
@@ -449,7 +471,11 @@ public final class BoardScreen extends ModularScreen {
             panel,
             com.gtnhplanner.ui.popup.PickList.popup("gtnhplanner_help_menu", null, rows, false, 190),
             Integer.MAX_VALUE / 2,
-            TOP_BAR + 2);
+            parts.get("help")
+                .getArea().y
+                + parts.get("help")
+                    .getArea().height
+                + 4);
     }
 
     /**
@@ -577,7 +603,7 @@ public final class BoardScreen extends ModularScreen {
                 })
             .overlay(
                 (IDrawable) (ctx, x, y, w, h, theme) -> Hyb.textCentered(
-                    label.get(),
+                    fitted(label.get(), w - 4),
                     x + w / 2f,
                     y + (h - 8) / 2f,
                     enabled.getAsBoolean() ? Hyb.INK : 0xFF5A5C65))
@@ -604,25 +630,50 @@ public final class BoardScreen extends ModularScreen {
         PowerPicker picker;
     }
 
-    /** The non-recipe machines key: the power wing's amber bolt, then its name. */
+    /** The non-recipe machines key's name, beside its bolt while the bar has room for it. */
+    private static final String BOLT_LABEL = "Non-recipe";
+
+    /**
+     * The non-recipe machines key: the power wing's amber bolt, then its name; the bolt alone when the bar is tight
+     * (its tip names it).
+     */
     private static ButtonWidget<?> boltKey(final String tooltip, final Runnable action) {
-        final String label = "Non-recipe";
-        final ButtonWidget<?> button = key(() -> "", () -> true, tooltip, Hyb.width(label) + 22, action);
+        final ButtonWidget<?> button = key(() -> "", () -> true, tooltip, Hyb.width(BOLT_LABEL) + 22, action);
         button.overlay((IDrawable) (ctx, x, y, w, h, theme) -> {
+            if (w < Hyb.width(BOLT_LABEL) + 22) {
+                PowerPicker.bolt(x + (w - 7) / 2, y + (h - 12) / 2, 0xFFFCD34D);
+                return;
+            }
             PowerPicker.bolt(x + 6, y + (h - 12) / 2, 0xFFFCD34D);
-            Hyb.text(label, x + 16, y + (h - 8) / 2f, Hyb.INK);
+            Hyb.text(BOLT_LABEL, x + 16, y + (h - 8) / 2f, Hyb.INK);
         });
         return button;
     }
 
-    /** Between groups of keys in the top bar. */
-    private static final int GROUP_GAP = 6;
-
     /** A key's width for the widest label it shows: the same padding either side of every label. */
     private static int fit(final String... labels) {
+        return widest(labels) + 12;
+    }
+
+    /** As {@link #fit}, as the keys sit when the bar is tight: less padding. */
+    private static int tight(final String... labels) {
+        return widest(labels) + 8;
+    }
+
+    private static int widest(final String... labels) {
         int w = 0;
         for (final String l : labels) w = Math.max(w, Hyb.width(l));
-        return w + 12;
+        return w;
+    }
+
+    /**
+     * A key's label in its width: whole when it fits, else its last word (arrange's progress, "Arranging 42%", is
+     * "42%" on a tight bar).
+     */
+    private static String fitted(final String label, final int room) {
+        if (Hyb.width(label) <= room) return label;
+        final int space = label.lastIndexOf(' ');
+        return space < 0 ? label : label.substring(space + 1);
     }
 
     /** The pictures drawn on the small keys, from {@link Icons}. */
