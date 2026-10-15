@@ -46,6 +46,8 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.library.CommunityApi;
+import com.gtnhplanner.ui.live.Peers;
+import com.gtnhplanner.ui.live.PresenceOut;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -563,5 +565,122 @@ class CloudSessionTest {
                 .count(),
             "uploaded once");
         assertFalse(host.notices.contains("Your plans from this world are now in your account"));
+    }
+
+    private List<JsonObject> presenceSent() {
+        return live.framesOf("presence");
+    }
+
+    @Test
+    void presenceGoesOutWhenItChangesAndOthersAreFollowed() throws Exception {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+        final Node card = board.getNodes()
+            .iterator()
+            .next();
+
+        // Out: the cursor in the plan's coordinates, the selection by the plan's ids, the view.
+        final PresenceOut out = new PresenceOut();
+        out.sample(true, 100, 60, 40, 30, 0.5f);
+        out.update(doc, board, java.util.Set.of(card.id));
+        tickUntil("sent", () -> presenceSent().size() == 1);
+        final JsonObject f = presenceSent().get(0);
+        assertEquals(LiveDoc.at(100, 60), f.get("cursor"));
+        assertEquals(
+            doc.planId("node", card.id),
+            f.getAsJsonArray("sel")
+                .get(0)
+                .getAsString());
+        assertEquals(
+            0.5,
+            f.getAsJsonObject("view")
+                .get("zoom")
+                .getAsDouble());
+        // Nothing changed: nothing more, however long.
+        Thread.sleep(150);
+        out.update(doc, board, java.util.Set.of(card.id));
+        ticks(10);
+        assertEquals(1, presenceSent().size());
+        // Moved within a tenth of a second of the last: it waits, then goes.
+        out.sample(true, 120, 60, 40, 30, 0.5f);
+        out.update(doc, board, java.util.Set.of(card.id));
+        Thread.sleep(150);
+        out.update(doc, board, java.util.Set.of(card.id));
+        tickUntil("the move went", () -> presenceSent().size() == 2);
+        assertEquals(
+            LiveDoc.at(120, 60),
+            presenceSent().get(1)
+                .get("cursor"));
+        // Off the board: no cursor.
+        Thread.sleep(150);
+        out.off();
+        out.update(doc, board, java.util.Set.of(card.id));
+        tickUntil("off the board", () -> presenceSent().size() == 3);
+        assertTrue(
+            presenceSent().get(2)
+                .get("cursor")
+                .isJsonNull());
+        // Gone (the planner closed): no cursor and nothing selected.
+        Thread.sleep(150);
+        out.leave();
+        tickUntil("gone", () -> presenceSent().size() == 4);
+        assertEquals(
+            0,
+            presenceSent().get(3)
+                .getAsJsonArray("sel")
+                .size());
+
+        // In: who is here (this account's own other connection left out), and where they point.
+        final Peers peers = new Peers();
+        peers.follow(doc);
+        assertTrue(peers.quiet());
+        live.send(
+            "{\"t\":\"present\",\"doc\":\"" + ME
+                + ":d1\",\"present\":[{\"id\":\"u1\",\"username\":\"ada\",\"color\":\"#e5484d\",\"client\":\"web\",\"conn\":\"c1\"},"
+                + "{\"id\":\"u2\",\"username\":\"bob\",\"color\":\"#0090ff\",\"client\":\"game\",\"conn\":\"c2\"}]}");
+        tickUntil(
+            "bob is here",
+            () -> peers.faces()
+                .size() == 1);
+        final Peers.Face bob = peers.faces()
+            .get(0);
+        assertEquals("bob", bob.username());
+        assertEquals(0xFF0090FF, bob.colour());
+        assertTrue(bob.inGame());
+        assertTrue(peers.quiet(), "here, but pointing at nothing yet");
+        live.send(
+            "{\"t\":\"presence\",\"doc\":\"" + ME
+                + ":d1\",\"who\":\"u1\",\"conn\":\"c1\",\"cursor\":{\"x\":5,\"y\":5},\"sel\":[]}");
+        live.send(
+            "{\"t\":\"presence\",\"doc\":\"" + ME
+                + ":d1\",\"who\":\"u2\",\"conn\":\"c2\",\"cursor\":{\"x\":380,\"y\":60},\"sel\":[\""
+                + doc.planId("node", card.id)
+                + "\"]}");
+        tickUntil("bob points", () -> !peers.quiet());
+        assertEquals(
+            1,
+            peers.all()
+                .size(),
+            "the player's own browser is not drawn");
+        final Peers.Peer at = peers.all()
+            .iterator()
+            .next();
+        assertTrue(at.hasCursor());
+        // First seen, it starts where it was heard rather than gliding in.
+        assertEquals(com.gtnhplanner.library.PlanExport.gameX(380), Math.round(at.x()));
+        assertEquals(List.of(card.id), at.selected());
+        // Gone from the room: gone from the board.
+        live.send("{\"t\":\"present\",\"doc\":\"" + ME + ":d1\",\"present\":[]}");
+        tickUntil(
+            "bob left",
+            () -> peers.all()
+                .isEmpty());
+        assertTrue(peers.quiet());
+        assertTrue(
+            peers.faces()
+                .isEmpty());
+        peers.stop();
     }
 }

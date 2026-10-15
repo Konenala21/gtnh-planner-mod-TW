@@ -90,6 +90,9 @@ public final class BoardSession {
         solver.close();
         settleLive(true);
         PlanAPI.save();
+        // The others see this player go: no cursor, nothing selected.
+        presenceOut.leave();
+        peers.stop();
         if (current == this) current = null;
     }
 
@@ -1467,6 +1470,25 @@ public final class BoardSession {
      */
     public boolean busyWith(final Graph g) {
         return !closed && g == graph && (liveBefore != null || inHand.getAsBoolean());
+    }
+
+    private final com.gtnhplanner.ui.live.Peers peers = new com.gtnhplanner.ui.live.Peers();
+    private final com.gtnhplanner.ui.live.PresenceOut presenceOut = new com.gtnhplanner.ui.live.PresenceOut();
+
+    /** The other people in the open plan, following its room (nobody, for a plan on this computer). */
+    public com.gtnhplanner.ui.live.Peers peers() {
+        peers.follow(live());
+        return peers;
+    }
+
+    /** Where this player is on the board, for the others in the plan: the board samples it as it draws. */
+    public com.gtnhplanner.ui.live.PresenceOut presenceOut() {
+        return presenceOut;
+    }
+
+    /** Tells the open plan's room where this player is, when anything changed: at most ten times a second. */
+    public void sendPresence() {
+        presenceOut.update(live(), graph, selection);
     }
 
     // endregion

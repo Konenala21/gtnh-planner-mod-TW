@@ -625,8 +625,27 @@ public final class DevHarness {
                 });
             case "/cloud":
                 // The account's cloud plans on this device: where they stand, and each plan's copy and room.
+                // fake=N puts N stand-in people on the open plan (moving cursors, selections; dev/DevPeople), fake=0
+                // takes them off.
                 return onClient(() -> {
                     final Map<String, Object> r = new LinkedHashMap<>();
+                    if (q.containsKey("fake")) DevPeople.set(intArg(q, "fake"));
+                    final com.gtnhplanner.ui.BoardSession board = com.gtnhplanner.ui.BoardSession.current();
+                    if (board != null) {
+                        final List<String> here = new ArrayList<>();
+                        for (final com.gtnhplanner.ui.live.Peers.Peer who : board.peers()
+                            .all())
+                            here.add(
+                                who.username() + " ("
+                                    + who.client()
+                                    + (who.hasCursor() ? ", at " + Math.round(who.x()) + "," + Math.round(who.y()) : "")
+                                    + ", "
+                                    + who.selected()
+                                        .size()
+                                    + " selected)");
+                        r.put("peers", here);
+                    }
+                    r.put("fake", DevPeople.count());
                     final com.gtnhplanner.cloud.session.CloudSession s = com.gtnhplanner.cloud.session.CloudSession
                         .current();
                     final com.gtnhplanner.data.flowchart.Plan p = com.gtnhplanner.data.flowchart.Plan.player();
@@ -1087,7 +1106,7 @@ public final class DevHarness {
                 "/nei?item[&uses=1][&planner=0][&tab] - open NEI's recipes for an item, over the planner or (planner=0) from the inventory",
                 "/sound[?volume=0..1] - the master volume, set or read",
                 "/library[?url=<base>][&live=<ws url>] - the site the library uses (tools/dev/mock-library.mjs is a local stand-in) and its live service",
-                "/cloud - signed in: the account's cloud plans on this device (status, each plan's seq, edits waiting, room, who is in it)",
+                "/cloud[?fake=N] - signed in: the account's cloud plans on this device (status, each plan's seq, edits waiting, room, who is in it); fake=N puts N stand-in people on the open plan (0 clears), peers lists who the board shows",
                 "/chat[?lines=N][&share=1] - the chat's newest lines and what clicking each part runs; share=1 shares the open plan there first",
                 "/gtmachines?q=turbine[&all=1][&art=1] - GregTech multiblocks (all=1: every machine) as the game names them; art=1 adds the bundled picture each resolves to",
                 "/machinedata?dir=<path> - writes the website's TGS, Bacterial Vat and radio hatch side files from this game (run in the full pack)",

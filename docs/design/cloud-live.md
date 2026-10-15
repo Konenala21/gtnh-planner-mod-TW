@@ -307,6 +307,17 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
 - Presence and sharing build on `BoardSession.live()` (the open plan's `LiveDoc`: `key`, `role`, `owner`, `members`,
   `present`, presence and people listeners, `sendPresence`, `planId`, `at`/`onBoard` for coordinates) and
   `CloudSession.client()`.
+- Presence out (`ui/live/PresenceOut`): the board samples the mouse as it draws; while it is on the board itself (not
+  a popup or bar over it) the cursor goes in the plan's coordinates, with the plan's ids of the selected cards, drawers
+  and notes and the view (`{x, y, zoom}`: the plan's point in the middle of the board, and the board's zoom), at most
+  ten a second and only when something changed. The cursor is null off the board, on the task board or the library;
+  closing the planner or opening another plan sends no cursor and nothing selected.
+- Presence in (`ui/live/Peers`, drawn by `ui/canvas/PresenceLayer`): each other connection's cursor, a small arrow in
+  its colour with its name on a tag, one size on screen at every zoom, gliding to where it was last heard and fading
+  out once quiet for 9 s; what it has selected outlined in its colour, two people on one thing one ring round the
+  other, their names over the first. This account's own other connections are not drawn, as on the website. Nothing
+  is drawn, and nothing measurable spent, while nobody is pointing at or holding anything. `call 'cloud?fake=N'`
+  (dev/DevPeople) puts stand-ins on the open plan without a live service.
 
 ## Local development
 

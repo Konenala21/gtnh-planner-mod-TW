@@ -466,6 +466,13 @@ public final class BoardScreen extends ModularScreen {
     public void onUpdate() {
         super.onUpdate();
         if (library.tasksShown != session.showsTasks()) library.apply();
+        // The board out of sight (the task board, the library): no cursor on it for the others. Showing, it samples as
+        // it draws.
+        if (library.open || session.showsTasks() || !canvas.isEnabled()) {
+            session.presenceOut()
+                .off();
+            session.sendPresence();
+        }
     }
 
     /** Every gesture on the board, in one list. */
