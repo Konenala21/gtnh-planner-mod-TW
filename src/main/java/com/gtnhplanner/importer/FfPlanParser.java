@@ -359,6 +359,18 @@ public final class FfPlanParser {
             final String v = asString(e);
             if (v != null) supplies.add(v);
         }
+        // Plan mode's port-rate pins, by handle (a shared machine's section by its r<n>: prefix), units per second.
+        final Map<String, Double> rates = new LinkedHashMap<>();
+        final JsonObject portRates = obj(n, "portRates");
+        if (portRates != null) for (final Map.Entry<String, JsonElement> e : portRates.entrySet()) {
+            final Double v = e.getValue()
+                .isJsonPrimitive()
+                && e.getValue()
+                    .getAsJsonPrimitive()
+                    .isNumber() ? e.getValue()
+                        .getAsDouble() : null;
+            if (v != null && v > 0 && Double.isFinite(v)) rates.put(e.getKey(), v);
+        }
         return new FfNode(
             id,
             recipeId,
@@ -383,7 +395,8 @@ public final class FfPlanParser {
             at[1],
             custom == null ? null : num(custom, "perSecond"),
             custom == null ? null : str(custom, "mode"),
-            supplies);
+            supplies,
+            rates);
     }
 
     private static Map<Integer, FfSlot> overrides(final JsonObject holder) {

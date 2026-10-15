@@ -426,7 +426,7 @@ final class PlanRead {
         if (made.isEmpty()) return;
         final Node first = made.get(0)
             .node();
-        if (ext != null) keepGameOnly(first, ext.game(), game.world());
+        if (ext != null) keepGameOnly(first, ext.game(), game);
         // Every recipe of a shared machine is in its card's group.
         for (final Section s : made.values()) {
             s.node().group = group;
@@ -587,14 +587,16 @@ final class PlanRead {
 
     /**
      * What a card's game data has that the website has no place for, onto a card built from the website's fields:
-     * its placements by world, its rates (input targets, and output targets where the website set none), an unpinned
-     * card's
-     * count, and the machine settings the website does not keep.
+     * its placements by world, the rates of ports the website has no row for (the rest are its port rates), an
+     * unpinned card's count, and the machine settings the website does not keep.
      */
-    private static void keepGameOnly(final Node node, final JsonObject data, final String world) {
-        Fresh.readWorlds(data, node, world);
-        if (node.targetInputRates.isEmpty()) Serializer.readRates(data.get("inputTargets"), node.targetInputRates);
-        if (node.targetOutputRates.isEmpty()) Serializer.readRates(data.get("targets"), node.targetOutputRates);
+    private static void keepGameOnly(final Node node, final JsonObject data, final CloudGame game) {
+        Fresh.readWorlds(data, node, game.world());
+        final Map<Integer, Double> ins = new LinkedHashMap<>(), outs = new LinkedHashMap<>();
+        Serializer.readRates(data.get("inputTargets"), ins);
+        Serializer.readRates(data.get("targets"), outs);
+        keepUnnamed(node.targetInputRates, node.inputs, ins, game);
+        keepUnnamed(node.targetOutputRates, node.outputs, outs, game);
         final JsonElement count = data.get("machineCount");
         if (!node.isMachineCountFixed() && !data.has("machineCountFixed")
             && count != null
@@ -616,6 +618,23 @@ final class PlanRead {
         for (final Map.Entry<String, Object> s : saved.entrySet()) {
             if (!FfSettings.carried(s.getKey()) && !Settings.MACHINES.key()
                 .equals(s.getKey())) node.machineConfig.settings.put(s.getKey(), s.getValue());
+        }
+    }
+
+    /**
+     * The game's rates of the ports the website has no row for, kept: a port the export cannot name, or a second port
+     * of one resource (the website's port rates are by resource). The rest are the website's to set.
+     */
+    private static void keepUnnamed(final Map<Integer, Double> on,
+        final List<com.gtnhplanner.data.flowchart.Port<?>> ports, final Map<Integer, Double> had,
+        final CloudGame game) {
+        final Set<String> seen = new HashSet<>();
+        for (int i = 0; i < ports.size(); i++) {
+            final com.gtnhplanner.data.flowchart.Port<?> p = ports.get(i);
+            final PlanExport.Res r = p.fromModel ? null
+                : p.getValue() instanceof com.gtnhplanner.power.Energy ? PlanExport.EU : game.port(p);
+            final boolean named = r != null && seen.add(r.kind() + ":" + r.id());
+            if (!named && had.containsKey(i) && !on.containsKey(i)) on.put(i, had.get(i));
         }
     }
 

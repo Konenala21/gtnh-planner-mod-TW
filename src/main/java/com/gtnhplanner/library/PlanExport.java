@@ -172,6 +172,9 @@ public final class PlanExport {
         final JsonObject node = node(n, recipeId, world, machines);
         if (picks.entrySet()
             .size() > 0) node.add("recipeInputOverrides", picks);
+        final JsonObject rates = portRates(n, res);
+        if (rates.entrySet()
+            .size() > 0) node.add("portRates", rates);
         return new Card(recipe, node, res);
     }
 
@@ -695,6 +698,31 @@ public final class PlanExport {
             out.add(o);
         }
         return out;
+    }
+
+    /**
+     * A card's port rates as plan mode's pins ({@code portRates}): each port set to a rate, by the handle the site
+     * names its row by ({@code output:item:<id>}, an input by the item it is set to), the rate a second. A port the
+     * site has no row for (none the export names, or a second port of one resource) is left out.
+     */
+    static JsonObject portRates(final Node n, final Map<Port<?>, Res> res) {
+        final JsonObject o = new JsonObject();
+        rates(o, n.targetOutputRates, n.outputs, "output", res);
+        rates(o, n.targetInputRates, n.inputs, "input", res);
+        return o;
+    }
+
+    private static void rates(final JsonObject o, final Map<Integer, Double> rates, final List<Port<?>> ports,
+        final String side, final Map<Port<?>, Res> res) {
+        for (final Map.Entry<Integer, Double> e : rates.entrySet()) {
+            final Double rate = e.getValue();
+            if (rate == null || !(rate > 0) || !Double.isFinite(rate) || e.getKey() < 0 || e.getKey() >= ports.size())
+                continue;
+            final Res r = res.get(ports.get(e.getKey()));
+            if (r == null) continue;
+            final String handle = side + ":" + r.kind() + ":" + enc(r.id());
+            if (!o.has(handle)) o.addProperty(handle, rate);
+        }
     }
 
     private static JsonObject node(final Node n, final String recipeId, final World world, final double machines) {

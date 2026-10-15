@@ -434,6 +434,56 @@ class CloudBoardsTest {
 
     // endregion
 
+    // region Port rates
+
+    @Test
+    void portRatesArePlanModesPinsBothWays() {
+        final Open o = dressed("platline");
+        final Node card = outside(o.board);
+        card.targetOutputRates.clear();
+        card.targetInputRates.clear();
+        card.targetOutputRates.put(0, 3.5);
+        if (!card.inputs.isEmpty()) card.targetInputRates.put(0, 1.25);
+        List<LiveOp> ops = o.send("rates set on a card");
+        assertEquals(1, ops.size(), ops.toString());
+        assertTrue(fields(ops.getFirst()).contains("\"portRates\""), ops.toString());
+        final PlanExport.Res out = o.game.port(card.outputs.getFirst());
+        final String outHandle = "output:" + out.kind()
+            + ":"
+            + java.net.URLEncoder.encode(out.id(), java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        final JsonObject rates = o.thing("nodes", card.id.toString())
+            .getAsJsonObject("portRates");
+        assertEquals(
+            3.5,
+            rates.get(outHandle)
+                .getAsDouble(),
+            rates.toString());
+
+        // The website sets the rate: the card has it, the input's stays.
+        final JsonObject changed = LiveJson.copy(rates);
+        changed.addProperty(outHandle, 7);
+        final JsonObject f = new JsonObject();
+        f.add("portRates", changed);
+        o.read(LiveOps.apply(o.plan, List.of(LiveOp.patch("nodes", card.id.toString(), f, null))));
+        Node there = o.board.nodes.get(card.id);
+        assertEquals(7.0, there.targetOutputRates.get(0));
+        if (!card.inputs.isEmpty()) assertEquals(1.25, there.targetInputRates.get(0));
+        assertEquals(List.of(), o.send("read and written back"));
+
+        // ...and takes every rate off: none comes back from the game's data.
+        o.read(
+            LiveOps.apply(
+                o.plan,
+                List.of(LiveOp.patch("nodes", card.id.toString(), new JsonObject(), List.of("portRates")))));
+        there = o.board.nodes.get(card.id);
+        assertTrue(there.targetOutputRates.isEmpty(), there.targetOutputRates.toString());
+        assertTrue(there.targetInputRates.isEmpty(), there.targetInputRates.toString());
+        assertEquals(List.of(), o.send("rates gone"));
+    }
+
+    // endregion
+
     // region Buffers
 
     @Test

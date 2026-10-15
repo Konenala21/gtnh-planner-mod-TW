@@ -601,6 +601,28 @@ class FfConverterTest {
     }
 
     @Test
+    void portRatesBecomeTheCardsRates() {
+        // Plan mode's pins by handle: the mud it makes and the dust it takes, a second.
+        final String plan = NOTES.replaceFirst(
+            "\"enabled\": true,\\s*\"position\": \\{\"x\": 400",
+            "\"enabled\": true, \"portRates\": {\"output:fluid:mud\": 2.5, \"input:item:a%3Adust\": 4,"
+                + " \"output:item:nothing\": 9}, \"position\": {\"x\": 400");
+        assertTrue(plan.contains("portRates"), "the fixture took the rates");
+        final FfConverter.Result r = convert(plan, new FakeGame());
+        final Node mixer = node(r.graph(), "Mixer");
+        assertEquals(java.util.Map.of(0, 2.5), mixer.targetOutputRates);
+        assertEquals(java.util.Map.of(0, 4.0), mixer.targetInputRates);
+        assertTrue(
+            r.report()
+                .entries(Kind.WIRE)
+                .stream()
+                .anyMatch(
+                    e -> e.toString()
+                        .contains("nothing")),
+            "a rate on a port it lacks is reported");
+    }
+
+    @Test
     void textNotesBecomeBoardNotes() {
         final FfConverter.Result r = convert(NOTES, new FakeGame());
         final Graph g = r.graph();

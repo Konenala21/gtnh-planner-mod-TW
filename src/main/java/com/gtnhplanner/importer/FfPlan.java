@@ -307,7 +307,46 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
         @Nullable String machineHandlerId, @Nullable String coilTier, Map<String, String> machineConfigTiers,
         Map<Integer, FfSlot> overrides, List<FfSection> extraRecipes, @Nullable Double solvePin,
         @Nullable FfTarget targetOutput, boolean enabled, double x, double y, @Nullable Double customRatePerSecond,
-        @Nullable String customRateMode, List<String> hatchSupplies) {}
+        @Nullable String customRateMode, List<String> hatchSupplies, Map<String, Double> portRates) {
+
+        /** A card with no port rates. */
+        public FfNode(final String id, final String recipeId, final double machineCount, final int parallel,
+            final String overclockTier, final int energyHatches, @Nullable final String energyHatchType,
+            @Nullable final Double powerEuT, @Nullable final String hatchVoltageTier, @Nullable final Double hatchAmps,
+            @Nullable final String powerInputMode, @Nullable final String machineHandlerId,
+            @Nullable final String coilTier, final Map<String, String> machineConfigTiers,
+            final Map<Integer, FfSlot> overrides, final List<FfSection> extraRecipes, @Nullable final Double solvePin,
+            @Nullable final FfTarget targetOutput, final boolean enabled, final double x, final double y,
+            @Nullable final Double customRatePerSecond, @Nullable final String customRateMode,
+            final List<String> hatchSupplies) {
+            this(
+                id,
+                recipeId,
+                machineCount,
+                parallel,
+                overclockTier,
+                energyHatches,
+                energyHatchType,
+                powerEuT,
+                hatchVoltageTier,
+                hatchAmps,
+                powerInputMode,
+                machineHandlerId,
+                coilTier,
+                machineConfigTiers,
+                overrides,
+                extraRecipes,
+                solvePin,
+                targetOutput,
+                enabled,
+                x,
+                y,
+                customRatePerSecond,
+                customRateMode,
+                hatchSupplies,
+                Map.of());
+        }
+    }
 
     /**
      * A wire. Handles look like {@code output:fluid:hydrogen} or

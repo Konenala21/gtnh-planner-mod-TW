@@ -130,7 +130,50 @@ public final class FfCards {
             else report
                 .add(Kind.WIRE, name, "its target rate names " + target.resourceId() + ", which it does not make");
         }
+        portRates(ports, node, recipe, overrides, card, section, name, report);
         return node;
+    }
+
+    /**
+     * Plan mode's port-rate pins ({@code portRates}) of one section onto its card's rates: each handle's port (an
+     * input by the slot it fills, its alternatives too), the rate a second.
+     */
+    static void portRates(final Ports ports, final Node node, @Nullable final FfRecipe recipe,
+        final Map<Integer, FfSlot> overrides, final FfNode card, final int section, final String name,
+        final ImportReport report) {
+        for (final Map.Entry<String, Double> rate : card.portRates()
+            .entrySet()) {
+            final FfHandle h = FfHandle.parse(rate.getKey());
+            if (h == null || h.section() != section) continue;
+            final int at = portOf(ports, node, recipe, overrides, h);
+            if (at < 0) {
+                report.add(Kind.WIRE, name, "its rate names " + h.resourceId() + ", which it has no port for");
+                continue;
+            }
+            (h.output() ? node.targetOutputRates : node.targetInputRates).put(at, rate.getValue());
+        }
+    }
+
+    /** The port a handle names on a card: by its resource, an input by the slot it fills; -1 when none. */
+    static int portOf(final Ports ports, final Node node, @Nullable final FfRecipe recipe,
+        final Map<Integer, FfSlot> overrides, final FfHandle h) {
+        final List<String> want = new ArrayList<>();
+        want.add(h.resourceId());
+        if (!h.output() && recipe != null) {
+            final List<FfSlot> inputs = recipe.inputs();
+            for (int i = 0; i < inputs.size(); i++) {
+                final List<String> ids = new ArrayList<>(
+                    inputs.get(i)
+                        .ids());
+                final FfSlot pick = overrides.get(i);
+                if (pick != null) ids.add(pick.id());
+                if (FfIds.anySame(ids, want)) {
+                    want.addAll(ids);
+                    break;
+                }
+            }
+        }
+        return ports.find(node, h.output(), h.kind(), want);
     }
 
     /** The one recipe a lookup found by its own id (or a crop's or bee's), as a match; none when it found nothing. */
