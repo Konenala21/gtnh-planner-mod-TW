@@ -10,8 +10,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,6 +28,24 @@ class CloudCacheTest {
 
     @TempDir
     File root;
+
+    /**
+     * Every cache a test opened. Writes go on in the cache's writer thread after the call returns: one still making a
+     * file while JUnit clears the folder away kept it from being deleted on Windows (the file open, or made again
+     * after the clean-up emptied its folder). Each is closed (its writes waited for) after the test, before that.
+     */
+    private final List<CloudCache> opened = new ArrayList<>();
+
+    private CloudCache open(final String account) {
+        final CloudCache c = CloudCache.forAccount(root, account);
+        opened.add(c);
+        return c;
+    }
+
+    @AfterEach
+    void closeEveryCache() {
+        for (final CloudCache c : opened) c.close();
+    }
 
     private static JsonObject plan(final String name) {
         final JsonObject p = new JsonObject();
@@ -50,12 +70,12 @@ class CloudCacheTest {
 
     @Test
     void thePlanAndItsSeqComeBackAfterARestart() {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         assertNull(a.doc("u1:d1"));
         a.saveDoc("u1:d1", 12, plan("Smelter"));
         a.close();
         assertTrue(new File(root, "gtnhplanner/cloud/u1").isDirectory());
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         assertEquals(
             12,
             b.doc("u1:d1")
@@ -66,20 +86,18 @@ class CloudCacheTest {
                 .plan()
                 .get("name")
                 .getAsString());
-        assertNull(
-            CloudCache.forAccount(root, "u2")
-                .doc("u1:d1"));
+        assertNull(open("u2").doc("u1:d1"));
     }
 
     @Test
     void aBatchIsOnDiskWhenItsFutureIsDoneAndGoneWhenAcked() throws Exception {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.addPending("u1:d1", batch("c1"))
             .get();
         a.addPending("u1:d1", batch("c2"))
             .get();
         // Not closed, not flushed: as a crash leaves it.
-        final CloudCache crashed = CloudCache.forAccount(root, "u1");
+        final CloudCache crashed = open("u1");
         assertEquals(List.of("c1", "c2"), cids(crashed, "u1:d1"));
         assertEquals(
             4,
@@ -101,10 +119,10 @@ class CloudCacheTest {
             .get();
         a.ack("u1:d1", "nope")
             .get();
-        assertEquals(List.of("c2"), cids(CloudCache.forAccount(root, "u1"), "u1:d1"));
+        assertEquals(List.of("c2"), cids(open("u1"), "u1:d1"));
         a.ack("u1:d1", "c2")
             .get();
-        final CloudCache empty = CloudCache.forAccount(root, "u1");
+        final CloudCache empty = open("u1");
         assertTrue(
             empty.pending("u1:d1")
                 .isEmpty());
@@ -115,7 +133,7 @@ class CloudCacheTest {
 
     @Test
     void aWriteThatDiedHalfwayLeavesTheLastGoodFile() throws IOException {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.saveDoc("u1:d1", 3, plan("Good"));
         a.addPending("u1:d1", batch("c1"));
         a.close();
@@ -125,7 +143,7 @@ class CloudCacheTest {
             new File(dir, "plan.json.new").toPath(),
             "{\"seq\":9,\"plan\":{\"na".getBytes(StandardCharsets.UTF_8));
         Files.write(new File(dir, "pending.json.new").toPath(), "{".getBytes(StandardCharsets.UTF_8));
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         assertEquals(
             3,
             b.doc("u1:d1")
@@ -137,25 +155,21 @@ class CloudCacheTest {
         assertFalse(new File(dir, "plan.json.new").exists());
         // A torn real file (a disk that lied) is no copy rather than a crash.
         Files.write(new File(dir, "plan.json").toPath(), "{\"seq\":".getBytes(StandardCharsets.UTF_8));
-        assertNull(
-            CloudCache.forAccount(root, "u1")
-                .doc("u1:d1"));
+        assertNull(open("u1").doc("u1:d1"));
         assertEquals(
             1,
-            CloudCache.forAccount(root, "u1")
-                .pending("u1:d1")
+            open("u1").pending("u1:d1")
                 .size());
     }
 
     @Test
     void writesLandInTheOrderTheyWereMade() {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         for (int i = 0; i < 50; i++) a.saveDoc("u1:d1", i, plan("v" + i));
         a.flush();
         assertEquals(
             49,
-            CloudCache.forAccount(root, "u1")
-                .doc("u1:d1")
+            open("u1").doc("u1:d1")
                 .seq());
         final File[] left = new File(root, "gtnhplanner/cloud/u1/docs/u1_d1").listFiles((d, n) -> n.endsWith(".new"));
         assertEquals(0, left.length);
@@ -163,7 +177,7 @@ class CloudCacheTest {
 
     @Test
     void pinsAndTheListAreKeptPerPlan() throws Exception {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.setPins("u1:d1", List.of("n1", "n2"))
             .get();
         assertTrue(
@@ -177,7 +191,7 @@ class CloudCacheTest {
                 .getAsJsonObject());
         a.saveList(lib)
             .get();
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         assertEquals(List.of("n1", "n2"), b.pins("u1:d1"));
         assertEquals(
             "Smelter",
@@ -193,14 +207,12 @@ class CloudCacheTest {
                 .members()
                 .get(0)
                 .username());
-        assertNull(
-            CloudCache.forAccount(root, "u3")
-                .list());
+        assertNull(open("u3").list());
     }
 
     @Test
     void forgettingAPlanRemovesItsFiles() throws Exception {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.saveDoc("u1:d1", 1, plan("x"));
         a.addPending("u1:d1", batch("c1"));
         a.forget("u1:d1")
@@ -211,18 +223,18 @@ class CloudCacheTest {
 
     @Test
     void aBlankAccountHasNoCache() {
-        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, ""));
-        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, "  "));
-        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, ".."));
+        assertThrows(IllegalArgumentException.class, () -> open(""));
+        assertThrows(IllegalArgumentException.class, () -> open("  "));
+        assertThrows(IllegalArgumentException.class, () -> open(".."));
     }
 
     @Test
     void aForgottenPlanDoesNotComeBackFromTheFiles() throws Exception {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.saveDoc("u1:d1", 1, plan("x"));
         a.addPending("u1:d1", batch("c1"));
         a.flush();
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         b.forget("u1:d1");
         assertNull(b.doc("u1:d1"));
         assertTrue(
@@ -235,10 +247,10 @@ class CloudCacheTest {
 
     @Test
     void pendingKeysIncludeWhatIsOnlyInMemoryAndWhatIsOnlyOnDisk() {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.addPending("u1:d1", batch("c1"));
         a.flush();
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         assertEquals(List.of("u1:d1"), b.keysWithPending());
         b.addPending("u1:d3", batch("c3"));
         assertEquals(java.util.Set.of("u1:d1", "u1:d3"), new java.util.HashSet<>(b.keysWithPending()));
@@ -252,7 +264,7 @@ class CloudCacheTest {
         d.mkdirs();
         Files.writeString(new File(d, "plan.json").toPath(), "{\"key\":\"u1:d1\",\"seq\":\"x\",\"plan\":{}}");
         Files.writeString(new File(d, "pending.json").toPath(), "{\"key\":\"u1:d1\",\"batches\":[{\"cid\":\"c\"}]}");
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         assertNull(a.doc("u1:d1"));
         assertTrue(
             a.pending("u1:d1")
@@ -264,12 +276,12 @@ class CloudCacheTest {
 
     @Test
     void aPlanKeptAsItIsReadsBackFromDisk() {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         a.addPending("u1:d1", batch("c1"));
         a.saveDocAsIs("u1:d1", 7, plan("Kept"));
         a.ack("u1:d1", "c1");
         a.close();
-        final CloudCache b = CloudCache.forAccount(root, "u1");
+        final CloudCache b = open("u1");
         assertEquals(
             7,
             b.doc("u1:d1")
@@ -289,7 +301,7 @@ class CloudCacheTest {
 
     @Test
     void callersCannotChangeWhatTheCacheHolds() {
-        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final CloudCache a = open("u1");
         final JsonObject p = plan("Smelter");
         a.saveDoc("u1:d1", 1, p);
         p.addProperty("name", "changed");
