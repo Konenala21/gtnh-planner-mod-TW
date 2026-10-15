@@ -36,8 +36,8 @@ website (`jackwrichards/gtnh-factory-flow`, branch `cloud-live`, worktree `C:\Us
 - **Publish**: posts a one-time public copy to the library (today's "Share to library"). Update in library refreshes
   it. Publishing never shares the live plan.
 - **Task board**: its own kind of plan (`primaryView: "tasks"`, made with the + menu's New task board, or from "Add to
-  a task" on cards). It always shows its tasks and never cards, and a normal plan never shows tasks. Columns To do,
-  Doing, Blocked, Done; a task has a title, text (its notes), assignees (members of the plan), a list of **things** and
+  a task" on cards). It always shows its tasks and never cards, and a normal plan never shows tasks. Columns Blocked,
+  To do, Doing, Done (left to right); a task has a title, text (its notes), assignees (members of the plan), a list of **things** and
   comments (the owner, 2026-10-15: "like Jira"; no separate cards section and checklist). Every thing has its own
   checkbox and is one of:
   - a **machine**: a card on a plan (`link`), "4× Electric Blast Furnace (HV)"; a click opens that plan with the card
@@ -232,11 +232,21 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
 - `primaryView?: "plan" | "tasks"`: which view the plan opens on. A task board is a plan with `"tasks"`.
 - `tasks?: PlanTask[]`: `{ id, title (1-120), text? (≤4000), status: "todo"|"doing"|"blocked"|"done", order: string
   (fractional index), assignees?: string[] (account ids), links?: PlanLink[], createdBy?, createdAt?, doneAt?,
-  priority?: "high"|"medium"|"low", movedAt? (ISO: when it last changed column) }`. No `priority` is Medium (the game
+  priority?: "high"|"medium"|"low", movedAt? (ISO: when it last changed column), blockedBy?: string[] (ids of tasks
+  on the same board it waits on) }`. No `priority` is Medium (the game
   writes none for Medium). `movedAt` is stamped by whoever moves the task to another column (a move within a column
   leaves it); a task without one counts from `createdAt`. Cards show a priority arrow (up high, bar medium, down low)
   and one dot a day in the column to four, amber from 7 days, red from 14, none in Done. **The website's schema must
   accept `priority` and `movedAt`.**
+- `blockedBy` (the owner, 2026-10-15): "Blocked by", a description that stays whatever column the task is in. Each id
+  once, never the task itself, never a loop (a task cannot wait on one that waits on it, directly or down the chain:
+  the adding side refuses it; a loop two people close at once is drawn broken, never an error). No `blockedBy` is
+  none (the game writes none for an empty list). Deleting a task takes its id out of every other task's list in the
+  same edit; an id naming no task on the board is ignored. A card shows a marker with how many of its blockers are
+  not Done; the task box lists Blocked by (add, remove) and Blocks (the reverse, read only). The chain view (Board /
+  Chain in the board's header, remembered per board on each device, never synced) draws the tasks as the quest book
+  does: layers left to right, arrows from each task to the tasks it unblocks, done tasks dimmed, ready ones (every
+  blocker Done) lit. **The website's schema must accept `blockedBy`.**
 - `PlanLink`: `{ plan: string, node: string }`: a card on a plan, `plan` the plan's id (its doc key
   `<ownerId>:<designId>`, or a local id for a plan not in an account) and `node` the card's id in that plan, as that
   plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read

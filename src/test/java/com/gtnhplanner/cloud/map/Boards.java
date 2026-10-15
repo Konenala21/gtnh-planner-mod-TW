@@ -218,6 +218,22 @@ public final class Boards {
                 "11111111-1111-4111-8111-111111111111",
                 "2026-10-14T10:00:00.000Z",
                 null));
+        // A task waiting on the first: its blockedBy goes to the account and back.
+        g.tasks.add(
+            new Tasks.Task(
+                "t1b",
+                "Power " + g.getName(),
+                null,
+                Tasks.Status.TODO,
+                "a1",
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("t1")));
         g.taskItems.add(
             new Tasks.Item(
                 "i1",

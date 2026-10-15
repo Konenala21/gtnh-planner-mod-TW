@@ -236,14 +236,21 @@ public final class TaskEdits {
                 t.createdAt(),
                 doneAt,
                 t.priority(),
-                to == t.status() ? t.movedAt() : at));
+                to == t.status() ? t.movedAt() : at,
+                t.blockedBy()));
     }
 
-    /** Takes a task off the board, with its checklist and comments. */
+    /** Takes a task off the board, with its checklist and comments; the tasks that waited on it wait on it no more. */
     public static void remove(final Graph g, final String id) {
         g.tasks.removeIf(
             t -> t.id()
                 .equals(id));
+        for (final Tasks.Task t : List.copyOf(g.tasks)) if (t.blockedBy()
+            .contains(id)) {
+                final List<String> waits = new ArrayList<>(t.blockedBy());
+                waits.remove(id);
+                put(g, withBlockedBy(t, waits));
+            }
         g.taskItems.removeIf(
             i -> i.taskId()
                 .equals(id));
@@ -265,7 +272,8 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     /** The task with its text; blank text is none. */
@@ -283,7 +291,8 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     public static Tasks.Task withAssignees(final Tasks.Task t, final List<String> assignees) {
@@ -299,7 +308,8 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     public static Tasks.Task withLinks(final Tasks.Task t, final List<Tasks.Link> links) {
@@ -315,7 +325,8 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     /** The task with its priority; Medium is the default and is written as none. */
@@ -332,7 +343,26 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             priority,
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
+    }
+
+    /** The task waiting on these tasks (by id; itself and repeats dropped). */
+    public static Tasks.Task withBlockedBy(final Tasks.Task t, final List<String> blockedBy) {
+        return new Tasks.Task(
+            t.id(),
+            t.title(),
+            t.text(),
+            t.status(),
+            t.order(),
+            t.assignees(),
+            t.links(),
+            t.createdBy(),
+            t.createdAt(),
+            t.doneAt(),
+            t.priority(),
+            t.movedAt(),
+            blockedBy);
     }
 
     private static Tasks.Task withOrder(final Tasks.Task t, final String order) {
@@ -348,7 +378,8 @@ public final class TaskEdits {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     /**
@@ -364,6 +395,91 @@ public final class TaskEdits {
     private static void renumber(final Graph g, final List<Tasks.Task> column) {
         final List<String> keys = OrderKeys.sequence(column.size());
         for (int k = 0; k < column.size(); k++) put(g, withOrder(column.get(k), keys.get(k)));
+    }
+
+    // endregion
+
+    // region Blocked by
+
+    /** The tasks a task waits on that are on the board, in the order it lists them. */
+    public static List<Tasks.Task> blockers(final Graph g, final String id) {
+        final Tasks.Task t = task(g, id);
+        final List<Tasks.Task> out = new ArrayList<>();
+        if (t == null) return out;
+        for (final String b : t.blockedBy()) {
+            final Tasks.Task w = task(g, b);
+            if (w != null) out.add(w);
+        }
+        return out;
+    }
+
+    /** The tasks a task waits on that are not Done yet. */
+    public static List<Tasks.Task> openBlockers(final Graph g, final String id) {
+        final List<Tasks.Task> out = blockers(g, id);
+        out.removeIf(t -> t.status() == Tasks.Status.DONE);
+        return out;
+    }
+
+    /** The tasks waiting on a task ("Blocks"), in the board's order: column by column, top first. */
+    public static List<Tasks.Task> blocking(final Graph g, final String id) {
+        final List<Tasks.Task> out = new ArrayList<>();
+        for (final Tasks.Status s : Tasks.Status.values()) for (final Tasks.Task t : column(g, s)) if (t.blockedBy()
+            .contains(id)) out.add(t);
+        return out;
+    }
+
+    /** Whether a task not done waits on tasks and every one of them is Done: it can start. */
+    public static boolean ready(final Graph g, final Tasks.Task t) {
+        if (t.status() == Tasks.Status.DONE) return false;
+        final List<Tasks.Task> waits = blockers(g, t.id());
+        return !waits.isEmpty() && openBlockers(g, t.id()).isEmpty();
+    }
+
+    /**
+     * Whether {@code task} waiting on {@code blocker} would close a loop: the blocker is the task, or waits on it,
+     * directly or down the chain.
+     */
+    public static boolean wouldLoop(final Graph g, final String task, final String blocker) {
+        if (task.equals(blocker)) return true;
+        final Set<String> seen = new HashSet<>();
+        final List<String> todo = new ArrayList<>(List.of(blocker));
+        while (!todo.isEmpty()) {
+            final String at = todo.remove(todo.size() - 1);
+            if (!seen.add(at)) continue;
+            final Tasks.Task t = task(g, at);
+            if (t == null) continue;
+            for (final String b : t.blockedBy()) {
+                if (b.equals(task)) return true;
+                todo.add(b);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Makes {@code task} wait on {@code blocker}. Refused (false, nothing changes) when either is not on the board, it
+     * already waits on it, or it would close a loop.
+     */
+    public static boolean addBlocker(final Graph g, final String task, final String blocker) {
+        final Tasks.Task t = task(g, task);
+        if (t == null || task(g, blocker) == null
+            || t.blockedBy()
+                .contains(blocker)
+            || wouldLoop(g, task, blocker)) return false;
+        final List<String> waits = new ArrayList<>(t.blockedBy());
+        waits.add(blocker);
+        put(g, withBlockedBy(t, waits));
+        return true;
+    }
+
+    /** {@code task} waits on {@code blocker} no more. */
+    public static void removeBlocker(final Graph g, final String task, final String blocker) {
+        final Tasks.Task t = task(g, task);
+        if (t == null || !t.blockedBy()
+            .contains(blocker)) return;
+        final List<String> waits = new ArrayList<>(t.blockedBy());
+        waits.remove(blocker);
+        put(g, withBlockedBy(t, waits));
     }
 
     // endregion

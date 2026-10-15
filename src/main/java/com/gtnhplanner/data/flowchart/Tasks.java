@@ -31,12 +31,12 @@ public final class Tasks {
         return HIGH.equals(p) || LOW.equals(p) ? p : null;
     }
 
-    /** A task's column. */
+    /** A task's column, in the board's order left to right: Blocked, To do, Doing, Done. */
     public enum Status {
 
+        BLOCKED("blocked"),
         TODO("todo"),
         DOING("doing"),
-        BLOCKED("blocked"),
         DONE("done");
 
         public final String wire;
@@ -60,18 +60,45 @@ public final class Tasks {
      * @param assignees account ids of the plan's members working on it
      * @param links     the cards it is about, each in the plan it is on (a task board is a plan of its own, so its
      *                  cards are on other plans)
+     * @param blockedBy the tasks of the same board it waits on, by id, each once and never itself ("Blocked by"; a
+     *                  description that stays whatever column it is in)
      */
     public record Task(String id, String title, @Nullable String text, Status status, String order,
         List<String> assignees, List<Link> links, @Nullable String createdBy, @Nullable String createdAt,
-        @Nullable String doneAt, @Nullable String priority, @Nullable String movedAt) {
+        @Nullable String doneAt, @Nullable String priority, @Nullable String movedAt, List<String> blockedBy) {
 
         public Task {
             assignees = List.copyOf(assignees);
             links = List.copyOf(links);
             priority = priorityOf(priority);
+            final List<String> waits = new ArrayList<>();
+            for (final String b : blockedBy == null ? List.<String>of() : blockedBy)
+                if (b != null && !b.equals(id) && !waits.contains(b)) waits.add(b);
+            blockedBy = List.copyOf(waits);
         }
 
-        /** A task with no priority (Medium) and no move stamp, as an older save spelled it. */
+        /** A task waiting on nothing. */
+        public Task(final String id, final String title, @Nullable final String text, final Status status,
+            final String order, final List<String> assignees, final List<Link> links, @Nullable final String createdBy,
+            @Nullable final String createdAt, @Nullable final String doneAt, @Nullable final String priority,
+            @Nullable final String movedAt) {
+            this(
+                id,
+                title,
+                text,
+                status,
+                order,
+                assignees,
+                links,
+                createdBy,
+                createdAt,
+                doneAt,
+                priority,
+                movedAt,
+                List.of());
+        }
+
+        /** A task with no priority (Medium), no move stamp and nothing it waits on, as an older save spelled it. */
         public Task(final String id, final String title, @Nullable final String text, final Status status,
             final String order, final List<String> assignees, final List<Link> links, @Nullable final String createdBy,
             @Nullable final String createdAt, @Nullable final String doneAt) {
@@ -171,6 +198,8 @@ public final class Tasks {
         if (t.doneAt() != null) o.addProperty("doneAt", t.doneAt());
         if (t.priority() != null) o.addProperty("priority", t.priority());
         if (t.movedAt() != null) o.addProperty("movedAt", t.movedAt());
+        if (!t.blockedBy()
+            .isEmpty()) o.add("blockedBy", strings(t.blockedBy()));
         return o;
     }
 
@@ -272,7 +301,8 @@ public final class Tasks {
             t.createdAt(),
             t.doneAt(),
             t.priority(),
-            t.movedAt());
+            t.movedAt(),
+            t.blockedBy());
     }
 
     public static Item claimed(final Item i, final String plan) {
@@ -320,7 +350,8 @@ public final class Tasks {
             str(o, "createdAt"),
             str(o, "doneAt"),
             str(o, "priority"),
-            str(o, "movedAt"));
+            str(o, "movedAt"),
+            strings(o, "blockedBy"));
     }
 
     @Nullable

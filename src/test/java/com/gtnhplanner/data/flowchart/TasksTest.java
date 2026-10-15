@@ -223,4 +223,36 @@ class TasksTest {
             g.tasks.get(0)
                 .status());
     }
+
+    @Test
+    void blockedByIsCarriedAndOldTasksWaitOnNothing() {
+        final Graph g = new Graph("B");
+        TaskEdits.add(g, "a", "A", Tasks.Status.TODO, List.of(), null, null);
+        TaskEdits.add(g, "b", "B", Tasks.Status.TODO, List.of(), null, null);
+        assertTrue(TaskEdits.addBlocker(g, "b", "a"));
+        final Graph back = Serializer.decode(Serializer.encode(g));
+        assertEquals(g.tasks, back.tasks);
+        assertEquals(
+            List.of("a"),
+            TaskEdits.task(back, "b")
+                .blockedBy());
+
+        final Tasks.Task old = Tasks.task(
+            new JsonParser().parse("{\"id\":\"a\",\"title\":\"A\",\"status\":\"todo\",\"order\":\"a0\"}")
+                .getAsJsonObject());
+        assertTrue(
+            old.blockedBy()
+                .isEmpty());
+        assertEquals(
+            -1,
+            Tasks.toJson(old)
+                .toString()
+                .indexOf("blockedBy"));
+        // Itself and repeats are dropped as it reads.
+        final Tasks.Task odd = Tasks.task(
+            new JsonParser().parse(
+                "{\"id\":\"a\",\"title\":\"A\",\"status\":\"todo\",\"order\":\"a0\",\"blockedBy\":[\"a\",\"b\",\"b\"]}")
+                .getAsJsonObject());
+        assertEquals(List.of("b"), odd.blockedBy());
+    }
 }

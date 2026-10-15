@@ -169,4 +169,91 @@ class TaskEditsTest {
             TaskEdits.withText(t, "   ")
                 .text());
     }
+
+    @Test
+    void aTaskWaitsOnOthersButNeverInALoop() {
+        final Graph g = new Graph("B");
+        for (final String id : List.of("a", "b", "c", "d"))
+            TaskEdits.add(g, id, id, Tasks.Status.TODO, List.of(), null, AT);
+        assertTrue(TaskEdits.addBlocker(g, "b", "a"));
+        assertTrue(TaskEdits.addBlocker(g, "c", "b"));
+        // Itself, twice, directly back, and back down the chain are all refused.
+        assertTrue(!TaskEdits.addBlocker(g, "a", "a"));
+        assertTrue(!TaskEdits.addBlocker(g, "b", "a"));
+        assertTrue(!TaskEdits.addBlocker(g, "a", "b"));
+        assertTrue(!TaskEdits.addBlocker(g, "a", "c"));
+        assertTrue(!TaskEdits.addBlocker(g, "a", "gone"));
+        assertTrue(TaskEdits.addBlocker(g, "c", "d"));
+        assertEquals(List.of("b", "d"), ids(TaskEdits.blockers(g, "c")));
+        assertEquals(List.of("b"), ids(TaskEdits.blocking(g, "a")));
+
+        // Ready once everything it waits on is done.
+        assertTrue(!TaskEdits.ready(g, TaskEdits.task(g, "b")));
+        TaskEdits.move(g, "a", Tasks.Status.DONE, 0, AT);
+        assertTrue(TaskEdits.ready(g, TaskEdits.task(g, "b")));
+        assertEquals(List.of("b", "d"), ids(TaskEdits.openBlockers(g, "c")));
+
+        // A blocker deleted leaves the lists of those that waited on it; one taken off goes alone.
+        TaskEdits.remove(g, "b");
+        assertEquals(
+            List.of("d"),
+            TaskEdits.task(g, "c")
+                .blockedBy());
+        TaskEdits.removeBlocker(g, "c", "d");
+        assertTrue(
+            TaskEdits.task(g, "c")
+                .blockedBy()
+                .isEmpty());
+    }
+
+    @Test
+    void chainsAreLaidOutInLayersWithTheUnlinkedAtTheEnd() {
+        final Graph g = new Graph("B");
+        for (final String id : List.of("ore", "dust", "ingot", "plate", "wire", "motor", "lone", "x", "y"))
+            TaskEdits.add(g, id, id, Tasks.Status.TODO, List.of(), null, AT);
+        // ore -> dust -> ingot -> plate -> motor, and ingot -> wire -> motor: two branches meeting.
+        TaskEdits.addBlocker(g, "dust", "ore");
+        TaskEdits.addBlocker(g, "ingot", "dust");
+        TaskEdits.addBlocker(g, "plate", "ingot");
+        TaskEdits.addBlocker(g, "wire", "ingot");
+        TaskEdits.addBlocker(g, "motor", "plate");
+        TaskEdits.addBlocker(g, "motor", "wire");
+        TaskEdits.addBlocker(g, "y", "x");
+        final TaskChain.Layout l = TaskChain.of(g);
+        assertEquals(
+            2,
+            l.chains()
+                .size());
+        assertEquals(
+            List.of(List.of("ore"), List.of("dust"), List.of("ingot"), List.of("plate", "wire"), List.of("motor")),
+            l.chains()
+                .get(0)
+                .layers());
+        assertEquals(
+            List.of(List.of("x"), List.of("y")),
+            l.chains()
+                .get(1)
+                .layers());
+        assertEquals(List.of("lone"), l.loose());
+        assertEquals(
+            9,
+            l.ids()
+                .size());
+
+        // A loop two people closed at once still lays out, each task once.
+        g.tasks.set(0, TaskEdits.withBlockedBy(g.tasks.get(0), List.of("motor")));
+        final TaskChain.Layout looped = TaskChain.of(g);
+        assertEquals(
+            9,
+            looped.ids()
+                .size());
+        assertEquals(9, new java.util.HashSet<>(looped.ids()).size());
+    }
+
+    @Test
+    void theColumnsRunBlockedToDoDoingDone() {
+        assertEquals(
+            List.of(Tasks.Status.BLOCKED, Tasks.Status.TODO, Tasks.Status.DOING, Tasks.Status.DONE),
+            List.of(Tasks.Status.values()));
+    }
 }

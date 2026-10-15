@@ -447,7 +447,8 @@ public final class DevHarness {
                                         t.createdAt(),
                                         t.doneAt(),
                                         q.containsKey("priority") ? q.get("priority") : t.priority(),
-                                        since)));
+                                        since,
+                                        t.blockedBy())));
                         }
                     }
                     if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(session, q.get("open"));

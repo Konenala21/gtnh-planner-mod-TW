@@ -259,7 +259,7 @@ class CloudPlansTest {
             plan.get("primaryView")
                 .getAsString());
         assertEquals(
-            1,
+            2,
             plan.getAsJsonArray("tasks")
                 .size());
         final CloudPlans.Read r = CloudPlans.read(plan, game);
@@ -283,7 +283,7 @@ class CloudPlansTest {
         final JsonObject edited = LiveOps
             .apply(plan, List.of(LiveOp.put("tasks", "t2", task), LiveOp.patch("taskItems", "i1", tick, null)));
         final CloudPlans.Read seen = CloudPlans.read(edited, game);
-        assertEquals(2, seen.graph().tasks.size());
+        assertEquals(3, seen.graph().tasks.size());
         assertTrue(
             seen.graph().taskItems.getFirst()
                 .done());
