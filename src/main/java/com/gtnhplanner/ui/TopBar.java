@@ -2,6 +2,7 @@ package com.gtnhplanner.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntSupplier;
 
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -11,8 +12,9 @@ import com.cleanroommc.modularui.widget.sizer.Unit;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
- * The planner's top bar: the plan tabs, then the keys in their groups (the non-recipe machines; undo and redo; arrange
- * and fit; the units; tasks, library and share; feedback, settings and help).
+ * The planner's top bar, for the account's things only: the plan tabs (with their live status and faces), then the
+ * keys in their groups (library, share and the account; feedback, settings and help). What edits or views the board
+ * is in {@link BoardToolbar}, along the top of the board.
  *
  * <p>
  * It gives way as the planner narrows, as the website's bar does. First the keys sit closer, the non-recipe key keeps
@@ -28,8 +30,8 @@ final class TopBar extends ParentWidget<TopBar> {
     private static final int PAD = 4, GAP = 3, GROUP_GAP = 9, TIGHT_GAP = 1, TIGHT_GROUP_GAP = 4;
     private static final int BG = 0xFF0E0F12, LINE = 0xFF2A2C31;
 
-    /** A key: its group, and its width with room to spare and when the bar is tight. */
-    private record Key(Widget<?> widget, int group, int roomy, int tight) {}
+    /** A key: its group, and its width with room to spare and when the bar is tight (a key may change its width). */
+    private record Key(Widget<?> widget, int group, IntSupplier roomy, IntSupplier tight) {}
 
     /** Where everything goes: the rows, the tabs' width, and each key's place and width. */
     private record Layout(int rows, int tabsW, int[] x, int[] y, int[] w) {}
@@ -37,7 +39,7 @@ final class TopBar extends ParentWidget<TopBar> {
     private final PlanTabs tabs;
     private final List<Key> keys = new ArrayList<>();
     private Layout laid;
-    private int laidWidth = -1, laidReserve = -1;
+    private int laidWidth = -1, laidReserve = -1, laidKeys = -1;
 
     TopBar(final PlanTabs tabs) {
         this.tabs = tabs;
@@ -60,6 +62,11 @@ final class TopBar extends ParentWidget<TopBar> {
      * Adds a key to {@code group} (groups in order, from 0), {@code roomy} wide with room and {@code tight} without.
      */
     <W extends Widget<?>> W key(final int group, final W widget, final int roomy, final int tight) {
+        return key(group, widget, () -> roomy, () -> tight);
+    }
+
+    /** As above, for a key whose width changes (the account's: "Sign in", then a face). */
+    <W extends Widget<?>> W key(final int group, final W widget, final IntSupplier roomy, final IntSupplier tight) {
         final int i = keys.size();
         keys.add(new Key(widget, group, roomy, tight));
         widget.left(() -> layout().x()[i], Unit.Measure.PIXEL)
@@ -82,12 +89,23 @@ final class TopBar extends ParentWidget<TopBar> {
         return w > 0 ? w : getArea().width;
     }
 
+    /** The keys' widths added up: it moves when one of them changes its width. */
+    private int keysSig() {
+        int sig = 0;
+        for (final Key k : keys) sig = sig * 31 + k.roomy()
+            .getAsInt() * 7
+            + k.tight()
+                .getAsInt();
+        return sig;
+    }
+
     private Layout layout() {
-        final int width = barWidth(), reserve = tabs.reserve();
-        if (laid == null || width != laidWidth || reserve != laidReserve) {
+        final int width = barWidth(), reserve = tabs.reserve(), sig = keysSig();
+        if (laid == null || width != laidWidth || reserve != laidReserve || sig != laidKeys) {
             laid = lay(width, reserve);
             laidWidth = width;
             laidReserve = reserve;
+            laidKeys = sig;
         }
         return laid;
     }
@@ -96,7 +114,7 @@ final class TopBar extends ParentWidget<TopBar> {
     @Override
     public void onUpdate() {
         super.onUpdate();
-        if (barWidth() != laidWidth || tabs.reserve() != laidReserve) {
+        if (barWidth() != laidWidth || tabs.reserve() != laidReserve || keysSig() != laidKeys) {
             layout();
             final ModularPanel panel = getPanel();
             if (panel != null) panel.scheduleResize();
@@ -165,7 +183,7 @@ final class TopBar extends ParentWidget<TopBar> {
             final Key k = keys.get(i);
             if (i > from) w += k.group() != keys.get(i - 1)
                 .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
-            w += tight ? k.tight() : k.roomy();
+            w += (tight ? k.tight() : k.roomy()).getAsInt();
         }
         return w;
     }
@@ -180,7 +198,7 @@ final class TopBar extends ParentWidget<TopBar> {
                 .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
             x[i] = at;
             y[i] = top;
-            w[i] = tight ? k.tight() : k.roomy();
+            w[i] = (tight ? k.tight() : k.roomy()).getAsInt();
             at += w[i];
         }
     }
