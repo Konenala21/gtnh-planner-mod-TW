@@ -65,6 +65,51 @@ class TasksTest {
     }
 
     @Test
+    void priorityAndTheMoveStampAreCarriedAndOldTasksAreMedium() {
+        final Graph g = new Graph("P");
+        g.tasks.add(
+            new Tasks.Task(
+                "t",
+                "T",
+                null,
+                Tasks.Status.DOING,
+                "a0",
+                List.of(),
+                List.of(),
+                null,
+                "2026-10-01T00:00:00.000Z",
+                null,
+                Tasks.HIGH,
+                "2026-10-05T00:00:00.000Z"));
+        final Graph back = Serializer.decode(Serializer.encode(g));
+        assertEquals(g.tasks, back.tasks);
+        assertEquals(
+            Tasks.HIGH,
+            back.tasks.get(0)
+                .priority());
+        assertEquals(
+            "2026-10-05T00:00:00.000Z",
+            back.tasks.get(0)
+                .sinceColumn());
+
+        final Tasks.Task old = Tasks.task(
+            new JsonParser().parse(
+                "{\"id\":\"a\",\"title\":\"A\",\"status\":\"todo\",\"order\":\"a0\",\"createdAt\":\"2026-10-01T00:00:00.000Z\"}")
+                .getAsJsonObject());
+        assertEquals(Tasks.MEDIUM, old.shownPriority());
+        assertEquals("2026-10-01T00:00:00.000Z", old.sinceColumn());
+        assertEquals(
+            null,
+            TaskEdits.withPriority(old, Tasks.MEDIUM)
+                .priority());
+        assertEquals(
+            -1,
+            Tasks.toJson(old)
+                .toString()
+                .indexOf("priority"));
+    }
+
+    @Test
     void theBoardIsWrittenAsThePlanSpellsIt() {
         final JsonObject root = new JsonObject();
         Tasks.write(board(), root);

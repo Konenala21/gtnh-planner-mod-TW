@@ -420,6 +420,36 @@ public final class DevHarness {
                                     .put(g, com.gtnhplanner.data.flowchart.TaskEdits.withAssignees(t, next)));
                         }
                     }
+                    if (task != null && (q.containsKey("priority") || q.containsKey("age"))) {
+                        // priority=high|medium|low and age=<days in its column> (movedAt put back that far).
+                        final com.gtnhplanner.data.flowchart.Tasks.Task t = com.gtnhplanner.data.flowchart.TaskEdits
+                            .task(g, task);
+                        if (t != null) {
+                            final String since = q.containsKey("age")
+                                ? java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                                    .withZone(java.time.ZoneOffset.UTC)
+                                    .format(
+                                        java.time.Instant.now()
+                                            .minusSeconds((long) (Double.parseDouble(q.get("age")) * 86400)))
+                                : t.movedAt();
+                            session.editTasks(
+                                () -> com.gtnhplanner.data.flowchart.TaskEdits.put(
+                                    g,
+                                    new com.gtnhplanner.data.flowchart.Tasks.Task(
+                                        t.id(),
+                                        t.title(),
+                                        t.text(),
+                                        t.status(),
+                                        t.order(),
+                                        t.assignees(),
+                                        t.links(),
+                                        t.createdBy(),
+                                        t.createdAt(),
+                                        t.doneAt(),
+                                        q.containsKey("priority") ? q.get("priority") : t.priority(),
+                                        since)));
+                        }
+                    }
                     if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(session, q.get("open"));
                     if (q.containsKey("scroll")) com.gtnhplanner.ui.task.TaskPanel.scrollTo(intArg(q, "scroll"));
                     final Map<String, Object> m = new LinkedHashMap<>();

@@ -70,6 +70,94 @@ public final class TaskLook {
         for (final int[] r : CHECKLIST) Hyb.rect(x + r[0], y + r[1], r[2], 1, colour);
     }
 
+    // region Priority and time in a column
+
+    /** A priority's name. */
+    public static String priorityName(final String p) {
+        return switch (p) {
+            case Tasks.HIGH -> "High";
+            case Tasks.LOW -> "Low";
+            default -> "Medium";
+        };
+    }
+
+    /** A priority's colour: red-orange high, amber medium, blue low. */
+    public static int priorityColour(final String p) {
+        return switch (p) {
+            case Tasks.HIGH -> 0xFFF2602F;
+            case Tasks.LOW -> 0xFF4F9BF2;
+            default -> 0xFFF5B83D;
+        };
+    }
+
+    /** The priority icon's width and height. */
+    public static final int PRIORITY_W = 7, PRIORITY_H = 6;
+
+    private static final int[][] ARROW_UP = { { 3, 0, 1 }, { 2, 1, 3 }, { 1, 2, 5 }, { 0, 3, 7 }, { 2, 4, 3 },
+        { 2, 5, 3 } };
+    private static final int[][] ARROW_DOWN = { { 2, 0, 3 }, { 2, 1, 3 }, { 0, 2, 7 }, { 1, 3, 5 }, { 2, 4, 3 },
+        { 3, 5, 1 } };
+    private static final int[][] BAR = { { 0, 2, 7 }, { 0, 3, 7 } };
+
+    /** A priority's icon, flat: an arrow up for high, a bar for medium, an arrow down for low. */
+    public static void priority(final String p, final float x, final float y) {
+        final int[][] runs = Tasks.HIGH.equals(p) ? ARROW_UP : Tasks.LOW.equals(p) ? ARROW_DOWN : BAR;
+        final int c = priorityColour(p);
+        for (final int[] r : runs) Hyb.rect(x + r[0], y + r[1], r[2], 1, c);
+    }
+
+    /** Whole days since a time the plan wrote; 0 when it does not read. */
+    public static int days(@Nullable final String iso) {
+        if (iso == null) return 0;
+        try {
+            return (int) Math.max(
+                0,
+                Duration.between(Instant.parse(iso), Instant.now())
+                    .toDays());
+        } catch (final RuntimeException e) {
+            return 0;
+        }
+    }
+
+    /** How many days a task has sat in its column. */
+    public static int inColumnDays(final Tasks.Task t) {
+        return days(t.sinceColumn());
+    }
+
+    /** The dots a card shows for its days in a column: one a day to four, none in Done. */
+    public static int dotCount(final Tasks.Task t) {
+        return t.status() == Tasks.Status.DONE ? 0 : Math.min(4, inColumnDays(t));
+    }
+
+    /** The dots' colour: grey, amber from a week, red from two. */
+    public static int dotColour(final int days) {
+        return days >= 14 ? 0xFFE5484D : days >= 7 ? 0xFFF5B83D : 0xFF6B6F7A;
+    }
+
+    /** Dots across, 3 by 3 with 2 between; returns their width. */
+    public static int timeDots(final Tasks.Task t, final float x, final float y) {
+        final int n = dotCount(t), c = dotColour(inColumnDays(t));
+        for (int i = 0; i < n; i++) Hyb.rect(x + i * 5, y, 3, 3, c);
+        return n == 0 ? 0 : n * 5 - 2;
+    }
+
+    /** "5 days", "1 day" or "under a day". */
+    public static String span(final int days) {
+        return days < 1 ? "under a day" : days + (days == 1 ? " day" : " days");
+    }
+
+    /** "In Doing for 5 days": the tooltip's line. */
+    public static String inColumn(final Tasks.Task t) {
+        return "In " + name(t.status()) + " for " + span(inColumnDays(t));
+    }
+
+    /** "In Doing 5 days": the task box's line. */
+    public static String inColumnShort(final Tasks.Task t) {
+        return "In " + name(t.status()) + " " + span(inColumnDays(t));
+    }
+
+    // endregion
+
     // region People
 
     /** What a signed-out player writes as, and is called. */

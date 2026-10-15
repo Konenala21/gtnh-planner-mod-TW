@@ -185,7 +185,9 @@ public final class TaskEdits {
             links,
             by,
             at,
-            status == Tasks.Status.DONE ? at : null);
+            status == Tasks.Status.DONE ? at : null,
+            null,
+            at);
         g.tasks.add(t);
         return t;
     }
@@ -232,7 +234,9 @@ public final class TaskEdits {
                 t.links(),
                 t.createdBy(),
                 t.createdAt(),
-                doneAt));
+                doneAt,
+                t.priority(),
+                to == t.status() ? t.movedAt() : at));
     }
 
     /** Takes a task off the board, with its checklist and comments. */
@@ -259,7 +263,9 @@ public final class TaskEdits {
             t.links(),
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
     }
 
     /** The task with its text; blank text is none. */
@@ -275,7 +281,9 @@ public final class TaskEdits {
             t.links(),
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
     }
 
     public static Tasks.Task withAssignees(final Tasks.Task t, final List<String> assignees) {
@@ -289,7 +297,9 @@ public final class TaskEdits {
             t.links(),
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
     }
 
     public static Tasks.Task withLinks(final Tasks.Task t, final List<Tasks.Link> links) {
@@ -303,7 +313,26 @@ public final class TaskEdits {
             links,
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
+    }
+
+    /** The task with its priority; Medium is the default and is written as none. */
+    public static Tasks.Task withPriority(final Tasks.Task t, @Nullable final String priority) {
+        return new Tasks.Task(
+            t.id(),
+            t.title(),
+            t.text(),
+            t.status(),
+            t.order(),
+            t.assignees(),
+            t.links(),
+            t.createdBy(),
+            t.createdAt(),
+            t.doneAt(),
+            priority,
+            t.movedAt());
     }
 
     private static Tasks.Task withOrder(final Tasks.Task t, final String order) {
@@ -317,7 +346,9 @@ public final class TaskEdits {
             t.links(),
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
     }
 
     /**

@@ -22,6 +22,15 @@ public final class Tasks {
     /** The primary views: the board, or the task board. */
     public static final String PLAN = "plan", TASKS = "tasks";
 
+    /** A task's priorities. A task with none is Medium. */
+    public static final String HIGH = "high", MEDIUM = "medium", LOW = "low";
+
+    /** The priority a plan spells: high or low; null for medium, none or one it does not know (all Medium). */
+    @Nullable
+    public static String priorityOf(@Nullable final String p) {
+        return HIGH.equals(p) || LOW.equals(p) ? p : null;
+    }
+
     /** A task's column. */
     public enum Status {
 
@@ -54,11 +63,30 @@ public final class Tasks {
      */
     public record Task(String id, String title, @Nullable String text, Status status, String order,
         List<String> assignees, List<Link> links, @Nullable String createdBy, @Nullable String createdAt,
-        @Nullable String doneAt) {
+        @Nullable String doneAt, @Nullable String priority, @Nullable String movedAt) {
 
         public Task {
             assignees = List.copyOf(assignees);
             links = List.copyOf(links);
+            priority = priorityOf(priority);
+        }
+
+        /** A task with no priority (Medium) and no move stamp, as an older save spelled it. */
+        public Task(final String id, final String title, @Nullable final String text, final Status status,
+            final String order, final List<String> assignees, final List<Link> links, @Nullable final String createdBy,
+            @Nullable final String createdAt, @Nullable final String doneAt) {
+            this(id, title, text, status, order, assignees, links, createdBy, createdAt, doneAt, null, null);
+        }
+
+        /** The priority it shows as: {@link #HIGH}, {@link #MEDIUM} or {@link #LOW}. */
+        public String shownPriority() {
+            return priority == null ? MEDIUM : priority;
+        }
+
+        /** When it last changed column: the move stamp, else when it was made, else null. */
+        @Nullable
+        public String sinceColumn() {
+            return movedAt != null ? movedAt : createdAt;
         }
     }
 
@@ -141,6 +169,8 @@ public final class Tasks {
         if (t.createdBy() != null) o.addProperty("createdBy", t.createdBy());
         if (t.createdAt() != null) o.addProperty("createdAt", t.createdAt());
         if (t.doneAt() != null) o.addProperty("doneAt", t.doneAt());
+        if (t.priority() != null) o.addProperty("priority", t.priority());
+        if (t.movedAt() != null) o.addProperty("movedAt", t.movedAt());
         return o;
     }
 
@@ -240,7 +270,9 @@ public final class Tasks {
             links,
             t.createdBy(),
             t.createdAt(),
-            t.doneAt());
+            t.doneAt(),
+            t.priority(),
+            t.movedAt());
     }
 
     public static Item claimed(final Item i, final String plan) {
@@ -286,7 +318,9 @@ public final class Tasks {
             links(o),
             str(o, "createdBy"),
             str(o, "createdAt"),
-            str(o, "doneAt"));
+            str(o, "doneAt"),
+            str(o, "priority"),
+            str(o, "movedAt"));
     }
 
     @Nullable

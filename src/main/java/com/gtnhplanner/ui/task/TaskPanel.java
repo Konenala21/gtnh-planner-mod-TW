@@ -79,6 +79,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     private enum Kind {
         CLOSE,
         STATUS,
+        PRIORITY,
         ASSIGN,
         SIGN_IN,
         BOX,
@@ -1028,6 +1029,13 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 int at = y + SIDE_PAD;
                 at = field("Status", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
                 at = field(
+                    "Priority",
+                    x + SIDE_PAD,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
+                at = field(
                     "People",
                     x + SIDE_PAD,
                     at,
@@ -1042,11 +1050,25 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     draw,
                     (fx, fy, fw) -> words(boardName(), fx, fy, fw, draw));
                 at = field("Made", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> words(made(t), fx, fy, fw, draw));
+                at = field(
+                    "Time",
+                    x + SIDE_PAD,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> words(TaskLook.inColumnShort(t), fx, fy, fw, draw));
                 h = at - SECTION / 2 + SIDE_PAD - y - 4;
             } else {
                 final int half = (inner - 10) / 2, lx = x + SIDE_PAD, rx = lx + half + 10;
                 int at = y + SIDE_PAD;
-                final int a = field("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                final int a0 = field("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                final int a = field(
+                    "Priority",
+                    lx,
+                    a0,
+                    half,
+                    draw,
+                    (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
                 final int b = field(
                     "People",
                     rx,
@@ -1119,7 +1141,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             String s = "made" + (by == null ? "" : " by " + by) + (when.isEmpty() ? "" : " " + when);
             if (t.status() == Tasks.Status.DONE && t.doneAt() != null)
                 s += TaskThings.SEP + "done " + TaskLook.ago(t.doneAt());
-            return s;
+            return s + TaskThings.SEP + TaskLook.inColumnShort(t);
         }
 
         /** "You, 3d ago", "ann, 5m ago": who made it and when. */
@@ -1153,6 +1175,30 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 final int cx = x + w - 11, cy = y + 7;
                 for (int i = 0; i < 3; i++) Hyb.rect(cx + i, cy + i, 5 - 2 * i, 1, Hyb.MUTED);
                 pageHits.add(new Hit(Kind.STATUS, x, y, x + w, y + h, null));
+            }
+            return y + h;
+        }
+
+        /** The priority as a picker: its icon, its name and a caret, a menu of the three on a click. */
+        private int priority(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean draw) {
+            final int h = 18;
+            if (draw) {
+                final boolean hot = is(hover, Kind.PRIORITY);
+                final String p = t.shownPriority();
+                final int colour = TaskLook.priorityColour(p);
+                Hyb.rect(x, y, w, h, hot ? Hyb.mix(colour, CONTROL, 0.5f) : Hyb.mix(colour, CONTROL, 0.65f));
+                Hyb.rect(
+                    x + 1,
+                    y + 1,
+                    w - 2,
+                    h - 2,
+                    hot ? Hyb.mix(colour, CardPaint.SURFACE, 0.22f) : Hyb.mix(colour, CardPaint.SURFACE, 0.14f));
+                TaskLook.priority(p, x + 5, y + 6);
+                Hyb.text(TaskLook.priorityName(p), x + 16, y + 5, Hyb.INK);
+                final int cx = x + w - 11, cy = y + 7;
+                for (int i = 0; i < 3; i++) Hyb.rect(cx + i, cy + i, 5 - 2 * i, 1, Hyb.MUTED);
+                pageHits.add(new Hit(Kind.PRIORITY, x, y, x + w, y + h, null));
             }
             return y + h;
         }
@@ -1258,6 +1304,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             final TaskThings.Shown s = hit.data() instanceof final String id ? shown.get(id) : null;
             switch (hit.kind()) {
                 case STATUS -> pickStatus(t, hit);
+                case PRIORITY -> pickPriority(t, hit);
                 case ASSIGN -> assign(t, hit);
                 case SIGN_IN -> {
                     Hyb.click();
@@ -1414,6 +1461,26 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             getArea().y + BAR + under.y1() - page.scroll + 2);
     }
 
+    /** High, Medium and Low, each with its icon's colour; the task's own shaded. */
+    private void pickPriority(final Tasks.Task t, final Hit under) {
+        Hyb.click();
+        final List<PickList.Entry> rows = new ArrayList<>();
+        for (final String p : new String[] { Tasks.HIGH, Tasks.MEDIUM, Tasks.LOW }) rows.add(
+            new PickList.Entry(
+                null,
+                TaskLook.priorityName(p),
+                "",
+                Hyb.INK,
+                p.equals(t.shownPriority()),
+                () -> put(x -> TaskEdits.withPriority(x, p)),
+                TaskLook.priorityColour(p)));
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_task_priority", null, rows, false, under.x1() - under.x0()),
+            getArea().x + under.x0(),
+            getArea().y + BAR + under.y1() - page.scroll + 2);
+    }
+
     private void moveTo(final Tasks.Status s) {
         final Tasks.Task t = task();
         if (t == null || s == t.status()) return;
@@ -1505,6 +1572,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         return switch (hit.kind()) {
             case CLOSE -> Tip.of("Close (Esc)");
             case STATUS -> Tip.of("Move it to another column");
+            case PRIORITY -> Tip.of("How pressing it is");
             case ASSIGN -> Tip.of(hit.data() != null ? "Choose who is on it" : "Put yourself on it or take yourself off");
             case SIGN_IN -> Tip.of("Sign in to your account");
             case BOX -> s == null ? null

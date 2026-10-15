@@ -231,7 +231,12 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
   64 KB per thing.
 - `primaryView?: "plan" | "tasks"`: which view the plan opens on. A task board is a plan with `"tasks"`.
 - `tasks?: PlanTask[]`: `{ id, title (1-120), text? (≤4000), status: "todo"|"doing"|"blocked"|"done", order: string
-  (fractional index), assignees?: string[] (account ids), links?: PlanLink[], createdBy?, createdAt?, doneAt? }`
+  (fractional index), assignees?: string[] (account ids), links?: PlanLink[], createdBy?, createdAt?, doneAt?,
+  priority?: "high"|"medium"|"low", movedAt? (ISO: when it last changed column) }`. No `priority` is Medium (the game
+  writes none for Medium). `movedAt` is stamped by whoever moves the task to another column (a move within a column
+  leaves it); a task without one counts from `createdAt`. Cards show a priority arrow (up high, bar medium, down low)
+  and one dot a day in the column to four, amber from 7 days, red from 14, none in Done. **The website's schema must
+  accept `priority` and `movedAt`.**
 - `PlanLink`: `{ plan: string, node: string }`: a card on a plan, `plan` the plan's id (its doc key
   `<ownerId>:<designId>`, or a local id for a plan not in an account) and `node` the card's id in that plan, as that
   plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read

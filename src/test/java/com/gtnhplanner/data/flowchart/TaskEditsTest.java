@@ -53,6 +53,23 @@ class TaskEditsTest {
     }
 
     @Test
+    void aMoveToAnotherColumnStampsWhenAndOneWithinItDoesNot() {
+        final Graph g = new Graph("B");
+        TaskEdits.add(g, "a", "A", Tasks.Status.TODO, List.of(), null, "2026-10-01T00:00:00.000Z");
+        TaskEdits.add(g, "b", "B", Tasks.Status.TODO, List.of(), null, "2026-10-01T00:00:00.000Z");
+        TaskEdits.move(g, "a", Tasks.Status.TODO, 1, "2026-10-09T00:00:00.000Z");
+        org.junit.jupiter.api.Assertions.assertEquals(
+            "2026-10-01T00:00:00.000Z",
+            TaskEdits.task(g, "a")
+                .movedAt());
+        TaskEdits.move(g, "a", Tasks.Status.DOING, 0, "2026-10-10T00:00:00.000Z");
+        org.junit.jupiter.api.Assertions.assertEquals(
+            "2026-10-10T00:00:00.000Z",
+            TaskEdits.task(g, "a")
+                .movedAt());
+    }
+
+    @Test
     void aColumnWhoseKeysClashIsNumberedAfresh() {
         final Graph g = new Graph("Board");
         for (final String id : List.of("x", "y", "z"))

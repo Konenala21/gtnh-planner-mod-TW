@@ -138,7 +138,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     }
 
     private int titleWidth(final int cardW) {
-        return cardW - 2 * CARD_PAD - 2;
+        return cardW - 2 * CARD_PAD - 2 - TaskLook.PRIORITY_W - 3;
     }
 
     /**
@@ -192,7 +192,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     private boolean hasMeta(final Tasks.Task t) {
         final int[] c = counts(t.id());
         return !t.assignees()
-            .isEmpty() || c[1] > 0 || c[2] > 0;
+            .isEmpty() || c[1] > 0 || c[2] > 0 || TaskLook.dotCount(t) > 0;
     }
 
     /** A card's screenshot: as wide as the card inside its edge, at most this tall (cropped to its middle). */
@@ -473,9 +473,11 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             Hyb.text(title.shown(i), tx, ty, done ? Hyb.MUTED : Hyb.INK);
             ty += LINE;
         }
+        TaskLook.priority(t.shownPriority(), x + w - CARD_PAD - TaskLook.PRIORITY_W + 1, y + thumb + CARD_PAD);
         if (!hasMeta(t)) return;
         final float my = y + h - CARD_PAD + 2 - TaskLook.FACE;
-        TaskLook.faces(graph(), t.assignees(), tx, my);
+        final int fw = TaskLook.faces(graph(), t.assignees(), tx, my);
+        TaskLook.timeDots(t, tx + fw + (fw > 0 ? 4 : 0), my + 5);
         // Right to left: comments, then the things done of all of them.
         float right = x + w - CARD_PAD;
         final int[] c = counts(t.id());
@@ -545,7 +547,11 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                 final Tasks.Task t = TaskEdits.task(graph(), (String) hit.data());
                 yield t == null ? null
                     : Tip.of(t.title())
-                        .sub(TaskLook.name(t.status()))
+                        .sub(TaskLook.inColumn(t))
+                        .row(
+                            "Priority",
+                            TaskLook.priorityName(t.shownPriority()),
+                            TaskLook.priorityColour(t.shownPriority()))
                         .action(Tip.Input.LEFT, "Open it")
                         .action(Tip.Input.DRAG, "Move it")
                         .action(Tip.Input.RIGHT, "More");
