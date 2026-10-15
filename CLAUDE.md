@@ -113,7 +113,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   swaps the board for the open plan's tasks, the overview staying (`TaskBoardView`; per plan, never saved,
   `BoardSession.showsTasks`; a plan whose `primaryView` is "tasks" opens on them, and the + tab menu's New task board
   makes one). Four columns of task cards, carried by the board's rules, ordered by fractional keys
-  (`data/flowchart/OrderKeys`, the npm fractional-indexing scheme; every edit is in `TaskEdits`, pure and tested). A
+  (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did not write; both
+  sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A
   click opens `TaskPanel`: title, column, assignees, notes, the cards it is about (a click shows one on the plan,
   centred and selected, `BoardSession.focusCard`), a checklist and comments. Every change is
   `BoardSession.editTasks` (undoable and saved, never solved). Right-click cards, or a card's actions key, to make a
@@ -121,6 +122,26 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   its most pressing task's colour as a dot before its name. People are account ids: assigning and comments use the
   signed-in account (`Account.userId`, from the session); signed out a comment is by "You" (`local`). `call tasks`
   reports the view and the parts' rects (`show=1|0` switches, `open=<id>` opens a task).
+- Cloud plans and live co-editing (the owner, 2026-10-14; `docs/design/cloud-live.md` is the contract with the
+  website, whose side is on its branch `cloud-live`, worktree `C:\Users\jack\ff-cloud`): signed in, the planner's
+  plans are the account's (own and shared), saved as every edit is made, the same on every device; signed out,
+  nothing changes. Cloud mode starts only once the site's live service answers (`/live/health`), so before the
+  rollout signed-in players keep their world plans. The layers: `cloud/net` (`LiveSocket` on Minecraft's netty, ws
+  and wss; `LiveClient`, the protocol; `CloudApi`, the REST routes), `cloud/store` (`CloudCache`, this device's copy
+  and pending batches; `Migration`, a world's plans uploaded once, local save kept), `cloud/sync` (`LiveOps`,
+  `LiveState`: the op engine both sides share, checked on the website's `live-vectors.json`), `cloud/map`
+  (`CloudPlans`: the board to and from the website's plan, each thing carrying the game's own data under
+  `gtnhplanner`, read back exactly while the website left it alone), `cloud/session` (`CloudSession` per account,
+  `LiveDoc` per open plan, wired through `CloudHooks`). Every save sends the board's changes as a batch (kept on disk
+  first); others' batches are read in once a tick while the board is at rest; undo on a cloud plan takes back only
+  the player's own edits. Presence is `ui/live/` (`PresenceOut` sends cursor, selection and view at most 10 a
+  second; `Peers` draws others' cursors and selection rings, and their faces in the tab strip). Share with people is
+  the Share menu's dialog (the people in this game first, from `/live/nearby` with the tab list's names, then an
+  account search); "Publish to library" is the old Share to library. `call cloud` reports the state (`fake=N` adds
+  stand-in people); `PLANNH_LIBRARY_URL=http://localhost:3000 tools/dev/mc.sh start` keeps a dev game off the real
+  site. End to end: the website's `npm run dev:local` (site :3000, live ws://localhost:3001/live, local Postgres),
+  `tools/dev/mock-live.mjs` without the website. Nothing of this reaches players before the owner's rollout
+  (staging at new.gtnhplanner.com, then a one-line Caddy switch; the website's `docs/live-rollout.md`).
 - On the board a left press on anything (a card's keys and chips too, a drawer's, a note's) is a click when let go
   within 3 GUI pixels (`BoardCanvas.DRAG_SLOP`) and acts then; moved further, it carries the thing. Carried things
   glide (about 120 ms) between 10 px grid spots and never land on another card or drawer: each frame they go to the
