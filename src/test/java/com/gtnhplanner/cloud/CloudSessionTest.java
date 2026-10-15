@@ -70,6 +70,10 @@ class CloudSessionTest {
     /** The account's plans as the site lists them, by design id. */
     private final Map<String, JsonObject> designs = new ConcurrentHashMap<>();
     private final List<String> calls = new CopyOnWriteArrayList<>();
+    /** Statuses the site answers the next PUTs with, in turn (none left: it accepts). */
+    private final java.util.Queue<Integer> putStatuses = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private volatile String refuseId = "";
+    private final List<String> putBodies = new CopyOnWriteArrayList<>();
     private CloudSession session;
     private final TestHost host = new TestHost();
 
@@ -190,6 +194,17 @@ class CloudSessionTest {
                 o.addProperty("role", "owner");
                 reply = o.toString();
             } else if (method.equals("PUT")) {
+                final Integer refuse = id.equals(refuseId) ? putStatuses.poll() : null;
+                if (refuse != null) {
+                    putBodies.add(body);
+                    final byte[] no = "{\"error\":\"no\"}".getBytes(StandardCharsets.UTF_8);
+                    ex.sendResponseHeaders(refuse, no.length);
+                    try (OutputStream o = ex.getResponseBody()) {
+                        o.write(no);
+                    }
+                    return;
+                }
+                putBodies.add(body);
                 final JsonObject in = new JsonParser().parse(body)
                     .getAsJsonObject();
                 if (in.has("plan")) live.plans.put(ME + ":" + id, in.getAsJsonObject("plan"));
@@ -212,6 +227,12 @@ class CloudSessionTest {
         try (OutputStream o = ex.getResponseBody()) {
             o.write(out);
         }
+    }
+
+    private long putsOf(final String id) {
+        return calls.stream()
+            .filter(c -> c.startsWith("PUT") && c.contains(id))
+            .count();
     }
 
     private static JsonObject design(final String id, final String name) {
@@ -560,6 +581,85 @@ class CloudSessionTest {
     }
 
     @Test
+    void aRefusedCreateIsMadeAgainFromTheBoardThenAccepted() {
+        inAccount("d1", "glass");
+        final Plan p = begin();
+        open(p, ME + ":d1");
+        session.retryEvery(60_000);
+        putStatuses.add(400);
+        final Graph made = Boards.corpus("hv-diesel");
+        host.game.knowing(made);
+        made.setName("Diesel");
+        p.getGraphs()
+            .add(made);
+        session.save(p);
+        final String id = made.getCloudKey()
+            .substring(ME.length() + 1);
+        refuseId = id;
+        tickUntil("made in the account after one refusal", () -> designs.containsKey(id));
+        assertEquals(2, putsOf(id), "refused once, then made again at once");
+        assertTrue(
+            host.notices.stream()
+                .noneMatch(n -> n.contains("could not be saved")),
+            "no notice: " + host.notices);
+    }
+
+    @Test
+    void aCreateRefusedTwiceStopsAndTellsOnce() {
+        inAccount("d1", "glass");
+        final Plan p = begin();
+        open(p, ME + ":d1");
+        session.retryEvery(1);
+        putStatuses.add(400);
+        putStatuses.add(422);
+        final Graph made = Boards.corpus("hv-diesel");
+        host.game.knowing(made);
+        made.setName("Diesel");
+        p.getGraphs()
+            .add(made);
+        session.save(p);
+        final String id = made.getCloudKey()
+            .substring(ME.length() + 1);
+        refuseId = id;
+        tickUntil("told", () -> host.notices.contains("This plan could not be saved to your account"));
+        ticks(100);
+        assertEquals(2, putsOf(id), "no third try");
+        assertFalse(designs.containsKey(id));
+        assertEquals(
+            1,
+            host.notices.stream()
+                .filter(n -> n.contains("could not be saved"))
+                .count());
+        assertNotNull(slot(p, made.getCloudKey()), "kept on this computer");
+    }
+
+    @Test
+    void aTooFastCreateIsTriedAgainLater() {
+        inAccount("d1", "glass");
+        final Plan p = begin();
+        open(p, ME + ":d1");
+        session.retryEvery(1);
+        putStatuses.add(429);
+        putStatuses.add(429);
+        putStatuses.add(503);
+        final Graph made = Boards.corpus("hv-diesel");
+        host.game.knowing(made);
+        made.setName("Diesel");
+        p.getGraphs()
+            .add(made);
+        session.save(p);
+        final String id = made.getCloudKey()
+            .substring(ME.length() + 1);
+        refuseId = id;
+        tickUntil("made after the backoff", () -> designs.containsKey(id));
+        assertEquals(4, putsOf(id));
+        assertTrue(
+            host.notices.stream()
+                .noneMatch(n -> n.contains("could not be saved")),
+            "no notice: " + host.notices);
+    }
+
+    @Test
     void aNewPlanIsMadeInTheAccountAndADeletedOneLeavesIt() {
         inAccount("d1", "glass");
         final Plan p = begin();
@@ -574,6 +674,7 @@ class CloudSessionTest {
         assertNotNull(made.getCloudKey());
         final String id = made.getCloudKey()
             .substring(ME.length() + 1);
+        refuseId = id;
         tickUntil("made in the account", () -> designs.containsKey(id));
         assertEquals(
             "Diesel",

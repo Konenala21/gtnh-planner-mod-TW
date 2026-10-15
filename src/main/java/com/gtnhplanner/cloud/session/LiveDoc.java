@@ -206,6 +206,29 @@ public final class LiveDoc {
         creating = true;
     }
 
+    /** The board's version, which moves with every edit. */
+    long boardVersion() {
+        return read.graph()
+            .version();
+    }
+
+    /**
+     * The plan as the board is now, as the body to create it with (the account refused the first): the live copy
+     * starts over on it, the waiting batches are in it already.
+     */
+    void rebuildBody() {
+        for (final LiveState.Batch b : state.pending()) session.cache()
+            .ack(key, b.cid());
+        unsent.clear();
+        final Graph g = read.graph();
+        final CloudPlans.Written w = CloudPlans.write(g, session.game(), null, null);
+        state = new LiveState(0, w.plan());
+        read = new CloudPlans.Read(g, w.basis(), new ImportReport(), w.plan());
+        synced = g.version();
+        session.cache()
+            .saveDocAsIs(key, 0, w.plan());
+    }
+
     /** The account has it now: its room can be joined, and its waiting edits go from the snapshot. */
     void made() {
         creating = false;

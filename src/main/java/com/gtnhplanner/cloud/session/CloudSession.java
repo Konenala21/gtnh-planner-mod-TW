@@ -123,9 +123,15 @@ public final class CloudSession {
         OFFLINE
     }
 
-    private static final long LIST_EVERY_MS = 5 * 60_000, RETRY_MS = 30_000, LEAVE_AFTER_MS = 10_000;
+    private static final long LIST_EVERY_MS = 5 * 60_000, RETRY_MS_DEFAULT = 30_000, LEAVE_AFTER_MS = 10_000;
     /** The live service holds at most this many rooms for one connection. */
     private static final int ROOMS = 8;
+    private long retryMs = RETRY_MS_DEFAULT;
+
+    /** How long a failed call waits before it is tried again (tests shorten it). */
+    public void retryEvery(final long ms) {
+        retryMs = ms;
+    }
 
     @Nullable
     private static CloudSession current;
@@ -970,6 +976,7 @@ public final class CloudSession {
             return;
         }
         for (final LiveDoc d : docs.values()) {
+            if (d.creating() && gaveUpOn(d)) continue;
             if (d.creating() && due("make:" + d.key(), now)) {
                 makeInAccount(d);
                 return;
@@ -1005,7 +1012,7 @@ public final class CloudSession {
 
     private boolean due(final String what, final long now) {
         final Long at = tried.get(what);
-        return at == null || now - at >= RETRY_MS;
+        return at == null || now - at >= retryMs;
     }
 
     /** Runs a network call off the client thread; its answer, or its failure, comes back through {@link #tick}. */
@@ -1090,6 +1097,49 @@ public final class CloudSession {
             d.listRenamed(listName);
     }
 
+    /** Plans the account refused to create twice, by doc key, with the board's version then: kept here only. */
+    private final Map<String, Long> madeLocal = new HashMap<>();
+    /** Refusals of a plan's create, by doc key, since it was last rebuilt. */
+    private final Map<String, Integer> makeRefusals = new HashMap<>();
+    /** Plans the player was told of this session, by doc key. */
+    private final Set<String> makeTold = new HashSet<>();
+
+    /** Whether a plan the account refused is left alone: until the player edits it, which allows one more try. */
+    private boolean gaveUpOn(final LiveDoc d) {
+        final Long at = madeLocal.get(d.key());
+        if (at == null) return false;
+        d.commit();
+        if (at == d.boardVersion()) return true;
+        madeLocal.remove(d.key());
+        makeRefusals.put(d.key(), 1);
+        d.rebuildBody();
+        tried.remove("make:" + d.key());
+        return false;
+    }
+
+    /** The site refusing a create for good: any 4xx but sign-in, no access, too slow and too fast. */
+    private static boolean refusal(final Exception e) {
+        return e instanceof final CloudApi.Refused r && r.status >= 400
+            && r.status < 500
+            && r.status != 401
+            && r.status != 403
+            && r.status != 408
+            && r.status != 429;
+    }
+
+    /** The account refused a plan's create: made again from the board once, then kept here only. */
+    private void createRefused(final LiveDoc d, final Exception e) {
+        GtnhPlanner.LOG.warn("The account refused to create the plan {}: {}", d.key(), e.getMessage());
+        d.commit();
+        if (makeRefusals.merge(d.key(), 1, Integer::sum) == 1) {
+            d.rebuildBody();
+            tried.remove("make:" + d.key());
+            return;
+        }
+        madeLocal.put(d.key(), d.boardVersion());
+        if (makeTold.add(d.key())) host.notice("This plan could not be saved to your account");
+    }
+
     /** Creates a plan made here in the account, with the body it started as; its edits since follow once joined. */
     private void makeInAccount(final LiveDoc d) {
         final String now = Instant.now()
@@ -1120,8 +1170,9 @@ public final class CloudSession {
                         .ownedBy(accountId));
                 library = new CloudApi.Library(own, library.shared());
             }
+            makeRefusals.remove(d.key());
             keepDevice();
-        }, e -> {});
+        }, e -> { if (refusal(e)) createRefused(d, e); });
     }
 
     /** Tells the account a plan was let go of: an own plan deleted, a shared one left. */
