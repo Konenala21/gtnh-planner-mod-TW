@@ -3,26 +3,23 @@ package com.gtnhplanner.ui;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.widget.ParentWidget;
 import com.cleanroommc.modularui.widget.Widget;
 import com.cleanroommc.modularui.widget.sizer.Unit;
-import com.gtnhplanner.ui.theme.Hyb;
 
 /**
- * The strip along the top of the board, in the middle column between the overview and NEI: the keys that edit or view
- * the board (the non-recipe machines; undo and redo; arrange and fit; the rate unit, EU/t and average or peak). The top
- * bar above holds the account's things only. A task board has none of these: it shows its own header here instead
- * ({@code ui/task/TaskBoardView}).
+ * The keys that float over the top edge of the board, in the middle column between the overview and NEI, with no band
+ * behind them and no room reserved: the non-recipe machines, undo and redo at the left; arrange and fit, the rate unit,
+ * EU/t and average or peak at the right. They edit or view the board. The top bar above holds the account's things
+ * only. A task board has none of these: it shows its own header instead ({@code ui/task/TaskBoardView}).
  *
  * <p>
- * It gives way as the board narrows the way {@link TopBar} does: the keys first sit closer (the non-recipe key keeps
- * only its bolt, arrange's progress only its number), then wrap onto more rows, a group at a time.
+ * It gives way as the board narrows: the keys first sit closer (the non-recipe key keeps only its bolt, arrange's
+ * progress only its number), then the right group drops to a second row, still right-aligned.
  */
 final class BoardToolbar extends ParentWidget<BoardToolbar> {
 
-    private static final int PAD = 4, GAP = 3, GROUP_GAP = 9, TIGHT_GAP = 1, TIGHT_GROUP_GAP = 4;
-    private static final int BG = 0xFF0E0F12, LINE = 0xFF2A2C31;
+    private static final int MARGIN = 4, RIGHT_FROM = 2, GAP = 3, GROUP_GAP = 9, TIGHT_GAP = 1, TIGHT_GROUP_GAP = 4;
 
     /** A key: its group, and its width with room to spare and when the strip is tight. */
     private record Key(Widget<?> widget, int group, int roomy, int tight) {}
@@ -35,15 +32,12 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
     private int laidWidth = -1;
 
     BoardToolbar() {
-        height(() -> layout().rows() * TopBar.ROW_H, Unit.Measure.PIXEL);
-        background((IDrawable) (ctx, x, y, w, h, theme) -> {
-            Hyb.rect(x, y, w, h, BG);
-            Hyb.rect(x, y + h - 1, w, 1, LINE);
-        });
+        height(() -> MARGIN + layout().rows() * TopBar.ROW_H, Unit.Measure.PIXEL);
     }
 
     /**
-     * Adds a key to {@code group} (groups in order, from 0), {@code roomy} wide with room and {@code tight} without.
+     * Adds a key to {@code group} (groups in order, from 0; groups 0 and 1 sit at the left, the rest at the right),
+     * {@code roomy} wide with room and {@code tight} without.
      */
     <W extends Widget<?>> W key(final int group, final W widget, final int roomy, final int tight) {
         final int i = keys.size();
@@ -56,9 +50,9 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
         return widget;
     }
 
-    /** The strip's height now: a row, or more when the keys wrapped; nothing while it is hidden. */
+    /** What the keys take from the board's top now: the margin and a row, or more when the keys wrapped. */
     int barHeight() {
-        return isEnabled() ? layout().rows() * TopBar.ROW_H : 0;
+        return isEnabled() ? MARGIN + layout().rows() * TopBar.ROW_H : 0;
     }
 
     private int barWidth() {
@@ -75,7 +69,7 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
         return laid;
     }
 
-    /** The board was resized: lay the strip out again. */
+    /** The board was resized: lay the keys out again. */
     @Override
     public void onUpdate() {
         super.onUpdate();
@@ -87,40 +81,48 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
     }
 
     private Layout lay(final int width) {
-        final int room = Math.max(0, width - 2 * PAD), n = keys.size();
+        final int room = Math.max(0, width - 2 * MARGIN), n = keys.size(), split = split();
         final int[] x = new int[n], y = new int[n], w = new int[n];
+        // One row with room, one row tight, then the right group on a second row, roomy then tight.
         for (final boolean tight : new boolean[] { false, true }) {
-            if (span(0, n, tight) > room) continue;
-            place(0, n, PAD, 2, tight, x, y, w);
+            if (span(0, split, tight) + span(split, n, tight) + (tight ? TIGHT_GROUP_GAP : GROUP_GAP) > room) continue;
+            place(0, split, MARGIN, MARGIN, tight, x, y, w);
+            place(split, n, width - MARGIN - span(split, n, tight), MARGIN, tight, x, y, w);
             return new Layout(1, x, y, w);
         }
-        // Rows, wrapped a group at a time; only a group wider than a row breaks between its keys.
-        final List<int[]> rows = new ArrayList<>();
-        int from = 0;
-        for (int i = 1; i < n; i++) {
-            final boolean groupStart = keys.get(i)
-                .group()
-                != keys.get(i - 1)
-                    .group();
-            if (span(from, groupStart ? groupEnd(i) : i + 1, true) > room) {
-                rows.add(new int[] { from, i });
-                from = i;
-            }
+        for (final boolean tight : new boolean[] { false, true }) {
+            if (span(0, split, tight) > room || span(split, n, tight) > room) continue;
+            place(0, split, MARGIN, MARGIN, tight, x, y, w);
+            place(split, n, width - MARGIN - span(split, n, tight), MARGIN + TopBar.ROW_H, tight, x, y, w);
+            return new Layout(2, x, y, w);
         }
-        if (n > 0) rows.add(new int[] { from, n });
-        for (int r = 0; r < rows.size(); r++)
-            place(rows.get(r)[0], rows.get(r)[1], PAD, r * TopBar.ROW_H + 2, true, x, y, w);
-        return new Layout(Math.max(1, rows.size()), x, y, w);
+        // Too narrow even so: each side wraps key by key, the left from the left, the right from the right.
+        int row = wrap(0, split, room, 0, width, false, x, y, w);
+        row = wrap(split, n, room, row, width, true, x, y, w);
+        return new Layout(Math.max(1, row), x, y, w);
     }
 
-    private int groupEnd(final int i) {
-        int end = i;
-        while (end < keys.size() && keys.get(end)
-            .group()
-            == keys.get(i)
-                .group())
-            end++;
-        return end;
+    /** Where the right group starts: the first key past the left groups. */
+    private int split() {
+        int i = 0;
+        while (i < keys.size() && keys.get(i)
+            .group() < RIGHT_FROM) i++;
+        return i;
+    }
+
+    /** Wraps keys {@code from} to {@code to}, tight, into rows from {@code row} on; returns the next free row. */
+    private int wrap(final int from, final int to, final int room, int row, final int width, final boolean right,
+        final int[] x, final int[] y, final int[] w) {
+        int start = from;
+        while (start < to) {
+            int end = start + 1;
+            while (end < to && span(start, end + 1, true) <= room) end++;
+            final int left = right ? width - MARGIN - span(start, end, true) : MARGIN;
+            place(start, end, left, MARGIN + row * TopBar.ROW_H, true, x, y, w);
+            row++;
+            start = end;
+        }
+        return row;
     }
 
     private int span(final int from, final int to, final boolean tight) {

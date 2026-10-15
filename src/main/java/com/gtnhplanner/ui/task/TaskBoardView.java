@@ -43,7 +43,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     /** The header's height: it sits where a plan's toolbar does. */
     public static final int HEADER = 24;
     private static final int HEAD_H = HEADER, PAD = 8, GAP = 8, COL_HEAD = 20, INSET = 4, CARD_GAP = 4, LINE = 10,
-        CARD_PAD = 6, KEY_H = 16;
+        CARD_PAD = 6, KEY_H = 16, EDGE = 4;
     /**
      * The narrowest a column gets: its name, count and + key, and titles that wrap readably. Narrower than four of
      * them, the board scrolls sideways (Shift and the wheel, the wheel over the column names, or the bar along the
@@ -315,22 +315,21 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     }
 
     /**
-     * The board's header, in the place of a plan's toolbar: the task board's name and how many tasks it holds, and (at
+     * The board's header, floating where a plan's toolbar keys do (no band): the task board's name and how many tasks
+     * it holds, and (at
      * the right) New task. Narrow, the counts go first, then the name gives way to "Tasks".
      */
     private void drawHeader(final int w, @Nullable final Hit hover) {
-        Hyb.rect(0, 0, w, HEAD_H, 0xFF2A2D33);
-        Hyb.rect(0, HEAD_H - 1, w, 1, Hyb.RING);
-        int right = w - PAD;
+        int right = w - EDGE;
         right = key(right, "New task", Kind.NEW, null, hover) - 6;
         final String name = graph().getName()
             .isBlank() ? "Tasks" : graph().getName();
-        final String title = Hyb.width(name) + 16 <= right - PAD ? name : "Tasks";
-        Hyb.text(title, PAD, (HEAD_H - 8) / 2f, Hyb.INK);
-        final int left = PAD + Hyb.width(title) + 8;
+        final String title = Hyb.width(name) + 16 <= right - EDGE ? name : "Tasks";
+        Hyb.text(title, EDGE, EDGE + (KEY_H - 8) / 2f, Hyb.INK);
+        final int left = EDGE + Hyb.width(title) + 8;
         final int n = graph().tasks.size();
         final String counts = n + (n == 1 ? " task" : " tasks");
-        if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, (HEAD_H - 8) / 2f, Hyb.MUTED);
+        if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, EDGE + (KEY_H - 8) / 2f, Hyb.MUTED);
     }
 
     /** While the columns are wider than the view: a thin bar along the bottom, its thumb where the view is. */
@@ -361,7 +360,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     /** A key in the header, right-aligned at {@code right}; returns its left edge. */
     private int key(final int right, final String label, final Kind kind, @Nullable final Object data,
         @Nullable final Hit hover) {
-        final int kw = Hyb.width(label) + 12, x = right - kw, y = (HEAD_H - KEY_H) / 2;
+        final int kw = Hyb.width(label) + 12, x = right - kw, y = EDGE;
         final boolean hot = hover != null && hover.kind() == kind;
         Hyb.bevel(x, y, kw, KEY_H, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
         Hyb.text(label, x + 6, y + 4, Hyb.INK);

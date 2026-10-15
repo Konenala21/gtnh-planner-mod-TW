@@ -278,7 +278,7 @@ public final class BoardScreen extends ModularScreen {
             .expanded()
             .collapseDisabledChild();
         body.child(rail.heightRel(1f));
-        // The middle: the toolbar along the top of the board, the board under it.
+        // The middle: the board, filling it; the toolbar's keys float over its top edge (added to the panel below).
         // Its width is what the overview leaves (a column that takes its width from its row cannot size a child by it).
         final Flow mid = Flow.column()
             .heightRel(1f)
@@ -286,11 +286,10 @@ public final class BoardScreen extends ModularScreen {
                 () -> Math.max(0, panel.getArea().width - (rail.isEnabled() ? rail.getArea().width : 0)),
                 com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
             .collapseDisabledChild();
-        mid.child(toolbar.widthRel(1f));
         mid.child(
             canvas.widthRel(1f)
                 .height(
-                    () -> Math.max(0, panel.getArea().height - topBar.barHeight() - toolbar.barHeight()),
+                    () -> Math.max(0, panel.getArea().height - topBar.barHeight()),
                     com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL));
         body.child(mid);
         final com.gtnhplanner.ui.task.TaskBoardView tasks = new com.gtnhplanner.ui.task.TaskBoardView(session);
@@ -334,12 +333,22 @@ public final class BoardScreen extends ModularScreen {
                 com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
             .bottom(0);
         panel.child(picker);
+        // The toolbar's keys float over the board's top edge, with no band: the board takes the whole middle column.
+        toolbar
+            .left(
+                () -> rail.isEnabled() ? rail.currentWidth() : 0,
+                com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
+            .top(topBar::barHeight, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
+            .width(
+                () -> Math.max(0, panel.getArea().width - (rail.isEnabled() ? rail.currentWidth() : 0)),
+                com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
+        panel.child(toolbar);
         // Over everything, so the board waits under it.
         panel.child(offer);
         library.body = body;
         library.session = session;
         library.board = List.of(rail);
-        library.plan = List.of(mid, selectionBar);
+        library.plan = List.of(mid, selectionBar, toolbar);
         library.notices = notices;
         library.tasks = tasks;
         parts.put("picker", picker);
