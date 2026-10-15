@@ -122,6 +122,8 @@ final class PlanRead {
     private final Map<String, Drawer> unkeyed = new LinkedHashMap<>();
     /** The groups on the board by their pocket's plan id. */
     private final Map<String, BoardGroup> groupsByPlan = new HashMap<>();
+    /** Whether the plan's website fields are the ones its game data was written with. */
+    private boolean metaMatches;
     /** Where each pocket's members are measured from on the board, by plan id (worked out on first ask). */
     private final Map<String, int[]> bases = new HashMap<>();
 
@@ -244,6 +246,7 @@ final class PlanRead {
         }
         for (final JsonObject a : objects(plan, "annotations")) note(a);
         groups(data);
+        picks(data);
         // As a load repairs groups: a group inside itself is lifted onto the board.
         Groups.sanitize(graph);
         tasks();
@@ -312,14 +315,11 @@ final class PlanRead {
                 graph.setBalanceMode(BalanceMode.valueOf(str(data, "balanceMode")));
             } catch (final RuntimeException ignored) {}
         }
-        Serializer.readSettingPins(data.get("settingPins"), graph);
-        Serializer.readSpareShares(data.get("spareShares"), graph);
+        metaMatches = ext != null && ext.sum()
+            .equals(metaSum(plan));
         // The icon by the key the game wrote, while the website's icon is still the one written with it.
         final JsonElement icon = plan.get("icon");
-        if (ext != null && str(data, "icon") != null
-            && ext.sum()
-                .equals(metaSum(plan)))
-            graph.setIcon(str(data, "icon"));
+        if (metaMatches && str(data, "icon") != null) graph.setIcon(str(data, "icon"));
         else if (icon != null && icon.isJsonObject()) {
             final String kind = str(icon.getAsJsonObject(), "kind"), id = str(icon.getAsJsonObject(), "resourceId");
             if (kind != null && id != null) graph.setIcon(game.key(kind, id));
@@ -327,11 +327,31 @@ final class PlanRead {
         return data;
     }
 
-    /** The website fields the plan's game data is summed over: its icon, the one plan field the game keeps richer. */
+    /**
+     * The website fields the plan's game data is summed over: its icon, its setting pins and its leftover splits, the
+     * plan fields the game keeps in its own spelling too.
+     */
     static String metaSum(final JsonObject plan) {
         final JsonObject o = new JsonObject();
-        if (plan.has("icon")) o.add("icon", plan.get("icon"));
+        for (final String f : List.of("icon", "settingPins", "spareShares")) if (plan.has(f)) o.add(f, plan.get(f));
         return Canon.sum(o);
+    }
+
+    /**
+     * The setting pins and leftover splits, once the cards are on the board (the website names a machine by its
+     * cards' handler): the game's own while the website's fields are the ones written with them; else the website's,
+     * with the pins only the game can spell kept.
+     */
+    private void picks(final JsonObject data) {
+        if (metaMatches) {
+            Serializer.readSettingPins(data.get("settingPins"), graph);
+            Serializer.readSpareShares(data.get("spareShares"), graph);
+            return;
+        }
+        final Graph had = new Graph("");
+        Serializer.readSettingPins(data.get("settingPins"), had);
+        PlanPins.readPins(plan.get("settingPins"), had.settingPins, graph, game);
+        PlanPins.readShares(plan.get("spareShares"), graph);
     }
 
     /**

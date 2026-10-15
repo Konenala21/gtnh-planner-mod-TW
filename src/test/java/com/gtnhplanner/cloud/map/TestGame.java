@@ -27,6 +27,8 @@ public final class TestGame implements CloudGame {
     final FakeGame fake = new FakeGame();
     /** The world placements are kept under, as the game names it. */
     public String world = "";
+    /** The website's machine (handler) id of each card; none unless a test names them. */
+    public java.util.function.Function<Node, String> handlers = n -> null;
 
     /** What NEI would read for each card: its ports and recipe numbers, by card id. */
     private final Map<UUID, Node> nei = new HashMap<>();
@@ -89,6 +91,12 @@ public final class TestGame implements CloudGame {
     @Override
     public String machine(final Node node) {
         return node.machineName == null ? "Machine" : node.machineName;
+    }
+
+    @Override
+    @Nullable
+    public String handlerId(final Node node) {
+        return handlers.apply(node);
     }
 
     @Override

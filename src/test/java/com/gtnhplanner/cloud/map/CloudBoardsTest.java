@@ -44,7 +44,11 @@ class CloudBoardsTest {
         Basis basis;
 
         Open(final Graph g) {
-            game = new TestGame().knowing(g);
+            this(g, new TestGame());
+        }
+
+        Open(final Graph g, final TestGame with) {
+            game = with.knowing(g);
             plan = CloudPlans.write(g, game, null, null)
                 .plan();
             read(plan);
@@ -430,6 +434,168 @@ class CloudBoardsTest {
             ops.getFirst()
                 .id());
         assertEquals("[\"arrowWidth\",\"gtnhplanner\"]", fields(ops.getFirst()));
+    }
+
+    // endregion
+
+    // region Setting pins and leftover splits
+
+    @Test
+    void settingPinsAreThePlansOwnFieldInTheWebsitesWords() {
+        final Graph g = Boards.dress(Boards.corpus("platline"));
+        final Node card = outside(g);
+        final String name = card.machineName == null ? "Machine" : card.machineName;
+        g.settingPins.put(
+            "machine:" + name,
+            new ArrayList<>(List.of("machine:coil", "machine:voltage", "machine:machine:circuit")));
+        g.settingPins.put("power:steam-boiler", new ArrayList<>(List.of("power:fuel", "reading:output")));
+        final TestGame game = new TestGame();
+        game.handlers = n -> n.isPower() ? null : "handler:" + (n.machineName == null ? "Machine" : n.machineName);
+        final Open o = new Open(g, game);
+        final String handler = "handler:" + name;
+        JsonObject pins = o.plan.getAsJsonObject("settingPins");
+        assertEquals(
+            "[\"heatingCoil\",\"circuit\"]",
+            pins.get(handler)
+                .toString(),
+            "the website's words: " + pins);
+        assertEquals(
+            "[\"fuel\"]",
+            pins.get("power:steam-boiler")
+                .toString());
+        assertFalse(
+            pins.has("item:gregtech:gt.blockmachines:1000"),
+            "a key the website cannot spell stays in the game's data");
+
+        // The website takes the coil off and pins a machine the board has no card of.
+        final JsonObject edited = new JsonObject();
+        edited.add(handler, new JsonParser().parse("[\"circuit\"]"));
+        edited.add("power:steam-boiler", new JsonParser().parse("[\"fuel\"]"));
+        edited.add("handler:elsewhere", new JsonParser().parse("[\"mode\"]"));
+        final JsonObject f = new JsonObject();
+        f.add("settingPins", edited);
+        o.read(LiveOps.apply(o.plan, List.of(LiveOp.meta(f, null))));
+        assertEquals(
+            List.of("machine:machine:circuit", "machine:voltage"),
+            o.board.settingPins.get("machine:" + name),
+            "what only the game spells kept");
+        assertEquals(List.of("power:fuel", "reading:output"), o.board.settingPins.get("power:steam-boiler"));
+        assertEquals(List.of("mode"), o.board.settingPins.get("site:handler:elsewhere"));
+        assertEquals(List.of("voltage", "amp"), o.board.settingPins.get("item:gregtech:gt.blockmachines:1000"));
+        assertEquals(List.of(), o.send("read and written back"));
+
+        // The game pins the coil again: the plan's field, the website's other machine still there.
+        o.board.settingPins.get("machine:" + name)
+            .add("machine:coil");
+        o.send("the coil pinned");
+        pins = o.plan.getAsJsonObject("settingPins");
+        assertEquals(
+            "[\"circuit\",\"heatingCoil\"]",
+            pins.get(handler)
+                .toString());
+        assertEquals(
+            "[\"mode\"]",
+            pins.get("handler:elsewhere")
+                .toString());
+    }
+
+    @Test
+    void leftoverSplitsAreThePlansOwnFieldUnderItsIds() {
+        final Open o = new Open(new Graph("biodiesel"));
+        o.read(Boards.website("biodiesel-demo"));
+        final List<Node> cards = new ArrayList<>(o.board.getNodes());
+        final Node a = cards.get(0), b = cards.get(1);
+        final String ka = a.id + ":o:0", kb = b.id + ":i:0";
+        // A leftover is its bearers' keys, sorted and joined.
+        final String leftover = ka.compareTo(kb) < 0 ? ka + "|" + kb : kb + "|" + ka;
+        o.board.setSpareSplit(leftover, Map.of(ka, 0.25, kb, 0.75));
+        o.send("a split made");
+        final String pa = o.basis.planId("node", a.id) + ":o:0", pb = o.basis.planId("node", b.id) + ":i:0";
+        assertFalse(pa.startsWith(a.id.toString()), "a website card is named by its own id");
+        final List<String> bearers = new ArrayList<>(List.of(pa, pb));
+        bearers.sort(String::compareTo);
+        final JsonObject split = o.plan.getAsJsonObject("spareShares")
+            .getAsJsonObject(String.join("|", bearers));
+        assertNotNull(
+            split,
+            o.plan.get("spareShares")
+                .toString());
+        assertEquals(
+            0.75,
+            split.get(pb)
+                .getAsDouble());
+
+        // The website moves it all to the first card: the board has it under its own ids.
+        final JsonObject moved = new JsonObject();
+        final JsonObject shares = new JsonObject();
+        shares.addProperty(pa, 1.0);
+        shares.addProperty(pb, 0.0);
+        moved.add(String.join("|", bearers), shares);
+        final JsonObject f = new JsonObject();
+        f.add("spareShares", moved);
+        o.read(LiveOps.apply(o.plan, List.of(LiveOp.meta(f, null))));
+        assertEquals(Map.of(ka, 1.0, kb, 0.0), o.board.spareShares.get(leftover));
+        assertEquals(List.of(), o.send("read and written back"));
+    }
+
+    // endregion
+
+    // region Drawers the website edits
+
+    @Test
+    void aSourcesRuleAndTrashAreTheWebsitesToo() {
+        final Open o = dressed("platline");
+        Drawer source = null, product = null;
+        for (final Drawer d : o.board.getDrawers()) {
+            if (d.getKind() == Drawer.Kind.SOURCE && source == null) source = d;
+            if (d.getKind() == Drawer.Kind.PRODUCT && product == null) product = d;
+        }
+        assertNotNull(source);
+        assertNotNull(product);
+        source.setTarget(Drawer.Rule.AT_MOST, 5);
+        product.setKind(Drawer.Kind.TRASH);
+        o.send("a source's rule and a product made trash");
+        JsonObject s1 = o.thing(
+            "storages",
+            source.getId()
+                .toString());
+        assertEquals(
+            -5.0,
+            s1.get("targetPerSecond")
+                .getAsDouble(),
+            "the site writes a source's rate negative");
+        assertEquals("at-most", PlanRead.str(s1, "targetMode"));
+        assertEquals(
+            "trash",
+            PlanRead.str(
+                o.thing(
+                    "storages",
+                    product.getId()
+                        .toString()),
+                "drainMode"));
+
+        // The website sets the source's rule: the board has it.
+        final JsonObject f = new JsonObject();
+        f.addProperty("targetPerSecond", -8);
+        f.addProperty("targetMode", "exact");
+        o.read(
+            LiveOps.apply(
+                o.plan,
+                List.of(
+                    LiveOp.patch(
+                        "storages",
+                        source.getId()
+                            .toString(),
+                        f,
+                        null))));
+        final Drawer there = o.board.drawers.get(source.getId());
+        assertEquals(Drawer.Rule.EXACTLY, there.getRule());
+        assertEquals(8.0, there.getRate());
+        assertEquals(
+            Drawer.Kind.TRASH,
+            o.board.drawers.get(product.getId())
+                .getKind());
+        assertEquals(List.of(), o.send("read and written back"));
     }
 
     // endregion

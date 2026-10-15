@@ -354,6 +354,13 @@ final class Fresh {
         site.addProperty("solveMode", true);
         // The one-mode board's plan, as the posting export writes it: the website holds a buffer's rule live there.
         site.addProperty("planMode", true);
+        // The picks both planners edit, as the website spells them (the game's own spelling rides in its data).
+        final JsonObject pins = PlanPins.sitePins(g, game);
+        if (!pins.entrySet()
+            .isEmpty()) site.add("settingPins", pins);
+        final JsonObject shares = PlanPins.siteShares(g, names);
+        if (!shares.entrySet()
+            .isEmpty()) site.add("spareShares", shares);
         if (g.getPrimaryView() != null) site.addProperty("primaryView", g.getPrimaryView());
         final JsonObject meta = new JsonObject();
         meta.addProperty("source", "GTNH Planner");

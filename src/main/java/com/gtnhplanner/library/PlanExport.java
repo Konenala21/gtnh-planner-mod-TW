@@ -803,7 +803,7 @@ public final class PlanExport {
         return o;
     }
 
-    /** A drawer as the site's storage of resource {@code r}: a source, or a product with its rule. */
+    /** A drawer as the site's storage of resource {@code r}: a source, a product or trash, with its rule. */
     public static JsonObject storage(final Drawer d, final Res r) {
         final JsonObject o = new JsonObject();
         o.addProperty(
@@ -813,20 +813,24 @@ public final class PlanExport {
         o.addProperty("kind", r.kind());
         o.addProperty("resourceId", r.id());
         o.addProperty("displayName", r.name());
+        // A drain says what it is (trash voids what it takes); a buffer's role is its wires' (fed and drawn from), its
+        // rule a product's, on what passes through.
         if (!d.getKind()
-            .linksInputs()) {
-            // A buffer's role is its wires' (fed and drawn from); its rule is a product's, on what passes through.
-            if (!d.isBuffer()) o.addProperty("drainMode", "product");
-            final String mode = switch (d.getRule()) {
-                case AT_LEAST -> "at-least";
-                case AT_MOST -> "at-most";
-                case EXACTLY -> "exact";
-                case ANY -> null;
-            };
-            if (mode != null && d.getRate() > 0) {
-                o.addProperty("targetPerSecond", d.getRate());
-                o.addProperty("targetMode", mode);
-            }
+            .linksInputs() && !d.isBuffer())
+            o.addProperty("drainMode", d.getKind() == Drawer.Kind.TRASH ? "trash" : "product");
+        final String mode = switch (d.getRule()) {
+            case AT_LEAST -> "at-least";
+            case AT_MOST -> "at-most";
+            case EXACTLY -> "exact";
+            case ANY -> null;
+        };
+        // A source's rule on what it supplies, which the site writes as a negative rate.
+        if (mode != null && d.getRate() > 0) {
+            o.addProperty(
+                "targetPerSecond",
+                d.getKind()
+                    .linksInputs() ? -d.getRate() : d.getRate());
+            o.addProperty("targetMode", mode);
         }
         o.add("position", position(d.getX(), d.getY()));
         return o;
