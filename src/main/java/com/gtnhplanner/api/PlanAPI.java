@@ -88,9 +88,11 @@ public final class PlanAPI {
     /**
      * Copies the save on disk into {@code backups} now, whatever the session has already backed up (a change about to
      * touch every plan, such as uploading them). The newest ten are kept. False when there was nothing to copy or it
-     * failed.
+     * failed. The suffix must not be empty.
      */
     public static boolean backUpNow(final String suffix) {
+        // The session's own backup has no suffix and the same stamp format: it must never be overwritten by this one.
+        if (suffix == null || suffix.isBlank()) throw new IllegalArgumentException("a backup needs a suffix");
         final File saveFile = getSaveFile();
         return saveFile.isFile() && copyToBackups(saveFile, suffix);
     }
@@ -130,7 +132,7 @@ public final class PlanAPI {
     static {
         // A save still waiting when the game closes is written before it goes.
         Runtime.getRuntime()
-            .addShutdownHook(new Thread(PlanAPI::writePending, "GTNH Planner save on exit"));
+            .addShutdownHook(new Thread(() -> writePending(), "GTNH Planner save on exit"));
     }
 
     /**
@@ -150,10 +152,30 @@ public final class PlanAPI {
         if (PENDING.getAndSet(save) == null) WRITER.execute(PlanAPI::writePending);
     }
 
-    /** Writes the newest save waiting, if any: a backup first when one is due, then the file, replaced whole. */
-    private static synchronized void writePending() {
+    /**
+     * Saves every plan now, on the calling thread (client thread: it encodes the plans there): when this returns the
+     * file on disk holds them, whatever the writer had queued. False when it could not be written.
+     */
+    public static boolean saveNow() {
+        if (Plan.sandboxed()) return true;
+        final Pending save = new Pending(
+            getSaveFile(),
+            Serializer.planTree(Plan.getInstance()),
+            Plan.getInstance()
+                .getGraphs()
+                .size());
+        // Whatever was queued is older than this; the writer's queued task finds nothing left and ends.
+        PENDING.set(save);
+        return writePending();
+    }
+
+    /**
+     * Writes the newest save waiting, if any: a backup first when one is due, then the file, replaced whole. True when
+     * there was nothing to write or it went down.
+     */
+    private static synchronized boolean writePending() {
         final Pending save = PENDING.getAndSet(null);
-        if (save == null) return;
+        if (save == null) return true;
         try {
             save.file()
                 .getParentFile()
@@ -171,8 +193,10 @@ public final class PlanAPI {
                     .toPath(),
                 java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                 java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            return true;
         } catch (final Exception e) {
             GtnhPlanner.LOG.warn("Could not save the plans", e);
+            return false;
         }
     }
 

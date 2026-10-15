@@ -65,13 +65,34 @@ public final class CloudCache {
         List<String> pins = new ArrayList<>();
     }
 
-    /** The cache of {@code accountId} under {@code mcDataDir}. */
+    /**
+     * The cache of {@code accountId} under {@code mcDataDir}.
+     *
+     * @throws IllegalArgumentException for a blank id (it would be the folder every account shares)
+     */
     public static CloudCache forAccount(final File mcDataDir, final String accountId) {
+        if (accountId == null || accountId.isBlank()
+            || safe(accountId).replace(".", "")
+                .isEmpty())
+            throw new IllegalArgumentException("a cloud cache needs an account id");
         return new CloudCache(new File(mcDataDir, "gtnhplanner/cloud/" + safe(accountId)));
     }
 
     public CloudCache(final File dir) {
         this.dir = dir;
+        // Leftovers of a write that never finished: the real files are whole. Cleaned here, before the writer runs,
+        // never later, when a .new may be one being written.
+        deleteTemps(dir);
+    }
+
+    private static void deleteTemps(final File d) {
+        final File[] files = d.listFiles();
+        if (files == null) return;
+        for (final File f : files) {
+            if (f.isDirectory()) deleteTemps(f);
+            else if (f.getName()
+                .endsWith(".new")) f.delete();
+        }
     }
 
     // region Plans
@@ -79,17 +100,19 @@ public final class CloudCache {
     /** The last confirmed plan for a doc key, or null if this device has never had it. */
     @Nullable
     public synchronized Doc doc(final String key) {
-        return state(key).doc;
+        final Doc d = state(key).doc;
+        return d == null ? null : new Doc(d.seq(), copy(d.plan()));
     }
 
     /** Records the plan as the service confirmed it at {@code seq}. */
     public synchronized CompletableFuture<Void> saveDoc(final String key, final long seq, final JsonObject plan) {
         final State s = state(key);
-        s.doc = new Doc(seq, plan);
+        final JsonObject copy = copy(plan);
+        s.doc = new Doc(seq, copy);
         final JsonObject o = new JsonObject();
         o.addProperty("key", key);
         o.addProperty("seq", seq);
-        o.add("plan", plan);
+        o.add("plan", copy);
         return write(file(key, "plan.json"), GSON.toJson(o));
     }
 
@@ -99,13 +122,15 @@ public final class CloudCache {
 
     /** The batches not yet acknowledged, oldest first. */
     public synchronized List<Batch> pending(final String key) {
-        return new ArrayList<>(state(key).pending);
+        final List<Batch> out = new ArrayList<>();
+        for (final Batch b : state(key).pending) out.add(new Batch(b.cid(), b.base(), copy(b.ops())));
+        return out;
     }
 
     /** Keeps a batch before it is sent. Send it only once the future is done. */
     public synchronized CompletableFuture<Void> addPending(final String key, final Batch batch) {
         final State s = state(key);
-        s.pending.add(batch);
+        s.pending.add(new Batch(batch.cid(), batch.base(), copy(batch.ops())));
         return writePending(key, s);
     }
 
@@ -127,17 +152,34 @@ public final class CloudCache {
         return writePending(key, s);
     }
 
-    /** Doc keys that have batches waiting, found on disk too: what to rejoin and flush after a restart. */
-    public synchronized List<String> keysWithPending() {
-        final List<String> keys = new ArrayList<>();
+    /**
+     * Doc keys that have batches waiting, found on disk too: what to rejoin and flush after a restart. The disk is read
+     * outside the lock; what is in memory wins over what the files say.
+     */
+    public List<String> keysWithPending() {
+        final java.util.Set<String> loaded;
+        synchronized (this) {
+            loaded = new java.util.HashSet<>(docs.keySet());
+        }
+        final Map<String, State> fromDisk = new HashMap<>();
         final File[] subs = new File(dir, "docs").listFiles(File::isDirectory);
-        if (subs == null) return keys;
-        for (final File d : subs) {
+        if (subs != null) for (final File d : subs) {
             final JsonObject o = readJson(new File(d, "pending.json"));
             if (o == null || !(o.get("key") instanceof com.google.gson.JsonPrimitive)) continue;
-            final String key = o.get("key")
-                .getAsString();
-            if (!state(key).pending.isEmpty()) keys.add(key);
+            final String key;
+            try {
+                key = o.get("key")
+                    .getAsString();
+            } catch (final RuntimeException e) {
+                continue;
+            }
+            if (!loaded.contains(key) && !fromDisk.containsKey(key)) fromDisk.put(key, readState(key));
+        }
+        final List<String> keys = new ArrayList<>();
+        synchronized (this) {
+            for (final Map.Entry<String, State> e : fromDisk.entrySet()) docs.putIfAbsent(e.getKey(), e.getValue());
+            for (final Map.Entry<String, State> e : docs.entrySet())
+                if (!e.getValue().pending.isEmpty()) keys.add(e.getKey());
         }
         return keys;
     }
@@ -202,7 +244,8 @@ public final class CloudCache {
 
     /** Forgets a plan on this device: the plan, its pending batches and its pins. */
     public synchronized CompletableFuture<Void> forget(final String key) {
-        docs.remove(key);
+        // An empty state stays in memory in its place, so no read of the files in between can bring the plan back.
+        docs.put(key, new State());
         final File d = docDir(key);
         return CompletableFuture.runAsync(() -> {
             final File[] files = d.listFiles();
@@ -225,38 +268,68 @@ public final class CloudCache {
 
     // region Files
 
+    // This Gson has no public deepCopy.
+    private static JsonObject copy(final JsonObject o) {
+        return new JsonParser().parse(GSON.toJson(o))
+            .getAsJsonObject();
+    }
+
+    private static JsonArray copy(final JsonArray a) {
+        return new JsonParser().parse(GSON.toJson(a))
+            .getAsJsonArray();
+    }
+
     private State state(final String key) {
         State s = docs.get(key);
         if (s != null) return s;
-        s = new State();
-        // A leftover from a write that never finished: the real file is whole, so it is not read.
-        for (final String n : new String[] { "plan.json", "pending.json", "pins.json" })
-            new File(docDir(key), n + ".new").delete();
-        final JsonObject plan = readJson(file(key, "plan.json"));
-        if (plan != null && plan.get("plan") instanceof JsonObject) {
-            s.doc = new Doc(
-                plan.get("seq")
-                    .getAsLong(),
-                plan.getAsJsonObject("plan"));
-        }
-        final JsonObject pending = readJson(file(key, "pending.json"));
-        if (pending != null && pending.get("batches") instanceof JsonArray) {
-            for (final JsonElement e : pending.getAsJsonArray("batches")) {
-                final JsonObject b = e.getAsJsonObject();
-                s.pending.add(
-                    new Batch(
-                        b.get("cid")
-                            .getAsString(),
-                        b.get("base")
-                            .getAsLong(),
-                        b.getAsJsonArray("ops")));
-            }
-        }
-        final JsonObject pins = readJson(file(key, "pins.json"));
-        if (pins != null && pins.get("ids") instanceof JsonArray) {
-            for (final JsonElement e : pins.getAsJsonArray("ids")) s.pins.add(e.getAsString());
-        }
+        s = readState(key);
         docs.put(key, s);
+        return s;
+    }
+
+    /** A doc's state from its files; a file that is malformed or partial is warned about and skipped. */
+    private State readState(final String key) {
+        final State s = new State();
+        try {
+            final JsonObject plan = readJson(file(key, "plan.json"));
+            if (plan != null && plan.get("plan") instanceof JsonObject) {
+                s.doc = new Doc(
+                    plan.get("seq")
+                        .getAsLong(),
+                    plan.getAsJsonObject("plan"));
+            }
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Skipping a malformed cached plan for {}", key, e);
+        }
+        try {
+            final JsonObject pending = readJson(file(key, "pending.json"));
+            if (pending != null && pending.get("batches") instanceof JsonArray) {
+                final List<Batch> read = new ArrayList<>();
+                for (final JsonElement e : pending.getAsJsonArray("batches")) {
+                    final JsonObject b = e.getAsJsonObject();
+                    read.add(
+                        new Batch(
+                            b.get("cid")
+                                .getAsString(),
+                            b.get("base")
+                                .getAsLong(),
+                            b.getAsJsonArray("ops")));
+                }
+                s.pending.addAll(read);
+            }
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Skipping malformed pending batches for {}", key, e);
+        }
+        try {
+            final JsonObject pins = readJson(file(key, "pins.json"));
+            if (pins != null && pins.get("ids") instanceof JsonArray) {
+                final List<String> read = new ArrayList<>();
+                for (final JsonElement e : pins.getAsJsonArray("ids")) read.add(e.getAsString());
+                s.pins.addAll(read);
+            }
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Skipping malformed pins for {}", key, e);
+        }
         return s;
     }
 

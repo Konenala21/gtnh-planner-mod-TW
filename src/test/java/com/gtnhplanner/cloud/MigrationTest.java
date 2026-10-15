@@ -128,8 +128,13 @@ class MigrationTest {
         final Plan plan = plansOf(a, b, empty);
         final AtomicInteger backups = new AtomicInteger(), saves = new AtomicInteger();
 
-        final Migration.Result r = Migration
-            .run(plan, "u1", "tok", MigrationTest::mapped, backups::incrementAndGet, saves::incrementAndGet);
+        final Migration.Result r = Migration.run(
+            plan,
+            "u1",
+            "tok",
+            MigrationTest::mapped,
+            () -> backups.incrementAndGet() > 0,
+            () -> saves.incrementAndGet() > 0);
 
         assertNotNull(r);
         assertEquals(
@@ -167,7 +172,13 @@ class MigrationTest {
 
         // Again: nothing waits, nothing is sent, no backup is taken.
         assertNull(
-            Migration.run(plan, "u1", "tok", MigrationTest::mapped, backups::incrementAndGet, saves::incrementAndGet));
+            Migration.run(
+                plan,
+                "u1",
+                "tok",
+                MigrationTest::mapped,
+                () -> backups.incrementAndGet() > 0,
+                () -> saves.incrementAndGet() > 0));
         assertEquals(2, puts.size());
         assertEquals(1, backups.get());
         assertTrue(
@@ -180,7 +191,7 @@ class MigrationTest {
         final Graph good = plan("Good"), bad = plan("Bad");
         final Plan plan = plansOf(good, bad);
         refuse = "Bad";
-        final Migration.Result first = Migration.run(plan, "u1", "tok", MigrationTest::mapped, () -> {}, () -> {});
+        final Migration.Result first = Migration.run(plan, "u1", "tok", MigrationTest::mapped, () -> true, () -> true);
         assertEquals(
             1,
             first.uploaded()
@@ -199,7 +210,7 @@ class MigrationTest {
         final String keyBefore = bad.getCloudKey();
 
         refuse = "";
-        final Migration.Result second = Migration.run(plan, "u1", "tok", MigrationTest::mapped, () -> {}, () -> {});
+        final Migration.Result second = Migration.run(plan, "u1", "tok", MigrationTest::mapped, () -> true, () -> true);
         assertEquals(List.of(keyBefore), second.uploaded());
         assertEquals(2, puts.size());
         assertEquals(
@@ -208,6 +219,44 @@ class MigrationTest {
                 .filter(id -> keyBefore.endsWith(id))
                 .count());
         assertEquals(2, new HashSet<>(puts).size());
+    }
+
+    @Test
+    void aFailedBackupOrSaveSendsNothingAndAFailedBackupGivesNoKeys() throws IOException {
+        final Graph a = plan("Smelter");
+        final Plan plan = plansOf(a);
+        final Migration.Result noBackup = Migration
+            .run(plan, "u1", "tok", MigrationTest::mapped, () -> false, () -> true);
+        assertNotNull(noBackup.aborted());
+        assertNull(a.getCloudKey());
+        assertTrue(puts.isEmpty());
+
+        final Migration.Result noSave = Migration
+            .run(plan, "u1", "tok", MigrationTest::mapped, () -> true, () -> false);
+        assertNotNull(noSave.aborted());
+        assertTrue(puts.isEmpty());
+        assertTrue(
+            noSave.uploaded()
+                .isEmpty());
+    }
+
+    @Test
+    void aPlanThatThrowsIsThatPlansFailureAndTheRestGo() {
+        final Graph bad = plan("Bad"), good = plan("Good");
+        // No id: building the request throws, for that plan alone.
+        final Migration.Item broken = new Migration.Item(bad, null, "u1:d1", mapped(bad), "Bad", false, 0);
+        final Migration.Item fine = new Migration.Item(good, "d2", "u1:d2", mapped(good), "Good", false, 0);
+        final Migration.Result r = Migration.upload(List.of(broken, fine), "tok", null);
+        assertEquals(List.of("u1:d2"), r.uploaded());
+        assertEquals(
+            "Bad",
+            r.failed()
+                .get(0)
+                .name());
+        assertNotNull(
+            r.failed()
+                .get(0)
+                .reason());
     }
 
     @Test

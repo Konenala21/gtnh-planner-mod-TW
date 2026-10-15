@@ -365,6 +365,27 @@ class LiveClientTest {
     }
 
     @Test
+    void aRefusedJoinIsNotRepeatedOnReconnect() throws Exception {
+        final Heard heard = connect();
+        client.join("a");
+        client.join("b");
+        await(() -> heard.snapshots.size() == 2);
+        server.send("{\"t\":\"error\",\"doc\":\"b\",\"code\":\"forbidden\",\"msg\":\"no\"}");
+        await(() -> heard.events.contains("kicked b forbidden"));
+        assertEquals(List.of("a"), List.copyOf(client.joined()));
+        server.dropAll();
+        await(() -> heard.snapshots.size() == 3);
+        assertEquals(
+            List.of("a", "b", "a"),
+            server.framesOf("join")
+                .stream()
+                .map(
+                    o -> o.get("doc")
+                        .getAsString())
+                .toList());
+    }
+
+    @Test
     void joiningTwiceAsksOnce() throws Exception {
         final Heard heard = connect();
         client.join("a");

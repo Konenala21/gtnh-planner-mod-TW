@@ -137,6 +137,26 @@ class CloudApiTest {
     }
 
     @Test
+    void anExpiredSessionIsNullAndAnAccountWithoutAnIdIsAnError() throws IOException {
+        on("GET /api/community/auth/me", 401, "{\"error\":\"no\"}");
+        assertNull(CloudApi.me("tok"));
+        on("GET /api/community/auth/me", 200, "{\"user\":{\"username\":\"ada\"}}");
+        assertThrows(IOException.class, () -> CloudApi.me("tok"));
+        assertThrows(IOException.class, () -> CloudApi.library("tok", ""));
+    }
+
+    @Test
+    void aSharedPlansMembersAreAskedForByOwner() throws IOException {
+        on("GET /api/library/designs/d1/members?owner=u9", 200, "{\"members\":[]}");
+        assertTrue(
+            CloudApi.members("tok", "d1", "u9")
+                .isEmpty());
+        on("PUT /api/library/designs/d1/members/u3?owner=u9", 200, "{}");
+        CloudApi.addMember("tok", "d1", "u3", "u9");
+        assertEquals("/api/library/designs/d1/members/u3?owner=u9", last().path());
+    }
+
+    @Test
     void theLibraryHoldsOwnAndSharedPlans() throws IOException {
         on("GET /api/library", 200, """
             {"designs":[{"id":"d1","name":"Mine","icon":{"kind":"item","resourceId":"x"},"folderId":null,"closed":true,
@@ -300,11 +320,11 @@ class CloudApiTest {
         on("GET /api/library/designs/d1/members", 200, "{\"members\":[{\"id\":\"u2\",\"username\":\"bob\"}]}");
         assertEquals(
             "bob",
-            CloudApi.members("tok", "d1")
+            CloudApi.members("tok", "d1", null)
                 .get(0)
                 .username());
         on("PUT /api/library/designs/d1/members/u3", 200, "{}");
-        CloudApi.addMember("tok", "d1", "u3");
+        CloudApi.addMember("tok", "d1", "u3", null);
         assertEquals("PUT", last().method());
         on("DELETE /api/library/designs/d1/members/u3", 200, "{}");
         CloudApi.removeMember("tok", "d1", "u3", null);
@@ -314,7 +334,7 @@ class CloudApiTest {
         on("PUT /api/library/designs/d1/members/u4", 403, "{\"error\":\"Only the owner can share this.\"}");
         assertEquals(
             "Only the owner can share this.",
-            assertThrows(CloudApi.Refused.class, () -> CloudApi.addMember("tok", "d1", "u4")).getMessage());
+            assertThrows(CloudApi.Refused.class, () -> CloudApi.addMember("tok", "d1", "u4", null)).getMessage());
     }
 
     @Test

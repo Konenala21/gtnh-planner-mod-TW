@@ -70,7 +70,7 @@ public final class LiveClient {
 
         default void onMembers(final String doc, final List<Member> members) {}
 
-        /** Out of the room: {@code reason} is "unshared" or "deleted". */
+        /** Out of the room: {@code reason} is "unshared", "deleted", or "forbidden" or "not_found" (a join refused). */
         default void onKicked(final String doc, final String reason) {}
 
         /** {@code doc} is empty for an error about the connection. */
@@ -323,7 +323,16 @@ public final class LiveClient {
                     for (final Listener l : listeners) l.onKicked(doc, str(o, "reason"));
                 }
                 case "error" -> {
-                    for (final Listener l : listeners) l.onError(doc, str(o, "code"), str(o, "msg"));
+                    final String code = str(o, "code");
+                    // The service will not have us in that room: stop joining it on every reconnect.
+                    final boolean refused = !doc.isEmpty() && (code.equals("forbidden") || code.equals("not_found"));
+                    if (refused) {
+                        joined.remove(doc);
+                        presenceWaiting.remove(doc);
+                        presenceSentAt.remove(doc);
+                    }
+                    for (final Listener l : listeners) l.onError(doc, code, str(o, "msg"));
+                    if (refused) for (final Listener l : listeners) l.onKicked(doc, code);
                 }
                 default -> {
                     // "pong", and anything a newer service adds.

@@ -3,6 +3,7 @@ package com.gtnhplanner.cloud;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -206,5 +207,87 @@ class CloudCacheTest {
             .get();
         assertNull(a.doc("u1:d1"));
         assertFalse(new File(root, "gtnhplanner/cloud/u1/docs/u1_d1").exists());
+    }
+
+    @Test
+    void aBlankAccountHasNoCache() {
+        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, ""));
+        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, "  "));
+        assertThrows(IllegalArgumentException.class, () -> CloudCache.forAccount(root, ".."));
+    }
+
+    @Test
+    void aForgottenPlanDoesNotComeBackFromTheFiles() throws Exception {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.saveDoc("u1:d1", 1, plan("x"));
+        a.addPending("u1:d1", batch("c1"));
+        a.flush();
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        b.forget("u1:d1");
+        assertNull(b.doc("u1:d1"));
+        assertTrue(
+            b.pending("u1:d1")
+                .isEmpty());
+        assertTrue(
+            b.keysWithPending()
+                .isEmpty());
+    }
+
+    @Test
+    void pendingKeysIncludeWhatIsOnlyInMemoryAndWhatIsOnlyOnDisk() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.addPending("u1:d1", batch("c1"));
+        a.flush();
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(List.of("u1:d1"), b.keysWithPending());
+        b.addPending("u1:d3", batch("c3"));
+        assertEquals(java.util.Set.of("u1:d1", "u1:d3"), new java.util.HashSet<>(b.keysWithPending()));
+    }
+
+    @Test
+    void aMalformedFileIsSkippedNotThrown() throws IOException {
+        final File d = new File(root, "gtnhplanner/cloud/u1/docs/u1_d1");
+        d.mkdirs();
+        Files.writeString(new File(d, "plan.json").toPath(), "{\"key\":\"u1:d1\",\"seq\":\"x\",\"plan\":{}}");
+        Files.writeString(new File(d, "pending.json").toPath(), "{\"key\":\"u1:d1\",\"batches\":[{\"cid\":\"c\"}]}");
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        assertNull(a.doc("u1:d1"));
+        assertTrue(
+            a.pending("u1:d1")
+                .isEmpty());
+        assertTrue(
+            a.pins("u1:d1")
+                .isEmpty());
+    }
+
+    @Test
+    void callersCannotChangeWhatTheCacheHolds() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        final JsonObject p = plan("Smelter");
+        a.saveDoc("u1:d1", 1, p);
+        p.addProperty("name", "changed");
+        a.doc("u1:d1")
+            .plan()
+            .addProperty("name", "changed too");
+        assertEquals(
+            "Smelter",
+            a.doc("u1:d1")
+                .plan()
+                .get("name")
+                .getAsString());
+        final CloudCache.Batch b = batch("c1");
+        a.addPending("u1:d1", b);
+        b.ops()
+            .add(new JsonObject());
+        a.pending("u1:d1")
+            .get(0)
+            .ops()
+            .add(new JsonObject());
+        assertEquals(
+            1,
+            a.pending("u1:d1")
+                .get(0)
+                .ops()
+                .size());
     }
 }

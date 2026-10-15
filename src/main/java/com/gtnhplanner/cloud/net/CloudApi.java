@@ -226,17 +226,21 @@ public final class CloudApi {
 
     // region Calls
 
-    /** Who the session is. {@code id} is blank when the site does not say. Null when the session has run out. */
+    /** Who the session is. Null when the session has run out; throws when the site does not say which account. */
     @Nullable
     public static Account me(final String token) throws IOException {
-        final JsonElement user = json(send("GET", CommunityApi.site() + "/api/community/auth/me", null, token).body)
-            .get("user");
+        final Reply r = send("GET", CommunityApi.site() + "/api/community/auth/me", null, token, 401);
+        if (r.status == 401) return null;
+        final JsonElement user = json(r.body).get("user");
         if (user == null || !user.isJsonObject()) return null;
-        return new Account(string(user.getAsJsonObject(), "id"), string(user.getAsJsonObject(), "username"));
+        final String id = string(user.getAsJsonObject(), "id");
+        if (id.isBlank()) throw new IOException("the site did not say which account this is");
+        return new Account(id, string(user.getAsJsonObject(), "username"));
     }
 
     /** The account's plans and the shared ones. {@code accountId} stamps the account's own as owned by it. */
     public static Library library(final String token, final String accountId) throws IOException {
+        if (accountId.isBlank()) throw new IOException("the site did not say which account this is");
         final JsonObject root = json(send("GET", CommunityApi.site() + "/api/library", null, token).body);
         return new Library(read(root.get("designs"), accountId, false), read(root.get("shared"), "", true));
     }
@@ -286,15 +290,17 @@ public final class CloudApi {
         send("DELETE", CommunityApi.site() + "/api/library/designs/" + enc(designId), null, token);
     }
 
-    /** Who may edit a plan. */
-    public static List<LiveClient.Member> members(final String token, final String designId) throws IOException {
-        final String body = send("GET", membersUrl(designId, null, null), null, token).body;
+    /** Who may edit a plan ({@code ownerId} null: the account's own). */
+    public static List<LiveClient.Member> members(final String token, final String designId,
+        @Nullable final String ownerId) throws IOException {
+        final String body = send("GET", membersUrl(designId, null, ownerId), null, token).body;
         return readMembers(arrayIn(body, "members"));
     }
 
-    /** Lets an account edit one of the account's own plans. */
-    public static void addMember(final String token, final String designId, final String userId) throws IOException {
-        send("PUT", membersUrl(designId, userId, null), "{}", token);
+    /** Lets an account edit a plan (owner only; {@code ownerId} null: the account's own). */
+    public static void addMember(final String token, final String designId, final String userId,
+        @Nullable final String ownerId) throws IOException {
+        send("PUT", membersUrl(designId, userId, ownerId), "{}", token);
     }
 
     /**

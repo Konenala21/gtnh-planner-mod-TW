@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -32,14 +33,26 @@ public final class Migration {
 
     private Migration() {}
 
-    /** A plan to send: its slot's graph, the cloud plan's id and doc key, and the plan as the website holds it. */
-    public record Item(Graph graph, String designId, String key, JsonObject plan) {}
+    /**
+     * A plan to send: its slot's graph (identity only; {@link #upload} never reads it), the cloud plan's id and doc
+     * key, the plan as the website holds it, and the slot's name, state and time as {@link #prepare} saw them.
+     */
+    public record Item(Graph graph, String designId, String key, JsonObject plan, String name, boolean closed,
+        long lastOpen) {}
 
     /** A plan that did not go, and why in the site's words. */
     public record Failure(String name, String reason) {}
 
-    /** What {@link #upload} did: the doc keys that went up, and the plans that did not. */
-    public record Result(List<String> uploaded, List<Failure> failed) {}
+    /**
+     * What {@link #upload} did: the doc keys that went up, and the plans that did not. {@code aborted} is why
+     * {@link #run} stopped before sending anything (a backup or a save that failed), else null.
+     */
+    public record Result(List<String> uploaded, List<Failure> failed, @Nullable String aborted) {
+
+        public Result(final List<String> uploaded, final List<Failure> failed) {
+            this(uploaded, failed, null);
+        }
+    }
 
     /** Whether a slot has anything worth keeping in the cloud: not empty, not one that failed to read. */
     public static boolean eligible(final Graph g) {
@@ -81,7 +94,8 @@ public final class Migration {
                 id = existing.substring(colon + 1);
                 if (knownIds.contains(id)) continue;
             }
-            items.add(new Item(g, id, accountId + ":" + id, toPlanJson.apply(g)));
+            items
+                .add(new Item(g, id, accountId + ":" + id, toPlanJson.apply(g), name(g), !g.isOpen(), g.getLastOpen()));
         }
         return items;
     }
@@ -94,60 +108,54 @@ public final class Migration {
         final List<String> uploaded = new ArrayList<>();
         final List<Failure> failed = new ArrayList<>();
         for (final Item item : items) {
-            final String name = name(item.graph());
+            final String name = item.name();
             try {
                 final String now = Instant.now()
                     .truncatedTo(ChronoUnit.MILLIS)
                     .toString();
-                final long opened = item.graph()
-                    .getLastOpen();
+                final long opened = item.lastOpen();
                 final String created = opened > 0 ? Instant.ofEpochMilli(opened)
                     .toString() : now;
                 final CloudApi.Put put = CloudApi.put(
                     token,
                     item.designId(),
-                    new CloudApi.Upsert(
-                        name,
-                        null,
-                        null,
-                        !item.graph()
-                            .isOpen(),
-                        false,
-                        null,
-                        created,
-                        now,
-                        now,
-                        item.plan()));
+                    new CloudApi.Upsert(name, null, null, item.closed(), false, null, created, now, now, item.plan()));
                 if (put.live()) failed.add(new Failure(name, "someone is editing it right now"));
                 else {
                     uploaded.add(item.key());
                     if (each != null) each.accept(item);
                 }
-            } catch (final IOException e) {
-                failed.add(new Failure(name, e.getMessage()));
+            } catch (final IOException | RuntimeException e) {
+                failed.add(new Failure(name, String.valueOf(e.getMessage())));
             }
         }
         return new Result(uploaded, failed);
     }
 
     /**
-     * All of it on the calling thread: {@code backUp} first (a copy of the save), then the account's list, the keys,
-     * {@code save} (so they are kept before anything is sent) and the upload.
+     * All of it on the calling thread: the account's list, {@code backUp} (a copy of the save; false stops everything
+     * before a key is given), the keys, {@code save} (so they are on disk before anything is sent; false stops
+     * everything) and the upload.
      *
-     * @return the outcome, or null when nothing was waiting
+     * @return the outcome ({@link Result#aborted} says why nothing was sent), or null when nothing was waiting
      */
     @Nullable
     public static Result run(final Plan plan, final String accountId, final String token,
-        final Function<Graph, JsonObject> toPlanJson, final Runnable backUp, final Runnable save) throws IOException {
+        final Function<Graph, JsonObject> toPlanJson, final BooleanSupplier backUp, final BooleanSupplier save)
+        throws IOException {
         final Set<String> known = new java.util.HashSet<>();
         for (final CloudApi.Design d : CloudApi.library(token, accountId)
             .own()) known.add(d.id());
         final boolean any = !prepareless(plan, accountId, known);
         if (!any) return null;
-        backUp.run();
+        if (!backUp.getAsBoolean()) return aborted("the plans could not be backed up first");
         final List<Item> items = prepare(plan, accountId, known, toPlanJson);
-        save.run();
+        if (!save.getAsBoolean()) return aborted("the plans could not be saved before sending");
         return upload(items, token, null);
+    }
+
+    private static Result aborted(final String why) {
+        return new Result(new ArrayList<>(), new ArrayList<>(), why);
     }
 
     /** True when {@link #prepare} would have nothing to do. */
