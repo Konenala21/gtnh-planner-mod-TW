@@ -50,9 +50,12 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   the NEI and GregTech side. The "+" plan tab pastes one from the clipboard; `call 'importff?file=<path>'` does it
   from the harness. Fixtures are in `src/test/resources/factory-flow/`. A card's machine is found by the website's
   handler id among the blocks `handlers.json` lists for it (`WebCards.handlerItems`; names alone never match a GT
-  single block, named per tier), a single block at the card's tier (the nearest it comes in, reported). Our cards are
-  sized differently, so the board pulls an imported plan's overlapping cards apart once it has solved
-  (`layout/Unstack`). Real plans to try it on: `POST /api/community/plans/<id>/download` gives a post's plan.
+  single block, named per tier), a single block at the card's tier (the nearest it comes in, reported). The website's
+  board px are ours one to one (the owner's backport, 2026-10-15: its board draws our 320 card and 116x48 drawers),
+  for the importer, the posting export and shared plans alike; a card still sized a little differently is pulled
+  apart once the board has solved (`layout/Unstack`). Port rates go both ways as plan mode's `portRates` (by the
+  website's row handle), a source drawer's rule as a negative `targetPerSecond`, trash as `drainMode: "trash"`, and
+  posts say `planMode` with `solveMode`. Real plans to try it on: `POST /api/community/plans/<id>/download` gives a post's plan.
 - Shared machines (one card, several recipes time-sharing one machine; `docs/design/ff-shared-machine-spec.md`) are
   `MachineGroup`s with ordered `sections`: each recipe stays a node with its own ports and wires, the group draws as
   one card, its machine settings are copied to every recipe, and a pinned count is an exact solver pool.
@@ -116,7 +119,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   Group key or Ctrl+G; a carried card joins the group it is aimed at (`BoardCanvas.aim`, lit while carried) and leaves the
   same way; wires to a collapsed group dock on its summary (`WireLayer.groupBox`); Arrange moves a group as one block.
   They take no part in the solve, and travel as the website's `pockets` both ways (`FfConverter.placeBoards`,
-  `PlanExport.pocket`). Every menu is a `PickList` with the website's rows and words (a right click on a card or drawer
+  `PlanExport.pocket`, and in shared plans `cloud/map`: members placed from their pocket's frame). Every menu is a `PickList` with the website's rows and words (a right click on a card or drawer
   opens its key's menu).
 - Sticky notes (`ui/note/NoteCard`, a `Note` in `graph.notes`): right-click empty board to add one; drag anywhere
   to move (even while writing), drag the folded corner or an edge to resize, click to write, right-click for colour,
@@ -144,7 +147,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   and pending batches; `Migration`, a world's plans uploaded once, local save kept), `cloud/sync` (`LiveOps`,
   `LiveState`: the op engine both sides share, checked on the website's `live-vectors.json`), `cloud/map`
   (`CloudPlans`: the board to and from the website's plan, each thing carrying the game's own data under
-  `gtnhplanner`, read back exactly while the website left it alone), `cloud/session` (`CloudSession` per account,
+  `gtnhplanner`, read back exactly while the website left it alone; groups are its pockets, each thing placed from its
+  pocket's frame; every drawing an annotation; a buffer its storage with wires both ways; port rates, setting pins
+  and leftover splits the plan's own fields in the website's words, `PlanPins`; docs/design/cloud-live.md has the
+  whole mapping), `cloud/session` (`CloudSession` per account,
   `LiveDoc` per open plan, wired through `CloudHooks`). Every save sends the board's changes as a batch (kept on disk
   first); others' batches are read in once a tick while the board is at rest; undo on a cloud plan takes back only
   the player's own edits. Presence is `ui/live/` (`PresenceOut` sends cursor, selection and view at most 10 a

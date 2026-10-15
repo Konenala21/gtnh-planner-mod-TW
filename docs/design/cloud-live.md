@@ -196,9 +196,9 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
 
 `FactoryProject` and its schema gain, all optional (the Zod schemas strip unknown keys, so each must be declared):
 
-- `gtnhplanner?: Record<string, unknown>` on the project, nodes, storages, edges and annotations: the game's own data
-  for that thing, opaque to the website, kept as is through every website edit (see Game mapping). At most 64 KB per
-  thing.
+- `gtnhplanner?: Record<string, unknown>` on the project, nodes, storages, edges, annotations and pockets: the game's
+  own data for that thing, opaque to the website, kept as is through every website edit (see Game mapping). At most
+  64 KB per thing.
 - `primaryView?: "plan" | "tasks"`: which view the plan opens on. A task board is a plan with `"tasks"`.
 - `tasks?: PlanTask[]`: `{ id, title (1-120), text? (≤4000), status: "todo"|"doing"|"blocked"|"done", order: string
   (fractional index), assignees?: string[] (account ids), nodeIds?: string[], createdBy?, createdAt?, doneAt? }`
@@ -224,51 +224,91 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
 ## Game mapping
 
 The game keeps its own model (`Graph`) and maps it to and from the shared plan, losslessly for anything the game
-made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
+made (`cloud/map/CloudPlans`; the engine is `cloud/sync`). Since the website's one-mode board (its `live-backport`,
+2026-10-15) the plan is a plan-mode plan both sides edit the same things in: cards, drawers (buffers too), wires,
+every annotation kind, groups (pockets), port rates, setting pins and leftover splits.
 
 - Ids: the game's UUID strings are the plan's ids (as `PlanExport` already writes them), and a canonical UUID string
   reads back as that UUID. Any other id (one the website made) keeps its string; the game maps it to a UUID with
-  `UUID.nameUUIDFromBytes` and writes the same string back. Drawer-link wires are `<drawer>:<node>:<port>`; a link the
-  website wired keeps its own id. A card's recipe is `gtnhplanner:<nodeId>`.
-- Positions: the plan's coordinates are the website's, at the posting export's scale (x times 380/320, y over 0.6,
-  rounded). Every game pixel goes there and back exactly (both scales are above 1); a website position between two
-  game pixels reads as the nearest and is written back untouched unless the game moves the thing. No snapping, no
-  margin, and a thing on a website board (pocket) moved in the game is written relative to its board.
-- Each node, storage, edge and annotation the game writes carries `gtnhplanner: { v: 1, game, sum }`. `game` is the
-  game's own JSON for it: a node's save without its id and place; a drawer's without its id, place and links (its
-  wires are its links); a wire's `{ srcOut, dstIn }`; a link's `{ port }`; a note's save without its id and place.
-  `sum` is the first 16 hex digits of the SHA-256 of the thing's website fields (`position` and `gtnhplanner` left
-  out, its id kept) in one spelling: keys sorted, numbers by value, so the website reading and writing it again keeps
-  it. The plan's own `gtnhplanner` is `{ v: 1, game: { balanceMode, settingPins, spareShares, groups, icon }, sum }`:
-  groups and shared machines are the game's, `icon` the icon's resource key, `sum` over the plan's `icon`.
-- Reading: a thing whose `sum` still matches is rebuilt from `game` exactly, taking only its position from the website
-  fields. A thing the website made or changed beyond its position is built from the website fields the importer's way
-  (`importer/FfCards`, never new ids), keeping from `game` what the website has no place for: world links, input
-  targets, output targets where the website set none, an unpinned card's count, settings the website does not keep;
-  a drawer keeps its kind (when nothing is wired to it) and its resource key (while the website names the same
-  resource). A card whose game data reads with no ports (NEI knows its recipe by another id, another pack version)
-  is built the importer's way too.
-- What the game has no place for stays in the plan as it was and is not on the board: buffer drawers and their wires,
-  loose cell wires, switched-off cards, recipes the game lacks, the website's other drawings (boxes, arrows, zones,
-  pictures), boards, fuel profiles, production groups, custom rate cards where the game builds none. A wire to a card
-  or drawer the game deletes goes with it.
+  `UUID.nameUUIDFromBytes` and writes the same string back. Drawer-link wires are `<drawer>:<node>:<port>`, a
+  buffer's wire to a user `<drawer>:<node>:in:<port>`; a link the website wired keeps its own id. A card's recipe is
+  `gtnhplanner:<nodeId>`. A group is its pocket under its UUID; a pocket the website made keeps its id, which the
+  group also keeps (`BoardGroup.ffId`) to post under.
+- Positions are one to one: the website's board draws the game's card (320 wide, rows of two cells) and drawers (116
+  by 48) and places every plan, old ones too, where its positions say, so the plan's coordinates are the board's
+  pixels (`PlanExport.position`, `gameX`; the posting export and the importer the same). A website position between two
+  pixels reads as the nearest and is written back untouched unless the game moves the thing.
+- Groups (`docs/design/groups.md`): a `BoardGroup` is a pocket (`name`, `colorTag`, `expanded`, `size`, `theme`,
+  `pattern`), nested by `parentPocketId`; each card, drawer, note and group in one carries its `pocketId`, and every
+  position is measured from its pocket's frame corner in the board's pixels (a pocket's from its parent's). The game
+  writes each place as the board's pixels from the frame, so a group moved moves only its pocket and everything comes
+  back to the pixel; a pocket the website never opened (no `size`) is read with the shift the website gives its
+  members when it first opens it. A thing's place is its position and its pocket: both are left out of its `sum`, so
+  a card the website drops into a pocket stays the game's own.
+- Annotations: sticky notes, boxes, zones, arrows (`arrowHeads`, `arrowWidth`, a level arrow's 0 axis) and pictures
+  (kept, never shown) are the board's notes of that kind, both ways (`FfConverter.note`, `PlanExport.note`).
+- Buffer drawers (`docs/design/buffer-drawers.md`): a buffer is its storage, a wire into it from each maker and a wire
+  from it to each user. Links are told apart by side (an input a drawer feeds, an output that feeds it), never by the
+  drawer's kind, so a drawer that becomes a buffer (or stops being one) keeps its wires. A storage the website wires
+  both ways reads as a buffer; one wired to another drawer or by a cell wire stays in the plan untouched (the
+  importer joins its wires instead). A website buffer's rule is live only in a plan-mode plan.
+- Each node, storage, edge, annotation and pocket the game writes carries `gtnhplanner: { v: 1, game, sum }`. `game`
+  is the game's own JSON for it: a node's save without its id, place and group; a drawer's without its id, place,
+  group, links and users (its wires are both); a wire's `{ srcOut, dstIn }`; a link's `{ port }`; a note's save
+  without its id, place and group; a group's without its id, corner and parent (its exact size, name, colour, paper
+  and imported website id). `sum` is the first 16 hex digits of the SHA-256 of the thing's website fields (`position`,
+  `pocketId`, `parentPocketId` and `gtnhplanner` left out, its id kept) in one spelling: keys sorted, numbers by value,
+  so the website reading and writing it again keeps it. The plan's own `gtnhplanner` is `{ v: 1, game: { balanceMode,
+  settingPins, spareShares, groups, icon }, sum }`: groups and shared machines are the game's, `icon` the icon's
+  resource key, setting pins and spares in the game's spelling, `sum` over the plan's `icon`, `settingPins` and
+  `spareShares`.
+- The plan's fields the game writes: `solveMode` and `planMode` (always both, so the website never converts a game
+  plan; a plan without `planMode` is the website's to convert when it opens it), `name`, `description`, `icon`,
+  `primaryView`, and the picks both sides edit (`cloud/map/PlanPins`):
+  - `settingPins`: the website keys a machine by its handler id and a power card by `power:<source>`, its settings by
+    their ids (`heatingCoil`, a machine option's id, a power setting's id); the game keys a machine by its name
+    (`machine:<name>`) and its settings as its sheet does (`machine:coil`, `machine:machine:<id>`, `power:<id>`). Each
+    side's pins are written in the other's words where it has them; a pin only the game can spell (a voltage, a
+    reading, a key the website has no machine for) stays in the game's data, and a website machine with no card on the
+    board is kept on it as `site:<key>` and goes back as it came.
+  - `spareShares`: bearer keys `<card>:<i|o>:<port>` with the plan's card ids (a website shared machine's later recipe
+    `<card>#r<n>`), a leftover the sorted keys joined by `|`, as both solvers write them.
+  While these fields are the ones the game's data was written with, the game reads its own spelling; else the
+  website's, translated.
+- Cards: `machineCount` is the count the card is set to, `solvePin` that count when it is pinned (the posting export
+  writes the solve's answer there instead), `portRates` the rates set on its ports, by the handle the website's rows go
+  by (`output:item:<id>`, an input by the item it is set to, a shared machine's section `r<n>:`), a second. A card the
+  website changed takes its rates from `portRates`; only rates on ports the website has no row for are kept from the
+  game's data.
+- Drawers: a source's rule is written as the website writes it (`targetPerSecond` negative, `targetMode`), a product's
+  positive, trash as `drainMode: "trash"`, a buffer with no `drainMode` (its wires say what it is).
+- Reading: a thing whose `sum` still matches is rebuilt from `game` exactly, taking only its place from the website
+  fields. A thing the website made or changed beyond its place is built from the website fields the importer's way
+  (`importer/FfCards`, never new ids), keeping from `game` what the website has no place for: world links, rates on
+  ports the website has no row for, an unpinned card's count, settings the website does not keep; a drawer keeps its
+  kind (when nothing is wired to it) and its resource key (while the website names the same resource); a group its
+  imported website id and its exact size while the website's is the one the game wrote. A card whose game data reads
+  with no ports (NEI knows its recipe by another id, another pack version) is built the importer's way too.
+- What the game has no place for stays in the plan as it was and is not on the board: buffers wired to another drawer
+  or by a cell wire, loose cell wires, switched-off cards, recipes the game lacks, fuel profiles, production groups,
+  custom rate cards where the game builds none. A wire to a card or drawer the game deletes goes with it.
 - A shared machine the website made (`extraRecipes`) reads as the game's shared machine; its later recipes and their
   group come with the card and are written only as part of it: changes to them in the game stay in the game.
 - Writing is against the plan read (`CloudPlans.write(graph, game, plan, basis)`; the basis records what each thing
   was read as). A thing nobody changed is written exactly as the plan has it, so a plan read and written straight back
-  is unchanged, a website card included. A thing only moved changes only its `position`. A changed thing takes only
-  the website fields its change touched (what the game writes for it now against what it wrote for it when read) and
-  then carries `gtnhplanner`. A changed card whose recipe changed gets its own `gtnhplanner:<id>` recipe rather than
-  changing one the website made, which other cards may share. A recipe no card uses any more after a game edit goes.
+  is unchanged, a website card included. A thing only moved changes only its `position` (and `pocketId` when it changed
+  group). A changed thing takes only the website fields its change touched (what the game writes for it now against
+  what it wrote for it when read) and then carries `gtnhplanner`. A changed card whose recipe changed gets its own
+  `gtnhplanner:<id>` recipe rather than changing one the website made, which other cards may share. A recipe no card
+  uses any more after a game edit goes.
 - A local edit in the game is `CloudPlans.diff(view, write(board, view, basis))`.
-- A card's `machineCount` is the count it is set to, and `solvePin` that count when it is pinned (the posting export
-  writes the solve's answer there instead).
 - Derived, stripped from both plans before every diff (`cloud/map/Derived`), never an edit: a power card recipe's
   readings, `recipes[].power.euPerTick`, `.stats` and `.warnings` (the source's model at the card's settings; both
   sides work them out again on load). Nothing the solve answers is written at all.
 - Per player, never in the plan: camera, selection, folded sections, the pin list (a cloud plan keeps its pins on this
   device, per plan), when the plan was last open, whether its tab is open, its library post (`postId`). Its
   description and icon are the plan's `description` and `icon`.
+- Presence names what is selected by the plan's ids, a group by its pocket's.
 - Placed machines (world links) are shared, each keyed by the world it was placed in; a game shows the ones for its
   own world. A card's game data spells them `worlds: { <world>: [[dim, x, y, z, facing, size?], ...] }` (game data
   from before has one `worldLinks` list, read as this world's). A world is `server:<first 16 hex of the SHA-256 of
@@ -280,6 +320,11 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   A task's cards (`nodeIds`, a line's `nodeId`) are the board's card ids on the board and the plan's ids in the plan:
   a card the website made is linked by the website's id there, by the UUID it reads as here; an id that is no card
   stays as it is both ways.
+- The website's side must keep what the game writes: its live service stores each thing as its schema's output, so a
+  field the schema does not declare is dropped. `gtnhplanner` is declared on the project, nodes, storages, edges and
+  annotations; pockets need it too (`factoryPocketSchema`), or a group the website keeps comes back to the game built
+  from its website fields (its size to whole cells, its imported id lost). A pocket's `name` must not be empty: the
+  game writes "Group" for a nameless group.
 - WebSocket: Minecraft's own netty (`io.netty.handler.codec.http.websocketx`, TLS through the JDK's SSLEngine), so no
   new library ships; the jar still runs on Java 8.
 - Undo for a cloud plan applies recorded inverses (above) instead of restoring snapshots; local plans keep today's
