@@ -125,9 +125,9 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         if (!super.isInside(stack, mx, my, transform)) return false;
         final Note n = note();
         if (n == null || !n.isDrawing() || Note.IMAGE.equals(n.kind())) return true;
-        final BoardCanvas c = canvas();
-        if (c == null) return true;
-        return DrawingPaint.hit(n, w(), h(), c.worldX(mx) - n.getX(), c.worldY(my) - n.getY());
+        if (canvas() == null) return true;
+        // The mouse as the rest of the card reads it (localX), which the hover pass is asking about.
+        return DrawingPaint.hit(n, w(), h(), localX(), localY());
     }
 
     // region Geometry
