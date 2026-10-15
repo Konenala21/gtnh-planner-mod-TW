@@ -240,6 +240,26 @@ public final class CloudCache {
         return write(new File(dir, "list.json"), GSON.toJson(library.toJson()));
     }
 
+    @Nullable
+    private JsonObject device;
+
+    /**
+     * What this device keeps for the account beside the plans (which have tabs, the open one, plans still to send):
+     * a copy, empty before the first save.
+     */
+    public synchronized JsonObject device() {
+        if (device == null) {
+            final JsonObject read = readJson(new File(dir, "device.json"));
+            device = read == null ? new JsonObject() : read;
+        }
+        return copy(device);
+    }
+
+    public synchronized CompletableFuture<Void> saveDevice(final JsonObject state) {
+        device = copy(state);
+        return write(new File(dir, "device.json"), GSON.toJson(device));
+    }
+
     // endregion
 
     /** Forgets a plan on this device: the plan, its pending batches and its pins. */

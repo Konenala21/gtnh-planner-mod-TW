@@ -242,6 +242,8 @@ class CloudCacheTest {
         assertEquals(List.of("u1:d1"), b.keysWithPending());
         b.addPending("u1:d3", batch("c3"));
         assertEquals(java.util.Set.of("u1:d1", "u1:d3"), new java.util.HashSet<>(b.keysWithPending()));
+        // Written before the folder is cleared away, or the writer races the clean-up.
+        b.flush();
     }
 
     @Test

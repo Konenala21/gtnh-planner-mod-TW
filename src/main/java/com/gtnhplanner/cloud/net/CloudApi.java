@@ -181,8 +181,13 @@ public final class CloudApi {
         return out;
     }
 
-    /** A plan's body and the list entry it came with. */
-    public record Fetched(@Nullable Design design, JsonObject plan) {}
+    /** A plan's body, the list entry it came with, the seq the body is at, and the caller's role in it. */
+    public record Fetched(@Nullable Design design, JsonObject plan, long seq, String role) {
+
+        public Fetched(@Nullable final Design design, final JsonObject plan) {
+            this(design, plan, 0, "");
+        }
+    }
 
     /** What the site takes to create or change a plan; {@code plan} null is a change to the rest alone. */
     public record Upsert(String name, @Nullable JsonObject icon, @Nullable String folderId, boolean closed,
@@ -255,10 +260,12 @@ public final class CloudApi {
                 token).body);
         final JsonElement plan = root.get("plan");
         if (plan == null || !plan.isJsonObject()) throw new IOException("the site sent no plan");
-        final JsonElement d = root.get("design");
+        final JsonElement d = root.get("design"), seq = root.get("seq");
         return new Fetched(
             d != null && d.isJsonObject() ? Design.fromJson(d.getAsJsonObject(), ownerId, false) : null,
-            plan.getAsJsonObject());
+            plan.getAsJsonObject(),
+            seq != null && seq.isJsonPrimitive() ? seq.getAsLong() : 0,
+            string(root, "role"));
     }
 
     /**
@@ -266,9 +273,20 @@ public final class CloudApi {
      * {@code {"live":true}} is not an error: it comes back as {@link Put#live()}.
      */
     public static Put put(final String token, final String designId, final Upsert body) throws IOException {
+        return put(token, designId, null, body);
+    }
+
+    /**
+     * As {@link #put(String, String, Upsert)}, on {@code ownerId}'s plan (null: the account's own). A member may change
+     * a shared plan's body and name only; the rest stays the owner's.
+     */
+    public static Put put(final String token, final String designId, @Nullable final String ownerId, final Upsert body)
+        throws IOException {
         final Reply r = send(
             "PUT",
-            CommunityApi.site() + "/api/library/designs/" + enc(designId),
+            CommunityApi.site() + "/api/library/designs/"
+                + enc(designId)
+                + (ownerId == null ? "" : "?owner=" + enc(ownerId)),
             body.toJson()
                 .toString(),
             token,
