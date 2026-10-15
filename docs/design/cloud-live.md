@@ -242,11 +242,11 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
   once, never the task itself, never a loop (a task cannot wait on one that waits on it, directly or down the chain:
   the adding side refuses it; a loop two people close at once is drawn broken, never an error). No `blockedBy` is
   none (the game writes none for an empty list). Deleting a task takes its id out of every other task's list in the
-  same edit; an id naming no task on the board is ignored. A card shows a marker with how many of its blockers are
-  not Done; the task box lists Blocked by (add, remove) and Blocks (the reverse, read only). The chain view (Board /
-  Chain in the board's header, remembered per board on each device, never synced) draws the tasks as the quest book
-  does: layers left to right, arrows from each task to the tasks it unblocks, done tasks dimmed, ready ones (every
-  blocker Done) lit. **The website's schema must accept `blockedBy`.**
+  same edit; an id naming no task on the board is ignored. The task box shows it as Waiting on (add, remove) and its reverse as Unblocks (read
+  only); cards on the board show nothing of it. The chain view (Board / Chain in the board's header, remembered per
+  board on each device, never synced) draws the tasks as the quest book does, kept plain: layers left to right, arrows
+  from each task to the tasks it unblocks, each node its title, priority, faces and its column's colour, done tasks
+  dimmed. **The website's schema must accept `blockedBy`.**
 - `PlanLink`: `{ plan: string, node: string }`: a card on a plan, `plan` the plan's id (its doc key
   `<ownerId>:<designId>`, or a local id for a plan not in an account) and `node` the card's id in that plan, as that
   plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read

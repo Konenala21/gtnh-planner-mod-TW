@@ -141,6 +141,14 @@ public final class TaskChain {
                 if (n == 0 && !layer.containsKey(u)) ready.add(u);
             }
         }
+        // A task waiting on nothing sits just before the first task it unblocks, not far back at the start.
+        for (final String m : members) {
+            if (!waits.get(m)
+                .isEmpty()) continue;
+            int first = Integer.MAX_VALUE;
+            for (final String u : unblocks.get(m)) first = Math.min(first, layer.get(u));
+            if (first != Integer.MAX_VALUE && first - 1 > layer.get(m)) layer.put(m, first - 1);
+        }
         int depth = 0;
         for (final int l : layer.values()) depth = Math.max(depth, l + 1);
         final List<List<String>> layers = new ArrayList<>();

@@ -209,7 +209,7 @@ class TaskEditsTest {
     @Test
     void chainsAreLaidOutInLayersWithTheUnlinkedAtTheEnd() {
         final Graph g = new Graph("B");
-        for (final String id : List.of("ore", "dust", "ingot", "plate", "wire", "motor", "lone", "x", "y"))
+        for (final String id : List.of("ore", "dust", "ingot", "plate", "wire", "motor", "lone", "x", "y", "coal"))
             TaskEdits.add(g, id, id, Tasks.Status.TODO, List.of(), null, AT);
         // ore -> dust -> ingot -> plate -> motor, and ingot -> wire -> motor: two branches meeting.
         TaskEdits.addBlocker(g, "dust", "ore");
@@ -219,13 +219,20 @@ class TaskEditsTest {
         TaskEdits.addBlocker(g, "motor", "plate");
         TaskEdits.addBlocker(g, "motor", "wire");
         TaskEdits.addBlocker(g, "y", "x");
+        // Coal waits on nothing and is needed only by the ingots: it sits just before them, beside the dust.
+        TaskEdits.addBlocker(g, "ingot", "coal");
         final TaskChain.Layout l = TaskChain.of(g);
         assertEquals(
             2,
             l.chains()
                 .size());
         assertEquals(
-            List.of(List.of("ore"), List.of("dust"), List.of("ingot"), List.of("plate", "wire"), List.of("motor")),
+            List.of(
+                List.of("ore"),
+                List.of("dust", "coal"),
+                List.of("ingot"),
+                List.of("plate", "wire"),
+                List.of("motor")),
             l.chains()
                 .get(0)
                 .layers());
@@ -236,7 +243,7 @@ class TaskEditsTest {
                 .layers());
         assertEquals(List.of("lone"), l.loose());
         assertEquals(
-            9,
+            10,
             l.ids()
                 .size());
 
@@ -244,10 +251,10 @@ class TaskEditsTest {
         g.tasks.set(0, TaskEdits.withBlockedBy(g.tasks.get(0), List.of("motor")));
         final TaskChain.Layout looped = TaskChain.of(g);
         assertEquals(
-            9,
+            10,
             looped.ids()
                 .size());
-        assertEquals(9, new java.util.HashSet<>(looped.ids()).size());
+        assertEquals(10, new java.util.HashSet<>(looped.ids()).size());
     }
 
     @Test

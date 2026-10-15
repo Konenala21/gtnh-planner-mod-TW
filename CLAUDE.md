@@ -135,15 +135,24 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - Task boards (`ui/task/`; the model is `data/flowchart/Tasks`, docs/design/cloud-live.md) are their own kind of plan
   (`primaryView` "tasks", `BoardSession.showsTasks`; the + tab menu's New task board, or "Add to a task" on cards): the
   plan always shows its tasks (`TaskBoardView`, its own header in the place of the toolbar: title, count, New task; no
-  overview) and a normal plan never does. Four columns of task cards (title, faces, things done of all "3/5", comments,
+  overview) and a normal plan never does. Four columns, Blocked, To do, Doing, Done, of task cards (title, faces, things done of all "3/5", comments,
   its first screenshot across the top), carried by the board's rules, ordered by fractional keys
   (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did not write; both
   sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A click opens `TaskPanel`, laid
   out as Jira's issue view (the owner, 2026-10-15): a main column (the title big and written in place, a `TextArea` at
   a scale of whole screen pixels; notes; the things; the comment thread; the comment box at the foot, growing to four
-  lines) and a side column on a panel of its own (Status as a picker, People, Board, Made, Delete task at its foot);
-  below 400 px the side column goes under the title (Status and People side by side, faces only, then the board and
-  who made it with Delete task). Everything between the bar and the foot is one page that scrolls (`Page`, an
+  lines) and a side column on a panel of its own, about a third of the box (150 to 184 px), in three groups split by
+  hairlines with quiet capital labels: Status, Priority, People; Waiting on (the tasks it waits on, one line each, an
+  Add key that refuses a loop and says why) and Unblocks (the reverse, read only); then Board, Made and Time as quiet
+  facts. Delete task is at its foot. Below 400 px the side column goes under the title (Status and Priority beside
+  People, Waiting on beside Unblocks, then the board and who made it with Delete task). A task's `blockedBy` (ids on
+  the same board, never a loop: `TaskEdits.addBlocker`, `wouldLoop`; deleting a task takes it out of every list) is a
+  description, whatever its column. The header's Board / Chain switches to the chain view (`TaskChainView`, the
+  quest book's way; per board on this computer, `PlannerSettings.taskView`): a list of the tasks chain by chain
+  (folded to a strip below 560 px) and a map that pans (drag) and zooms (wheel), laid out by `TaskChain` (layers left
+  to right, a task waiting on nothing just before the first task it unblocks, the unlinked in a row at the end, a loop
+  drawn broken), each node plain (title, priority, faces, its column's colour; done dimmed) with arrows to what it
+  unblocks; a click opens the task, a row in the list centres the map on it, Fit shows everything. Everything between the bar and the foot is one page that scrolls (`Page`, an
   `IViewport` only for its clip: its boxes are moved, not transformed, so their mouse maths stays the screen's). A task
   is a title, status, people, notes, a list of **things** (`taskItems`, each with its own checkbox, drag to reorder,
   right-click for its menu) and comments. Things (`TaskThings` shows them): a **machine** (`Tasks.MACHINE`, a `link`:
@@ -166,8 +175,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   of its most pressing task from every task board loaded (`BoardSession.taskStatus`; machine things count). People are
   account ids: assigning and comments use the signed-in account (`Account.userId`); signed out a comment is by "You"
   (`local`). `call tasks` reports the view and the parts' rects (`open=<id>` opens a task, `scroll=<y>` scrolls its
-  page; `add=<title>&status=`, `task=<id>&comment=<text>&by=<id>&name=<name>&ago=<minutes>` and `assign=<id>` set a
-  board up to look at).
+  page; `newboard=<name>`, `add=<title>&status=`, `task=<id>&comment=<text>&by=<id>&name=<name>&ago=<minutes>`,
+  `assign=<id>` and `block=<id>`/`unblock=<id>` set a board up to look at; `view=board|chain` and `select=<id>` drive
+  the chain view).
 - The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
   key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
   views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,

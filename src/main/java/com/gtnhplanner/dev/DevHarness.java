@@ -365,12 +365,16 @@ public final class DevHarness {
             case "/tasks":
                 // The task board: whether the open plan is one, each column's cards with their GUI rects, and the task
                 // box open; open=<task id> opens a task's box, scroll=<y> scrolls its page. For setting up a board to
-                // look at: add=<title>[&status=doing] makes a task; task=<id> with comment=<text>&by=<id>&name=<name>
-                // [&ago=<minutes>] writes a comment as someone else, assign=<id> puts someone on it.
+                // look at: newboard=<name> makes a task board and opens it; add=<title>[&status=doing] makes a task;
+                // task=<id> (or the task just added) with comment=<text>&by=<id>&name=<name>[&ago=<minutes>] writes a
+                // comment as someone else, assign=<id> puts someone on it, block=<id> or unblock=<id> sets what it
+                // waits on. view=board|chain switches the board's view; select=<id> selects a task in the chain view.
                 return onClient(() -> {
                     final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
                     if (screen == null) return error("the planner is not open");
                     final com.gtnhplanner.ui.BoardSession session = screen.session();
+                    if (q.containsKey("newboard")) session.addTaskBoard(true)
+                        .setName(q.get("newboard"));
                     final com.gtnhplanner.data.flowchart.Graph g = session.graph();
                     String made = null;
                     if (q.containsKey("add")) {
@@ -389,7 +393,7 @@ public final class DevHarness {
                                 com.gtnhplanner.ui.task.TaskLook.now()));
                         made = id;
                     }
-                    final String task = q.get("task");
+                    final String task = q.containsKey("task") ? q.get("task") : made;
                     if (task != null && q.containsKey("comment")) {
                         final long ago = Long.parseLong(q.getOrDefault("ago", "0"));
                         final String at = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
@@ -451,6 +455,18 @@ public final class DevHarness {
                                         t.blockedBy())));
                         }
                     }
+                    if (task != null && q.containsKey("block")) {
+                        // block=<id>: the task waits on that one (refused, as the box refuses it, if it would loop);
+                        // unblock=<id> takes it off.
+                        session.editTasks(
+                            () -> com.gtnhplanner.data.flowchart.TaskEdits.addBlocker(g, task, q.get("block")));
+                    }
+                    if (task != null && q.containsKey("unblock")) session.editTasks(
+                        () -> com.gtnhplanner.data.flowchart.TaskEdits.removeBlocker(g, task, q.get("unblock")));
+                    final com.gtnhplanner.ui.task.TaskBoardView boardView = (com.gtnhplanner.ui.task.TaskBoardView) screen
+                        .key("taskBoard");
+                    if (q.containsKey("view")) boardView.showView(q.get("view"));
+                    if (q.containsKey("select")) boardView.selectInChain(q.get("select"));
                     if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(session, q.get("open"));
                     if (q.containsKey("scroll")) com.gtnhplanner.ui.task.TaskPanel.scrollTo(intArg(q, "scroll"));
                     final Map<String, Object> m = new LinkedHashMap<>();

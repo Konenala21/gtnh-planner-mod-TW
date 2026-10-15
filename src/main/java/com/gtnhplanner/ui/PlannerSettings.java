@@ -77,6 +77,15 @@ public final class PlannerSettings {
         set("tour.offered", offered);
     }
 
+    /** How a task board shows on this computer, by its plan id: "chain" for its chains, else its columns. */
+    public static String taskView(final String planId) {
+        return load().getProperty("tasks.view." + planId, "board");
+    }
+
+    public static void setTaskView(final String planId, final String view) {
+        set("tasks.view." + planId, view);
+    }
+
     /** The newest release the player was told of (and answered), so it is said once; "" for none. */
     public static String updateOffered() {
         return load().getProperty("update.offered", "");

@@ -20,6 +20,7 @@ import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteText;
 import com.gtnhplanner.ui.popup.PickList;
@@ -30,8 +31,8 @@ import com.gtnhplanner.ui.theme.Hyb;
 import com.gtnhplanner.ui.theme.Icons;
 
 /**
- * The open plan's task board, in the board's place (the overview and the top bar stay): four columns, To do, Doing,
- * Blocked and Done, each a stack of task cards (its first screenshot, the title, who is on it, its things done of all
+ * The open plan's task board, in the board's place (the overview and the top bar stay): four columns, Blocked, To do,
+ * Doing and Done, each a stack of task cards (its first screenshot, the title, who is on it, its things done of all
  * of them and how many comments). A card is carried by the board's rules: a press let go within {@value #DRAG_SLOP}
  * pixels is a click and
  * opens
@@ -83,7 +84,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     private enum Kind {
         CARD,
         ADD,
-        NEW
+        NEW,
+        VIEW
     }
 
     private record Hit(Kind kind, int x0, int y0, int x1, int y1, @Nullable Object data) {
@@ -286,6 +288,13 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         }
         across = Math.max(0, Math.min(maxAcross(), across));
         drawHeader(w, hover);
+        if (chainShown()) {
+            // The chain view in the columns' place, under the same header.
+            chain.draw(context, HEAD_H, w, h - HEAD_H, hover == null && localY() >= HEAD_H);
+            lastHits.clear();
+            lastHits.addAll(hits);
+            return;
+        }
         final List<Placed> cards = layout();
         final Tasks.Status[] statuses = Tasks.Status.values();
         // The columns in the view: scrolled sideways, those past an edge are cut there.
@@ -308,21 +317,12 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                 if (Math.abs(p.x() - at[0]) < 0.5f) at[0] = p.x();
                 if (Math.abs(p.y() - at[1]) < 0.5f) at[1] = p.y();
                 if (at[1] + p.h() < top || at[1] > bottom) continue;
-                final boolean hot = hover != null && hover.kind() == Kind.CARD
-                    && p.task()
-                        .id()
-                        .equals(hover.data());
+                final String id = p.task()
+                    .id();
+                final boolean hot = hover != null && hover.kind() == Kind.CARD && id.equals(hover.data());
                 drawCard(p.task(), p.title(), at[0], at[1], p.w(), p.h(), hot, false);
                 final int y0 = Math.max(top, Math.round(at[1])), y1 = Math.min(bottom, Math.round(at[1]) + p.h());
-                if (y1 > y0) hits.add(
-                    new Hit(
-                        Kind.CARD,
-                        Math.round(at[0]),
-                        y0,
-                        Math.round(at[0]) + p.w(),
-                        y1,
-                        p.task()
-                            .id()));
+                if (y1 > y0) hits.add(new Hit(Kind.CARD, Math.round(at[0]), y0, Math.round(at[0]) + p.w(), y1, id));
             }
             if (graph().tasks.isEmpty() && c == 0) drawEmpty(x, top);
             Stencil.remove();
@@ -351,6 +351,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     private void drawHeader(final int w, @Nullable final Hit hover) {
         int right = w - EDGE;
         right = key(right, "New task", Kind.NEW, null, hover) - 6;
+        right = viewSwitch(right, hover) - 8;
         final String name = graph().getName()
             .isBlank() ? "Tasks" : graph().getName();
         final String title = Hyb.width(name) + 16 <= right - EDGE ? name : "Tasks";
@@ -359,6 +360,55 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final int n = graph().tasks.size();
         final String counts = n + (n == 1 ? " task" : " tasks");
         if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, EDGE + (KEY_H - 8) / 2f, Hyb.MUTED);
+    }
+
+    /** The views a task board shows, as the device remembers them per board. */
+    static final String BOARD = "board", CHAIN = "chain";
+
+    /** The chain view, drawn in the columns' place while it is the board's view. */
+    private final TaskChainView chain = new TaskChainView(this);
+
+    BoardSession session() {
+        return session;
+    }
+
+    /** Whether this board shows its chains: remembered per board on this computer. */
+    boolean chainShown() {
+        return CHAIN.equals(PlannerSettings.taskView(graph().planId()));
+    }
+
+    /** Shows the board as columns or as chains, and remembers it for this board. */
+    public void showView(final String view) {
+        PlannerSettings.setTaskView(graph().planId(), CHAIN.equals(view) ? CHAIN : BOARD);
+    }
+
+    /** Selects a task in the chain view and brings the map to it, as a click on its row does (for the harness). */
+    public void selectInChain(final String id) {
+        chain.selectForHarness(id);
+    }
+
+    /**
+     * Board and Chain side by side, the one showing lit, right-aligned at {@code right}; returns its left edge.
+     */
+    private int viewSwitch(final int right, @Nullable final Hit hover) {
+        final String[] names = { "Board", "Chain" }, views = { BOARD, CHAIN };
+        final boolean chainOn = chainShown();
+        int w = 0;
+        for (final String n : names) w += Hyb.width(n) + 12;
+        final int x0 = right - w, y = EDGE;
+        int x = x0;
+        Hyb.rect(x0 - 1, y - 1, w + 2, KEY_H + 2, COLUMN_EDGE);
+        for (int i = 0; i < 2; i++) {
+            final int kw = Hyb.width(names[i]) + 12;
+            final boolean on = chainOn == (i == 1);
+            final boolean hot = !on && hover != null && hover.kind() == Kind.VIEW && views[i].equals(hover.data());
+            Hyb.rect(x, y, kw, KEY_H, on ? 0xFF33363C : hot ? Hyb.KEY_HOVER : COLUMN_BG);
+            if (on) Hyb.rect(x, y + KEY_H - 1, kw, 1, TaskPanel.CYAN);
+            Hyb.text(names[i], x + 6, y + 4, on ? Hyb.INK : Hyb.MUTED);
+            hits.add(new Hit(Kind.VIEW, x, y, x + kw, y + KEY_H, views[i]));
+            x += kw;
+        }
+        return x0;
     }
 
     /** While the columns are wider than the view: a thin bar along the bottom, its thumb where the view is. */
@@ -534,6 +584,14 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         if (getScreen().getPanelManager()
             .getTopMostPanel() != getPanel()) return;
         final Hit hover = carrying || pressed != null ? null : hitAt(lastHits);
+        if (hover == null && chainShown()) {
+            // The chain view's own parts explain themselves.
+            final Object on = chain.tipKey();
+            if (!tipWait.ready(on)) return;
+            final Tip tip = chain.tip();
+            if (tip != null) tip.drawNear(localX(), localY(), getArea().width, getArea().height);
+            return;
+        }
         if (!tipWait.ready(hover == null ? null : hover.data() == null ? hover.kind() : hover.data())) return;
         final Tip tip = tip(hover);
         if (tip != null) tip.drawNear(localX(), localY(), getArea().width, getArea().height);
@@ -558,6 +616,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             }
             case ADD -> Tip.of("Add a task to " + TaskLook.name((Tasks.Status) hit.data()));
             case NEW -> Tip.of("Add a task to To do");
+            case VIEW -> CHAIN.equals(hit.data()) ? Tip.of("Show the tasks as chains")
+                .sub("What each task waits on, left to right") : Tip.of("Show the tasks in columns");
         };
     }
 
@@ -572,6 +632,10 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public Result onMousePressed(final int mouseButton) {
+        if (chainShown()) {
+            final Hit head = hitAt(lastHits);
+            if (head == null) return chain.press(mouseButton) ? Result.SUCCESS : Result.ACCEPT;
+        }
         if (mouseButton == 0 && onAcrossBar()) {
             // On the thumb it is taken where it was grabbed; on the track the thumb jumps to centre on the mouse.
             final int max = maxAcross(), thumb = thumbW(), tx = (getArea().width - thumb) * across / max, mx = localX();
@@ -604,12 +668,19 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                 Hyb.click();
                 newTask(Tasks.Status.TODO, hit);
             }
+            case VIEW -> {
+                if (CHAIN.equals(hit.data()) != chainShown()) {
+                    Hyb.click();
+                    showView((String) hit.data());
+                }
+            }
         }
         return Result.SUCCESS;
     }
 
     @Override
     public void onMouseDrag(final int mouseButton, final long timeSinceClick) {
+        chain.drag();
         if (draggingBar) acrossTo(localX() - barGrab);
         lift();
     }
@@ -635,6 +706,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public boolean onMouseRelease(final int mouseButton) {
+        if (chain.release(mouseButton)) return true;
         if (draggingBar) {
             draggingBar = false;
             return true;
@@ -650,6 +722,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
      * ends here all the same.
      */
     public void screenReleased(final int mouseButton) {
+        chain.release(mouseButton);
         if (mouseButton == 0) draggingBar = false;
         if (mouseButton == 0 && pressed != null) release();
     }
@@ -690,6 +763,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
+        if (chainShown()) return chain.scroll(direction);
         final int mx = localX();
         // Sideways: Shift held, or over the column names or the bar.
         if (maxAcross() > 0 && (net.minecraft.client.gui.GuiScreen.isShiftKeyDown() || localY() < bodyTop()
@@ -766,6 +840,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final Map<String, Object> keys = new LinkedHashMap<>();
         for (final Hit h : lastHits) {
             if (h.kind() == Kind.ADD) keys.put("add:" + ((Tasks.Status) h.data()).wire, rect(h));
+            else if (h.kind() == Kind.VIEW) keys.put("view:" + h.data(), rect(h));
             else if (h.kind() != Kind.CARD) keys.put(
                 h.kind()
                     .name()
@@ -773,12 +848,21 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                 rect(h));
         }
         out.put("keys", keys);
+        out.put("view", chainShown() ? CHAIN : BOARD);
+        if (chainShown()) out.put("chain", chain.describe());
         return out;
     }
 
     private Map<String, Object> rect(final Hit h) {
-        final int x = PlannerScale.toGame(getArea().x + h.x0()), y = PlannerScale.toGame(getArea().y + h.y0());
-        final int w = PlannerScale.toGame(getArea().x + h.x1()) - x, hh = PlannerScale.toGame(getArea().y + h.y1()) - y;
+        return rect(h.x0(), h.y0(), h.x1(), h.y1());
+    }
+
+    /** A rectangle in the view's pixels as the game's GUI pixels, for the harness. */
+    Map<String, Object> rect(final float x0, final float y0, final float x1, final float y1) {
+        final int x = PlannerScale.toGame(Math.round(getArea().x + x0)),
+            y = PlannerScale.toGame(Math.round(getArea().y + y0));
+        final int w = PlannerScale.toGame(Math.round(getArea().x + x1)) - x,
+            hh = PlannerScale.toGame(Math.round(getArea().y + y1)) - y;
         return Map.of("x", x, "y", y, "w", w, "h", hh, "cx", x + w / 2, "cy", y + hh / 2);
     }
 
@@ -795,11 +879,11 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         return null;
     }
 
-    private int localX() {
+    int localX() {
         return getContext().getAbsMouseX() - getArea().x;
     }
 
-    private int localY() {
+    int localY() {
         return getContext().getAbsMouseY() - getArea().y;
     }
 
