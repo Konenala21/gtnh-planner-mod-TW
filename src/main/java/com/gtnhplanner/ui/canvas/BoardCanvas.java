@@ -3319,20 +3319,19 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     // region Pan and zoom
 
     /**
-     * A right-click on empty board: what can be added there. On a card: a task made from it, or from the selection it
-     * is
-     * part of.
+     * A right-click on empty board: what can be added there, and the cards selected into a task (a right click on a
+     * card opens its own actions).
      */
     public void openBoardMenu() {
         final int sx = getContext().getAbsMouseX(), sy = getContext().getAbsMouseY();
         final int wx = Math.round(worldX(sx)), wy = Math.round(worldY(sy));
         final List<PickList.Entry> rows = new ArrayList<>();
-        // The cards selected, when there are: a task from them (a right click on a card opens its own actions).
+        // The cards selected, when there are: into a task, a machine thing each.
         final List<UUID> taskCards = session.cardsIn(session.selection());
         if (!taskCards.isEmpty()) rows.add(
             PickList.Entry.of(
-                "Make a task",
-                () -> com.gtnhplanner.ui.task.TaskActions.makeMenu(session, getPanel(), taskCards, sx, sy)));
+                "Add to a task",
+                () -> com.gtnhplanner.ui.task.TaskActions.addMenu(session, getPanel(), taskCards, sx, sy)));
         rows.add(PickList.Entry.of("Add sticky note", () -> addNoteAt(wx, wy)));
         rows.add(
             PickList.Entry.of("Add box", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.BOX, wx, wy)));

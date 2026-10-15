@@ -1441,6 +1441,18 @@ public final class BoardSession {
         addTaskBoard(true);
     }
 
+    /** Opens a task board in its tab and the task in its box (once the board shows, laid out). */
+    public void openTask(final Graph board, final String taskId) {
+        final int i = slots().indexOf(board);
+        if (i < 0 || TaskEdits.task(board, taskId) == null) {
+            Sfx.DENY.play();
+            flash(Severity.WARN, "That task is gone");
+            return;
+        }
+        switchSlot(i);
+        com.gtnhplanner.ui.task.TaskPanel.openWhenShown(board, taskId);
+    }
+
     // endregion
 
     // region Selection

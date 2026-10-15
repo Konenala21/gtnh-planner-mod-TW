@@ -2168,8 +2168,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     /**
-     * The pin key's menu, here and on the overview's machine lines: place the card on a block in the world, and put
-     * it on the pin list shown on screen while playing, or take it off.
+     * The pin key's menu, here and on the overview's machine lines: place the card on a block in the world, put it on
+     * the pin list shown on screen while playing (or take it off), or add it to a task.
      */
     public void openPlaceMenu(final int screenX, final int screenY) {
         if (model == null) return;
@@ -2195,6 +2195,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 Hyb.INK,
                 false,
                 () -> session.togglePinList(nodeId)));
+        rows.add(
+            PickList.Entry.of(
+                "Add to a task",
+                () -> com.gtnhplanner.ui.task.TaskActions
+                    .addMenu(session, session.panel(), List.of(nodeId), screenX, screenY)));
         Popup.open(session.panel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
     }
 
@@ -2285,13 +2290,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final Node node = model.node;
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(PickList.Entry.of("Clone node", () -> session.cloneNode(node)));
-        // A task from it, or from every card selected with it.
+        // Into a task, with every card selected with it: a machine thing each.
         final List<UUID> taskCards = session.isSelected(nodeId) ? session.cardsIn(session.selection())
             : List.of(nodeId);
         rows.add(
             PickList.Entry.of(
-                "Make a task",
-                () -> com.gtnhplanner.ui.task.TaskActions.makeMenu(session, session.panel(), taskCards, sx, sy)));
+                "Add to a task",
+                () -> com.gtnhplanner.ui.task.TaskActions.addMenu(session, session.panel(), taskCards, sx, sy)));
         // Its place in the world, once it has one.
         if (placed()) {
             rows.add(
