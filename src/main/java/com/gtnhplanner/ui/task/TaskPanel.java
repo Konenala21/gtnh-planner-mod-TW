@@ -391,18 +391,24 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
     }
 
-    /** Who is on it, and the key to put yourself on it or take yourself off (signed in), or to sign in. */
+    /**
+     * Who is on it, and the key to choose who (a shared plan's owner and members), to put yourself on it or take
+     * yourself off (signed in, a plan on this computer), or to sign in.
+     */
     private void drawPeople(final Tasks.Task t, @Nullable final Hit hover) {
         int right = W - PAD;
         final String me = Account.userId();
+        final boolean shared = !TaskLook.people(graph())
+            .isEmpty();
         if (me == null) {
             final String s = "Sign in to assign";
             right -= Hyb.width(s);
             Hyb.text(s, right, statusY + 4, is(hover, Kind.SIGN_IN) ? 0xFFFFFFFF : CYAN);
             hits.add(new Hit(Kind.SIGN_IN, right, statusY, right + Hyb.width(s), statusY + CHIP_H, null));
         } else {
-            final String s = t.assignees()
-                .contains(me) ? "Unassign me" : "Assign me";
+            final String s = shared ? "Assign"
+                : t.assignees()
+                    .contains(me) ? "Unassign me" : "Assign me";
             final int kw = Hyb.width(s) + 12;
             right -= kw;
             Hyb.bevel(
@@ -416,7 +422,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 0,
                 1);
             Hyb.text(s, right + 6, statusY + 4, Hyb.INK);
-            hits.add(new Hit(Kind.ASSIGN, right, statusY, right + kw, statusY + KEY_H, null));
+            hits.add(new Hit(Kind.ASSIGN, right, statusY, right + kw, statusY + KEY_H, shared ? Boolean.TRUE : null));
         }
         if (t.assignees()
             .isEmpty()) return;
@@ -424,6 +430,38 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         for (final String id : t.assignees())
             w += TaskLook.faceWidth(TaskLook.initials(TaskLook.nameOf(graph(), id))) - 2;
         TaskLook.faces(graph(), t.assignees(), right - 6 - w, statusY + 2);
+    }
+
+    /** A shared plan's owner and members, under the Assign key: a pick puts them on the task or takes them off. */
+    private void pickPeople(final Tasks.Task t, final Hit key) {
+        final String me = Account.userId();
+        final List<PickList.Entry> rows = new ArrayList<>();
+        for (final TaskLook.Person p : TaskLook.people(graph())) {
+            final boolean on = t.assignees()
+                .contains(p.id());
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    p.id()
+                        .equals(me) ? p.name() + " (you)" : p.name(),
+                    on ? "On it" : "",
+                    Hyb.INK,
+                    on,
+                    () -> {
+                        final Tasks.Task now = task();
+                        if (now == null) return;
+                        final List<String> next = new ArrayList<>(now.assignees());
+                        final boolean add = !next.remove(p.id());
+                        if (add) next.add(p.id());
+                        put(x -> TaskEdits.withAssignees(x, next));
+                        (add ? Sfx.TOGGLE_ON : Sfx.TOGGLE_OFF).play();
+                    }));
+        }
+        Popup.open(
+            getPanel(),
+            PickList.popup("gtnhplanner_task_people", "Who is on it", rows, rows.size() > 8, 150),
+            getArea().x + key.x0(),
+            getArea().y + key.y1() + 2);
     }
 
     private void drawNotes() {
@@ -761,6 +799,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             case ASSIGN -> {
                 final String me = Account.userId();
                 if (me == null) break;
+                if (hit.data() != null) {
+                    Hyb.click();
+                    pickPeople(t, hit);
+                    break;
+                }
                 final List<String> next = new ArrayList<>(t.assignees());
                 final boolean on = !next.remove(me);
                 if (on) next.add(me);

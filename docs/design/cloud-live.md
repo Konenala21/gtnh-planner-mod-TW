@@ -318,6 +318,11 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   other, their names over the first. This account's own other connections are not drawn, as on the website. Nothing
   is drawn, and nothing measurable spent, while nobody is pointing at or holding anything. `call 'cloud?fake=N'`
   (dev/DevPeople) puts stand-ins on the open plan without a live service.
+- Faces: the tab strip ends in who else has the open plan open (one face per account, its initials in its colour,
+  five and then a count; the tooltip names them and says in game, in a browser or both), then the status. Colours are
+  the service's own (`Peers.colourOf` is the website's `colorFor`), task faces included, so one person is one colour
+  everywhere. On a cloud plan a task's Assign key lists its owner and members (`TaskLook.people`) and a pick puts them
+  on the task or takes them off; a plan on this computer keeps Assign me.
 
 ## Local development
 
