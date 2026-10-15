@@ -48,21 +48,29 @@ public final class Tasks {
      * between two others.
      *
      * @param assignees account ids of the plan's members working on it
-     * @param nodeIds   the cards it is about, by the board's card ids (a shared plan holds the plan's ids, turned
-     *                  into the board's when read and back when written: {@code cloud/map/Fresh.planCard})
+     * @param links     the cards it is about, each in the plan it is on (a task board is a plan of its own, so its
+     *                  cards are on other plans)
      */
     public record Task(String id, String title, @Nullable String text, Status status, String order,
-        List<String> assignees, List<String> nodeIds, @Nullable String createdBy, @Nullable String createdAt,
+        List<String> assignees, List<Link> links, @Nullable String createdBy, @Nullable String createdAt,
         @Nullable String doneAt) {
 
         public Task {
             assignees = List.copyOf(assignees);
-            nodeIds = List.copyOf(nodeIds);
+            links = List.copyOf(links);
         }
     }
 
+    /**
+     * A card on a plan: {@code plan} is the plan's id (its cloud doc key, or the local id of a plan on this computer,
+     * {@link Graph#planId()}) and {@code node} the card's id in that plan (the plan's own spelling of it, which
+     * {@code cloud/map/PlanIds.uuid} turns into the game's). An empty {@code plan} is the plan holding the task: how an
+     * older save spelled it ({@code nodeIds}, {@code nodeId}).
+     */
+    public record Link(String plan, String node) {}
+
     /** One checklist line of a task. */
-    public record Item(String id, String taskId, String text, boolean done, String order, @Nullable String nodeId) {}
+    public record Item(String id, String taskId, String text, boolean done, String order, @Nullable Link link) {}
 
     /** A comment on a task; {@code at} is the server's time stamp. */
     public record Comment(String id, String taskId, String by, String byName, String at, String text) {}
@@ -80,8 +88,12 @@ public final class Tasks {
         o.addProperty("order", t.order());
         if (!t.assignees()
             .isEmpty()) o.add("assignees", strings(t.assignees()));
-        if (!t.nodeIds()
-            .isEmpty()) o.add("nodeIds", strings(t.nodeIds()));
+        if (!t.links()
+            .isEmpty()) {
+            final JsonArray a = new JsonArray();
+            for (final Link l : t.links()) a.add(toJson(l));
+            o.add("links", a);
+        }
         if (t.createdBy() != null) o.addProperty("createdBy", t.createdBy());
         if (t.createdAt() != null) o.addProperty("createdAt", t.createdAt());
         if (t.doneAt() != null) o.addProperty("doneAt", t.doneAt());
@@ -95,8 +107,52 @@ public final class Tasks {
         o.addProperty("text", i.text());
         o.addProperty("done", i.done());
         o.addProperty("order", i.order());
-        if (i.nodeId() != null) o.addProperty("nodeId", i.nodeId());
+        if (i.link() != null) o.add("link", toJson(i.link()));
         return o;
+    }
+
+    public static JsonObject toJson(final Link l) {
+        final JsonObject o = new JsonObject();
+        o.addProperty("plan", l.plan());
+        o.addProperty("node", l.node());
+        return o;
+    }
+
+    /** A link as a plan spells it; null when it lacks its card. */
+    @Nullable
+    public static Link link(final JsonObject o) {
+        final String node = str(o, "node");
+        return node == null ? null : new Link(orEmpty(str(o, "plan")), node);
+    }
+
+    /** The task with the links that left their plan empty naming {@code plan}, the plan holding the task. */
+    public static Task claimed(final Task t, final String plan) {
+        boolean any = false;
+        for (final Link l : t.links()) any |= l.plan()
+            .isEmpty();
+        if (!any) return t;
+        final List<Link> links = new ArrayList<>();
+        for (final Link l : t.links()) links.add(
+            l.plan()
+                .isEmpty() ? new Link(plan, l.node()) : l);
+        return new Task(
+            t.id(),
+            t.title(),
+            t.text(),
+            t.status(),
+            t.order(),
+            t.assignees(),
+            links,
+            t.createdBy(),
+            t.createdAt(),
+            t.doneAt());
+    }
+
+    public static Item claimed(final Item i, final String plan) {
+        final Link l = i.link();
+        if (l == null || !l.plan()
+            .isEmpty()) return i;
+        return new Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), new Link(plan, l.node()));
     }
 
     public static JsonObject toJson(final Comment c) {
@@ -123,7 +179,7 @@ public final class Tasks {
             status,
             orEmpty(str(o, "order")),
             strings(o, "assignees"),
-            strings(o, "nodeIds"),
+            links(o),
             str(o, "createdBy"),
             str(o, "createdAt"),
             str(o, "doneAt"));
@@ -143,7 +199,32 @@ public final class Tasks {
                     .isBoolean()
                 && done.getAsBoolean(),
             orEmpty(str(o, "order")),
-            str(o, "nodeId"));
+            itemLink(o));
+    }
+
+    /** A task's links; the older {@code nodeIds} (cards of the plan holding the task) read as links with no plan. */
+    private static List<Link> links(final JsonObject o) {
+        final List<Link> out = new ArrayList<>();
+        for (final JsonObject l : objects(o, "links")) {
+            final Link link = link(l);
+            if (link != null && !out.contains(link)) out.add(link);
+        }
+        for (final String node : strings(o, "nodeIds")) {
+            final Link link = new Link("", node);
+            if (!out.contains(link)) out.add(link);
+        }
+        return out;
+    }
+
+    @Nullable
+    private static Link itemLink(final JsonObject o) {
+        final JsonElement e = o.get("link");
+        if (e != null && e.isJsonObject()) {
+            final Link l = link(e.getAsJsonObject());
+            if (l != null) return l;
+        }
+        final String node = str(o, "nodeId");
+        return node == null ? null : new Link("", node);
     }
 
     @Nullable
@@ -168,12 +249,12 @@ public final class Tasks {
         if (g.getPrimaryView() != null) root.addProperty("primaryView", g.getPrimaryView());
         if (!g.tasks.isEmpty()) {
             final JsonArray a = new JsonArray();
-            for (final Task t : g.tasks) a.add(toJson(t));
+            for (final Task t : g.tasks) a.add(toJson(claimed(t, g.planId())));
             root.add("tasks", a);
         }
         if (!g.taskItems.isEmpty()) {
             final JsonArray a = new JsonArray();
-            for (final Item i : g.taskItems) a.add(toJson(i));
+            for (final Item i : g.taskItems) a.add(toJson(claimed(i, g.planId())));
             root.add("taskItems", a);
         }
         if (!g.taskComments.isEmpty()) {

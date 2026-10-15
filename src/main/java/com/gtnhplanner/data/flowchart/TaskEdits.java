@@ -2,7 +2,6 @@ package com.gtnhplanner.data.flowchart;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -71,14 +70,15 @@ public final class TaskEdits {
     }
 
     /**
-     * Each card's most pressing task, by the card's plan id: blocked first, then doing, to do and done. A card on no
-     * task is missing.
+     * Adds to {@code out} each linked card's most pressing task of this board, by link: blocked first, then doing, to
+     * do and done. A link with no plan is one to a card of the board itself.
      */
-    public static Map<String, Tasks.Status> statusByNode(final Graph g) {
-        final Map<String, Tasks.Status> out = new HashMap<>();
-        for (final Tasks.Task t : g.tasks)
-            for (final String n : t.nodeIds()) out.merge(n, t.status(), (a, b) -> urgency(a) >= urgency(b) ? a : b);
-        return out;
+    public static void statusByLink(final Graph g, final Map<Tasks.Link, Tasks.Status> out) {
+        for (final Tasks.Task t : g.tasks) for (final Tasks.Link l : t.links()) out.merge(
+            l.plan()
+                .isEmpty() ? new Tasks.Link(g.planId(), l.node()) : l,
+            t.status(),
+            (a, b) -> urgency(a) >= urgency(b) ? a : b);
     }
 
     /** How much a status asks for attention: blocked most, done least. */
@@ -108,7 +108,7 @@ public final class TaskEdits {
 
     /** A new task at the bottom of a column. */
     public static Tasks.Task add(final Graph g, final String id, final String title, final Tasks.Status status,
-        final List<String> nodeIds, @Nullable final String by, final String at) {
+        final List<Tasks.Link> links, @Nullable final String by, final String at) {
         final List<Tasks.Task> column = column(g, status);
         String order;
         try {
@@ -134,7 +134,7 @@ public final class TaskEdits {
             status,
             order,
             List.of(),
-            nodeIds,
+            links,
             by,
             at,
             status == Tasks.Status.DONE ? at : null);
@@ -181,7 +181,7 @@ public final class TaskEdits {
                 to,
                 order,
                 t.assignees(),
-                t.nodeIds(),
+                t.links(),
                 t.createdBy(),
                 t.createdAt(),
                 doneAt));
@@ -208,7 +208,7 @@ public final class TaskEdits {
             t.status(),
             t.order(),
             t.assignees(),
-            t.nodeIds(),
+            t.links(),
             t.createdBy(),
             t.createdAt(),
             t.doneAt());
@@ -224,7 +224,7 @@ public final class TaskEdits {
             t.status(),
             t.order(),
             t.assignees(),
-            t.nodeIds(),
+            t.links(),
             t.createdBy(),
             t.createdAt(),
             t.doneAt());
@@ -238,13 +238,13 @@ public final class TaskEdits {
             t.status(),
             t.order(),
             assignees,
-            t.nodeIds(),
+            t.links(),
             t.createdBy(),
             t.createdAt(),
             t.doneAt());
     }
 
-    public static Tasks.Task withNodes(final Tasks.Task t, final List<String> nodeIds) {
+    public static Tasks.Task withLinks(final Tasks.Task t, final List<Tasks.Link> links) {
         return new Tasks.Task(
             t.id(),
             t.title(),
@@ -252,7 +252,7 @@ public final class TaskEdits {
             t.status(),
             t.order(),
             t.assignees(),
-            nodeIds,
+            links,
             t.createdBy(),
             t.createdAt(),
             t.doneAt());
@@ -266,7 +266,7 @@ public final class TaskEdits {
             t.status(),
             order,
             t.assignees(),
-            t.nodeIds(),
+            t.links(),
             t.createdBy(),
             t.createdAt(),
             t.doneAt());
@@ -304,7 +304,7 @@ public final class TaskEdits {
 
     /** A new line at the bottom of a task's checklist. */
     public static Tasks.Item addItem(final Graph g, final String id, final String taskId, final String text,
-        @Nullable final String nodeId) {
+        @Nullable final Tasks.Link link) {
         final List<Tasks.Item> list = items(g, taskId);
         String order;
         try {
@@ -318,7 +318,7 @@ public final class TaskEdits {
             for (int k = 0; k < list.size(); k++) putItem(g, withOrder(list.get(k), keys.get(k)));
             order = keys.get(list.size());
         }
-        final Tasks.Item item = new Tasks.Item(id, taskId, clip(text, ITEM_MAX), false, order, nodeId);
+        final Tasks.Item item = new Tasks.Item(id, taskId, clip(text, ITEM_MAX), false, order, link);
         g.taskItems.add(item);
         return item;
     }
@@ -358,19 +358,19 @@ public final class TaskEdits {
     }
 
     public static Tasks.Item withDone(final Tasks.Item i, final boolean done) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), done, i.order(), i.nodeId());
+        return new Tasks.Item(i.id(), i.taskId(), i.text(), done, i.order(), i.link());
     }
 
     public static Tasks.Item withText(final Tasks.Item i, final String text) {
-        return new Tasks.Item(i.id(), i.taskId(), clip(text, ITEM_MAX), i.done(), i.order(), i.nodeId());
+        return new Tasks.Item(i.id(), i.taskId(), clip(text, ITEM_MAX), i.done(), i.order(), i.link());
     }
 
-    public static Tasks.Item withNode(final Tasks.Item i, @Nullable final String nodeId) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), nodeId);
+    public static Tasks.Item withLink(final Tasks.Item i, @Nullable final Tasks.Link link) {
+        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), link);
     }
 
     private static Tasks.Item withOrder(final Tasks.Item i, final String order) {
-        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), order, i.nodeId());
+        return new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), order, i.link());
     }
 
     // endregion

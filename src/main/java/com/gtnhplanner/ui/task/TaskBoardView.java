@@ -40,7 +40,9 @@ import com.gtnhplanner.ui.theme.Icons;
  */
 public final class TaskBoardView extends Widget<TaskBoardView> implements Interactable {
 
-    private static final int HEAD_H = 24, PAD = 8, GAP = 8, COL_HEAD = 20, INSET = 4, CARD_GAP = 4, LINE = 10,
+    /** The header's height: it sits where a plan's toolbar does. */
+    public static final int HEADER = 24;
+    private static final int HEAD_H = HEADER, PAD = 8, GAP = 8, COL_HEAD = 20, INSET = 4, CARD_GAP = 4, LINE = 10,
         CARD_PAD = 6, KEY_H = 16;
     /**
      * The narrowest a column gets: its name, count and + key, and titles that wrap readably. Narrower than four of
@@ -81,8 +83,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     private enum Kind {
         CARD,
         ADD,
-        NEW,
-        FROM_CARDS
+        NEW
     }
 
     private record Hit(Kind kind, int x0, int y0, int x1, int y1, @Nullable Object data) {
@@ -169,7 +170,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final int[] c = counts(t.id());
         return !t.assignees()
             .isEmpty()
-            || !t.nodeIds()
+            || !t.links()
                 .isEmpty()
             || c[1] > 0
             || c[2] > 0;
@@ -314,31 +315,21 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     }
 
     /**
-     * The board's title and how many tasks are open and done, then (right to left) a new task and a task from the
-     * cards selected on the plan. Narrow, the counts go first, then the second key's words shorten, then it goes (a
-     * right-click on the cards does the same).
+     * The board's header, in the place of a plan's toolbar: the task board's name and how many tasks it holds, and (at
+     * the right) New task. Narrow, the counts go first, then the name gives way to "Tasks".
      */
     private void drawHeader(final int w, @Nullable final Hit hover) {
         Hyb.rect(0, 0, w, HEAD_H, 0xFF2A2D33);
         Hyb.rect(0, HEAD_H - 1, w, 1, Hyb.RING);
-        Hyb.text("Tasks", PAD, (HEAD_H - 8) / 2f, Hyb.INK);
         int right = w - PAD;
         right = key(right, "New task", Kind.NEW, null, hover) - 6;
-        final int left = PAD + Hyb.width("Tasks") + 8;
-        final int selected = TaskActions.selectedCards(session)
-            .size();
-        if (selected > 0) {
-            final String cards = selected + (selected == 1 ? " card" : " cards");
-            for (final String label : new String[] { "Make a task from " + cards, "Task from " + cards }) {
-                if (right - Hyb.width(label) - 12 < left - 8) continue;
-                right = key(right, label, Kind.FROM_CARDS, null, hover) - 6;
-                break;
-            }
-        }
-        int open = 0, done = 0;
-        for (final Tasks.Task t : graph().tasks) if (t.status() == Tasks.Status.DONE) done++;
-        else open++;
-        final String counts = open + " open and " + done + " done";
+        final String name = graph().getName()
+            .isBlank() ? "Tasks" : graph().getName();
+        final String title = Hyb.width(name) + 16 <= right - PAD ? name : "Tasks";
+        Hyb.text(title, PAD, (HEAD_H - 8) / 2f, Hyb.INK);
+        final int left = PAD + Hyb.width(title) + 8;
+        final int n = graph().tasks.size();
+        final String counts = n + (n == 1 ? " task" : " tasks");
         if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, (HEAD_H - 8) / 2f, Hyb.MUTED);
     }
 
@@ -450,7 +441,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         TaskLook.faces(graph(), t.assignees(), tx, my);
         // Right to left: cards linked, comments, the checklist's progress.
         float right = x + w - CARD_PAD;
-        final int links = t.nodeIds()
+        final int links = t.links()
             .size();
         if (links > 0) right = count(Icons::card, Integer.toString(links), right, my, Hyb.MUTED) - 6;
         final int[] c = counts(t.id());
@@ -477,7 +468,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final int cx = x + columnW() / 2, width = columnW() - 12;
         float y = centred("No tasks yet.", cx, top + 14, width, Hyb.MUTED) + 4;
         y = centred("Press + to add one.", cx, y, width, 0xFF6A6C74);
-        centred("Or right-click cards on the plan.", cx, y, width, 0xFF6A6C74);
+        centred("Or right-click cards on a plan.", cx, y, width, 0xFF6A6C74);
     }
 
     /** Words centred on {@code cx}, wrapped to {@code width}; returns the y under them. */
@@ -527,8 +518,6 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             }
             case ADD -> Tip.of("Add a task to " + TaskLook.name((Tasks.Status) hit.data()));
             case NEW -> Tip.of("Add a task to To do");
-            case FROM_CARDS -> Tip.of("Make a task from the cards selected on the plan")
-                .muted("A checklist line for each card with how many to build.");
         };
     }
 
@@ -574,11 +563,6 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
             case NEW -> {
                 Hyb.click();
                 newTask(Tasks.Status.TODO, hit);
-            }
-            case FROM_CARDS -> {
-                Hyb.click();
-                final String id = TaskActions.fromCards(session, session.selection());
-                if (id != null) session.clearSelection();
             }
         }
         return Result.SUCCESS;

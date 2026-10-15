@@ -363,13 +363,11 @@ public final class DevHarness {
             case "/board":
                 return onClient(DevBoard::board);
             case "/tasks":
-                // The task board: which view shows, each column's cards with their GUI rects, and the task box open;
-                // show=1 or 0 switches the view, open=<task id> opens a task's box.
+                // The task board: whether the open plan is one, each column's cards with their GUI rects, and the task
+                // box open; open=<task id> opens a task's box.
                 return onClient(() -> {
                     final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
                     if (screen == null) return error("the planner is not open");
-                    if (q.containsKey("show")) screen.session()
-                        .showTasks("1".equals(q.get("show")));
                     if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(screen.session(), q.get("open"));
                     final Map<String, Object> m = new LinkedHashMap<>();
                     m.put(

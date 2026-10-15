@@ -2290,8 +2290,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             : List.of(nodeId);
         rows.add(
             PickList.Entry.of(
-                taskCards.size() > 1 ? "Make a task from " + taskCards.size() + " cards" : "Make a task from it",
-                () -> com.gtnhplanner.ui.task.TaskActions.fromCards(session, taskCards)));
+                "Make a task",
+                () -> com.gtnhplanner.ui.task.TaskActions.makeMenu(session, session.panel(), taskCards, sx, sy)));
         // Its place in the world, once it has one.
         if (placed()) {
             rows.add(
@@ -2302,6 +2302,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     "Remove from the world",
                     () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
         }
+        rows.add(PickList.Entry.rule());
         rows.add(new PickList.Entry(null, "Delete node", "", Hyb.RED_INK, false, () -> session.delete(node)));
         Popup.open(session.panel(), PickList.popup("gtnhplanner_actions", null, rows, false, 150), sx, sy);
     }

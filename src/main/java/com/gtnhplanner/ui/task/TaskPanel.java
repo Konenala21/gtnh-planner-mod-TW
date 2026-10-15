@@ -19,7 +19,6 @@ import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widget.ParentWidget;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
-import com.gtnhplanner.cloud.map.PlanIds;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
@@ -96,7 +95,6 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         STATUS,
         ASSIGN,
         SIGN_IN,
-        LINK_SELECTED,
         CARD,
         UNLINK,
         BOX,
@@ -339,35 +337,17 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         Sfx.NOTE_STICK.play();
     }
 
-    /** Links the cards selected on the board that the task is not about yet. */
-    private void linkSelected(final Tasks.Task t) {
-        final List<String> ids = new ArrayList<>(t.nodeIds());
-        for (final UUID card : TaskActions.selectedCards(session))
-            if (!ids.contains(card.toString())) ids.add(card.toString());
-        put(x -> TaskEdits.withNodes(x, ids));
-        Sfx.WIRE_SNAP.play();
-    }
-
-    /** The cards selected on the board that the task is not about yet. */
-    private int newlySelected(final Tasks.Task t) {
-        int n = 0;
-        for (final UUID card : TaskActions.selectedCards(session)) if (!t.nodeIds()
-            .contains(card.toString())) n++;
-        return n;
-    }
-
-    private void unlink(final Tasks.Task t, final UUID card) {
-        final List<String> ids = new ArrayList<>();
-        for (final String id : t.nodeIds()) if (!PlanIds.uuid(id)
-            .equals(card)) ids.add(id);
-        put(x -> TaskEdits.withNodes(x, ids));
+    private void unlink(final Tasks.Task t, final Tasks.Link link) {
+        final List<Tasks.Link> links = new ArrayList<>(t.links());
+        links.remove(link);
+        put(x -> TaskEdits.withLinks(x, links));
         Sfx.WIRE_CUT.play();
     }
 
-    /** Shows a card on the plan: this box closes and the board centres on it, selected. */
-    private void show(final UUID card) {
+    /** Shows a card on its plan: this box closes and the plan opens with the card centred, selected. */
+    private void show(final Tasks.Link link) {
         close();
-        session.focusCard(card);
+        session.openLink(link);
     }
 
     private void close() {
@@ -594,36 +574,33 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         Hyb.rect(PAD + 1, notesY + 1, leftW - 2, notesH - 2, WELL);
     }
 
-    /** The cards the task is about: each a row to click to see it on the plan, and the key to link those selected. */
+    /** The cards the task is about, on whatever plans: each a row to click to see it on its plan. */
     private void drawCards(final Tasks.Task t, @Nullable final Hit hover, final float z,
         final ModularGuiContext context) {
-        final List<TaskActions.Card> cards = TaskActions.cards(session, t);
+        final List<TaskActions.Card> cards = TaskActions.cards(session, graph(), t);
         final int labelY = cardsY - LABEL + 1;
         Hyb.text("Cards", PAD, labelY, Hyb.MUTED);
         Hyb.text(Integer.toString(cards.size()), PAD + Hyb.width("Cards") + 4, labelY, 0xFF6A6C74);
-        final int fresh = newlySelected(t);
-        if (fresh > 0) {
-            final String s = "Link " + fresh + " selected";
-            final int x = PAD + leftW - Hyb.width(s);
-            Hyb.text(s, x, labelY, is(hover, Kind.LINK_SELECTED) ? 0xFFFFFFFF : CYAN);
-            hits.add(new Hit(Kind.LINK_SELECTED, x, labelY - 2, PAD + leftW, labelY + 9, null));
-        }
         final int top = cardsY, bottom = cardsBottom, tw = leftW - 22 - 14;
         if (cards.isEmpty()) {
-            final List<String> hint = List.of("Select cards on the plan", "to link them here.");
+            final List<String> hint = List.of("Right-click cards on a plan", "and Make a task.");
             for (int i = 0; i < hint.size(); i++) Hyb.text(hint.get(i), PAD + 2, top + 4 + i * 10, 0xFF6A6C74);
             return;
         }
         clip(PAD, top, leftW, bottom - top, context);
         int y = top - cardsScroll;
         for (final TaskActions.Card c : cards) {
-            final NoteText words = NoteText.of(c.line(), tw, Hyb::width);
+            final NoteText words = NoteText.of(
+                c.where()
+                    .isEmpty() ? c.line() : c.line() + " on " + c.where(),
+                tw,
+                Hyb::width);
             final int rh = Math.max(
                 18,
                 words.lines()
                     .size() * 10 + 8);
             final boolean hot = y + rh > top && y < bottom
-                && (is(hover, Kind.CARD, c.id()) || is(hover, Kind.UNLINK, c.id()));
+                && (is(hover, Kind.CARD, c.link()) || is(hover, Kind.UNLINK, c.link()));
             if (hot) Hyb.rect(PAD, y, leftW, rh, ROW_HOVER);
             if (c.icon() != null) Hyb.item(c.icon(), PAD + 2, y + (rh - 16) / 2f, 16, z);
             org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
@@ -634,19 +611,17 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     PAD + 22,
                     y + (rh - words.lines()
                         .size() * 10) / 2f + 1 + i * 10,
-                    Hyb.INK);
+                    c.gone() ? Hyb.MUTED : Hyb.INK);
             final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-            if (y1 > y0) hits.add(new Hit(Kind.CARD, PAD, y0, PAD + leftW, y1, c.id()));
-            // Hovered, the key that unlinks it; else the dot of another task it is on, where that one presses more.
-            final Tasks.Status dot = session.taskStatus(c.id());
+            if (y1 > y0) hits.add(new Hit(Kind.CARD, PAD, y0, PAD + leftW, y1, c.link()));
+            // Hovered, the key that unlinks it.
             if (hot) {
                 final int ux = PAD + leftW - 12, uy = y + (rh - 10) / 2;
-                final boolean onX = is(hover, Kind.UNLINK, c.id());
+                final boolean onX = is(hover, Kind.UNLINK, c.link());
                 cross(ux + 5f, uy + 5f, onX ? Hyb.RED_INK : Hyb.MUTED);
                 if (y >= top && y + rh <= bottom)
-                    hits.add(new Hit(Kind.UNLINK, ux - 2, uy - 2, ux + 12, uy + 12, c.id()));
-            } else if (dot != null && dot != t.status())
-                TaskLook.dot(PAD + leftW - 9, y + (rh - 5) / 2f, 5, TaskLook.colour(dot));
+                    hits.add(new Hit(Kind.UNLINK, ux - 2, uy - 2, ux + 12, uy + 12, c.link()));
+            }
             y += rh;
         }
         Stencil.remove();
@@ -680,7 +655,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         clip(rightX, top, rightW, bottom - top, context);
         int y = top - itemsScroll;
         int dropY = -1, index = 0;
-        final boolean anyCards = !t.nodeIds()
+        final boolean anyCards = !t.links()
             .isEmpty();
         for (final Tasks.Item item : items) {
             final boolean carried = itemCarrying && item.id()
@@ -720,9 +695,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             final boolean inView = y >= top && y + rh <= bottom;
             // A line pointing at a card shows it; hovered, its keys.
             final int kx = rightX + rightW - 24, ky = y + 2;
-            if (item.nodeId() != null || rowHot && anyCards) {
+            if (item.link() != null || rowHot && anyCards) {
                 final boolean on = is(hover, Kind.ITEM_LINK, item.id());
-                Icons.card(kx, ky + 1, item.nodeId() != null ? on ? 0xFFFFFFFF : CYAN : on ? Hyb.INK : Hyb.MUTED);
+                Icons.card(kx, ky + 1, item.link() != null ? on ? 0xFFFFFFFF : CYAN : on ? Hyb.INK : Hyb.MUTED);
                 if (inView) hits.add(new Hit(Kind.ITEM_LINK, kx - 2, ky - 1, kx + 11, ky + 11, item.id()));
             }
             if (rowHot) {
@@ -874,8 +849,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             case STATUS -> Tip.of("Move it to " + TaskLook.name((Tasks.Status) hit.data()));
             case ASSIGN -> Tip.of("Put yourself on this task or take yourself off");
             case SIGN_IN -> Tip.of("Sign in to your account");
-            case LINK_SELECTED -> Tip.of("Link the cards selected on the plan");
-            case CARD -> Tip.of("Show it on the plan");
+            case CARD -> Tip.of("Show it on its plan");
             case UNLINK -> Tip.of("Unlink this card");
             case BOX -> Tip.of("Tick it off");
             case ITEM -> Tip.of("A line of the checklist")
@@ -937,9 +911,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 Hyb.click();
                 com.gtnhplanner.ui.library.AccountForms.signIn(session.panel(), () -> {});
             }
-            case LINK_SELECTED -> linkSelected(t);
-            case CARD -> show((UUID) hit.data());
-            case UNLINK -> unlink(t, (UUID) hit.data());
+            case CARD -> show((Tasks.Link) hit.data());
+            case UNLINK -> unlink(t, (Tasks.Link) hit.data());
             case BOX -> {
                 final Tasks.Item item = TaskEdits.item(graph(), (String) hit.data());
                 if (item != null) {
@@ -1047,11 +1020,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         if (item == null) return;
         Hyb.click();
         final List<PickList.Entry> rows = new ArrayList<>();
-        if (item.nodeId() != null && graph().nodes.containsKey(PlanIds.uuid(item.nodeId())))
-            rows.add(PickList.Entry.of("Show it on the plan", () -> show(PlanIds.uuid(item.nodeId()))));
-        for (final TaskActions.Card c : TaskActions.cards(session, t)) {
-            final boolean current = item.nodeId() != null && PlanIds.uuid(item.nodeId())
-                .equals(c.id());
+        if (item.link() != null) rows.add(PickList.Entry.of("Show it on its plan", () -> show(item.link())));
+        for (final TaskActions.Card c : TaskActions.cards(session, graph(), t)) {
+            if (c.gone()) continue;
+            final boolean current = c.link()
+                .equals(item.link());
             rows.add(
                 new PickList.Entry(
                     c.icon(),
@@ -1059,14 +1032,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     "",
                     Hyb.INK,
                     current,
-                    () -> putItem(
-                        TaskEdits.withNode(
-                            item,
-                            c.id()
-                                .toString()))));
+                    () -> putItem(TaskEdits.withLink(item, c.link()))));
         }
-        if (item.nodeId() != null)
-            rows.add(PickList.Entry.of("Point at no card", () -> putItem(TaskEdits.withNode(item, null))));
+        if (item.link() != null)
+            rows.add(PickList.Entry.of("Point at no card", () -> putItem(TaskEdits.withLink(item, null))));
         if (rows.isEmpty()) return;
         Popup.open(
             session.panel(),

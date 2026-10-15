@@ -25,7 +25,7 @@ class TasksTest {
                 Tasks.Status.DOING,
                 "a0",
                 List.of("11111111-1111-4111-8111-111111111111"),
-                List.of("n1"),
+                List.of(new Tasks.Link("u1:plan-a", "n1"), new Tasks.Link("local-b", "n2")),
                 "11111111-1111-4111-8111-111111111111",
                 "2026-10-14T10:00:00.000Z",
                 null));
@@ -41,7 +41,7 @@ class TasksTest {
                 null,
                 null,
                 "2026-10-14T11:00:00.000Z"));
-        g.taskItems.add(new Tasks.Item("i1", "t1", "Place mixers", true, "a0", "n1"));
+        g.taskItems.add(new Tasks.Item("i1", "t1", "Place mixers", true, "a0", new Tasks.Link("u1:plan-a", "n1")));
         g.taskItems.add(new Tasks.Item("i2", "t1", "Wire them", false, "a1", null));
         g.taskComments.add(
             new Tasks.Comment(
@@ -82,6 +82,77 @@ class TasksTest {
             "tasks",
             root.get("primaryView")
                 .getAsString());
+    }
+
+    @Test
+    void aLinkNamesAPlanAndItsCardAndOlderSavesNamedOnlyTheCard() {
+        final Graph g = board();
+        final JsonObject root = new JsonObject();
+        Tasks.write(g, root);
+        final JsonObject first = root.getAsJsonArray("tasks")
+            .get(0)
+            .getAsJsonObject();
+        assertEquals(
+            "[{\"plan\":\"u1:plan-a\",\"node\":\"n1\"},{\"plan\":\"local-b\",\"node\":\"n2\"}]",
+            first.getAsJsonArray("links")
+                .toString());
+        assertEquals(
+            "{\"plan\":\"u1:plan-a\",\"node\":\"n1\"}",
+            root.getAsJsonArray("taskItems")
+                .get(0)
+                .getAsJsonObject()
+                .get("link")
+                .toString());
+
+        // Older: nodeIds and nodeId, the cards of the plan holding the task.
+        final Graph old = new Graph("Old");
+        Tasks.read(
+            new JsonParser().parse(
+                "{\"tasks\":[{\"id\":\"a\",\"title\":\"A\",\"status\":\"todo\",\"order\":\"a0\",\"nodeIds\":[\"x\",\"y\"]}],"
+                    + "\"taskItems\":[{\"id\":\"i\",\"taskId\":\"a\",\"text\":\"T\",\"done\":false,\"order\":\"a0\",\"nodeId\":\"x\"}]}")
+                .getAsJsonObject(),
+            old);
+        assertEquals(
+            List.of(new Tasks.Link("", "x"), new Tasks.Link("", "y")),
+            old.tasks.get(0)
+                .links());
+        assertEquals(
+            new Tasks.Link("", "x"),
+            old.taskItems.get(0)
+                .link());
+        // Saved again, they name the plan holding them.
+        final JsonObject again = new JsonObject();
+        Tasks.write(old, again);
+        final String plan = old.planId();
+        assertEquals(
+            plan,
+            again.getAsJsonArray("tasks")
+                .get(0)
+                .getAsJsonObject()
+                .getAsJsonArray("links")
+                .get(1)
+                .getAsJsonObject()
+                .get("plan")
+                .getAsString());
+    }
+
+    @Test
+    void aPlanKeepsItsLocalIdThroughASaveAndIsFoundByEitherId() {
+        final Graph g = new Graph("Mine");
+        final String id = g.planId();
+        final com.gtnhplanner.data.flowchart.Plan plan = com.gtnhplanner.data.flowchart.Plan.cloud("u1");
+        plan.getGraphs()
+            .add(g);
+        final com.gtnhplanner.data.flowchart.Plan back = Serializer.decodePlan(Serializer.encodePlan(plan));
+        assertEquals(
+            id,
+            back.getGraphs()
+                .get(0)
+                .getLocalId());
+        // Gone to the account, it is its cloud key; the id it had still finds it.
+        g.setCloudKey("u1:abc");
+        assertEquals("u1:abc", g.planId());
+        assertTrue(g.isPlan("u1:abc") && g.isPlan(id) && !g.isPlan("") && !g.isPlan("other"));
     }
 
     @Test

@@ -248,11 +248,13 @@ final class Fresh {
                 return new JsonObject[] { site };
             }));
         }
-        // A task names its cards by the plan's ids: a card the website made by the website's, not the board's UUID.
+        // A task's links name a plan and one of its cards, as that plan spells them; one an older save left with no
+        // plan
+        // is of this plan.
         for (final Tasks.Task t : g.tasks)
-            task(out, "tasks", "task:", t.id(), Tasks.toJson(cards(t, id -> planCard(g, names, id))));
+            task(out, "tasks", "task:", t.id(), Tasks.toJson(Tasks.claimed(t, g.planId())));
         for (final Tasks.Item i : g.taskItems)
-            task(out, "taskItems", "item:", i.id(), Tasks.toJson(card(i, id -> planCard(g, names, id))));
+            task(out, "taskItems", "item:", i.id(), Tasks.toJson(Tasks.claimed(i, g.planId())));
         for (final Tasks.Comment c : g.taskComments) task(out, "taskComments", "comment:", c.id(), Tasks.toJson(c));
         return out;
     }
@@ -264,59 +266,6 @@ final class Fresh {
     private static boolean unwritable(final Basis names, final String gameKey, final Node card) {
         return names.isCarried("node:" + card.id) && names.thingOf(gameKey) == null;
     }
-
-    // region Tasks' cards
-
-    /**
-     * A board card's id ({@code Node.id} as a string) as the plan names the card: the id it was read from (a card the
-     * website made keeps the website's), else its UUID. An id that is no card on the board stays as it is.
-     */
-    static String planCard(final Graph g, final Basis names, final String boardId) {
-        final java.util.UUID u;
-        try {
-            u = java.util.UUID.fromString(boardId);
-        } catch (final IllegalArgumentException e) {
-            return boardId;
-        }
-        return u.toString()
-            .equals(boardId) && g.nodes.containsKey(u) ? names.id("node", u) : boardId;
-    }
-
-    /**
-     * A plan's card id as the board names the card: the UUID the card was given ({@link PlanIds#uuid}), when it is on
-     * the board; else as it is (a card the game has no place for).
-     */
-    static String boardCard(final Graph g, final String planId) {
-        final java.util.UUID u = PlanIds.uuid(planId);
-        return g.nodes.containsKey(u) ? u.toString() : planId;
-    }
-
-    /** A task with its cards named another way. */
-    static Tasks.Task cards(final Tasks.Task t, final java.util.function.UnaryOperator<String> name) {
-        final List<String> ids = new java.util.ArrayList<>();
-        for (final String id : t.nodeIds()) ids.add(name.apply(id));
-        return ids.equals(t.nodeIds()) ? t
-            : new Tasks.Task(
-                t.id(),
-                t.title(),
-                t.text(),
-                t.status(),
-                t.order(),
-                t.assignees(),
-                ids,
-                t.createdBy(),
-                t.createdAt(),
-                t.doneAt());
-    }
-
-    /** A checklist line with its card named another way. */
-    static Tasks.Item card(final Tasks.Item i, final java.util.function.UnaryOperator<String> name) {
-        if (i.nodeId() == null) return i;
-        final String id = name.apply(i.nodeId());
-        return id.equals(i.nodeId()) ? i : new Tasks.Item(i.id(), i.taskId(), i.text(), i.done(), i.order(), id);
-    }
-
-    // endregion
 
     private static void task(final Map<String, Thing> out, final String c, final String kind, final String id,
         final JsonObject json) {

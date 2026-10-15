@@ -24,6 +24,8 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Port;
+import com.gtnhplanner.data.flowchart.TaskEdits;
+import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.data.flowchart.balancer.BalanceResult;
 import com.gtnhplanner.data.flowchart.balancer.DrawerReadout;
@@ -1278,20 +1280,9 @@ public final class BoardSession {
 
     // region Task board
 
-    /** Which plans show their task board, by slot; a plan not here opens on its primary view. Never saved. */
-    private final Map<UUID, Boolean> tasksShown = new HashMap<>();
-
-    /** Whether the open plan shows its task board in place of the board. */
+    /** Whether the open plan is a task board: a plan of its own kind, always on its tasks and never on cards. */
     public boolean showsTasks() {
-        final Boolean shown = tasksShown.get(graph.slot());
-        return shown != null ? shown : com.gtnhplanner.data.flowchart.Tasks.TASKS.equals(graph.getPrimaryView());
-    }
-
-    /** Shows the open plan's task board, or its board. */
-    public void showTasks(final boolean on) {
-        if (on == showsTasks()) return;
-        tasksShown.put(graph.slot(), on);
-        Sfx.PAGE.play();
+        return Tasks.TASKS.equals(graph.getPrimaryView());
     }
 
     /**
@@ -1302,55 +1293,152 @@ public final class BoardSession {
         editLayout(change);
     }
 
-    /** Shows a card on the board: the plan's board view, the card centred and selected. */
+    /**
+     * The open plan's card as a task link: this plan's id and the card's id as the plan spells it (a card the website
+     * made keeps the website's).
+     */
+    public Tasks.Link linkOf(final UUID nodeId) {
+        final LiveDoc live = live();
+        return new Tasks.Link(graph.planId(), live != null ? live.planId("node", nodeId) : nodeId.toString());
+    }
+
+    /** The plan a link is on, among the player's plans; null when it is gone. */
+    @Nullable
+    public Graph planOf(final Tasks.Link link, final Graph holder) {
+        if (link.plan()
+            .isEmpty()) return holder;
+        for (final Graph g : slots()) if (g.isPlan(link.plan())) return g;
+        return null;
+    }
+
+    /** Shows a card on the open plan: the plan's board, the card centred and selected. */
     public void focusCard(final UUID nodeId) {
         if (!graph.nodes.containsKey(nodeId)) {
             Sfx.DENY.play();
             return;
         }
-        showTasks(false);
         justAdded = hostOf(nodeId);
         focusAdded = true;
     }
 
-    private Graph dotsGraph;
-    private long dotsVersion = Long.MIN_VALUE;
-    private Map<UUID, com.gtnhplanner.data.flowchart.Tasks.Status> dots = Map.of();
-
-    /** The status of the most pressing task a card is on (any of its recipes), or null: the dot on its header. */
-    @Nullable
-    public com.gtnhplanner.data.flowchart.Tasks.Status taskStatus(final UUID nodeId) {
-        if (graph.tasks.isEmpty()) return null;
-        if (dotsGraph != graph || dotsVersion != graph.version()) {
-            final Map<UUID, com.gtnhplanner.data.flowchart.Tasks.Status> next = new HashMap<>();
-            for (final Map.Entry<String, com.gtnhplanner.data.flowchart.Tasks.Status> e : com.gtnhplanner.data.flowchart.TaskEdits
-                .statusByNode(graph)
-                .entrySet()) next.put(com.gtnhplanner.cloud.map.PlanIds.uuid(e.getKey()), e.getValue());
-            dots = next;
-            dotsGraph = graph;
-            dotsVersion = graph.version();
+    /**
+     * Opens the plan a task's link is on and centres its card, or says why not (the plan or the card is gone). The
+     * plan opens in a tab.
+     */
+    public void openLink(final Tasks.Link link) {
+        final Graph target = planOf(link, graph);
+        if (target == null) {
+            Sfx.DENY.play();
+            flash(Severity.WARN, "That plan is gone");
+            return;
         }
-        com.gtnhplanner.data.flowchart.Tasks.Status most = null;
+        final UUID node = com.gtnhplanner.cloud.map.PlanIds.uuid(link.node());
+        if (!target.nodes.containsKey(node)) {
+            Sfx.DENY.play();
+            flash(Severity.WARN, "That card is gone");
+            return;
+        }
+        if (target != graph) {
+            final Plan plan = Plan.getInstance();
+            plan.setActiveIndex(
+                plan.getGraphs()
+                    .indexOf(target));
+            follow();
+            PlanAPI.save();
+            Sfx.PAGE.play();
+        }
+        focusCard(node);
+    }
+
+    /** The task boards' statuses by card, as last worked out, and when it was last checked for being out of date. */
+    private Map<Tasks.Link, Tasks.Status> dots = Map.of();
+    private long dotsStamp = Long.MIN_VALUE, dotsChecked;
+
+    /**
+     * The status of the most pressing task a card is on, in any task board loaded here (any of its recipes), or null:
+     * the dot on its header.
+     */
+    @Nullable
+    public Tasks.Status taskStatus(final UUID nodeId) {
+        final long now = System.nanoTime();
+        if (now - dotsChecked > 100_000_000L) {
+            dotsChecked = now;
+            long stamp = slots().size();
+            for (final Graph g : slots()) if (!g.tasks.isEmpty()) stamp = stamp * 31 + g.version() * 7 + g.tasks.size();
+            if (stamp != dotsStamp) {
+                dotsStamp = stamp;
+                final Map<Tasks.Link, Tasks.Status> next = new HashMap<>();
+                for (final Graph g : slots()) {
+                    if (g.tasks.isEmpty()) continue;
+                    final Map<Tasks.Link, Tasks.Status> own = new HashMap<>();
+                    TaskEdits.statusByLink(g, own);
+                    for (final Map.Entry<Tasks.Link, Tasks.Status> e : own.entrySet()) {
+                        // By the plan's own id and the card's game id, whichever way the link spelled them.
+                        final Graph on = planOf(e.getKey(), g);
+                        next.merge(
+                            new Tasks.Link(
+                                on != null ? on.planId()
+                                    : e.getKey()
+                                        .plan(),
+                                com.gtnhplanner.cloud.map.PlanIds.uuid(
+                                    e.getKey()
+                                        .node())
+                                    .toString()),
+                            e.getValue(),
+                            (x, y) -> TaskEdits.urgency(x) >= TaskEdits.urgency(y) ? x : y);
+                    }
+                }
+                dots = next;
+            }
+        }
+        if (dots.isEmpty()) return null;
+        final String plan = graph.planId();
+        Tasks.Status most = null;
         for (final UUID id : sectionsOf(nodeId)) {
-            final com.gtnhplanner.data.flowchart.Tasks.Status s = dots.get(id);
-            if (s != null && (most == null || com.gtnhplanner.data.flowchart.TaskEdits.urgency(s)
-                > com.gtnhplanner.data.flowchart.TaskEdits.urgency(most))) most = s;
+            final Tasks.Status s = dots.get(new Tasks.Link(plan, id.toString()));
+            if (s != null && (most == null || TaskEdits.urgency(s) > TaskEdits.urgency(most))) most = s;
         }
         return most;
     }
 
-    /** A new plan made as a task board: it opens on its tasks. */
-    public void addTaskBoard() {
+    /** The player's task boards that can be added to now (a plan whose body has not come yet cannot be). */
+    public List<Graph> taskBoards() {
+        final List<Graph> out = new ArrayList<>();
+        final CloudSession cloud = CloudSession.current();
+        for (final Graph g : slots()) {
+            if (!Tasks.TASKS.equals(g.getPrimaryView())) continue;
+            final LiveDoc d = cloud == null ? null : cloud.doc(g);
+            if (d != null && !d.known() && !d.creating()) continue;
+            out.add(g);
+        }
+        return out;
+    }
+
+    /**
+     * A new plan made as a task board, opened in a tab when {@code open}; it is a plan of the account like any other.
+     */
+    public Graph addTaskBoard(final boolean open) {
         final Plan plan = Plan.getInstance();
         final int size = plan.getGraphs()
             .size();
-        final Graph board = new Graph("Task board " + (size + 1));
-        board.setPrimaryView(com.gtnhplanner.data.flowchart.Tasks.TASKS);
+        int boards = 1;
+        for (final Graph g : plan.getGraphs()) if (Tasks.TASKS.equals(g.getPrimaryView())) boards++;
+        final Graph board = new Graph("Task board " + boards);
+        board.setPrimaryView(Tasks.TASKS);
         plan.getGraphs()
             .add(board);
-        plan.setActiveIndex(size);
+        if (open) {
+            plan.setActiveIndex(size);
+            follow();
+        } else board.setOpen(false);
         PlanAPI.save();
         Sfx.PAGE.play();
+        return board;
+    }
+
+    /** A new plan made as a task board, opened: it shows its tasks. */
+    public void addTaskBoard() {
+        addTaskBoard(true);
     }
 
     // endregion
@@ -3025,6 +3113,35 @@ public final class BoardSession {
     public void flash(final Severity severity, final String text) {
         flash = new Notice(severity, text, List.of());
         flashUntil = System.currentTimeMillis() + 7000;
+    }
+
+    /** As {@link #flash}, for {@code seconds}, with a key at the end of the row that runs {@code action}. */
+    public void flash(final Severity severity, final String text, final String label, final Runnable action,
+        final int seconds) {
+        flash = new Notice(severity, text, List.of(), label, action);
+        flashUntil = System.currentTimeMillis() + seconds * 1000L;
+    }
+
+    /**
+     * Opens the plan with this key (the account's plans, {@code <ownerId>:<designId>}) in a tab, as the open plan;
+     * false
+     * when it has not arrived in the planner (the account's list is asked again).
+     */
+    public boolean openPlanByKey(final String key) {
+        final Plan plan = Plan.getInstance();
+        for (int i = 0; i < plan.getGraphs()
+            .size(); i++) {
+            if (!plan.getGraphs()
+                .get(i)
+                .isPlan(key)) continue;
+            switchSlot(i);
+            if (plan.getActiveIndex() != i) return false;
+            return true;
+        }
+        final CloudSession cloud = CloudSession.current();
+        if (cloud != null) cloud.refreshList();
+        flash(Severity.INFO, "That plan is on its way: try again in a moment");
+        return false;
     }
 
     /**

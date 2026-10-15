@@ -301,7 +301,7 @@ class CloudPlansTest {
                         com.gtnhplanner.data.flowchart.Tasks.Status.DONE,
                         t.order(),
                         t.assignees(),
-                        t.nodeIds(),
+                        t.links(),
                         t.createdBy(),
                         t.createdAt(),
                         "2026-10-14T12:00:00Z"));

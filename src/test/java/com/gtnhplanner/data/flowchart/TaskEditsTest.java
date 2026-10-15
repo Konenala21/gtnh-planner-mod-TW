@@ -69,12 +69,16 @@ class TaskEditsTest {
         assertEquals(List.of("p", "q"), ids(TaskEdits.column(h, Tasks.Status.DOING)));
     }
 
+    private static Tasks.Link link(final String node) {
+        return new Tasks.Link("u:plan", node);
+    }
+
     @Test
     void checklistsAndCommentsGoWithTheirTask() {
         final Graph g = new Graph("Board");
-        TaskEdits.add(g, "t", "T", Tasks.Status.TODO, List.of("n1"), "me", AT);
+        TaskEdits.add(g, "t", "T", Tasks.Status.TODO, List.of(link("n1")), "me", AT);
         TaskEdits.addItem(g, "i1", "t", "One", null);
-        TaskEdits.addItem(g, "i2", "t", "Two", "n1");
+        TaskEdits.addItem(g, "i2", "t", "Two", link("n1"));
         TaskEdits.addItem(g, "i3", "t", "Three", null);
         TaskEdits.moveItem(g, "i3", 0);
         assertEquals(
@@ -108,10 +112,22 @@ class TaskEditsTest {
     @Test
     void aCardShowsItsMostPressingTask() {
         final Graph g = new Graph("Board");
-        TaskEdits.add(g, "a", "A", Tasks.Status.DONE, List.of("n1", "n2"), null, AT);
-        TaskEdits.add(g, "b", "B", Tasks.Status.BLOCKED, List.of("n2"), null, AT);
-        TaskEdits.add(g, "c", "C", Tasks.Status.DOING, List.of("n1"), null, AT);
-        assertEquals(Map.of("n1", Tasks.Status.DOING, "n2", Tasks.Status.BLOCKED), TaskEdits.statusByNode(g));
+        TaskEdits.add(g, "a", "A", Tasks.Status.DONE, List.of(link("n1"), link("n2")), null, AT);
+        TaskEdits.add(g, "b", "B", Tasks.Status.BLOCKED, List.of(link("n2")), null, AT);
+        TaskEdits.add(g, "c", "C", Tasks.Status.DOING, List.of(link("n1")), null, AT);
+        // A link with no plan is a card of the board's own plan.
+        TaskEdits.add(g, "d", "D", Tasks.Status.TODO, List.of(new Tasks.Link("", "n3")), null, AT);
+        final Map<Tasks.Link, Tasks.Status> dots = new java.util.HashMap<>();
+        TaskEdits.statusByLink(g, dots);
+        assertEquals(
+            Map.of(
+                link("n1"),
+                Tasks.Status.DOING,
+                link("n2"),
+                Tasks.Status.BLOCKED,
+                new Tasks.Link(g.planId(), "n3"),
+                Tasks.Status.TODO),
+            dots);
     }
 
     @Test

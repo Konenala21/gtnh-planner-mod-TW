@@ -214,11 +214,18 @@ public final class Boards {
                 Tasks.Status.DOING,
                 "a0",
                 List.of("11111111-1111-4111-8111-111111111111"),
-                List.of(first.id.toString()),
+                List.of(new Tasks.Link("11111111-1111-4111-8111-111111111111:plan", first.id.toString())),
                 "11111111-1111-4111-8111-111111111111",
                 "2026-10-14T10:00:00.000Z",
                 null));
-        g.taskItems.add(new Tasks.Item("i1", "t1", "Place the machines", false, "a0", first.id.toString()));
+        g.taskItems.add(
+            new Tasks.Item(
+                "i1",
+                "t1",
+                "Place the machines",
+                false,
+                "a0",
+                new Tasks.Link("11111111-1111-4111-8111-111111111111:plan", first.id.toString())));
         g.taskComments.add(
             new Tasks.Comment(
                 "c1",

@@ -133,6 +133,29 @@ public class Graph {
     @Nullable
     private String cloudKey;
 
+    /**
+     * A plan on this computer's own name for itself, so a task can point at its cards ({@link Tasks.Link}): made when
+     * first asked, saved with the slot, never in a plan code. A plan that goes to the account keeps it, and is still
+     * found by it.
+     */
+    @Getter
+    @Setter
+    @Nullable
+    private String localId;
+
+    /** The id a link names this plan by: its cloud doc key, else its id on this computer. */
+    public String planId() {
+        if (cloudKey != null) return cloudKey;
+        if (localId == null) localId = UUID.randomUUID()
+            .toString();
+        return localId;
+    }
+
+    /** Whether a link's plan id is this plan's (its cloud key, or the id it had before it went to the account). */
+    public boolean isPlan(final String id) {
+        return !id.isEmpty() && (id.equals(cloudKey) || id.equals(localId));
+    }
+
     /** A line or two about the plan: its post's description. Saved with the slot. */
     @Getter
     private String description = "";
@@ -245,6 +268,7 @@ public class Graph {
         this.open = old.open;
         this.postId = old.postId;
         this.cloudKey = old.cloudKey;
+        this.localId = old.localId;
         pinList.clear();
         pinList.addAll(old.pinList);
     }
@@ -256,6 +280,7 @@ public class Graph {
         this.open = replaced.open;
         this.postId = replaced.postId;
         this.cloudKey = replaced.cloudKey;
+        this.localId = replaced.localId;
         this.description = replaced.description;
         this.icon = replaced.icon;
     }

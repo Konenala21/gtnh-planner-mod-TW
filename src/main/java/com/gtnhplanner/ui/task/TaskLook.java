@@ -42,7 +42,7 @@ public final class TaskLook {
             case TODO -> 0xFFA1A4AD;
             case DOING -> 0xFF60A5FA;
             case BLOCKED -> 0xFFE5484D;
-            case DONE -> Hyb.OK_INK;
+            case DONE -> 0xFF4ADE80;
         };
     }
 

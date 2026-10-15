@@ -2,11 +2,9 @@ package com.gtnhplanner.cloud.map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +41,7 @@ class CloudLinksTest {
     }
 
     @Test
-    void aWebsiteTaskLinkingAWebsiteCardShowsLinkedInTheGame() {
+    void aWebsiteTaskLinksACardOfAnyPlanAsThePlanSpellsIt() {
         for (final String name : List.of("biodiesel-demo", "pa-cell-loop-plan")) {
             final JsonObject plan = Boards.website(name);
             final TestGame game = new TestGame();
@@ -54,31 +52,31 @@ class CloudLinksTest {
             final JsonArray tasks = new JsonArray(), items = new JsonArray();
             tasks.add(
                 json(
-                    "{\"id\":\"t1\",\"title\":\"Build it\",\"status\":\"todo\",\"order\":\"a0\",\"nodeIds\":[\"" + card
-                        + "\",\"node-gone\"]}"));
+                    "{\"id\":\"t1\",\"title\":\"Build it\",\"status\":\"todo\",\"order\":\"a0\",\"links\":["
+                        + "{\"plan\":\"u1:p1\",\"node\":\""
+                        + card
+                        + "\"},{\"plan\":\"u1:p2\",\"node\":\"node-gone\"}]}"));
             items.add(
                 json(
                     "{\"id\":\"i1\",\"taskId\":\"t1\",\"text\":\"Place it\",\"done\":false,\"order\":\"a0\","
-                        + "\"nodeId\":\""
+                        + "\"link\":{\"plan\":\"u1:p1\",\"node\":\""
                         + card
-                        + "\"}"));
+                        + "\"}}"));
             plan.add("tasks", tasks);
             plan.add("taskItems", items);
 
             final CloudPlans.Read r = CloudPlans.read(plan, game);
             final Tasks.Task t = r.graph().tasks.getFirst();
-            final String onBoard = PlanIds.uuid(card)
-                .toString();
-            assertEquals(List.of(onBoard, "node-gone"), t.nodeIds(), name + ": the card by the board's id");
-            assertTrue(
-                r.graph().nodes.containsKey(UUID.fromString(onBoard)),
-                name + ": the link finds the card on the board");
             assertEquals(
-                onBoard,
+                List.of(new Tasks.Link("u1:p1", card), new Tasks.Link("u1:p2", "node-gone")),
+                t.links(),
+                name + ": the plan and the card as the plan spells them");
+            assertEquals(
+                new Tasks.Link("u1:p1", card),
                 r.graph().taskItems.getFirst()
-                    .nodeId(),
+                    .link(),
                 name);
-            // Written straight back, the plan is as it was: the website's ids, the unknown one too.
+            // Written straight back, the plan is as it was.
             assertEquals(
                 List.of(),
                 CloudPlans.diff(
@@ -90,62 +88,51 @@ class CloudLinksTest {
     }
 
     @Test
-    void linkingAWebsiteCardInTheGameWritesTheWebsiteId() {
+    void anOlderTaskNamesItsCardsOfItsOwnPlanAndReadsAsLinks() {
         final JsonObject plan = Boards.website("biodiesel-demo");
         final TestGame game = new TestGame();
-        final CloudPlans.Read r = CloudPlans.read(plan, game);
-        final String card = websiteCard(plan, r.graph());
-        final Node node = r.graph().nodes.get(PlanIds.uuid(card));
-        // The board's link action names the card by its id on the board.
-        r.graph().tasks.add(
-            new Tasks.Task(
-                "t9",
-                "Feed it",
-                null,
-                Tasks.Status.DOING,
-                "b0",
-                List.of(),
-                List.of(node.id.toString()),
-                null,
-                null,
-                null));
-        r.graph().taskItems.add(new Tasks.Item("i9", "t9", "Pipe it", false, "a0", node.id.toString()));
-        final JsonObject written = CloudPlans.write(r.graph(), game, plan, r.basis())
+        final String card = websiteCard(
+            plan,
+            CloudPlans.read(plan, game)
+                .graph());
+        final JsonArray tasks = new JsonArray(), items = new JsonArray();
+        tasks.add(
+            json(
+                "{\"id\":\"t1\",\"title\":\"Build it\",\"status\":\"todo\",\"order\":\"a0\",\"nodeIds\":[\"" + card
+                    + "\"]}"));
+        items.add(
+            json(
+                "{\"id\":\"i1\",\"taskId\":\"t1\",\"text\":\"Place it\",\"done\":false,\"order\":\"a0\","
+                    + "\"nodeId\":\""
+                    + card
+                    + "\"}"));
+        plan.add("tasks", tasks);
+        plan.add("taskItems", items);
+        final Graph g = CloudPlans.read(plan, game)
+            .graph();
+        // No plan named: the plan holding the task.
+        assertEquals(
+            List.of(new Tasks.Link("", card)),
+            g.tasks.getFirst()
+                .links());
+        assertEquals(
+            new Tasks.Link("", card),
+            g.taskItems.getFirst()
+                .link());
+        // Written, the plan names itself.
+        g.setCloudKey("u1:me");
+        final JsonObject written = CloudPlans.write(g, game, null, null)
             .plan();
-        JsonObject task = null, item = null;
-        for (final JsonElement e : written.getAsJsonArray("tasks")) if ("t9".equals(
-            e.getAsJsonObject()
-                .get("id")
-                .getAsString()))
-            task = e.getAsJsonObject();
-        for (final JsonElement e : written.getAsJsonArray("taskItems")) if ("i9".equals(
-            e.getAsJsonObject()
-                .get("id")
-                .getAsString()))
-            item = e.getAsJsonObject();
-        assertNotNull(task);
-        assertNotNull(item);
         assertEquals(
-            card,
-            task.getAsJsonArray("nodeIds")
+            "u1:me",
+            written.getAsJsonArray("tasks")
                 .get(0)
-                .getAsString(),
-            "the website's id");
-        assertEquals(
-            card,
-            item.get("nodeId")
+                .getAsJsonObject()
+                .getAsJsonArray("links")
+                .get(0)
+                .getAsJsonObject()
+                .get("plan")
                 .getAsString());
-        // And read again, the board has its own id back.
-        final CloudPlans.Read again = CloudPlans.read(written, game);
-        assertEquals(
-            List.of(node.id.toString()),
-            again.graph().tasks.stream()
-                .filter(
-                    t -> t.id()
-                        .equals("t9"))
-                .findFirst()
-                .orElseThrow()
-                .nodeIds());
     }
 
     @Test
@@ -154,14 +141,14 @@ class CloudLinksTest {
         final TestGame game = new TestGame().knowing(g);
         final JsonObject plan = CloudPlans.write(g, game, null, null)
             .plan();
-        final String first = g.tasks.getFirst()
-            .nodeIds()
+        final Tasks.Link first = g.tasks.getFirst()
+            .links()
             .getFirst();
         final CloudPlans.Read r = CloudPlans.read(plan, game);
         assertEquals(
             first,
             r.graph().tasks.getFirst()
-                .nodeIds()
+                .links()
                 .getFirst(),
             "a game card's id is its UUID in both");
         assertEquals(

@@ -373,18 +373,18 @@ final class PlanRead {
         }
     }
 
-    /** The task board; a task's cards as the board names them (a card the website made by the UUID it was given). */
+    /** The task board. */
     private void tasks() {
         for (final JsonObject o : objects(plan, "tasks")) {
             final Tasks.Task t = Tasks.task(o);
             if (t == null) continue;
-            graph.tasks.add(Fresh.cards(t, id -> Fresh.boardCard(graph, id)));
+            graph.tasks.add(t);
             basis.map("tasks", t.id(), "task:" + t.id());
         }
         for (final JsonObject o : objects(plan, "taskItems")) {
             final Tasks.Item i = Tasks.item(o);
             if (i == null) continue;
-            graph.taskItems.add(Fresh.card(i, id -> Fresh.boardCard(graph, id)));
+            graph.taskItems.add(i);
             basis.map("taskItems", i.id(), "item:" + i.id());
         }
         for (final JsonObject o : objects(plan, "taskComments")) {

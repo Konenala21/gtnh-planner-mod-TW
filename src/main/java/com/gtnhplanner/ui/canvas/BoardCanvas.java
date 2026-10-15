@@ -3331,9 +3331,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final List<UUID> taskCards = session.cardsIn(session.selection());
         if (!taskCards.isEmpty()) rows.add(
             PickList.Entry.of(
-                taskCards.size() > 1 ? "Make a task from " + taskCards.size() + " cards"
-                    : "Make a task from the selected card",
-                () -> com.gtnhplanner.ui.task.TaskActions.fromCards(session, taskCards)));
+                "Make a task",
+                () -> com.gtnhplanner.ui.task.TaskActions.makeMenu(session, getPanel(), taskCards, sx, sy)));
         rows.add(PickList.Entry.of("Add sticky note", () -> addNoteAt(wx, wy)));
         rows.add(
             PickList.Entry.of("Add box", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.BOX, wx, wy)));

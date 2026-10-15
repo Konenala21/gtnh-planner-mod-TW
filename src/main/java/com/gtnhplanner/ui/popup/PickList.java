@@ -30,6 +30,15 @@ public final class PickList extends Widget<PickList> implements Interactable {
         public static Entry of(final String label, final Runnable action) {
             return new Entry(null, label, "", Hyb.INK, false, action);
         }
+
+        /** A line between groups of rows: it does nothing. */
+        public static Entry rule() {
+            return new Entry(null, "", "", Hyb.INK, false, null);
+        }
+
+        boolean isRule() {
+            return action == null && label.isEmpty();
+        }
     }
 
     public static final int ROW = 20;
@@ -175,6 +184,10 @@ public final class PickList extends Widget<PickList> implements Interactable {
             if (i >= shown.size()) break;
             final Entry e = shown.get(i);
             final int y = r * ROW;
+            if (e.isRule()) {
+                Hyb.rect(4, y + ROW / 2, w - 8, 1, 0xFF3A3C42);
+                continue;
+            }
             if (i == hovered) Hyb.rect(0, y, w, ROW, Hyb.MENU_HOVER);
             else if (e.current) Hyb.rect(0, y, w, ROW, Hyb.TILE);
             int x = 4;
@@ -201,6 +214,7 @@ public final class PickList extends Widget<PickList> implements Interactable {
         final int i = hoveredRow();
         if (mouseButton != 0 || i < 0 || i >= shown.size()) return Result.IGNORE;
         final Entry e = shown.get(i);
+        if (e.isRule()) return Result.SUCCESS;
         final ModularPanel panel = getPanel();
         Hyb.click();
         panel.closeIfOpen();
