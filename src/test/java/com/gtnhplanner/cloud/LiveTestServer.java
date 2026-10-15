@@ -231,6 +231,13 @@ final class LiveTestServer implements AutoCloseable {
         protected void channelRead0(final ChannelHandlerContext ctx, final Object msg) {
             if (msg instanceof FullHttpRequest) {
                 final FullHttpRequest req = (FullHttpRequest) msg;
+                if (req.getUri()
+                    .endsWith("/health")) {
+                    // The service's health route, as the real one answers it: it runs.
+                    ctx.writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK))
+                        .addListener(ChannelFutureListener.CLOSE);
+                    return;
+                }
                 final String cookie = req.headers()
                     .get(HttpHeaders.Names.COOKIE);
                 cookies.add(cookie == null ? "" : cookie);

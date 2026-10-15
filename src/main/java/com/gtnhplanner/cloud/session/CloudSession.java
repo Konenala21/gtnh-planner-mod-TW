@@ -157,11 +157,15 @@ public final class CloudSession {
     private LiveClient client;
     @Nullable
     private LiveClient.Hello said;
+    /** What the hello says for the world the plans were loaded in (asked once a load: it reads the disk). */
+    @Nullable
+    private LiveClient.Hello hello;
     @Nullable
     private String liveUrl;
     private final LiveClient.Listener listener = new Listener();
     private long lastLive;
-    private boolean everLive;
+    /** When the connection was last made (a try under way since counts as connecting for a while). */
+    private long connectedAt;
 
     @Nullable
     private CloudGame game;
@@ -250,6 +254,35 @@ public final class CloudSession {
         return "someone";
     }
 
+    /**
+     * Whether this account's plans are cloud plans on this device: its site was seen to have the live service once. A
+     * site without one (one not rolled out yet, a stand-in) leaves the world's plans open, signed in or not.
+     */
+    public boolean ready() {
+        return cache.device()
+            .has("cloud");
+    }
+
+    private boolean checking;
+
+    /**
+     * Asks, once a session, whether the account's site has cloud plans (its live service answers, and the list comes);
+     * when it has, this device keeps that and {@code then} runs (the planner switches over).
+     */
+    public void checkReady(final Runnable then) {
+        if (checking || ready()) return;
+        checking = true;
+        call("ready", () -> CloudApi.hasLive(token.get()) ? CloudApi.library(token.get(), accountId) : null, lib -> {
+            if (lib == null) return;
+            library = lib;
+            cache.saveList(lib);
+            final JsonObject device = cache.device();
+            device.addProperty("cloud", true);
+            cache.saveDevice(device);
+            then.run();
+        }, e -> {});
+    }
+
     /** Whether a plan is one shared with the player (theirs to leave, not to delete). */
     public boolean shared(final Graph graph) {
         final String key = graph.getCloudKey();
@@ -266,6 +299,7 @@ public final class CloudSession {
     public Plan load() {
         letGoOfPlans();
         game = host.game();
+        hello = host.hello();
         final Plan p = Plan.cloud(accountId);
         plan = p;
         migrated = false;
@@ -409,7 +443,7 @@ public final class CloudSession {
                 .toString();
         final LiveDoc d = LiveDoc.made(this, key, g);
         docs.put(key, d);
-        cache.saveDoc(key, 0, d.confirmed());
+        cache.saveDocAsIs(key, 0, d.confirmed());
         named.put(key, g.getName());
         keepDevice();
         return key;
@@ -480,6 +514,7 @@ public final class CloudSession {
         o.add("lastOpen", lastOpen);
         o.add("making", making);
         o.add("letGo", gone);
+        o.addProperty("cloud", true);
         final int active = p.getActiveIndex();
         if (active >= 0 && active < p.getGraphs()
             .size()
@@ -619,7 +654,7 @@ public final class CloudSession {
      * service's address changed.
      */
     private LiveClient connection() {
-        final LiveClient.Hello hello = host.hello();
+        if (hello == null) hello = host.hello();
         final String url = CloudApi.live();
         if (client != null && hello.equals(said) && url.equals(liveUrl)) return client;
         if (client != null) client.stop();
@@ -629,6 +664,7 @@ public final class CloudSession {
         client.addListener(listener);
         for (final LiveDoc d : docs.values()) d.leftRoom();
         client.start();
+        connectedAt = System.currentTimeMillis();
         return client;
     }
 
@@ -652,7 +688,9 @@ public final class CloudSession {
     /** Where the account's plans stand, for the board's top bar. */
     public Status status() {
         if (client != null && client.ready()) return Status.LIVE;
-        if (client == null || !everLive || System.currentTimeMillis() - lastLive < 15_000) return Status.CONNECTING;
+        // A while after the last time it was live, or since it began trying, it is still only connecting.
+        if (client == null || System.currentTimeMillis() - Math.max(lastLive, connectedAt) < 15_000)
+            return Status.CONNECTING;
         return Status.OFFLINE;
     }
 
@@ -673,7 +711,6 @@ public final class CloudSession {
 
         @Override
         public void onWelcome(final LiveClient.Person you) {
-            everLive = true;
             lastLive = System.currentTimeMillis();
             // A new connection: every room joined again from a snapshot, and the list may have moved.
             for (final LiveDoc d : docs.values()) d.joining();
@@ -789,7 +826,6 @@ public final class CloudSession {
         if (open != null && !open.creating()) want.add(open);
         for (final LiveDoc d : docs.values())
             if (want.size() < ROOMS && d != open && !d.creating() && d.waiting()) want.add(d);
-        if (want.isEmpty() && client == null) return;
         final LiveClient c = connection();
         final Set<String> joined = c.joined();
         for (final LiveDoc d : want) {
@@ -1040,7 +1076,7 @@ public final class CloudSession {
             for (final Migration.Item item : items) {
                 if (!result.uploaded()
                     .contains(item.key()) || docs.containsKey(item.key()) || plan == null) continue;
-                cache.saveDoc(item.key(), 0, item.plan());
+                cache.saveDocAsIs(item.key(), 0, item.plan());
                 final LiveDoc d = open(item.key(), false);
                 if (d == null) continue;
                 d.graph()

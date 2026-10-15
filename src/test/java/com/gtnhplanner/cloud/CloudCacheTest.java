@@ -263,6 +263,31 @@ class CloudCacheTest {
     }
 
     @Test
+    void aPlanKeptAsItIsReadsBackFromDisk() {
+        final CloudCache a = CloudCache.forAccount(root, "u1");
+        a.addPending("u1:d1", batch("c1"));
+        a.saveDocAsIs("u1:d1", 7, plan("Kept"));
+        a.ack("u1:d1", "c1");
+        a.close();
+        final CloudCache b = CloudCache.forAccount(root, "u1");
+        assertEquals(
+            7,
+            b.doc("u1:d1")
+                .seq());
+        assertEquals(
+            "Kept",
+            b.doc("u1:d1")
+                .plan()
+                .get("name")
+                .getAsString());
+        assertTrue(
+            b.pending("u1:d1")
+                .isEmpty(),
+            "written in the order asked");
+        b.close();
+    }
+
+    @Test
     void callersCannotChangeWhatTheCacheHolds() {
         final CloudCache a = CloudCache.forAccount(root, "u1");
         final JsonObject p = plan("Smelter");

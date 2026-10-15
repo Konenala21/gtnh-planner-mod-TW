@@ -352,6 +352,15 @@ public final class CloudApi {
         return accounts(arrayIn(send("GET", liveHttp("/nearby"), null, token).body, "accounts"));
     }
 
+    /**
+     * Whether the site runs the live service ({@code GET /live/health}): a site without one has no cloud plans, so the
+     * game keeps the world's plans. Throws when the service could not be asked at all.
+     */
+    public static boolean hasLive(final String token) throws IOException {
+        final Reply r = send("GET", liveHttp("/health"), null, token, 404, 502, 503);
+        return r.status == 200;
+    }
+
     // endregion
 
     // region JSON

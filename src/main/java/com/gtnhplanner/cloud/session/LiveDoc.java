@@ -524,7 +524,7 @@ public final class LiveDoc {
         final long seq = state.seq();
         if (seq != savedSeq && (now || System.currentTimeMillis() - savedAt >= SAVE_EVERY_MS)) {
             session.cache()
-                .saveDoc(key, seq, state.confirmed());
+                .saveDocAsIs(key, seq, state.confirmed());
             savedSeq = seq;
             savedAt = System.currentTimeMillis();
         }

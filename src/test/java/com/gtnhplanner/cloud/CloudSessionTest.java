@@ -309,6 +309,30 @@ class CloudSessionTest {
     // endregion
 
     @Test
+    void theAccountsPlansOpenOnlyOnceItsSiteHasThem() {
+        // A site without the live service (not rolled out, a stand-in): the world's plans stay open.
+        CloudApi.useLive(
+            "ws://127.0.0.1:" + site.getAddress()
+                .getPort() + "/live");
+        session = CloudSession.start(ME, () -> TOKEN, new File(dir, "before"), host);
+        final boolean[] switched = { false };
+        session.checkReady(() -> switched[0] = true);
+        ticks(40);
+        assertFalse(session.ready());
+        assertFalse(switched[0]);
+        session.stop();
+        // The site has it: this device keeps that, and the planner switches over.
+        CloudApi.useLive("ws://127.0.0.1:" + live.port() + "/live");
+        session = CloudSession.start(ME, () -> TOKEN, dir, host);
+        session.checkReady(() -> switched[0] = true);
+        tickUntil("the site has cloud plans", () -> switched[0]);
+        assertTrue(session.ready());
+        session.stop();
+        session = CloudSession.start(ME, () -> TOKEN, dir, host);
+        assertTrue(session.ready(), "remembered on this device");
+    }
+
+    @Test
     void anEditGoesOutOnceAndOthersComeIn() {
         inAccount("d1", "sulfuric-acid");
         final Plan p = begin();

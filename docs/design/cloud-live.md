@@ -277,6 +277,9 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
 `cloud/session`: `CloudSession` (one per signed-in account) and `LiveDoc` (one per cloud plan); the game's side is
 `cloud/session/game/CloudHooks` (`Plan.setCloudSource`, the client tick, sign-in and sign-out, the exit flush).
 
+- Cloud plans start only once the account's site has been seen to run the live service (`GET /live/health`, then the
+  list), remembered per device (`device.json`'s `cloud`): a site without it (before the rollout, the library's
+  stand-in) keeps the world's plans open, signed in or not, so the mod can ship ahead of the website.
 - Signed in, `Plan` is the account's cloud plans (`Plan.cloud`, `isCloud`): its list (`CloudApi.library`, kept as
   `list.json`) and this device's copies, opened offline. Tabs, the open plan, the order and when each was open are this
   device's (`device.json` beside the copies), as are pins. `PlanAPI.save` never writes the world's save then: it hands

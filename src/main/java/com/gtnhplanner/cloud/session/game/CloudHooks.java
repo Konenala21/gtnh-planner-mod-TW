@@ -47,11 +47,20 @@ public final class CloudHooks {
             }, "GTNH Planner cloud on exit"));
     }
 
-    /** The signed-in account's plans, or null when signed out (the world's save is opened then). Client thread. */
+    /**
+     * The signed-in account's plans, or null (the world's save is opened then) when signed out, or while the account's
+     * site is not known to have cloud plans: that is asked in the background, and the plans load again once it has.
+     * Client thread.
+     */
     @Nullable
     private static Plan plans() {
         final CloudSession s = session();
-        return s == null ? null : s.load();
+        if (s == null) return null;
+        if (!s.ready()) {
+            s.checkReady(Plan::reload);
+            return null;
+        }
+        return s.load();
     }
 
     /** The session of the account signed in, started now if it is not yet; null when signed out. */
