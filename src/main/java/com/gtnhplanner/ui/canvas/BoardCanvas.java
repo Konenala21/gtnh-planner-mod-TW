@@ -1626,7 +1626,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         wires.ghost(edge, drawer, link);
     }
 
-    /** Whether a drawer would take the wire being dragged: same resource, on the matching side. */
+    /**
+     * Whether a drawer would take the wire being dragged: same resource, on a side it takes. A port of the other side
+     * on a product or a source makes it a buffer ({@code docs/design/buffer-drawers.md}).
+     */
     public boolean drawerAcceptsDrag(final Drawer drawer) {
         if (drawerWire != null) return false;
         if (portDrag != null && portDrag.socket()) return drawer.getKind()
@@ -1637,8 +1640,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             && (dragging.equals(drawer.getResourceKey())
                 || !portDrag.output() && session.choiceKeys(portDrag.nodeId(), false, portDrag.port())
                     .contains(drawer.getResourceKey()))
-            && drawer.getKind()
-                .linksInputs() != portDrag.output();
+            && drawer.takesSide(!portDrag.output());
     }
 
     /** Tooltip for the wire under the mouse: what it carries and how much. */
@@ -1651,15 +1653,13 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             // Which boxes it joins (a card by its first recipe, a drawer by its id), source first, and its width.
             final RecipeCard from = w.edge() != null ? cards.get(w.edge().sourceNodeId)
                 : w.drawer() != null && !w.drawer()
-                    .getKind()
-                    .linksInputs() ? cards.get(
+                    .sideOf(w.link()) ? cards.get(
                         w.link()
                             .nodeId())
                         : null;
             final RecipeCard to = w.edge() != null ? cards.get(w.edge().targetNodeId)
                 : w.drawer() != null && w.drawer()
-                    .getKind()
-                    .linksInputs() ? cards.get(
+                    .sideOf(w.link()) ? cards.get(
                         w.link()
                             .nodeId())
                         : null;
@@ -2416,9 +2416,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final DrawerCard drawer = drawers.get(target);
         if (drawer == null || drawer.model() == null) return null;
         final Drawer d = drawer.model().drawer;
-        // A source gives from its right side, the rest take on their left.
-        return new int[] { d.getKind()
-            .linksInputs() ? d.getX() + DrawerCard.W : d.getX(), d.getY() + DrawerCard.ANCHOR_Y };
+        // Inputs are given from a drawer's right side, outputs taken on its left (a buffer has both).
+        return new int[] { portDrag.output() ? d.getX() : d.getX() + DrawerCard.W, d.getY() + DrawerCard.ANCHOR_Y };
     }
 
     /** The wire in hand's colours: green that it will go, red that it will not (Factory Flow's). */
@@ -2891,16 +2890,16 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                     width.get(e.id)));
         }
         for (final Drawer d : g.getDrawers()) {
-            final boolean source = d.getKind()
-                .linksInputs();
             final UUID drawerHolder = d.getGroup() == null ? null : top.apply(d.getId());
-            for (final Drawer.Link link : d.getLinks()) {
+            for (final Drawer.Held held : d.held()) {
+                final Drawer.Link link = held.link();
+                final boolean source = held.input();
                 final UUID card = owner.get(link.nodeId());
                 if (card == null) continue;
                 final boolean cardGroup = g.boardGroups.containsKey(card);
                 if (drawerHolder != null && drawerHolder.equals(card)) continue;
                 final UUID key = UUID.nameUUIDFromBytes(
-                    (d.getId() + ":" + link.nodeId() + ":" + link.portIndex())
+                    (d.getId() + ":" + link.nodeId() + ":" + link.portIndex() + (d.isTaker(link) ? ":in" : ""))
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 final Double port = cardGroup ? null
                     : (Double) (double) cards.get(link.nodeId())

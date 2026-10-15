@@ -15,23 +15,27 @@ import javax.annotation.Nullable;
  * turned into trash drawers. Built by {@link FfPlanParser}. Ids keep FF's spelling (item ids are lowercase registry
  * names with {@code @meta} when the meta is not 0).
  *
+ * @param planMode  the one-mode board's plan (the site's {@code planMode}, and every plan the game posts): a buffer
+ *                  drawer's rule is live there, where no older board enforced one
  * @param textNotes FF's annotations (text notes, boxes, zones, arrows, images), which become the board's notes
  * @param notes     what the parser saw and left out (boards, other annotations, pool scopes), for the import report
  * @param boards    FF's boards (pockets), which become the board's groups
  * @param boardOf   which board each card, storage and annotation is in, by FF id
  */
-public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRecipe> recipes, List<FfNode> nodes,
-    List<FfEdge> edges, List<FfStorage> storages, List<FfNote> textNotes, @Nullable FfTarget targetRate,
-    List<String> notes, List<FfBoard> boards, Map<String, String> boardOf) {
+public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean planMode, List<FfRecipe> recipes,
+    List<FfNode> nodes, List<FfEdge> edges, List<FfStorage> storages, List<FfNote> textNotes,
+    @Nullable FfTarget targetRate, List<String> notes, List<FfBoard> boards, Map<String, String> boardOf) {
 
     /** A plan without boards. */
-    public FfPlan(final String name, final boolean solveMode, final boolean poolMode, final List<FfRecipe> recipes,
-        final List<FfNode> nodes, final List<FfEdge> edges, final List<FfStorage> storages,
-        final List<FfNote> textNotes, @Nullable final FfTarget targetRate, final List<String> notes) {
+    public FfPlan(final String name, final boolean solveMode, final boolean poolMode, final boolean planMode,
+        final List<FfRecipe> recipes, final List<FfNode> nodes, final List<FfEdge> edges,
+        final List<FfStorage> storages, final List<FfNote> textNotes, @Nullable final FfTarget targetRate,
+        final List<String> notes) {
         this(
             name,
             solveMode,
             poolMode,
+            planMode,
             recipes,
             nodes,
             edges,

@@ -39,8 +39,8 @@ import com.gtnhplanner.importer.NodeMaker.PortInfo;
  * <li>Cards become nodes, each FF recipe matched to an in-game one ({@link RecipeMatcher}); a card with no match is
  * left out. A shared machine stays one: its recipes become the sections of one shared card.</li>
  * <li>Wires become edges, landing on the port that holds the wire's resource (FF names ports by resource, never by
- * slot index). A buffer drawer (fed and drawn from) has no GTNH Planner counterpart: each feeder is wired straight to
- * each
+ * slot index). A buffer drawer (fed and drawn from) wired only to cards comes over as a buffer drawer, its feeders its
+ * makers and its takers its users; any other buffer has no counterpart, and each feeder is wired straight to each
  * taker.</li>
  * <li>Drawers keep the role their wires give them (FF's storage roles); their rate rules come over only from Solve
  * and Pool plans, the only plans where FF enforces them. Custom rate cards come in as custom rate cards (as drawers
@@ -94,6 +94,8 @@ public final class FfConverter {
         final String converted;
         final List<Drawer.Link> links = new ArrayList<>();
         final List<PortInfo> infos = new ArrayList<>();
+        /** A buffer's users: the input ports it feeds. */
+        final List<Drawer.Link> takers = new ArrayList<>();
         /** A custom rate card's dial, when this drawer to be is one: it comes in as the card itself where it can. */
         @Nullable
         Dial dial;
@@ -113,6 +115,14 @@ public final class FfConverter {
             final Drawer.Link link = new Drawer.Link(node.id, port);
             if (links.contains(link)) return;
             links.add(link);
+            infos.add(info);
+        }
+
+        /** A buffer's user: an input port it feeds. */
+        void taker(final Node node, final int port, final PortInfo info) {
+            final Drawer.Link link = new Drawer.Link(node.id, port);
+            if (takers.contains(link)) return;
+            takers.add(link);
             infos.add(info);
         }
     }
@@ -139,6 +149,8 @@ public final class FfConverter {
         final FfCards.Context ctx;
         final double minX, minY;
         int lostWires;
+        /** Buffers joined into wires (wired to another drawer or by a cell wire): no drawer of their own. */
+        final Set<String> joinedBuffers = new HashSet<>();
 
         Run(final FfPlan plan, final RecipeIndex index, final NodeMaker maker) {
             this.plan = plan;
@@ -367,6 +379,9 @@ public final class FfConverter {
             for (final Map.Entry<String, Role> r : roles.entrySet()) {
                 if (r.getValue() != Role.BUFFER) continue;
                 final String b = r.getKey();
+                // A buffer wired only to cards comes over as a buffer drawer; only the rest are joined into wires.
+                if (FfDrawers.keepsBuffer(b, plan.edges(), storages.keySet())) continue;
+                joinedBuffers.add(b);
                 final List<FfEdge> ins = new ArrayList<>(), outs = new ArrayList<>();
                 for (final FfEdge e : all) {
                     if (e.target()
@@ -399,7 +414,7 @@ public final class FfConverter {
                 report.add(
                     Kind.CONVERTED,
                     s == null ? b : storageName(s),
-                    "a buffer drawer (GTNH Planner has none), replaced by " + ins.size() * outs.size()
+                    "a buffer drawer wired to another drawer or by a cell wire, replaced by " + ins.size() * outs.size()
                         + " direct wire"
                         + (ins.size() * outs.size() == 1 ? "" : "s")
                         + " from its "
@@ -481,7 +496,8 @@ public final class FfConverter {
             final String drawerId = drawerFeeds ? from.drawer() : to.drawer();
             final Placed card = drawerFeeds ? to.card() : from.card();
             final PendingDrawer d = pendingFor(drawerId);
-            if (d == null || d.kind.linksInputs() != drawerFeeds) {
+            final boolean buffer = d != null && d.kind == Drawer.Kind.BUFFER;
+            if (d == null || !buffer && d.kind.linksInputs() != drawerFeeds) {
                 report.add(Kind.WIRE, e.resourceId(), "a drawer wired the wrong way round dropped");
                 return;
             }
@@ -495,7 +511,8 @@ public final class FfConverter {
                 report.add(Kind.WIRE, d.subject, "no port for it on " + card.name());
                 return;
             }
-            d.link(card.node(), port, describe(card.node(), !drawerFeeds).get(port));
+            if (buffer && drawerFeeds) d.taker(card.node(), port, describe(card.node(), false).get(port));
+            else d.link(card.node(), port, describe(card.node(), !drawerFeeds).get(port));
         }
 
         boolean known(final String id) {
@@ -608,7 +625,8 @@ public final class FfConverter {
                     s.displayName(),
                     px(s.x()),
                     py(s.y()),
-                    FfDrawers.target(s, role, plan.solveMode()),
+                    // A buffer's rule is live only where a board enforced it: a one-mode plan.
+                    FfDrawers.target(s, role, role == Role.BUFFER ? plan.planMode() : plan.solveMode()),
                     null);
                 pending.put(id, d);
                 return d;
@@ -730,8 +748,12 @@ public final class FfConverter {
 
         void makeDrawer(final PendingDrawer d) {
             {
-                if (d.links.isEmpty()) {
+                if (d.links.isEmpty() && d.takers.isEmpty()) {
                     report.add(Kind.DROPPED, d.subject, "a drawer with no wires left in GTNH Planner; left out");
+                    return;
+                }
+                if (d.kind == Drawer.Kind.BUFFER) {
+                    makeBuffer(d);
                     return;
                 }
                 final PortInfo first = d.infos.getFirst();
@@ -753,6 +775,22 @@ public final class FfConverter {
                 }
                 if (d.converted != null) report.add(Kind.CONVERTED, d.subject, d.converted);
             }
+        }
+
+        /**
+         * A buffer: made a product, its makers linked, then its users, so it is a buffer when it has both and the end
+         * it still is when a side found no port ({@link Graph#linkDrawerPort}).
+         */
+        void makeBuffer(final PendingDrawer d) {
+            final PortInfo first = d.infos.getFirst();
+            final Drawer drawer = new Drawer(Drawer.Kind.PRODUCT, first.key());
+            drawer.setLabel(d.label != null && !d.label.isEmpty() ? d.label : first.label());
+            drawer.setX(d.x);
+            drawer.setY(d.y);
+            drawer.setTarget(d.target.rule(), d.target.rate());
+            graph.addDrawer(drawer);
+            for (final Drawer.Link link : d.links) graph.linkDrawerPort(drawer.getId(), link, false);
+            for (final Drawer.Link link : d.takers) graph.linkDrawerPort(drawer.getId(), link, true);
         }
 
         /**
@@ -781,7 +819,7 @@ public final class FfConverter {
             for (final FfStorage s : plan.storages()) {
                 final Role role = roles.getOrDefault(s.id(), Role.IDLE);
                 if (role == Role.IDLE) report.add(Kind.DROPPED, storageName(s), "an unwired drawer; left out");
-                else if (role != Role.BUFFER && !pending.containsKey(s.id()))
+                else if (!joinedBuffers.contains(s.id()) && !pending.containsKey(s.id()))
                     report.add(Kind.DROPPED, storageName(s), "its wires all went to cards that were left out");
             }
         }

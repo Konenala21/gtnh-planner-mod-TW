@@ -27,7 +27,8 @@ import com.gtnhplanner.ui.theme.Hyb;
 
 /**
  * A drawer on the board: what the player brings in (source), what leaves the plan (product: a rate wanted, or with no
- * rule whatever arrives), or what is voided (trash). It is a card's port row lifted off the card ({@link
+ * rule whatever arrives), what is voided (trash), or what passes from makers to users inside the plan (buffer: an input
+ * dropped on a product, or an output on a source, makes one). It is a card's port row lifted off the card ({@link
  * com.gtnhplanner.ui.card.CardPaint#drawerRow}): its resource, what the plan moves through it, its name, and under
  * them its rule key and rate box (trash: what it does). The rule key's menu also turns a product into trash and back.
  * It is moved by the thin bar along its top, where its delete key shows at the left; dragged anywhere else it draws a
@@ -408,7 +409,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             default -> {
                 final com.gtnhplanner.ui.popup.Tip tip = com.gtnhplanner.ui.popup.Tip.of(m.label)
                     .sub(kindName(m.kind))
-                    .row(m.kind == Drawer.Kind.SOURCE ? "Supplies" : "Takes", m.rate(m.rate, unit));
+                    .row(
+                        m.kind == Drawer.Kind.SOURCE ? "Supplies" : m.kind == Drawer.Kind.BUFFER ? "Passes" : "Takes",
+                        m.rate(m.rate, unit));
+                if (m.kind == Drawer.Kind.BUFFER) tip.muted("Its makers put in what its users take out.");
                 if (!m.linked) tip.note("Unconnected", com.gtnhplanner.ui.popup.Tip.WARN);
                 if (m.shortfall != null) tip.note(
                     "Reaches only " + m.rate(m.shortfall.reachable(), unit)
@@ -424,6 +428,12 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
 
     /** What a rule asks of the plan, in a sentence. */
     private static String ruleMeaning(final Drawer.Kind kind, final Drawer.Rule rule) {
+        if (kind == Drawer.Kind.BUFFER) return switch (rule) {
+            case ANY -> "No target: the plan passes whatever its users take.";
+            case AT_LEAST -> "The plan passes at least the rate through it.";
+            case EXACTLY -> "The plan passes exactly the rate through it.";
+            case AT_MOST -> "The plan passes no more than the rate through it.";
+        };
         final String flow = kind == Drawer.Kind.SOURCE ? "draws from it" : "puts in it";
         return switch (rule) {
             case ANY -> "No target: the plan " + flow + " whatever it needs.";
@@ -439,6 +449,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             case PRODUCT -> "Product";
             case BYPRODUCT -> "Product";
             case TRASH -> "Trash";
+            case BUFFER -> "Buffer";
         };
     }
 
@@ -592,7 +603,8 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                     rule == model.rule,
                     () -> session.setDrawerRule(model.drawer, rule)));
         }
-        if (model.kind != Drawer.Kind.SOURCE) rows.add(
+        // Product and trash take turns; a source and a buffer are what their wires make them.
+        if (model.kind == Drawer.Kind.PRODUCT || model.kind == Drawer.Kind.TRASH) rows.add(
             new PickList.Entry(
                 null,
                 model.kind == Drawer.Kind.TRASH ? TO_PRODUCT : TO_TRASH,

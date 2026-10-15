@@ -56,6 +56,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - Shared machines (one card, several recipes time-sharing one machine; `docs/design/ff-shared-machine-spec.md`) are
   `MachineGroup`s with ordered `sections`: each recipe stays a node with its own ports and wires, the group draws as
   one card, its machine settings are copied to every recipe, and a pinned count is an exact solver pool.
+- Buffer drawers (`docs/design/buffer-drawers.md`): `Drawer.Kind.BUFFER`, its `links` the outputs feeding it and its
+  `takers` the inputs it feeds (`Drawer.held()` gives both with their side). An input dropped on a product, or an output
+  on a source, makes one. The solver draws an edge from each maker to each user (`ModelData.buildBuffers`) and holds
+  its rule on their flows; the same in the website's port, checked by the `buffer-drawers` corpus case. Features that
+  must land in the mod and the website: `docs/design/cross-repo-features.md`.
 - Saves are backed up to `backups/` beside the save (`gtnhplanner/plans.dat`), once per session and before any save
   that drops a plan.
 - Non-recipe machines (the top bar's Non-recipe key, `ui/power/PowerPicker`) are the website's power sources, ported

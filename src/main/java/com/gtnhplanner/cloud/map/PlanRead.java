@@ -130,7 +130,7 @@ final class PlanRead {
     private final Set<String> kept = new HashSet<>();
     /** The wires and drawer links read, put on the board together once all are read. */
     private final List<Edge> newWires = new ArrayList<>();
-    private final List<Map.Entry<UUID, Drawer.Link>> newLinks = new ArrayList<>();
+    private final List<Graph.LoadedLink> newLinks = new ArrayList<>();
 
     PlanRead(final JsonObject plan, final CloudGame game, @Nullable final CloudPlans.Read previous) {
         this.plan = plan;
@@ -207,6 +207,7 @@ final class PlanRead {
                 graph.getName(),
                 things.solveMode,
                 things.poolMode,
+                things.planMode,
                 List.of(),
                 List.of(),
                 wires,
@@ -214,7 +215,9 @@ final class PlanRead {
                 List.of(),
                 null,
                 List.of()));
-        for (final JsonObject s : objects(plan, "storages")) storage(s, roles);
+        final Set<String> storageIds = new HashSet<>();
+        for (final FfStorage s : all) storageIds.add(s.id());
+        for (final JsonObject s : objects(plan, "storages")) storage(s, roles, wires, storageIds);
         for (int i = 0; i < wires.size(); i++) edge(wireJson.get(i), wires.get(i));
         // All at once: one by one, each wire and link looks through every other.
         graph.addEdgesLoaded(newWires);
@@ -598,7 +601,8 @@ final class PlanRead {
 
     // region Drawers and wires
 
-    private void storage(final JsonObject json, final Map<String, FfDrawers.Role> roles) {
+    private void storage(final JsonObject json, final Map<String, FfDrawers.Role> roles, final List<FfEdge> wires,
+        final Set<String> storageIds) {
         final String id = str(json, "id");
         final FfStorage s = id == null ? null : things.storage(json);
         if (s == null) return;
@@ -617,11 +621,16 @@ final class PlanRead {
                     : kind == Drawer.Kind.TRASH ? FfDrawers.Role.TRASH : FfDrawers.Role.PRODUCT;
             }
             if (kind == null) {
+                report.add(Kind.DROPPED, id, "an unwired drawer; left in the plan");
+                return;
+            }
+            // A buffer wired to another drawer or by a cell wire has no drawer on the board (the importer joins its
+            // wires instead): it stays in the plan as it is.
+            if (role == FfDrawers.Role.BUFFER && !FfDrawers.keepsBuffer(id, wires, storageIds)) {
                 report.add(
                     Kind.DROPPED,
                     id,
-                    role == FfDrawers.Role.BUFFER ? "a buffer drawer (GTNH Planner has none); left in the plan"
-                        : "an unwired drawer; left in the plan");
+                    "a buffer drawer wired to another drawer or by a cell wire; left in the plan");
                 return;
             }
             // The game's own key while the website still names the same resource; else the first port it holds gives
@@ -633,7 +642,9 @@ final class PlanRead {
             if (had != null) d.setHeader(had.getHeader());
             d.setX(x);
             d.setY(y);
-            final FfDrawers.Target target = FfDrawers.target(s, role, things.solveMode);
+            // A buffer's rule is live only in a one-mode plan, where a board enforced it.
+            final FfDrawers.Target target = FfDrawers
+                .target(s, role, role == FfDrawers.Role.BUFFER ? things.planMode : things.solveMode);
             d.setTarget(target.rule(), target.rate());
             if (!same) unkeyed.put(id, d);
         }
@@ -657,6 +668,7 @@ final class PlanRead {
         saved.addProperty("x", x);
         saved.addProperty("y", y);
         saved.add("links", new JsonArray());
+        saved.add("takers", new JsonArray());
         try {
             return Serializer.readDrawer(saved);
         } catch (final RuntimeException e) {
@@ -688,13 +700,10 @@ final class PlanRead {
             else wire(id, a.node(), b.node(), out, in);
             return;
         }
-        // A drawer's link: a source feeds a card's input, any other drawer takes a card's output.
-        final boolean feeding = feeds != null && b != null
-            && feeds.getKind()
-                .linksInputs();
-        final boolean taking = takes != null && a != null
-            && !takes.getKind()
-                .linksInputs();
+        // A drawer's link, on the side the wire says: from the drawer it feeds a card's input (a source, or a buffer's
+        // user), into it a card's output feeds it (a product, trash, or a buffer's maker). Trash feeds nothing.
+        final boolean feeding = feeds != null && b != null && feeds.takesSide(true);
+        final boolean taking = !feeding && takes != null && a != null && takes.takesSide(false);
         if (!feeding && !taking) return;
         final String drawerId = feeding ? e.source() : e.target();
         final Section card = feeding ? b : a;
@@ -704,7 +713,7 @@ final class PlanRead {
             e,
             storages.get(drawerId)
                 .resourceId());
-        if (port >= 0) link(id, drawerId, feeding ? feeds : takes, card.node(), port);
+        if (port >= 0) link(id, drawerId, feeding ? feeds : takes, card.node(), port, feeding);
     }
 
     /** The port of a card a wire's end names (its handle, its resource, a drawer's resource); -1 when none. */
@@ -737,20 +746,12 @@ final class PlanRead {
             return true;
         }
         final int port = integer(data, "port");
-        if (feeds != null && b != null
-            && feeds.getKind()
-                .linksInputs()
-            && port >= 0
-            && port < b.inputs.size()) {
-            link(id, e.source(), feeds, b, port);
+        if (feeds != null && b != null && feeds.takesSide(true) && port >= 0 && port < b.inputs.size()) {
+            link(id, e.source(), feeds, b, port, true);
             return true;
         }
-        if (takes != null && a != null
-            && !takes.getKind()
-                .linksInputs()
-            && port >= 0
-            && port < a.outputs.size()) {
-            link(id, e.target(), takes, a, port);
+        if (takes != null && a != null && takes.takesSide(false) && port >= 0 && port < a.outputs.size()) {
+            link(id, e.target(), takes, a, port, false);
             return true;
         }
         return false;
@@ -762,17 +763,17 @@ final class PlanRead {
         basis.map("edges", id, "edge:" + uuid);
     }
 
-    /** A drawer's link to a port; a drawer the website made takes its resource from the first port it holds. */
-    private void link(final String id, @Nullable final String drawerId, final Drawer d, final Node node,
-        final int port) {
+    /**
+     * A drawer's link to a port on its side ({@code input}: an input the drawer feeds); a drawer the website made takes
+     * its resource from the first port it holds.
+     */
+    private void link(final String id, @Nullable final String drawerId, final Drawer d, final Node node, final int port,
+        final boolean input) {
         final Drawer.Link link = new Drawer.Link(node.id, port);
-        newLinks.add(Map.entry(d.getId(), link));
-        basis.map("edges", id, Fresh.linkKey(d, link));
+        newLinks.add(new Graph.LoadedLink(d.getId(), link, input));
+        basis.map("edges", id, Fresh.linkKey(d, link, input));
         if (drawerId != null && unkeyed.remove(drawerId) != null) {
-            final NodeMaker.PortInfo info = ports.describe(
-                node,
-                !d.getKind()
-                    .linksInputs())
+            final NodeMaker.PortInfo info = ports.describe(node, !input)
                 .get(port);
             d.setResourceKey(info.key());
             if (d.getLabel()

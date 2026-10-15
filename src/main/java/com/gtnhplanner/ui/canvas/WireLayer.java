@@ -16,6 +16,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.flowchart.balancer.BalanceResult;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
+import com.gtnhplanner.data.flowchart.balancer.PortRef;
 import com.gtnhplanner.layout.WireHops;
 import com.gtnhplanner.layout.WireRouter;
 import com.gtnhplanner.ui.BoardSession;
@@ -379,13 +380,15 @@ final class WireLayer {
                     Resources.key(port)));
         }
         for (final Drawer d : drawerList) {
-            final boolean source = d.getKind()
-                .linksInputs();
             Integer drawerAt = drawerBox.get(d.getId());
             if (drawerAt == null) drawerAt = hiddenIn.apply(d.getId());
             if (drawerAt == null) continue;
             final int drawer = drawerAt;
-            for (final Drawer.Link link : linksOf(d)) {
+            // A buffer wires both ways: its makers into it, it out to its users (its takers).
+            final List<Drawer.Link> all = new ArrayList<>(linksOf(d));
+            all.addAll(d.getTakers());
+            for (final Drawer.Link link : all) {
+                final boolean source = d.sideOf(link);
                 final Node n = graph.nodes.get(link.nodeId());
                 if (n == null) continue;
                 final List<Port<?>> ports = source ? n.inputs : n.outputs;
@@ -395,7 +398,8 @@ final class WireLayer {
                 if (card == null || card == drawer && groupIndex.contains(card)) continue;
                 final Port<?> port = ports.get(link.portIndex());
                 final UUID key = UUID.nameUUIDFromBytes(
-                    (d.getId() + ":" + link.nodeId() + ":" + link.portIndex()).getBytes(StandardCharsets.UTF_8));
+                    (d.getId() + ":" + link.nodeId() + ":" + link.portIndex() + (d.isTaker(link) ? ":in" : ""))
+                        .getBytes(StandardCharsets.UTF_8));
                 between.add(source ? new int[] { drawer, card } : new int[] { card, drawer });
                 pending.add(
                     new Wire(
@@ -406,7 +410,8 @@ final class WireLayer {
                         link,
                         colorOf(port),
                         0,
-                        linkFlow(result, n, source, link.portIndex()),
+                        d.isBuffer() ? bufferFlow(result, d, new PortRef(n.id, link.portIndex(), source))
+                            : linkFlow(result, n, source, link.portIndex()),
                         null,
                         Resources.key(port)));
             }
@@ -520,6 +525,12 @@ final class WireLayer {
         final Balancer.NodeBalance b = result.nodeBalances()
             .get(e.sourceNodeId);
         return b == null ? 0 : b.outputPerSecond(e.sourceOutputIndex);
+    }
+
+    /** What passes through one of a buffer's ports: the solver's flow on its edges there, not the port's whole rate. */
+    private static double bufferFlow(@Nullable final BalanceResult result, final Drawer d, final PortRef port) {
+        if (!(result instanceof final BalanceResult.Solved solved) || solved.auto() == null) return 0;
+        return solved.auto().drawers.portRate(d.getId(), port);
     }
 
     private static double linkFlow(@Nullable final BalanceResult result, final Node n, final boolean input,

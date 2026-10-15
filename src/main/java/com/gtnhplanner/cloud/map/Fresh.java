@@ -149,14 +149,16 @@ final class Fresh {
         }
         for (final Drawer d : g.getDrawers()) {
             final String drawerId = names.id("drawer", d.getId());
-            final boolean feeds = d.getKind()
-                .linksInputs();
-            for (final Drawer.Link link : d.getLinks()) {
+            // Each port it holds, on its side: a source's links and a buffer's users are inputs it feeds (a wire from
+            // it), the rest outputs that feed it (a wire into it).
+            for (final Drawer.Held held : d.held()) {
+                final Drawer.Link link = held.link();
+                final boolean feeds = held.input();
                 final Node n = g.nodes.get(link.nodeId());
-                final String gameKey = linkKey(d, link);
+                final String gameKey = linkKey(d, link, feeds);
                 if (n == null || skip.contains(gameKey) || unwritable(names, gameKey, n)) continue;
                 final String nodeId = names.id("node", n.id);
-                final String id = drawerId + ":" + nodeId + ":" + link.portIndex();
+                final String id = linkId(drawerId, nodeId, link.portIndex(), feeds && d.isBuffer());
                 final JsonObject data = new JsonObject();
                 data.addProperty("port", link.portIndex());
                 out.put(gameKey, new Thing("edges", id, gameKey, Canon.of(data), data, false, 0, 0, () -> {
@@ -310,6 +312,8 @@ final class Fresh {
         final PlanExport.Res face = g.getIcon() == null ? null : game.resource(g.getIcon());
         if (face != null) site.add("icon", PlanExport.icon(face));
         site.addProperty("solveMode", true);
+        // The one-mode board's plan, as the posting export writes it: the website holds a buffer's rule live there.
+        site.addProperty("planMode", true);
         if (g.getPrimaryView() != null) site.addProperty("primaryView", g.getPrimaryView());
         final JsonObject meta = new JsonObject();
         meta.addProperty("source", "GTNH Planner");
@@ -371,10 +375,14 @@ final class Fresh {
         return out;
     }
 
-    /** A drawer's save, without its id and place, and without its links: the plan's wires are its links. */
+    /**
+     * A drawer's save, without its id and place, and without its links and a buffer's users: the plan's wires are
+     * both.
+     */
     static JsonObject drawerGame(final Drawer d) {
         final JsonObject o = graphData(Serializer.GSON.toJsonTree(d, Drawer.class));
         o.remove("links");
+        o.remove("takers");
         return o;
     }
 
@@ -387,8 +395,22 @@ final class Fresh {
         return o;
     }
 
-    static String linkKey(final Drawer d, final Drawer.Link link) {
-        return "link:" + d.getId() + ":" + link.nodeId() + ":" + link.portIndex();
+    /**
+     * A drawer's link as a board thing, by its side: an input it feeds ({@code :in}, a source's links and a buffer's
+     * users) or an output that feeds it. The side, not the drawer's kind, so a drawer that becomes a buffer or stops
+     * being one keeps its wires.
+     */
+    static String linkKey(final Drawer d, final Drawer.Link link, final boolean input) {
+        return "link:" + d.getId() + ":" + link.nodeId() + ":" + link.portIndex() + (input ? ":in" : "");
+    }
+
+    /**
+     * A new link's plan id: {@code <drawer>:<card>:<port>}, a buffer's user {@code <drawer>:<card>:in:<port>} (as the
+     * posting export writes them), so a card whose input and output share a port number can be both a buffer's maker
+     * and its user.
+     */
+    static String linkId(final String drawerId, final String nodeId, final int port, final boolean user) {
+        return drawerId + ":" + nodeId + (user ? ":in:" : ":") + port;
     }
 
     // endregion

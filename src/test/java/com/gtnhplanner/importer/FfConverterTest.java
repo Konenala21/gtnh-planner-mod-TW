@@ -125,26 +125,32 @@ class FfConverterTest {
     }
 
     @Test
-    void aBufferDrawerBecomesDirectWires() {
+    void aBufferDrawerWiredToCardsComesOverAsABuffer() {
         final FfConverter.Result r = fixture("pa-cell-loop-plan.json");
         final Graph g = r.graph();
         assertEquals(6, g.nodes.size());
-        assertEquals(11, g.edges.size(), "7 wires between cards, and 2 feeders x 2 takers through the cell buffer");
-        assertEquals(3, g.drawers.size(), "water, hydrogen and oxygen; the cell buffer is gone");
-        assertTrue(has(r.report(), Kind.CONVERTED, "4 direct wires"));
-        assertEquals(null, drawer(g, "item:ic2:itemcellempty:0"));
+        assertEquals(7, g.edges.size(), "7 wires between cards; the cell buffer keeps its own");
+        assertEquals(4, g.drawers.size(), "water, hydrogen, oxygen and the cell buffer");
+        final Drawer cells = drawer(g, "item:ic2:itemcellempty:0");
+        assertNotNull(cells);
+        assertEquals(Drawer.Kind.BUFFER, cells.getKind());
+        assertEquals(
+            2,
+            cells.getLinks()
+                .size(),
+            "the two canners that empty cells feed it");
+        assertEquals(
+            2,
+            cells.getTakers()
+                .size(),
+            "the electrolyzer and the acid canner draw from it");
+        assertEquals(Drawer.Rule.ANY, cells.getRule(), "no older board enforced a buffer's rule");
 
         final FakeGame game = new FakeGame();
         final Node electrolyzer = node(g, "Electrolyzer");
-        assertEquals(
-            2,
-            edgesInto(g, electrolyzer, game.port(electrolyzer, false, "ic2:itemcellempty")).size(),
-            "both canners that empty cells feed the electrolyzer's cell input");
-        final Node acid = nodes(g, "Canner").stream()
-            .filter(n -> game.port(n, false, "phosphoricacid_gt5u") >= 0)
-            .findFirst()
-            .orElseThrow();
-        assertEquals(2, edgesInto(g, acid, game.port(acid, false, "ic2:itemcellempty")).size());
+        assertTrue(
+            cells.holds(electrolyzer.id, game.port(electrolyzer, false, "ic2:itemcellempty"), true),
+            "the electrolyzer's cell input draws from the buffer");
         for (final Edge e : g.getEdges()) {
             assertTrue(g.nodes.containsKey(e.sourceNodeId) && g.nodes.containsKey(e.targetNodeId));
         }
@@ -155,9 +161,16 @@ class FfConverterTest {
         final FfConverter.Result r = fixture("titanium-line-chembath.slim.json");
         final Graph g = r.graph();
         assertEquals(10, g.nodes.size());
-        assertEquals(15, g.edges.size());
-        assertEquals(13, g.drawers.size(), "14 drawers less the magnesium buffer");
-        assertTrue(has(r.report(), Kind.CONVERTED, "1 direct wire"));
+        assertEquals(14, g.edges.size());
+        assertEquals(14, g.drawers.size(), "14 drawers, the magnesium buffer one of them");
+        assertEquals(
+            Drawer.Kind.BUFFER,
+            g.getDrawers()
+                .stream()
+                .filter(Drawer::isBuffer)
+                .findFirst()
+                .orElseThrow()
+                .getKind());
 
         final Node ebf = node(g, "Blast Furnace");
         assertEquals("kanthal", ebf.machineConfig.settings.get("coil"));
@@ -174,16 +187,20 @@ class FfConverterTest {
                 .size(),
             "fed by the electrolyzer, the centrifuge and the macerator");
         for (final Drawer d : g.getDrawers()) {
-            for (final Drawer.Link l : d.getLinks()) {
-                final Node n = g.nodes.get(l.nodeId());
+            for (final Drawer.Held h : d.held()) {
+                final Node n = g.nodes.get(
+                    h.link()
+                        .nodeId());
                 assertNotNull(n);
-                final var ports = d.getKind()
-                    .linksInputs() ? n.inputs : n.outputs;
+                final var ports = h.input() ? n.inputs : n.outputs;
                 assertEquals(
                     d.getResourceKey(),
-                    new FakeGame().describe(ports.get(l.portIndex()))
+                    new FakeGame().describe(
+                        ports.get(
+                            h.link()
+                                .portIndex()))
                         .key(),
-                    "a drawer links its own resource");
+                    "a drawer links its own resource, on both sides of a buffer");
             }
         }
         assertTrue(

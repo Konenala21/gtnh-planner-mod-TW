@@ -65,6 +65,7 @@ public final class FfPlanParser {
 
         final boolean pool = bool(root, "poolMode", false);
         final boolean solve = bool(root, "solveMode", false) || pool;
+        final boolean planMode = bool(root, "planMode", false) && !pool;
 
         final Map<String, Board> boards = boards(root);
         final List<FfPlan.FfBoard> ffBoards = new ArrayList<>();
@@ -119,6 +120,7 @@ public final class FfPlanParser {
             name,
             solve,
             pool,
+            planMode,
             recipes,
             nodes,
             edges,
@@ -139,12 +141,13 @@ public final class FfPlanParser {
     public static final class Things {
 
         private final Map<String, Board> boards;
-        public final boolean solveMode, poolMode;
+        public final boolean solveMode, poolMode, planMode;
 
         public Things(final JsonObject root) {
             this.boards = boards(root);
             this.poolMode = bool(root, "poolMode", false);
             this.solveMode = bool(root, "solveMode", false) || poolMode;
+            this.planMode = bool(root, "planMode", false) && !poolMode;
         }
 
         @Nullable
@@ -593,6 +596,7 @@ public final class FfPlanParser {
             plan.name(),
             plan.solveMode(),
             plan.poolMode(),
+            plan.planMode(),
             keptRecipes,
             keptNodes,
             edges,
