@@ -119,6 +119,14 @@ public final class Basis {
     }
 
     /**
+     * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}), as presence names what
+     * is selected: the one it was read from, else its UUID. {@link PlanIds#uuid} turns one back.
+     */
+    public String planId(final String kind, final UUID uuid) {
+        return id(kind, uuid);
+    }
+
+    /**
      * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}): the one it was read from
      * (a carried thing's card's), else its UUID.
      */

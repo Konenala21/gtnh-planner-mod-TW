@@ -31,7 +31,7 @@ import com.gtnhplanner.importer.FfImport;
  * as {@link FakeGame} names them) and the website's plans as the importer brings them in, each dressed with what a
  * player adds that the website has no place for.
  */
-final class Boards {
+public final class Boards {
 
     /** The plans written from the game, under {@code /solver-corpus/}. */
     static final String[] CORPUS = { "alumina-line-shared-reactor", "benzene", "full-platline", "glass", "hv-diesel",
@@ -65,7 +65,7 @@ final class Boards {
     }
 
     /** A corpus plan as a board: its cards, wires, drawers, shared machines and spare shares, laid out in rows. */
-    static Graph corpus(final String name) {
+    public static Graph corpus(final String name) {
         final Graph g = new Graph(name);
         corpusInto(g, name, json("/solver-corpus/" + name + ".json"), 0);
         return g;
@@ -75,7 +75,7 @@ final class Boards {
      * {@code copies} of a corpus plan on one board, each with ids of its own and below the one before: a plan of many
      * cards, for timing.
      */
-    static Graph corpusCopies(final String name, final int copies) {
+    public static Graph corpusCopies(final String name, final int copies) {
         final String text = json("/solver-corpus/" + name + ".json").toString();
         final java.util.regex.Pattern uuid = java.util.regex.Pattern
             .compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
@@ -166,7 +166,7 @@ final class Boards {
      * What a player adds that the website has no place for: a note, a plain group, setting pins, a place in the world,
      * an input's target rate, a setting only the game has, a pin list, and a task board; a description and an icon.
      */
-    static Graph dress(final Graph g) {
+    public static Graph dress(final Graph g) {
         final List<Node> nodes = new ArrayList<>(g.getNodes());
         final Node first = nodes.getFirst();
         first.worldLinks.add(new int[] { 0, 100, 64, -200, 2 });
@@ -225,7 +225,7 @@ final class Boards {
      * Everything a board saves that a shared plan carries: its save, the camera and the pin list (each player's own)
      * left out, and its description and icon.
      */
-    static JsonObject persisted(final Graph g) {
+    public static JsonObject persisted(final Graph g) {
         final JsonObject o = Serializer.toJson(g);
         o.remove("zoom");
         o.remove("panX");

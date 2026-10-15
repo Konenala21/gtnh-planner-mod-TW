@@ -257,9 +257,16 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   device, per plan), when the plan was last open, whether its tab is open, its library post (`postId`). Its
   description and icon are the plan's `description` and `icon`.
 - Placed machines (world links) are shared, each keyed by the world it was placed in; a game shows the ones for its
-  own world.
+  own world. A card's game data spells them `worlds: { <world>: [[dim, x, y, z, facing, size?], ...] }` (game data
+  from before has one `worldLinks` list, read as this world's). A world is `server:<first 16 hex of the SHA-256 of
+  NEI's remote/<address>>`, so everyone on one server shares placements, or `world:<uuid>` for a single-player world,
+  made the first time and kept as `world-id.txt` beside its plans. Hashed: a shared plan never names anyone's server
+  or save. The board's `Node.worldLinks` are this world's; the rest ride in `Node.elsewhere`.
 - Tasks are part of `Graph` (`tasks`, `taskItems`, `taskComments`, `primaryView`) for local plans too, saved by
   `Serializer` as the plan spells them (so plan codes carry them), and mapped one to one to the plan's collections.
+  A task's cards (`nodeIds`, a line's `nodeId`) are the board's card ids on the board and the plan's ids in the plan:
+  a card the website made is linked by the website's id there, by the UUID it reads as here; an id that is no card
+  stays as it is both ways.
 - WebSocket: Minecraft's own netty (`io.netty.handler.codec.http.websocketx`, TLS through the JDK's SSLEngine), so no
   new library ships; the jar still runs on Java 8.
 - Undo for a cloud plan applies recorded inverses (above) instead of restoring snapshots; local plans keep today's

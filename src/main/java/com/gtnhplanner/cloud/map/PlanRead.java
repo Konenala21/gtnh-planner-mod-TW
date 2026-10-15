@@ -339,17 +339,18 @@ final class PlanRead {
         }
     }
 
+    /** The task board; a task's cards as the board names them (a card the website made by the UUID it was given). */
     private void tasks() {
         for (final JsonObject o : objects(plan, "tasks")) {
             final Tasks.Task t = Tasks.task(o);
             if (t == null) continue;
-            graph.tasks.add(t);
+            graph.tasks.add(Fresh.cards(t, id -> Fresh.boardCard(graph, id)));
             basis.map("tasks", t.id(), "task:" + t.id());
         }
         for (final JsonObject o : objects(plan, "taskItems")) {
             final Tasks.Item i = Tasks.item(o);
             if (i == null) continue;
-            graph.taskItems.add(i);
+            graph.taskItems.add(Fresh.card(i, id -> Fresh.boardCard(graph, id)));
             basis.map("taskItems", i.id(), "item:" + i.id());
         }
         for (final JsonObject o : objects(plan, "taskComments")) {
@@ -404,7 +405,7 @@ final class PlanRead {
         if (made.isEmpty()) return;
         final Node first = made.get(0)
             .node();
-        if (ext != null) keepGameOnly(first, ext.game());
+        if (ext != null) keepGameOnly(first, ext.game(), game.world());
         for (final Section s : made.values()) graph.addNode(s.node());
         basis.map("nodes", id, "node:" + uuid);
         cards.put(id, made);
@@ -456,6 +457,7 @@ final class PlanRead {
         saved.addProperty("y", y);
         try {
             final Node node = Serializer.jsonToNode(saved);
+            Fresh.readWorlds(data, node, game.world());
             game.rebuilt(node);
             return node;
         } catch (final RuntimeException e) {
@@ -560,11 +562,12 @@ final class PlanRead {
 
     /**
      * What a card's game data has that the website has no place for, onto a card built from the website's fields:
-     * its world links, its rates (input targets, and output targets where the website set none), an unpinned card's
+     * its placements by world, its rates (input targets, and output targets where the website set none), an unpinned
+     * card's
      * count, and the machine settings the website does not keep.
      */
-    private static void keepGameOnly(final Node node, final JsonObject data) {
-        if (node.worldLinks.isEmpty()) Serializer.readWorldLinks(data.get("worldLinks"), node);
+    private static void keepGameOnly(final Node node, final JsonObject data, final String world) {
+        Fresh.readWorlds(data, node, world);
         if (node.targetInputRates.isEmpty()) Serializer.readRates(data.get("inputTargets"), node.targetInputRates);
         if (node.targetOutputRates.isEmpty()) Serializer.readRates(data.get("targets"), node.targetOutputRates);
         final JsonElement count = data.get("machineCount");

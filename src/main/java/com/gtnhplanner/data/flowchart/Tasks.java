@@ -48,7 +48,8 @@ public final class Tasks {
      * between two others.
      *
      * @param assignees account ids of the plan's members working on it
-     * @param nodeIds   the cards it is about, by the plan's ids
+     * @param nodeIds   the cards it is about, by the board's card ids (a shared plan holds the plan's ids, turned
+     *                  into the board's when read and back when written: {@code cloud/map/Fresh.planCard})
      */
     public record Task(String id, String title, @Nullable String text, Status status, String order,
         List<String> assignees, List<String> nodeIds, @Nullable String createdBy, @Nullable String createdAt,
