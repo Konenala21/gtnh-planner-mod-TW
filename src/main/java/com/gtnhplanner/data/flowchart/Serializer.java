@@ -346,6 +346,7 @@ public final class Serializer {
             if (node.isMachineCountFixed()) {
                 obj.addProperty("machineCountFixed", true);
             }
+            if (node.group != null) obj.addProperty("group", node.group.toString());
             if (!node.worldLinks.isEmpty()) {
                 final JsonArray links = new JsonArray();
                 for (final int[] l : node.worldLinks) {
@@ -406,6 +407,13 @@ public final class Serializer {
         final JsonArray groupsArray = new JsonArray();
         for (Group group : graph.getGroups()) groupsArray.add(GSON.toJsonTree(group));
         root.add("groups", groupsArray);
+
+        // Written only when there are: an older build reads the plan as it always did (its groups are lost there).
+        if (!graph.boardGroups.isEmpty()) {
+            final JsonArray boardGroups = new JsonArray();
+            for (final BoardGroup g : graph.boardGroups.values()) boardGroups.add(GSON.toJsonTree(g));
+            root.add("boardGroups", boardGroups);
+        }
 
         final JsonArray drawersArray = new JsonArray();
         for (final Drawer drawer : graph.getDrawers()) drawersArray.add(GSON.toJsonTree(drawer, Drawer.class));
@@ -496,6 +504,15 @@ public final class Serializer {
             node.setMachineCountFixed(
                 obj.has("machineCountFixed") && obj.get("machineCountFixed")
                     .getAsBoolean());
+            if (obj.has("group")) {
+                try {
+                    node.group = UUID.fromString(
+                        obj.get("group")
+                            .getAsString());
+                } catch (final RuntimeException ignored) {
+                    // A malformed group leaves the card on the board.
+                }
+            }
             if (obj.has("worldLinks")) {
                 for (final JsonElement l : obj.getAsJsonArray("worldLinks")) {
                     final JsonArray at = l.getAsJsonArray();
@@ -639,6 +656,19 @@ public final class Serializer {
             }
             graph.addDrawersLoaded(loadedDrawers);
         }
+
+        if (root.has("boardGroups") && root.get("boardGroups")
+            .isJsonArray()) {
+            for (final JsonElement elem : root.getAsJsonArray("boardGroups")) {
+                try {
+                    final BoardGroup g = GSON.fromJson(elem, BoardGroup.class);
+                    if (g != null && g.getId() != null) graph.boardGroups.put(g.getId(), g);
+                } catch (final RuntimeException ignored) {
+                    // A malformed group is left out; its members stay on the board.
+                }
+            }
+        }
+        Groups.sanitize(graph);
 
         return graph;
     }

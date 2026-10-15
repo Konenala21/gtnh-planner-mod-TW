@@ -38,6 +38,10 @@ public class Graph {
      * version moves.
      */
     public final SortedMap<UUID, Drawer> drawers = new TreeMap<>();
+    /**
+     * The board's groups ({@link BoardGroup}, read and changed through {@link Groups}); nothing to do with the solve.
+     */
+    public final SortedMap<UUID, BoardGroup> boardGroups = new TreeMap<>();
 
     @Getter
     @Setter

@@ -73,6 +73,9 @@ public class Note extends GraphData {
     /** Box, zone: {@code none} (default), {@code dots}, {@code grid}, {@code graph}, {@code ruled} or {@code hatch}. */
     @Nullable
     private String marks;
+    /** The board group it is in ({@link BoardGroup}), or null. */
+    @Nullable
+    private UUID group;
 
     public Note() {
         super(UUID.randomUUID());

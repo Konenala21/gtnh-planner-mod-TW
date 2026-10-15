@@ -34,6 +34,10 @@ public class Node {
     public int x;
     public int y;
 
+    /** The board group it is in ({@link BoardGroup}), or null. Every recipe of a shared machine is in its card's. */
+    @Nullable
+    public UUID group;
+
     public final List<Port<?>> inputs = new ArrayList<>();
     public final List<Port<?>> outputs = new ArrayList<>();
 
