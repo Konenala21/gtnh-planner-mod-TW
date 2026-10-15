@@ -115,6 +115,21 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         return true;
     }
 
+    /**
+     * A box or zone takes the pointer only at its border and an arrow only at its line (the cards over and inside them
+     * keep every click); a note and an image take their whole face.
+     */
+    @Override
+    public boolean isInside(final com.cleanroommc.modularui.api.layout.IViewportStack stack, final int mx, final int my,
+        final boolean transform) {
+        if (!super.isInside(stack, mx, my, transform)) return false;
+        final Note n = note();
+        if (n == null || !n.isDrawing() || Note.IMAGE.equals(n.kind())) return true;
+        final BoardCanvas c = canvas();
+        if (c == null) return true;
+        return DrawingPaint.hit(n, w(), h(), c.worldX(mx) - n.getX(), c.worldY(my) - n.getY());
+    }
+
     // region Geometry
 
     private int w() {
@@ -143,6 +158,15 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
 
     public Part partAt(final float x, final float y) {
         final int w = w(), h = h(), f = fold();
+        final Note self = note();
+        if (self != null && self.isDrawing()) {
+            if (keysShown()) {
+                final float[] r = keyRect(Part.DELETE);
+                if (x >= r[0] && y >= r[1] && x < r[0] + r[2] && y < r[1] + r[3]) return Part.DELETE;
+            }
+            final float g = EDGE * keyUnit();
+            return x >= w - g && y >= h - g ? Part.RESIZE : Part.BODY;
+        }
         // The keys first: the text size key sits at the right edge, in the band that resizes.
         if (keysShown()) for (final Part key : KEYS) {
             final float[] r = keyRect(key);
@@ -179,6 +203,8 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
     /** Whether the three keys fit on the note at their size, with room between the left one and the right two. */
     private boolean keysFit() {
         final float u = keyUnit();
+        final Note self = note();
+        if (self != null && self.isDrawing()) return w() >= (KEY + 2 * KEY_INSET) * 2 * u && h() >= 2 * KEY * u;
         return w() >= (3 * KEY + 2 * KEY_GAP + 2 * KEY_INSET) * u && h() >= (2 * KEY + 1) * u;
     }
 
@@ -240,6 +266,10 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final Note n = note();
         if (n == null) return;
+        if (n.isDrawing()) {
+            drawDrawing(n);
+            return;
+        }
         final String tag = n.colorTag();
         final int w = w(), h = h(), f = fold();
         final BoardCanvas board = canvas();
@@ -321,6 +351,30 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         }
     }
 
+    /** A box, zone, arrow or image: its own look, the selection round it, a grip and the delete key while hovered. */
+    private void drawDrawing(final Note n) {
+        final int w = w(), h = h();
+        DrawingPaint.draw(n, w, h);
+        Hyb.beginBatch();
+        if (session.isSelected(noteId)) Hyb.ring(
+            0,
+            0,
+            w,
+            h,
+            Math.max(
+                1,
+                1f / session.graph()
+                    .getZoom()),
+            Hyb.SELECTION);
+        if (isHovering() || session.isSelected(noteId)) {
+            // The grip: a small square at the bottom right corner, which resizes.
+            final float g = EDGE * keyUnit();
+            Hyb.rect(w - g, h - g, g, g, Hyb.SELECTION);
+        }
+        Hyb.endBatch();
+        if (keysShown()) drawKey(Part.DELETE, true);
+    }
+
     /** A key: a small dark square with a cross, a minus or a plus, drawn in its own pixels however far out. */
     private void drawKey(final Part key, final boolean enabled) {
         final float[] r = keyRect(key);
@@ -349,6 +403,15 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         if (editing) return null;
         final Part part = partUnderMouse();
         if (part == null) return null;
+        final Note self = note();
+        if (self != null && self.isDrawing()) return switch (part) {
+            case DELETE -> Tip.of("Delete " + kindWord(self));
+            case RESIZE -> Tip.of("Resize")
+                .action(Tip.Input.DRAG, "Drag the corner");
+            default -> Tip.of(capital(kindWord(self)))
+                .action(Tip.Input.DRAG, "Move")
+                .action(Tip.Input.RIGHT, "Colour, delete");
+        };
         return switch (part) {
             case DELETE -> Tip.of("Delete note");
             case SMALLER -> Tip.of("Smaller text");
@@ -360,6 +423,19 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
                 .action(Tip.Input.DRAG, "Move")
                 .action(Tip.Input.RIGHT, "Colour, text size, delete");
         };
+    }
+
+    private static String kindWord(final Note n) {
+        return switch (n.kind()) {
+            case Note.BOX -> "box";
+            case Note.ZONE -> "zone";
+            case Note.ARROW -> "arrow";
+            default -> "picture";
+        };
+    }
+
+    private static String capital(final String s) {
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     // endregion
@@ -413,6 +489,12 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
             case SMALLER -> stepFont(-1);
             case BIGGER -> stepFont(1);
             default -> {
+                // A drawing is selected by a click, never written on.
+                final Note self = note();
+                if (self != null && self.isDrawing()) {
+                    if (canvas() != null) canvas().clickSelect(noteId);
+                    return;
+                }
                 // Shift adds it to the selection, as it does a card.
                 if (!editing && GuiScreen.isShiftKeyDown()) {
                     if (canvas() != null) canvas().clickSelect(noteId);
@@ -446,6 +528,23 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         final BoardCanvas board = canvas();
         if (n == null || board == null) return;
         final List<PickList.Entry> rows = new ArrayList<>();
+        if (n.isDrawing()) {
+            rows.add(PickList.Entry.of("Colour...", () -> onLive(board, NoteCard::openColours)));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    "Delete " + kindWord(n),
+                    "",
+                    Hyb.RED_INK,
+                    false,
+                    () -> session.deleteNote(noteId)));
+            Popup.open(
+                session.panel(),
+                PickList.popup("gtnhplanner_note", null, rows, false, 140),
+                getContext().getAbsMouseX(),
+                getContext().getAbsMouseY());
+            return;
+        }
         rows.add(PickList.Entry.of("Write on it", () -> onLive(board, NoteCard::startEditing)));
         rows.add(PickList.Entry.of("Colour...", () -> onLive(board, NoteCard::openColours)));
         rows.add(
@@ -476,7 +575,13 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         for (final String[] c : NoteColors.MENU) rows
             .add(new PickList.Entry(null, "■ " + c[1], "", NoteColors.paper(c[0]), c[0].equals(n.colorTag()), () -> {
                 com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
-                session.editLayout(() -> n.setColor(c[0]));
+                session.editLayout(() -> {
+                    n.setColor(c[0]);
+                    if (n.isDrawing()) {
+                        n.setBorderColor(null);
+                        n.setFillColor(null);
+                    }
+                });
             }));
         Popup.open(
             session.panel(),
@@ -523,10 +628,19 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         if (resizing) {
             final float zoom = session.graph()
                 .getZoom();
-            if (resizeW) liveW = Math
-                .max(Note.MIN_W, BoardSession.snap(startW + (getContext().getAbsMouseX() - startMouseX) / zoom));
-            if (resizeH) liveH = Math
-                .max(Note.MIN_H, BoardSession.snap(startH + (getContext().getAbsMouseY() - startMouseY) / zoom));
+            final Note self = note();
+            final boolean drawing = self != null && self.isDrawing();
+            final int minW = drawing ? Note.DRAWING_MIN : Note.MIN_W, minH = drawing ? Note.DRAWING_MIN : Note.MIN_H;
+            if (resizeW)
+                liveW = Math.max(minW, BoardSession.snap(startW + (getContext().getAbsMouseX() - startMouseX) / zoom));
+            if (resizeH)
+                liveH = Math.max(minH, BoardSession.snap(startH + (getContext().getAbsMouseY() - startMouseY) / zoom));
+            if (drawing && Note.IMAGE.equals(self.kind())) {
+                // A picture keeps its proportions: the way the corner went further decides.
+                final float sx = liveW / (float) startW, sy = liveH / (float) startH;
+                if (sx >= sy) liveH = Math.max(minH, BoardSession.snap(startH * sx));
+                else liveW = Math.max(minW, BoardSession.snap(startW * sy));
+            }
             sync();
             return;
         }
@@ -539,6 +653,14 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
             resizing = false;
             final Note n = note();
             if (n != null && (liveW != startW || liveH != startH)) {
+                // A zone's outline grows with it.
+                if (n.getPoints() != null && startW > 0 && startH > 0) {
+                    final List<int[]> scaled = new ArrayList<>();
+                    for (final int[] p : n.getPoints()) scaled.add(
+                        new int[] { Math.round(p[0] * (liveW / (float) startW)),
+                            Math.round(p[1] * (liveH / (float) startH)) });
+                    n.setPoints(scaled);
+                }
                 n.setWidth(liveW);
                 n.setHeight(liveH);
                 // Written on, it stays the size it was dragged to.

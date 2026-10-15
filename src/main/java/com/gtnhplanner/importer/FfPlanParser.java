@@ -96,15 +96,14 @@ public final class FfPlanParser {
             if (storage != null) storages.add(storage);
         }
 
-        // Text annotations are the board's notes; FF's other drawings have no counterpart.
+        // Every annotation is a board note: text as a sticky note, the others as drawings.
         final List<FfNote> textNotes = new ArrayList<>();
-        final Map<String, Integer> drawings = new LinkedHashMap<>();
         for (final JsonObject a : objects(root, "annotations")) {
             final String kind = str(a, "kind", "");
             if ("text".equals(kind)) textNotes.add(note(a, boards));
-            else drawings.merge(DRAWINGS.contains(kind) ? kind : "", 1, Integer::sum);
+            else if (DRAWINGS.contains(kind)) textNotes.add(drawing(a, kind, boards));
+            else notes.add("An annotation of an unknown kind left out.");
         }
-        if (!drawings.isEmpty()) notes.add(drawings(drawings) + " on the board left out; only text notes come over.");
         if (pool && (root.has("productionGroups") || root.has("poolResourceRules")))
             notes.add("Pool scopes (production groups and share/import rules) left out; every resource is one pool.");
 
@@ -341,22 +340,50 @@ public final class FfPlanParser {
             font == null ? null : (int) Math.round(font));
     }
 
-    /** FF's other drawings, counted by kind: "2 boxes and 1 arrow". */
-    private static String drawings(final Map<String, Integer> byKind) {
-        final List<String> parts = new ArrayList<>();
-        for (final Map.Entry<String, Integer> e : byKind.entrySet()) {
-            final int n = e.getValue();
-            final String what = switch (e.getKey()) {
-                case "box" -> n == 1 ? "box" : "boxes";
-                case "arrow" -> n == 1 ? "arrow" : "arrows";
-                case "zone" -> n == 1 ? "zone" : "zones";
-                case "image" -> n == 1 ? "picture" : "pictures";
-                default -> n == 1 ? "drawing" : "drawings";
-            };
-            parts.add(n + " " + what);
+    /**
+     * A box, zone, arrow or image, with the fields it is drawn from; none of them is needed, so none is ever left out.
+     */
+    private static FfNote drawing(final JsonObject a, final String kind, final Map<String, Board> boards) {
+        final double[] at = absolute(position(a), str(a, "pocketId"), boards);
+        final JsonObject size = obj(a, "size");
+        final Double width = size == null ? null : num(size, "width");
+        final Double height = size == null ? null : num(size, "height");
+        final JsonObject style = obj(a, "style");
+        String fill = style == null ? null : str(style, "fill");
+        String marks = style == null ? null : str(style, "marks");
+        // The legacy spellings: a mark in the fill is a tint wearing it, paper is solid.
+        if (fill != null && List.of("dots", "grid", "graph", "ruled", "hatch")
+            .contains(fill)) {
+            if (marks == null) marks = fill;
+            fill = "tint";
+        } else if ("paper".equals(fill)) fill = "solid";
+        List<double[]> points = null;
+        if ("zone".equals(kind)) {
+            points = new ArrayList<>();
+            for (final JsonObject pt : objects(a, "points")) {
+                final Double px = num(pt, "x"), py = num(pt, "y");
+                points.add(new double[] { px == null ? 0 : px, py == null ? 0 : py });
+            }
         }
-        if (parts.size() == 1) return parts.getFirst();
-        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
+        return new FfNote(
+            str(a, "id", ""),
+            at[0],
+            at[1],
+            width == null ? NOTE_WIDTH : width,
+            height == null ? NOTE_HEIGHT : height,
+            str(a, "colorTag"),
+            str(a, "text", ""),
+            null,
+            new FfPlan.FfDrawing(
+                kind,
+                str(a, "arrowDirection"),
+                points,
+                str(a, "imageUrl"),
+                style == null ? null : str(style, "border"),
+                style == null ? null : str(style, "borderColor"),
+                style == null ? null : str(style, "fillColor"),
+                fill,
+                marks));
     }
 
     // endregion

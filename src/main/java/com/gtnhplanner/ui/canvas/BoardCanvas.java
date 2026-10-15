@@ -197,8 +197,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         cards.clear();
         drawers.clear();
         notes.clear();
-        // Notes first, then drawers, so cards draw over them where they overlap.
-        for (final UUID id : session.graph().notes.keySet()) {
+        // Boxes, zones and pictures first (the board's backdrop), then notes and arrows, then drawers, so cards draw
+        // over them where they overlap.
+        final java.util.List<UUID> order = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
+            if (n.isBackdrop()) order.add(n.getId());
+        for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
+            if (!n.isBackdrop()) order.add(n.getId());
+        for (final UUID id : order) {
             final com.gtnhplanner.ui.note.NoteCard note = new com.gtnhplanner.ui.note.NoteCard(session, id);
             notes.put(id, note);
             child(note);
@@ -990,8 +996,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 session.select(d.getId(), true);
         }
         for (final com.gtnhplanner.data.flowchart.Note n : graph().getNotes()) {
-            if (n.getX() < x1 && n.getX() + n.getWidth() > x0 && n.getY() < y1 && n.getY() + n.getHeight() > y0)
-                session.select(n.getId(), true);
+            // A backdrop (a box, zone or picture) is picked only whole: grazing its edge is not reaching for it.
+            final boolean touched = n.isBackdrop()
+                ? n.getX() >= x0 && n.getX() + n.getWidth() <= x1 && n.getY() >= y0 && n.getY() + n.getHeight() <= y1
+                : n.getX() < x1 && n.getX() + n.getWidth() > x0 && n.getY() < y1 && n.getY() + n.getHeight() > y0;
+            if (touched) session.select(n.getId(), true);
         }
     }
 

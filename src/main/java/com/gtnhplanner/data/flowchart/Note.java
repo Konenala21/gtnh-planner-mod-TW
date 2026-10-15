@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -38,6 +39,36 @@ public class Note extends GraphData {
     private String color = DEFAULT_COLOR;
     private int fontSize = DEFAULT_FONT;
 
+    /** The website's annotation kinds that are drawings rather than writing; a note saved before them has none. */
+    public static final String BOX = "box", ZONE = "zone", ARROW = "arrow", IMAGE = "image", TEXT = "text";
+    /** The smallest a drawing gets: a cell. An arrow along an axis is a cell thick. */
+    public static final int DRAWING_MIN = 10;
+
+    /** {@code box}, {@code zone}, {@code arrow}, {@code image}; null or {@code text} for a sticky note. */
+    @Nullable
+    private String kind;
+    /** Arrow: {@code down-right} (default), {@code down-left}, {@code up-right} or {@code up-left}, tail to head. */
+    @Nullable
+    private String arrowDirection;
+    /** Zone: the outline's corners {x, y}, relative to the note, in the board's own px. */
+    @Nullable
+    private List<int[]> points;
+    /** Image: where the picture lives. The text is its caption. */
+    @Nullable
+    private String imageUrl;
+    /** Box, zone, image: {@code solid} (default), {@code dashed} or {@code none}. */
+    @Nullable
+    private String border;
+    /** Colour tags for the border and the fill; null is the note's own colour. */
+    @Nullable
+    private String borderColor, fillColor;
+    /** Box, zone: the surface, {@code tint} (default), {@code solid} or {@code none}. */
+    @Nullable
+    private String fill;
+    /** Box, zone: {@code none} (default), {@code dots}, {@code grid}, {@code graph}, {@code ruled} or {@code hatch}. */
+    @Nullable
+    private String marks;
+
     public Note() {
         super(UUID.randomUUID());
     }
@@ -45,6 +76,37 @@ public class Note extends GraphData {
     @Override
     public String getType() {
         return "note";
+    }
+
+    /** The annotation kind, never null: {@code text} for a sticky note. */
+    public String kind() {
+        return kind == null || kind.isEmpty() ? TEXT : kind;
+    }
+
+    /** Whether this is a box, zone, arrow or image rather than a sticky note. */
+    public boolean isDrawing() {
+        return !TEXT.equals(kind());
+    }
+
+    /** Whether it sits behind the cards (a box, zone or image) rather than over the wires. */
+    public boolean isBackdrop() {
+        final String k = kind();
+        return BOX.equals(k) || ZONE.equals(k) || IMAGE.equals(k);
+    }
+
+    /** The border style, never null. */
+    public String borderStyle() {
+        return border == null || border.isEmpty() ? "solid" : border;
+    }
+
+    /** The surface, never null. */
+    public String fillStyle() {
+        return fill == null || fill.isEmpty() ? "tint" : fill;
+    }
+
+    /** The marks, never null. */
+    public String marksStyle() {
+        return marks == null || marks.isEmpty() ? "none" : marks;
     }
 
     /** The text as one string, lines joined by newlines. */
@@ -80,6 +142,18 @@ public class Note extends GraphData {
         n.height = height;
         n.color = color;
         n.fontSize = fontSize;
+        n.kind = kind;
+        n.arrowDirection = arrowDirection;
+        if (points != null) {
+            n.points = new ArrayList<>();
+            for (final int[] p : points) n.points.add(p.clone());
+        }
+        n.imageUrl = imageUrl;
+        n.border = border;
+        n.borderColor = borderColor;
+        n.fillColor = fillColor;
+        n.fill = fill;
+        n.marks = marks;
         return n;
     }
 }

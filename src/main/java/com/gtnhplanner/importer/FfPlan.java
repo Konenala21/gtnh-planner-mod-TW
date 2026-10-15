@@ -15,7 +15,7 @@ import javax.annotation.Nullable;
  * turned into trash drawers. Built by {@link FfPlanParser}. Ids keep FF's spelling (item ids are lowercase registry
  * names with {@code @meta} when the meta is not 0).
  *
- * @param textNotes FF's text annotations, which become the board's notes
+ * @param textNotes FF's annotations (text notes, boxes, zones, arrows, images), which become the board's notes
  * @param notes     what the parser saw and left out (boards, other annotations, pool scopes), for the import report
  */
 public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRecipe> recipes, List<FfNode> nodes,
@@ -298,7 +298,27 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRe
      * @param colorTag FF's colour tag; null when the note has none (FF draws it yellow)
      * @param text     the text, lines separated by newlines
      * @param fontSize the text size in FF pixels; null when the note has none (FF's 14)
+     * @param drawing  null for a text note; for a box, zone, arrow or image, what it is drawn as
      */
     public record FfNote(String id, double x, double y, double width, double height, @Nullable String colorTag,
-        String text, @Nullable Integer fontSize) {}
+        String text, @Nullable Integer fontSize, @Nullable FfDrawing drawing) {
+
+        /** A text note. */
+        public FfNote(final String id, final double x, final double y, final double width, final double height,
+            @Nullable final String colorTag, final String text, @Nullable final Integer fontSize) {
+            this(id, x, y, width, height, colorTag, text, fontSize, null);
+        }
+    }
+
+    /**
+     * What a box, zone, arrow or image annotation is drawn as (see docs/design/annotations.md). {@code fill} and
+     * {@code marks} are resolved from FF's legacy spellings; the others are as FF writes them.
+     *
+     * @param kind           box, zone, arrow or image
+     * @param arrowDirection an arrow's corners, tail to head; null is down-right
+     * @param points         a zone's outline, relative to its position, in FF pixels
+     */
+    public record FfDrawing(String kind, @Nullable String arrowDirection, @Nullable List<double[]> points,
+        @Nullable String imageUrl, @Nullable String border, @Nullable String borderColor, @Nullable String fillColor,
+        @Nullable String fill, @Nullable String marks) {}
 }

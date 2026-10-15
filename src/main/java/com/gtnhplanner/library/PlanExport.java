@@ -762,15 +762,45 @@ public final class PlanExport {
             "id",
             n.getId()
                 .toString());
-        o.addProperty("kind", "text");
-        if (COLOR_TAGS.contains(n.colorTag())) o.addProperty("colorTag", n.colorTag());
-        o.addProperty("text", n.joined());
+        o.addProperty("kind", n.kind());
+        final boolean drawing = n.isDrawing();
+        if (COLOR_TAGS.contains(n.colorTag()) && (!drawing || n.getColor() != null && !n.getColor()
+            .isEmpty())) o.addProperty("colorTag", n.colorTag());
+        if (!drawing || !n.joined()
+            .isEmpty()) o.addProperty("text", n.joined());
         o.add("position", position(n.getX(), n.getY()));
         final JsonObject size = new JsonObject();
-        size.addProperty("width", cells(Math.max(Note.MIN_W, n.getWidth()) * SCALE_X));
-        size.addProperty("height", cells(Math.max(Note.MIN_H, n.getHeight()) * SCALE_Y));
+        final int minW = drawing ? Note.DRAWING_MIN : Note.MIN_W, minH = drawing ? Note.DRAWING_MIN : Note.MIN_H;
+        size.addProperty("width", cells(Math.max(minW, n.getWidth()) * SCALE_X));
+        size.addProperty("height", cells(Math.max(minH, n.getHeight()) * SCALE_Y));
         o.add("size", size);
-        o.addProperty("fontSize", n.fontSizeOrDefault());
+        if (!drawing) {
+            o.addProperty("fontSize", n.fontSizeOrDefault());
+            return o;
+        }
+        if (Note.ARROW.equals(n.kind()) && n.getArrowDirection() != null)
+            o.addProperty("arrowDirection", n.getArrowDirection());
+        if (Note.IMAGE.equals(n.kind()) && n.getImageUrl() != null) o.addProperty("imageUrl", n.getImageUrl());
+        if (Note.ZONE.equals(n.kind()) && n.getPoints() != null) {
+            final JsonArray points = new JsonArray();
+            for (final int[] p : n.getPoints()) {
+                final JsonObject pt = new JsonObject();
+                pt.addProperty("x", Math.round(p[0] * SCALE_X));
+                pt.addProperty("y", Math.round(p[1] * SCALE_Y));
+                points.add(pt);
+            }
+            o.add("points", points);
+        }
+        final JsonObject style = new JsonObject();
+        if (n.getBorder() != null) style.addProperty("border", n.getBorder());
+        if (n.getBorderColor() != null && COLOR_TAGS.contains(n.getBorderColor()))
+            style.addProperty("borderColor", n.getBorderColor());
+        if (n.getFillColor() != null && COLOR_TAGS.contains(n.getFillColor()))
+            style.addProperty("fillColor", n.getFillColor());
+        if (n.getFill() != null) style.addProperty("fill", n.getFill());
+        if (n.getMarks() != null) style.addProperty("marks", n.getMarks());
+        if (!style.entrySet()
+            .isEmpty()) o.add("style", style);
         return o;
     }
 

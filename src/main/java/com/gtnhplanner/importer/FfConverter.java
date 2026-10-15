@@ -944,12 +944,33 @@ public final class FfConverter {
                 final Note note = new Note();
                 note.setX(px(n.x()));
                 note.setY(py(n.y()));
-                note.setWidth(Math.max(Note.MIN_W, (int) Math.round(n.width() * SCALE_X)));
-                note.setHeight(Math.max(Note.MIN_H, (int) Math.round(n.height() * SCALE_Y)));
+                final FfPlan.FfDrawing d = n.drawing();
+                final int minW = d == null ? Note.MIN_W : Note.DRAWING_MIN;
+                final int minH = d == null ? Note.MIN_H : Note.DRAWING_MIN;
+                note.setWidth(Math.max(minW, (int) Math.round(n.width() * SCALE_X)));
+                note.setHeight(Math.max(minH, (int) Math.round(n.height() * SCALE_Y)));
                 if (n.colorTag() != null && !n.colorTag()
                     .isEmpty()) note.setColor(n.colorTag());
+                // A drawing with no tag keeps none (a picture is then framed in grey, not yellow).
+                else if (d != null) note.setColor("");
                 if (n.fontSize() != null) note.setFontSize(n.fontSize());
                 note.setJoined(n.text());
+                if (d != null) {
+                    note.setKind(d.kind());
+                    note.setArrowDirection(d.arrowDirection());
+                    if (d.points() != null) {
+                        final List<int[]> pts = new ArrayList<>();
+                        for (final double[] p : d.points())
+                            pts.add(new int[] { (int) Math.round(p[0] * SCALE_X), (int) Math.round(p[1] * SCALE_Y) });
+                        note.setPoints(pts);
+                    }
+                    note.setImageUrl(d.imageUrl());
+                    note.setBorder(d.border());
+                    note.setBorderColor(d.borderColor());
+                    note.setFillColor(d.fillColor());
+                    note.setFill(d.fill());
+                    note.setMarks(d.marks());
+                }
                 graph.notes.put(note.getId(), note);
             }
         }
