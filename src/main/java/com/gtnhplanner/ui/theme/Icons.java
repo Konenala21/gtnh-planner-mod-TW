@@ -56,6 +56,21 @@ public final class Icons {
         draw(CARD, x, y, c, false);
     }
 
+    /** A map pin, for a spot in a world. */
+    public static void pin(final int x, final int y, final int c) {
+        draw(PIN, x, y, c, false);
+    }
+
+    /** A camera, for a screenshot. */
+    public static void camera(final int x, final int y, final int c) {
+        draw(CAMERA, x, y, c, false);
+    }
+
+    /** A plus, for adding. */
+    public static void plus(final int x, final int y, final int c) {
+        draw(PLUS, x, y, c, false);
+    }
+
     /**
      * Where an icon goes on a key {@code w} by {@code h}: the middle of its lit face (the dark edge right and below
      * melts into the bar), its rows level with a label's letters. Exact on a key of even width and height.
@@ -80,6 +95,13 @@ public final class Icons {
         ".#######.", "..##.....", ".##......", "........." };
     private static final String[] CARD = { "#########", "#########", "#.......#", "#########", "#.......#", "#.......#",
         "#.......#", "#########", "........." };
+
+    private static final String[] PIN = { "..#####..", ".#######.", ".##...##.", ".##...##.", ".#######.", "..#####..",
+        "...###...", "...###...", "....#...." };
+    private static final String[] CAMERA = { ".........", "...###...", "#########", "###...###", "##.....##",
+        "###...###", "#########", ".........", "........." };
+    private static final String[] PLUS = { ".........", "...##....", "...##....", ".######..", ".######..", "...##....",
+        "...##....", ".........", "........." };
 
     private static void draw(final String[] rows, final int x, final int y, final int c, final boolean mirror) {
         final boolean own = !Hyb.batching();

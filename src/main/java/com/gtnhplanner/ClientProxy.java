@@ -45,6 +45,10 @@ public class ClientProxy extends CommonProxy {
             .register(new com.gtnhplanner.ui.world.PlannerKeys());
         MinecraftForge.EVENT_BUS.register(com.gtnhplanner.ui.world.Minimap.INSTANCE);
         MinecraftForge.EVENT_BUS.register(new com.gtnhplanner.ui.world.PinList());
+        // A task's screenshots: the planner steps aside while one is taken.
+        FMLCommonHandler.instance()
+            .bus()
+            .register(com.gtnhplanner.ui.task.TaskPictures.INSTANCE);
         // Plan cards placed on blocks: placing them, seeing them, and the plan overlaid on the world.
         for (final Object world : new Object[] { com.gtnhplanner.ui.world.LinkPicker.INSTANCE,
             com.gtnhplanner.ui.world.LinkTarget.INSTANCE, com.gtnhplanner.ui.world.WorldView.INSTANCE,

@@ -32,8 +32,9 @@ import com.gtnhplanner.ui.theme.Icons;
 
 /**
  * The open plan's task board, in the board's place (the overview and the top bar stay): four columns, To do, Doing,
- * Blocked and Done, each a stack of task cards (the title, who is on it, the checklist's progress, comments and cards
- * linked). A card is carried by the board's rules: a press let go within {@value #DRAG_SLOP} pixels is a click and
+ * Blocked and Done, each a stack of task cards (its first screenshot, the title, who is on it, its things done of all
+ * of them and how many comments). A card is carried by the board's rules: a press let go within {@value #DRAG_SLOP}
+ * pixels is a click and
  * opens
  * the task; moved further it lifts, the others glide apart where it would land, and letting go puts it there. The
  * wheel scrolls a column.
@@ -141,45 +142,72 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         return cardW - 2 * CARD_PAD - 2;
     }
 
-    /** Each task's checklist (ticked, all) and comments, counted once per change of the plan. */
+    /**
+     * Each task's things (done, all) and comments, and its first screenshot, worked out once per change of the plan.
+     */
     private Map<String, int[]> counts = Map.of();
+    private Map<String, Tasks.Picture> pictures = Map.of();
     private Graph countedGraph;
     private long countedVersion = Long.MIN_VALUE;
 
-    /** A task's {ticked, lines, comments}. */
+    /** A task's {things done, things, comments}. */
     private int[] counts(final String taskId) {
-        final Graph g = graph();
-        if (g != countedGraph || g.version() != countedVersion) {
-            final Map<String, int[]> next = new HashMap<>();
-            for (final Tasks.Item i : g.taskItems) {
-                final int[] c = next.computeIfAbsent(i.taskId(), k -> new int[3]);
-                if (i.done()) c[0]++;
-                c[1]++;
-            }
-            for (final Tasks.Comment c : g.taskComments) next.computeIfAbsent(c.taskId(), k -> new int[3])[2]++;
-            counts = next;
-            countedGraph = g;
-            countedVersion = g.version();
-        }
+        count();
         final int[] c = counts.get(taskId);
         return c == null ? new int[3] : c;
+    }
+
+    /** A task's first screenshot, or null. */
+    @Nullable
+    private Tasks.Picture picture(final String taskId) {
+        count();
+        return pictures.get(taskId);
+    }
+
+    private void count() {
+        final Graph g = graph();
+        if (g == countedGraph && g.version() == countedVersion) return;
+        final Map<String, int[]> next = new HashMap<>();
+        final Map<String, Tasks.Picture> firsts = new HashMap<>();
+        for (final Tasks.Task t : g.tasks) {
+            // The cards an older task links with no thing of their own count as things not done.
+            final int loose = TaskEdits.looseLinks(g, t.id())
+                .size();
+            if (loose > 0) next.computeIfAbsent(t.id(), k -> new int[3])[1] += loose;
+            final Tasks.Item first = TaskEdits.firstPicture(g, t.id());
+            if (first != null) firsts.put(t.id(), first.picture());
+        }
+        for (final Tasks.Item i : g.taskItems) {
+            final int[] c = next.computeIfAbsent(i.taskId(), k -> new int[3]);
+            if (i.done()) c[0]++;
+            c[1]++;
+        }
+        for (final Tasks.Comment c : g.taskComments) next.computeIfAbsent(c.taskId(), k -> new int[3])[2]++;
+        counts = next;
+        pictures = firsts;
+        countedGraph = g;
+        countedVersion = g.version();
     }
 
     /** Whether a card has a row under its title: faces, or counts. */
     private boolean hasMeta(final Tasks.Task t) {
         final int[] c = counts(t.id());
         return !t.assignees()
-            .isEmpty()
-            || !t.links()
-                .isEmpty()
-            || c[1] > 0
-            || c[2] > 0;
+            .isEmpty() || c[1] > 0 || c[2] > 0;
+    }
+
+    /** A card's screenshot: as wide as the card inside its edge, at most this tall (cropped to its middle). */
+    private static final int THUMB_MAX = 64;
+
+    private static int thumbH(final int cardW) {
+        return Math.min(THUMB_MAX, Math.round((cardW - 2) * 9 / 16f));
     }
 
     private int cardH(final Tasks.Task t, final int cardW) {
         final int lines = title(t.title(), titleWidth(cardW)).lines()
             .size();
-        return CARD_PAD + lines * LINE + (hasMeta(t) ? 3 + TaskLook.FACE : 0) + CARD_PAD - 2;
+        final int thumb = picture(t.id()) != null ? thumbH(cardW) + 1 : 0;
+        return thumb + CARD_PAD + lines * LINE + (hasMeta(t) ? 3 + TaskLook.FACE : 0) + CARD_PAD - 2;
     }
 
     /** Every card where it belongs this frame, the carried one left out and a gap where it would land. */
@@ -239,6 +267,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
 
     @Override
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
+        // A task asked for as the board came up (a screenshot taken for it, Open on a notice) opens now it is laid out.
+        TaskPanel.openPending(session);
         hits.clear();
         final int w = getArea().width, h = getArea().height;
         Hyb.rect(0, 0, w, h, Hyb.CANVAS);
@@ -417,7 +447,10 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         Hyb.dashed(columnX(c) + INSET, y, columnW() - 2 * INSET, carryH, 0x80A1A4AD);
     }
 
-    /** A task's card: its colour down the left, its title, then who is on it and how far along it is. */
+    /**
+     * A task's card: its first screenshot across the top, its colour down the left, its title, then who is on it, its
+     * things done of all of them and its comments.
+     */
     private void drawCard(final Tasks.Task t, final NoteText title, final float x, final float y, final int w,
         final int h, final boolean hot, final boolean lifted) {
         if (lifted) {
@@ -426,10 +459,16 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         }
         Hyb.rect(x, y, w, h, CardPaint.EDGE);
         Hyb.rect(x + 1, y + 1, w - 2, h - 2, hot ? CARD_HOT : CardPaint.SURFACE);
-        Hyb.rect(x + 1, y + 1, 2, h - 2, TaskLook.colour(t.status()));
+        final Tasks.Picture picture = picture(t.id());
+        final int thumb = picture != null ? thumbH(w) + 1 : 0;
+        if (picture != null) {
+            TaskPictures.draw(TaskPictures.thumb(picture), x + 1, y + 1, w - 2, thumb - 1);
+            Hyb.rect(x + 1, y + thumb, w - 2, 1, CardPaint.EDGE);
+        }
+        Hyb.rect(x + 1, y + 1 + thumb, 2, h - 2 - thumb, TaskLook.colour(t.status()));
         final boolean done = t.status() == Tasks.Status.DONE;
         final float tx = x + CARD_PAD + 2;
-        float ty = y + CARD_PAD;
+        float ty = y + thumb + CARD_PAD;
         for (int i = 0; i < title.lines()
             .size(); i++) {
             Hyb.text(title.shown(i), tx, ty, done ? Hyb.MUTED : Hyb.INK);
@@ -438,11 +477,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         if (!hasMeta(t)) return;
         final float my = y + h - CARD_PAD + 2 - TaskLook.FACE;
         TaskLook.faces(graph(), t.assignees(), tx, my);
-        // Right to left: cards linked, comments, the checklist's progress.
+        // Right to left: comments, then the things done of all of them.
         float right = x + w - CARD_PAD;
-        final int links = t.links()
-            .size();
-        if (links > 0) right = count(Icons::card, Integer.toString(links), right, my, Hyb.MUTED) - 6;
         final int[] c = counts(t.id());
         if (c[2] > 0) right = count(Icons::comment, Integer.toString(c[2]), right, my, Hyb.MUTED) - 6;
         if (c[1] > 0) count(Icons::check, c[0] + "/" + c[1], right, my, c[0] == c[1] ? Hyb.OK_INK : Hyb.MUTED);
@@ -467,7 +503,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final int cx = x + columnW() / 2, width = columnW() - 12;
         float y = centred("No tasks yet.", cx, top + 14, width, Hyb.MUTED) + 4;
         y = centred("Press + to add one.", cx, y, width, 0xFF6A6C74);
-        centred("Or right-click cards on a plan.", cx, y, width, 0xFF6A6C74);
+        centred("Or add a card from its pin key.", cx, y, width, 0xFF6A6C74);
     }
 
     /** Words centred on {@code cx}, wrapped to {@code width}; returns the y under them. */

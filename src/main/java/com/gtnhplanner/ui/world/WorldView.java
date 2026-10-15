@@ -80,6 +80,7 @@ public final class WorldView {
     public static void show(final Graph graph, final UUID nodeId) {
         INSTANCE.shownGraph = graph;
         INSTANCE.shownId = nodeId;
+        INSTANCE.shownPlace = null;
         INSTANCE.shownUntil = System.currentTimeMillis() + SHOW_MILLIS;
         INSTANCE.closing = true;
     }
@@ -88,6 +89,27 @@ public final class WorldView {
     private Node shown() {
         if (shownGraph == null || System.currentTimeMillis() > shownUntil) return null;
         return WorldLinks.node(shownGraph, shownId);
+    }
+
+    /** A task's spot shown with "Show where it is", until when. */
+    @Nullable
+    private com.gtnhplanner.data.flowchart.Tasks.Place shownPlace;
+    private long shownPlaceUntil;
+
+    /**
+     * Outlines a task's spot for a while, with a beam to find it by and its label and distance over it; the planner
+     * closes. A spot in another dimension says so instead.
+     */
+    public static void show(final com.gtnhplanner.data.flowchart.Tasks.Place place) {
+        INSTANCE.shownPlace = place;
+        INSTANCE.shownPlaceUntil = System.currentTimeMillis() + SHOW_MILLIS;
+        INSTANCE.shownGraph = null;
+        INSTANCE.closing = true;
+    }
+
+    @Nullable
+    private com.gtnhplanner.data.flowchart.Tasks.Place shownPlace() {
+        return shownPlace == null || System.currentTimeMillis() > shownPlaceUntil ? null : shownPlace;
     }
 
     @SubscribeEvent
@@ -104,6 +126,13 @@ public final class WorldView {
             final Node n = shown();
             if (n != null && WorldLinks.countIn(n, mc.theWorld.provider.dimensionId) == 0) {
                 note = "Its blocks are in another dimension";
+                noteColor = Hyb.AMBER_INK;
+                noteUntil = System.currentTimeMillis() + 4000;
+            }
+            final com.gtnhplanner.data.flowchart.Tasks.Place p = shownPlace();
+            if (p != null && p.dim() != mc.theWorld.provider.dimensionId) {
+                note = p.dimName()
+                    .isEmpty() ? "That spot is in another dimension" : "That spot is in " + p.dimName();
                 noteColor = Hyb.AMBER_INK;
                 noteUntil = System.currentTimeMillis() + 4000;
             }
@@ -136,7 +165,9 @@ public final class WorldView {
         final int dim = mc.theWorld.provider.dimensionId;
         final Node picking = LinkPicker.active() ? LinkPicker.node() : null;
         final Node shown = shown();
-        if (picking == null && shown == null) return;
+        final com.gtnhplanner.data.flowchart.Tasks.Place place = shownPlace();
+        final boolean placeHere = place != null && place.dim() == dim;
+        if (picking == null && shown == null && !placeHere) return;
         WorldMarks.begin();
         if (picking != null) {
             // Where the card would go: the machine's ghost in front of the face looked at, a multiblock standing on it.
@@ -164,7 +195,38 @@ public final class WorldView {
             }
         }
         if (shown != null) labels(shown, dim);
+        if (placeHere) {
+            final double[] box = { place.x(), place.y(), place.z(), place.x() + 1, place.y() + 1, place.z() + 1 };
+            WorldMarks.outline(box, Hyb.SELECTION & 0xFFFFFF, 0.004f, 2f, 0.8f);
+            // No beam while standing in it: it would wash the whole view in its colour.
+            if (WorldMarks.distance(place.x(), place.y(), place.z()) > 4)
+                WorldMarks.beam(place.x(), place.y(), place.z(), Hyb.SELECTION & 0xFFFFFF);
+            label(
+                place.label() != null ? place.label() : place.x() + " " + place.y() + " " + place.z(),
+                place.x(),
+                place.y(),
+                place.z());
+        }
         WorldMarks.end();
+    }
+
+    /** A name and its distance over a block, facing the camera. */
+    private static void label(final String name, final int x, final int y, final int z) {
+        final FontRenderer font = Hyb.font();
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        final double d = WorldMarks.distance(x, y, z);
+        final float scale = (float) (0.012 * Math.max(1, d / 10));
+        WorldMarks.beginPanel(x + 0.5, y + 1.6 + scale * 12, z + 0.5, scale);
+        final String far = Math.round(d) + " m";
+        final int w = Math.max(font.getStringWidth(name), font.getStringWidth(far));
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        Hyb.rect(-w / 2f - 3, -2, w + 6, 21, 0xC0101114);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        font.drawString(name, -font.getStringWidth(name) / 2, 0, Hyb.INK);
+        font.drawString(far, -font.getStringWidth(far) / 2, 10, Hyb.MUTED);
+        WorldMarks.endPanel();
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
 
     /** The shown card's name and distance over each of its blocks. */

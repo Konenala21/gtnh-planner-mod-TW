@@ -2,6 +2,7 @@ package com.gtnhplanner.ui.task;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,13 +13,13 @@ import javax.annotation.Nullable;
 import org.lwjgl.opengl.GL11;
 
 import com.cleanroommc.modularui.api.UpOrDown;
+import com.cleanroommc.modularui.api.layout.IViewport;
+import com.cleanroommc.modularui.api.layout.IViewportStack;
 import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.Stencil;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
-import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widget.ParentWidget;
-import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
@@ -38,69 +39,54 @@ import com.gtnhplanner.ui.theme.Hyb;
 import com.gtnhplanner.ui.theme.Icons;
 
 /**
- * A task, open in a box in the middle of the screen in the card's look: its title (written in place), its column, who
- * is on it; on the left its notes and the cards it is about (a click shows one on the plan, centred and selected); on
- * the right its checklist (tick, write, drag to reorder, delete, link a line to one of its cards) and its comments
- * (who wrote each and when; your own can be deleted). Every change is one undoable edit of the plan, made as it
- * happens; the box follows the plan, so undo shows here too, and a task undone away closes it.
+ * A task, open in a box over its board, laid out as an issue is in Jira: a wide main column (the title, big and written
+ * in place; its notes; its things, each with its own checkbox: machines, places in a world and screenshots, with keys
+ * to add where you stand and a screenshot; then the comments) and a narrow side column (its status as a picker, who is
+ * on it, the board it is on, who made it and when). The comment box sits at the foot of the main column and Delete
+ * task at the foot of the side column. Every change is one undoable edit of the plan, made as it happens; the box
+ * follows the plan, so undo shows here too, and a task undone away closes it.
  *
  * <p>
- * The box fits the planner it opens in. Narrow (GTNH's GUI scale 4 leaves the planner 330 to 440 pixels wide), the two
- * sides go one under the other; short, everything between the title bar and the foot scrolls as a page, and a field
- * the page has scrolled part way out of view hides until it is back.
+ * The box fits the planner it opens in (GTNH's GUI scale 4 leaves the planner 330 to 440 pixels wide): below
+ * {@value #TWO_COLUMNS} pixels the side column goes under the title, and whatever is taller than the box scrolls as a
+ * page between its bar and its foot.
  */
 public final class TaskPanel extends ParentWidget<TaskPanel> implements Interactable {
 
-    /**
-     * The box's widest, and the least width that holds two columns side by side (narrower, the parts go one under the
-     * other); the least body that holds both columns' lists (shorter, the page scrolls).
-     */
-    private static final int MAX_W = 460, TWO_COLUMNS = 400, MIN_BODY = 136;
-    private static final int TITLE = 26, PAD = 10, CHIP_H = 16, LABEL = 12, FIELD_H = 14, KEY_H = 16, FOOT = 26;
-    /** Room the assign key and a few faces need beside the column chips; with less they go on a row of their own. */
-    private static final int PEOPLE_ROOM = 130;
-    private static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
-        ROW_HOVER = 0xFF2A2C31;
+    /** The box's widest and tallest, and the least width that holds the side column beside the main one. */
+    private static final int MAX_W = 600, MAX_H = 460, TWO_COLUMNS = 400;
+    private static final int BAR = 22, FOOT = 38, PAD = 12, GUTTER = 14, SIDE_W = 138, SIDE_PAD = 8;
+    private static final int LINE = 10, LABEL = 14, SECTION = 16, KEY_H = 16, ROW_PAD = 5;
+    /** Colours: the wells written in, keys and rows lit, the side column's panel, the quieter words. */
+    static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
+        ROW_HOVER = 0xFF2A2C31, SIDE = 0xFF1D1F23, SIDE_EDGE = 0xFF2C2E34, DIM = 0xFF7E8089, FAINT = 0xFF6A6C74;
     private static final int DRAG_SLOP = 3;
 
-    /** The box open now, for the dev harness. */
+    /** The box open now, for the dev harness and the screen's releases. */
     private static WeakReference<TaskPanel> showing = new WeakReference<>(null);
 
     private final BoardSession session;
     private final String taskId;
-    /** The box's size, fitted to the planner when it opened. */
-    private final int boxW, h;
-    /** The two columns, left and right; on a narrow box both span it, one under the other. */
-    private final int leftW, rightX, rightW;
-    private final TextFieldWidget titleField, addField;
-    private final TextArea notes, comment;
-    /**
-     * Where the parts go, top to bottom, on the box's page: everything between the title bar and the foot, which
-     * scrolls when the planner is too short for it.
-     */
-    private final int statusY, peopleY, notesY, notesH, cardsY, cardsBottom, itemsY, itemsBottom, addY, commentsY,
-        commentsBottom, commentBoxY, pageBottom;
-    private int cardsScroll, itemsScroll, commentsScroll, cardsH, itemsH, commentsH;
-    /** How far the page is scrolled, and where the fields were last put for it. */
-    private int page, fieldsAt = -1;
-
-    /** A checklist line pressed, where, and whether it is being carried to a new place. */
-    @Nullable
-    private String itemPressed;
-    private int itemPressX, itemPressY, itemDrop;
-    private boolean itemCarrying;
+    private final int boxW, boxH;
+    /** Side by side, or the side column under the title. */
+    private final boolean wide;
+    private final int mainX, mainW, sideX, sideW;
+    /** The title's size: a step up that keeps whole screen pixels at the planner's scale. */
+    private final float titleScale;
+    private final TextArea title, notes, comment;
+    private final Page page;
 
     private enum Kind {
         CLOSE,
         STATUS,
         ASSIGN,
         SIGN_IN,
-        CARD,
-        UNLINK,
         BOX,
-        ITEM,
-        ITEM_LINK,
-        ITEM_DELETE,
+        THING,
+        SHOW,
+        THING_DELETE,
+        ADD_HERE,
+        ADD_SHOT,
         COMMENT,
         COMMENT_DELETE,
         POST,
@@ -114,143 +100,81 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
     }
 
+    /** The bar's and the foot's parts, in the box's pixels. */
     private final List<Hit> hits = new ArrayList<>(), lastHits = new ArrayList<>();
 
-    /** The column chips side by side: their width. */
-    private static int chipsW() {
-        int w = 0;
-        for (final Tasks.Status s : Tasks.Status.values()) w += Hyb.width(TaskLook.name(s)) + 20 + 4;
-        return w - 4;
-    }
-
-    private TaskPanel(final BoardSession session, final String taskId, final int boxW, final int roomH) {
+    private TaskPanel(final BoardSession session, final String taskId, final int boxW, final int boxH) {
         this.session = session;
         this.taskId = taskId;
         this.boxW = boxW;
-        statusY = TITLE + 8;
-        // Who is on it at the chips' row end, or on a row of its own under them when they would not fit beside.
-        peopleY = boxW - 2 * PAD - chipsW() - 8 >= PEOPLE_ROOM ? statusY : statusY + CHIP_H + 6;
-        final int columnsY = peopleY + CHIP_H + 12;
-        if (boxW >= TWO_COLUMNS) {
-            leftW = (boxW - 2 * PAD - 16) * 196 / (MAX_W - 2 * PAD - 16);
-            rightX = PAD + leftW + 16;
-            rightW = boxW - rightX - PAD;
-            h = roomH;
-            // The body fills the box down to the foot, or takes its least and the page scrolls.
-            final int bottom = Math.max(h - FOOT - 4, columnsY + MIN_BODY);
-            // Left: the notes, then the cards.
-            notesY = columnsY + LABEL;
-            notesH = Math.max(40, Math.min(84, (bottom - columnsY) / 3));
-            cardsY = notesY + notesH + 10 + LABEL;
-            cardsBottom = bottom;
-            // Right: the checklist and its box, then the comments and theirs.
-            final int share = bottom - columnsY - 2 * LABEL - FIELD_H - 10 - 28;
-            itemsY = columnsY + LABEL;
-            itemsBottom = itemsY + share / 2;
-            addY = itemsBottom + 2;
-            commentsY = addY + FIELD_H + 10 + LABEL;
-            commentBoxY = bottom - 26;
-            commentsBottom = commentBoxY - 4;
-            pageBottom = bottom + 4;
-        } else {
-            // One under the other: the notes, the cards, the checklist and its box, the comments and theirs.
-            leftW = boxW - 2 * PAD;
-            rightX = PAD;
-            rightW = leftW;
-            notesY = columnsY + LABEL;
-            notesH = 44;
-            cardsY = notesY + notesH + 10 + LABEL;
-            cardsBottom = cardsY + 40;
-            itemsY = cardsBottom + 10 + LABEL;
-            itemsBottom = itemsY + 44;
-            addY = itemsBottom + 2;
-            commentsY = addY + FIELD_H + 10 + LABEL;
-            commentsBottom = commentsY + 56;
-            commentBoxY = commentsBottom + 4;
-            pageBottom = commentBoxY + 26 + 6;
-            h = Math.min(roomH, pageBottom + FOOT);
-        }
-        size(boxW, h);
-
-        titleField = new TextFieldWidget().value(new StringValue.Dynamic(() -> {
-            final Tasks.Task t = task();
-            return t == null ? "" : t.title();
-        }, this::setTitle));
-        titleField.setMaxLength(TaskEdits.TITLE_MAX)
-            .pos(PAD + 12, (TITLE - FIELD_H) / 2)
-            .size(boxW - PAD - 12 - 30, FIELD_H);
-        child(titleField);
-
-        notes = new TextArea("Add notes").maxLength(TaskEdits.TEXT_MAX)
-            .onDone(this::setText);
-        child(notes.size(leftW - 2, notesH - 2));
-
-        addField = new TextFieldWidget().value(new StringValue.Dynamic(() -> "", this::addItem));
-        addField.setMaxLength(TaskEdits.ITEM_MAX)
-            .hintText("Add a line")
-            .size(rightW, FIELD_H);
-        child(addField);
+        this.boxH = boxH;
+        wide = boxW >= TWO_COLUMNS;
+        mainX = PAD;
+        sideW = wide ? SIDE_W : boxW - 2 * PAD;
+        sideX = wide ? boxW - PAD - SIDE_W : PAD;
+        mainW = wide ? sideX - GUTTER - mainX : boxW - 2 * PAD;
+        final int k = Math.max(1, PlannerScale.board());
+        titleScale = (k + 1) / (float) k;
+        size(boxW, boxH);
 
         comment = new TextArea("Write a comment").maxLength(TaskEdits.COMMENT_MAX);
-        child(comment.size(rightW - 64 - 2, 24));
-        placeFields();
+        child(
+            comment.pos(mainX + 1, boxH - FOOT + 8)
+                .size(commentW() - 2, 22));
+
+        title = new TextArea("Name this task").scale(titleScale)
+            .singleLine()
+            .maxLength(TaskEdits.TITLE_MAX)
+            .onDone(this::setTitle);
+        notes = new TextArea("Add notes").maxLength(TaskEdits.TEXT_MAX)
+            .onDone(this::setText);
+        page = new Page();
+        page.child(title);
+        page.child(notes);
+        child(
+            page.pos(0, BAR)
+                .size(boxW, boxH - BAR - FOOT));
+        final Tasks.Task t = task();
+        if (t != null) {
+            title.text(t.title());
+            notes.text(t.text() == null ? "" : t.text());
+        }
     }
 
-    // region The page
-
-    /** The page's window: from under the title bar to the foot. */
-    private int pageTop() {
-        return TITLE + 1;
+    /** The comment box's width: the main column less the Comment key. */
+    private int commentW() {
+        return mainW - 62 - 6;
     }
 
-    private int pageEnd() {
-        return h - FOOT;
+    /** The foot's height: it grows with the comment being written, up to four lines, and the page gives way. */
+    private int foot = FOOT;
+
+    private void fitFoot() {
+        final int lines = Math.max(
+            1,
+            Math.min(
+                4,
+                NoteText.of(comment.text(), commentW() - 12, Hyb::width)
+                    .lines()
+                    .size()));
+        final int need = FOOT + (lines - 1) * LINE;
+        if (need == foot) return;
+        foot = need;
+        comment.pos(mainX + 1, boxH - foot + 8)
+            .size(commentW() - 2, 22 + (lines - 1) * LINE);
+        page.size(boxW, boxH - BAR - foot);
+        scheduleResize();
     }
 
-    private int maxPage() {
-        return Math.max(0, pageBottom - pageEnd());
-    }
-
-    /**
-     * The fields where the page puts them; one the page has scrolled part way out of the window hides until it is
-     * back.
-     */
-    private void placeFields() {
-        fieldsAt = page;
-        place(notes, PAD + 1, notesY + 1, notesH - 2);
-        place(addField, rightX, addY, FIELD_H);
-        place(comment, rightX + 1, commentBoxY + 1, 24);
-    }
-
-    private void place(final com.cleanroommc.modularui.widget.Widget<?> field, final int x, final int pageY,
-        final int fieldH) {
-        final int y = pageY - page;
-        field.pos(x, y);
-        field.setEnabled(y >= pageTop() && y + fieldH <= pageEnd());
-    }
-
-    /** The mouse on the page: the box's y, scrolled. */
-    private int pageMouseY() {
-        return mouseY() + page;
-    }
-
-    /**
-     * Clips to a rectangle on the page. The stencil's shape is drawn under the page's own shift, so it takes the page's
-     * coordinates.
-     */
-    private void clip(final int x, final int pageY, final int w, final int ch, final ModularGuiContext context) {
-        Stencil.apply(x, pageY, w, ch, context);
-    }
-
-    // endregion
+    // region Opening
 
     /** Opens a task in a box in the middle of the planner, as big as it has room for. */
     public static void open(final BoardSession session, final String taskId) {
         if (TaskEdits.task(session.graph(), taskId) == null) return;
         final int[] room = Popup.room(session.panel());
-        final int w = Math.min(MAX_W, room[2] - 8);
-        final TaskPanel panel = new TaskPanel(session, taskId, w, Math.min(380, room[3] - 8));
-        final Popup popup = new Popup("gtnhplanner_task", w, panel.h) {
+        final int w = Math.min(MAX_W, room[2] - 8), h = Math.min(MAX_H, room[3] - 8);
+        final TaskPanel panel = new TaskPanel(session, taskId, w, h);
+        final Popup popup = new Popup("gtnhplanner_task", w, h) {
 
             @Override
             public void drawBackground(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
@@ -264,6 +188,32 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         showing = new WeakReference<>(panel);
         Popup.openCentred(session.panel(), popup, 0.5f);
     }
+
+    /** A task to open once its board shows (after the planner comes back, or a tab switched to it). */
+    @Nullable
+    private static Graph pendingBoard;
+    @Nullable
+    private static String pendingTask;
+
+    /** Opens {@code taskId} in its box the next time {@code board} shows its tasks. */
+    public static void openWhenShown(final Graph board, final String taskId) {
+        pendingBoard = board;
+        pendingTask = taskId;
+    }
+
+    /** The task board shows: the task asked for opens, if it is this board's. */
+    static void openPending(final BoardSession session) {
+        if (pendingBoard == null) return;
+        if (pendingBoard != session.graph()) return;
+        final String id = pendingTask;
+        pendingBoard = null;
+        pendingTask = null;
+        final TaskPanel open = showing.get();
+        if (open != null && !open.closed) return;
+        if (id != null) open(session, id);
+    }
+
+    // endregion
 
     @Nullable
     private Tasks.Task task() {
@@ -288,28 +238,18 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         if (!next.equals(t)) edit(() -> TaskEdits.put(session.graph(), next));
     }
 
-    private void setTitle(@Nullable final String title) {
-        if (title == null || title.isBlank()) return;
-        put(t -> TaskEdits.withTitle(t, title));
+    private void setTitle(@Nullable final String text) {
+        if (text == null || text.isBlank()) {
+            // A title cannot be empty: the one it had comes back.
+            final Tasks.Task t = task();
+            if (t != null) title.text(t.title());
+            return;
+        }
+        put(t -> TaskEdits.withTitle(t, text));
     }
 
     private void setText(@Nullable final String text) {
         put(t -> TaskEdits.withText(t, text));
-    }
-
-    private void addItem(@Nullable final String text) {
-        if (text == null || text.isBlank() || task() == null) return;
-        edit(
-            () -> TaskEdits.addItem(
-                session.graph(),
-                UUID.randomUUID()
-                    .toString(),
-                taskId,
-                text,
-                null));
-        // Empty again for the next line (the box tells its text again as it lets go of the keyboard).
-        addField.setText("");
-        Sfx.NOTE_STICK.play(0.6f, 1.2f);
     }
 
     private void putItem(final Tasks.Item item) {
@@ -335,19 +275,131 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 text));
         comment.text("");
         Sfx.NOTE_STICK.play();
+        // The newest comment is at the foot of the page: show it.
+        page.scroll = Integer.MAX_VALUE;
     }
 
-    private void unlink(final Tasks.Task t, final Tasks.Link link) {
-        final List<Tasks.Link> links = new ArrayList<>(t.links());
-        links.remove(link);
-        put(x -> TaskEdits.withLinks(x, links));
-        Sfx.WIRE_CUT.play();
+    /** Adds the block the player stands on as a location, then asks for a name for it (none is fine). */
+    private void addHere() {
+        final Tasks.Place here = TaskThings.here();
+        if (here == null || task() == null) {
+            Sfx.DENY.play();
+            return;
+        }
+        final String id = UUID.randomUUID()
+            .toString();
+        edit(
+            () -> TaskEdits
+                .addThing(session.graph(), id, taskId, Tasks.LOCATION, TaskEdits.placeText(here), null, here, null));
+        Sfx.NOTE_STICK.play();
+        final Tasks.Item made = TaskEdits.item(session.graph(), id);
+        if (made != null) rename(made);
     }
 
-    /** Shows a card on its plan: this box closes and the plan opens with the card centred, selected. */
-    private void show(final Tasks.Link link) {
-        close();
-        session.openLink(link);
+    /** Ticks a thing off, or not. A card an older task linked becomes a thing of its own to be ticked. */
+    private void toggle(final TaskThings.Shown s) {
+        final Tasks.Item item = s.item();
+        if (s.loose()) {
+            edit(() -> {
+                final Tasks.Item made = TaskEdits.addThing(
+                    session.graph(),
+                    UUID.randomUUID()
+                        .toString(),
+                    taskId,
+                    Tasks.MACHINE,
+                    s.words(),
+                    item.link(),
+                    null,
+                    null);
+                TaskEdits.putItem(session.graph(), TaskEdits.withDone(made, true));
+            });
+            Sfx.TOGGLE_ON.play();
+            return;
+        }
+        putItem(TaskEdits.withDone(item, !item.done()));
+        (item.done() ? Sfx.TOGGLE_OFF : Sfx.TOGGLE_ON).play();
+    }
+
+    /** Takes a thing off the task (a loose card: its link). */
+    private void takeOff(final TaskThings.Shown s) {
+        if (s.loose()) {
+            final Tasks.Task t = task();
+            if (t == null) return;
+            final List<Tasks.Link> links = new ArrayList<>(t.links());
+            links.remove(
+                s.item()
+                    .link());
+            put(x -> TaskEdits.withLinks(x, links));
+        } else edit(
+            () -> TaskEdits.removeThing(
+                session.graph(),
+                s.item()
+                    .id()));
+        Sfx.NOTE_CRUMPLE.play();
+    }
+
+    /**
+     * What a click on a thing does: a card shows on its plan, a spot in the world, a screenshot big, words to write.
+     */
+    private void act(final TaskThings.Shown s) {
+        switch (s.kind()) {
+            case Tasks.MACHINE -> {
+                close();
+                session.openLink(
+                    s.item()
+                        .link());
+            }
+            case Tasks.LOCATION -> showPlace(
+                s.item()
+                    .place());
+            case Tasks.PICTURE -> PictureView.open(
+                session,
+                s.item()
+                    .picture());
+            default -> rewrite(s.item());
+        }
+    }
+
+    /** Shows a spot in the world: the planner closes and a beam stands on it; a spot elsewhere says where it is. */
+    private void showPlace(final Tasks.Place p) {
+        if (!TaskThings.inThisWorld(p)) {
+            Sfx.DENY.play();
+            session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.WARN, "That spot is in another world");
+            return;
+        }
+        Hyb.click();
+        com.gtnhplanner.ui.world.WorldView.show(p);
+    }
+
+    /** Shows a placed card's machine in the world. */
+    private void showPlaced(final TaskThings.Shown s) {
+        if (s.plan() == null || s.node() == null) return;
+        Hyb.click();
+        com.gtnhplanner.ui.world.WorldView.show(s.plan(), s.node().id);
+    }
+
+    private void rewrite(final Tasks.Item item) {
+        Popup.open(session.panel(), TextPopup.create("Change the words", item.text(), text -> {
+            if (text == null || text.isBlank()) return;
+            final Tasks.Item now = TaskEdits.item(session.graph(), item.id());
+            if (now != null && !text.strip()
+                .equals(now.text())) putItem(TaskEdits.withText(now, text));
+        }), getContext().getAbsMouseX(), getContext().getAbsMouseY());
+    }
+
+    private void rename(final Tasks.Item item) {
+        final Tasks.Place p = item.place();
+        Popup.open(
+            session.panel(),
+            TextPopup.create("Name this spot", p == null || p.label() == null ? "" : p.label(), text -> {
+                final Tasks.Item now = TaskEdits.item(session.graph(), item.id());
+                if (now != null) {
+                    final Tasks.Item next = TaskEdits.withLabel(now, text);
+                    if (!next.equals(now)) putItem(next);
+                }
+            }),
+            getContext().getAbsMouseX(),
+            getContext().getAbsMouseY());
     }
 
     private void close() {
@@ -360,11 +412,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         closed = true;
         final Tasks.Task t = task();
         if (t == null) return;
-        final String title = titleField.getText();
-        if (title != null && !title.isBlank()
-            && !title.strip()
-                .equals(t.title()))
-            setTitle(title);
+        final String written = title.text()
+            .strip();
+        if (!written.isEmpty() && !written.equals(t.title())) setTitle(written);
         final String text = notes.text()
             .isBlank() ? null
                 : notes.text()
@@ -375,13 +425,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     /** Set once the box has closed. */
     private boolean closed;
 
-    /**
-     * The screen hears every release: a checklist line let go off the box never reaches it, and ends here all the
-     * same.
-     */
+    /** The screen hears every release: a thing let go off the box never reaches it, and ends here all the same. */
     public static void screenReleased(final int mouseButton) {
         final TaskPanel p = showing.get();
-        if (mouseButton == 0 && p != null && !p.closed && p.itemPressed != null) p.releaseItem();
+        if (mouseButton == 0 && p != null && !p.closed && p.page.pressed != null) p.page.release();
     }
 
     // endregion
@@ -395,10 +442,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             if (getPanel() != null) getPanel().closeIfOpen();
             return;
         }
+        if (!title.isFocused()) title.text(t.title());
         if (!notes.isFocused()) notes.text(t.text() == null ? "" : t.text());
     }
 
-    // region Drawing
+    // region The bar and the foot
 
     private int mouseX() {
         return getContext().getAbsMouseX() - getArea().x;
@@ -418,122 +466,982 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         hits.clear();
         final Tasks.Task t = task();
         if (t == null) return;
-        liftItem();
-        final Hit hover = itemCarrying ? null : hitAt(lastHits);
-        final float z = context.getCurrentDrawingZ();
-        // The title bar: the task's colour, its title (a field), the close key.
-        TaskLook.dot(PAD, (TITLE - 7) / 2f, 7, TaskLook.colour(t.status()));
-        Hyb.rect(PAD + 11, (TITLE - FIELD_H) / 2 - 1, boxW - PAD - 11 - 29, FIELD_H + 2, CardPaint.EDGE);
-        final int cx = boxW - 20, cy = (TITLE - 14) / 2;
+        final Hit hover = page.carrying ? null : hitAt(lastHits, mouseX(), mouseY());
+        // The bar: where the task is (its board, its column), and the close key.
+        final float ty = (BAR - 8) / 2f;
+        TaskLook.dot(PAD, ty + 1, 6, TaskLook.colour(t.status()));
+        final String board = graph().getName()
+            .isBlank() ? "Task board" : graph().getName();
+        final String where = board + "  /  " + TaskLook.name(t.status());
+        Hyb.text(Hyb.width(where) <= boxW - PAD - 40 ? where : TaskLook.name(t.status()), PAD + 11, ty, DIM);
+        final int cx = boxW - 20, cy = (BAR - 14) / 2;
         final boolean closeHot = is(hover, Kind.CLOSE);
         if (closeHot) Hyb.rect(cx, cy, 14, 14, CONTROL_HOVER);
         cross(cx + 7f, cy + 7f, closeHot ? Hyb.INK : Hyb.MUTED);
         hits.add(new Hit(Kind.CLOSE, cx, cy, cx + 14, cy + 14, null));
-        Hyb.rect(1, TITLE, boxW - 2, 1, CardPaint.HAIR);
+        Hyb.rect(1, BAR - 1, boxW - 2, 1, CardPaint.HAIR);
 
-        // The page between the title bar and the foot, scrolled when it is taller than its window.
-        page = Math.max(0, Math.min(maxPage(), page));
-        if (page != fieldsAt) {
-            placeFields();
-            scheduleResize();
-        }
-        final int pageHits = hits.size();
-        Stencil.apply(0, pageTop(), boxW, pageEnd() - pageTop(), context);
-        GL11.glPushMatrix();
-        GL11.glTranslatef(0, -page, 0);
-        drawStatus(t, hover);
-        drawPeople(t, hover);
-        drawNotes();
-        drawCards(t, hover, z, context);
-        drawChecklist(t, hover, context);
-        drawComments(t, hover, context);
-        GL11.glPopMatrix();
-        Stencil.remove();
-        // What was hit on the page, where it shows in its window.
-        for (int i = hits.size() - 1; i >= pageHits; i--) {
-            final Hit p = hits.get(i);
-            final int y0 = Math.max(pageTop(), p.y0() - page), y1 = Math.min(pageEnd(), p.y1() - page);
-            if (y1 <= y0) hits.remove(i);
-            else hits.set(i, new Hit(p.kind(), p.x0(), y0, p.x1(), y1, p.data()));
-        }
-        if (maxPage() > 0) {
-            // A thin bar down the right edge: how far down the page the window is.
-            final int track = pageEnd() - pageTop() - 4, bar = Math.max(12, track * track / (track + maxPage()));
-            Hyb.rect(boxW - 4, pageTop() + 2 + (track - bar) * page / maxPage(), 2, bar, 0xFF4A4C54);
-        }
-        drawFoot(t, hover);
-        lastHits.clear();
-        lastHits.addAll(hits);
-    }
-
-    private static boolean is(@Nullable final Hit hover, final Kind kind) {
-        return hover != null && hover.kind() == kind;
-    }
-
-    private static boolean is(@Nullable final Hit hover, final Kind kind, final Object data) {
-        return is(hover, kind) && data.equals(hover.data());
-    }
-
-    /** The four columns as chips: the task's own filled in its colour. */
-    private void drawStatus(final Tasks.Task t, @Nullable final Hit hover) {
-        int x = PAD;
-        for (final Tasks.Status s : Tasks.Status.values()) {
-            final String name = TaskLook.name(s);
-            final int w = Hyb.width(name) + 20, colour = TaskLook.colour(s);
-            final boolean picked = t.status() == s, hot = is(hover, Kind.STATUS, s);
-            Hyb.rect(x, statusY, w, CHIP_H, picked ? colour : hot ? 0xFF5A5D66 : 0xFF3A3C42);
-            Hyb.rect(
-                x + 1,
-                statusY + 1,
-                w - 2,
-                CHIP_H - 2,
-                picked ? Hyb.mix(colour, CardPaint.SURFACE, 0.2f) : hot ? CONTROL_HOVER : CONTROL);
-            TaskLook.dot(x + 6, statusY + 5, 6, picked || hot ? colour : Hyb.mix(colour, CONTROL, 0.6f));
-            Hyb.text(name, x + 15, statusY + 4, picked || hot ? Hyb.INK : Hyb.MUTED);
-            hits.add(new Hit(Kind.STATUS, x, statusY, x + w, statusY + CHIP_H, s));
-            x += w + 4;
-        }
-    }
-
-    /**
-     * Who is on it, and the key to choose who (a shared plan's owner and members), to put yourself on it or take
-     * yourself off (signed in, a plan on this computer), or to sign in.
-     */
-    private void drawPeople(final Tasks.Task t, @Nullable final Hit hover) {
-        int right = boxW - PAD;
-        final String me = Account.userId();
-        final boolean shared = !TaskLook.people(graph())
-            .isEmpty();
-        if (me == null) {
-            final String s = "Sign in to assign";
-            right -= Hyb.width(s);
-            Hyb.text(s, right, peopleY + 4, is(hover, Kind.SIGN_IN) ? 0xFFFFFFFF : CYAN);
-            hits.add(new Hit(Kind.SIGN_IN, right, peopleY, right + Hyb.width(s), peopleY + CHIP_H, null));
-        } else {
-            final String s = shared ? "Assign"
-                : t.assignees()
-                    .contains(me) ? "Unassign me" : "Assign me";
-            final int kw = Hyb.width(s) + 12;
-            right -= kw;
+        // The foot: the comment box and its key under the main column; Delete task under the side column.
+        fitFoot();
+        final int fy = boxH - foot;
+        Hyb.rect(1, fy, boxW - 2, 1, CardPaint.HAIR);
+        final int cw = commentW();
+        final boolean writing = comment.isFocused();
+        Hyb.rect(mainX, fy + 7, cw, foot - 14, writing ? 0xFF3E7F8C : CardPaint.EDGE);
+        Hyb.rect(mainX + 1, fy + 8, cw - 2, foot - 16, WELL);
+        final int kx = mainX + mainW - 62, ky = fy + 11;
+        final boolean postHot = is(hover, Kind.POST);
+        final boolean any = !comment.text()
+            .isBlank();
+        Hyb.rect(kx, ky, 62, KEY_H, any ? postHot ? 0xFF38E1F5 : CYAN : postHot ? CONTROL_HOVER : CONTROL);
+        if (any) Hyb.rect(kx, ky, 62, 1, 0x66FFFFFF);
+        Hyb.text("Comment", kx + (62 - Hyb.width("Comment")) / 2f, ky + 4, 1f, any ? 0xFF0B1A1E : DIM, false);
+        hits.add(new Hit(Kind.POST, kx, ky, kx + 62, ky + KEY_H, null));
+        if (wide) {
+            final String del = "Delete task";
+            final int dw = Hyb.width(del) + 12, dx = sideX + sideW - dw, dy = fy + 11;
             Hyb.bevel(
-                right,
-                peopleY,
-                kw,
+                dx,
+                dy,
+                dw,
                 KEY_H,
-                is(hover, Kind.ASSIGN) ? Hyb.KEY_HOVER : Hyb.KEY,
+                is(hover, Kind.DELETE) ? Hyb.KEY_HOVER : Hyb.KEY,
                 Hyb.KEY_HI,
                 Hyb.KEY_LO,
                 0,
                 1);
-            Hyb.text(s, right + 6, peopleY + 4, Hyb.INK);
-            hits.add(new Hit(Kind.ASSIGN, right, peopleY, right + kw, peopleY + KEY_H, shared ? Boolean.TRUE : null));
+            Hyb.text(del, dx + 6, dy + 4, Hyb.RED_INK);
+            hits.add(new Hit(Kind.DELETE, dx, dy, dx + dw, dy + KEY_H, null));
         }
-        if (t.assignees()
-            .isEmpty()) return;
-        int w = 0;
-        for (final String id : t.assignees())
-            w += TaskLook.faceWidth(TaskLook.initials(TaskLook.nameOf(graph(), id))) - 2;
-        TaskLook.faces(graph(), t.assignees(), right - 6 - w, peopleY + 2);
+        lastHits.clear();
+        lastHits.addAll(hits);
+    }
+
+    // endregion
+
+    // region The page
+
+    /**
+     * Everything between the bar and the foot, as one page that scrolls when it is taller than its window: drawn here,
+     * with the title and notes boxes moved along with it, all clipped to the window.
+     */
+    private final class Page extends ParentWidget<Page> implements Interactable, IViewport {
+
+        private int scroll, fieldsAt = Integer.MIN_VALUE;
+        private int pageH;
+        private final List<Hit> pageHits = new ArrayList<>(), lastPageHits = new ArrayList<>();
+        /** Where the title and notes boxes go on the page, and how tall, as last laid out. */
+        private int titleY, titleH, notesY, notesH;
+        /** A thing pressed, where, and whether it is being carried to a new place; where it would land. */
+        @Nullable
+        private String pressed;
+        private int pressX, pressY, drop;
+        private boolean carrying;
+        /** The things as last drawn, by id, for a click to act on. */
+        private final Map<String, TaskThings.Shown> shown = new HashMap<>();
+        private final Map<String, int[]> rows = new LinkedHashMap<>();
+
+        Page() {
+            // The title and notes boxes are placed as the page lays out.
+        }
+
+        private int windowH() {
+            return getArea().height;
+        }
+
+        private int mouseX() {
+            return getContext().getAbsMouseX() - getArea().x;
+        }
+
+        /** The mouse on the page: its y in the window, scrolled. */
+        private int mouseY() {
+            return getContext().getAbsMouseY() - getArea().y + scroll;
+        }
+
+        private boolean mouseIn() {
+            final int x = getContext().getAbsMouseX() - getArea().x, y = getContext().getAbsMouseY() - getArea().y;
+            return x >= 0 && y >= 0 && x < getArea().width && y < getArea().height;
+        }
+
+        @Override
+        public boolean canHover() {
+            return true;
+        }
+
+        /** The title and notes boxes take the mouse only inside the window. */
+        @Override
+        public void getWidgetsAt(final IViewportStack stack,
+            final com.cleanroommc.modularui.utils.HoveredWidgetList widgets, final int x, final int y) {
+            if (mouseIn()) IViewport.super.getWidgetsAt(stack, widgets, x, y);
+        }
+
+        @Override
+        public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
+            // Laid out before anything is drawn, so the boxes are where the page puts them this frame.
+            layout();
+        }
+
+        @Override
+        public void preDraw(final ModularGuiContext context, final boolean transformed) {
+            if (!transformed) {
+                Stencil.applyAtZero(getArea(), context);
+                return;
+            }
+            pageHits.clear();
+            final Tasks.Task t = task();
+            if (t == null) return;
+            if (carrying) drop = findDrop();
+            final Hit hover = carrying ? null : hover();
+            GL11.glPushMatrix();
+            GL11.glTranslatef(0, -scroll, 0);
+            drawPage(t, hover, context.getCurrentDrawingZ());
+            GL11.glPopMatrix();
+        }
+
+        @Override
+        public void postDraw(final ModularGuiContext context, final boolean transformed) {
+            if (transformed) {
+                if (carrying) drawCarried();
+                return;
+            }
+            Stencil.remove();
+            final int max = maxScroll();
+            if (max > 0) {
+                // A thin bar down the right edge: how far down the page the window is.
+                final int track = windowH() - 4, bar = Math.max(12, track * track / (track + max));
+                Hyb.rect(boxW - 4, 2 + (track - bar) * scroll / max, 2, bar, 0xFF4A4C54);
+            }
+            // What the mouse rests on explains itself, over everything in the box.
+            if (getScreen().getPanelManager()
+                .getTopMostPanel() != TaskPanel.this.getPanel()) return;
+            final Hit pageHover = carrying || pressed != null ? null : hover();
+            final Hit boxHover = carrying ? null : hitAt(lastHits, TaskPanel.this.mouseX(), TaskPanel.this.mouseY());
+            final Hit h = pageHover != null ? pageHover : boxHover;
+            if (!tipWait.ready(h == null ? null : h.kind() + ":" + h.data())) return;
+            final Tip tip = tip(h);
+            if (tip != null) {
+                GL11.glPushMatrix();
+                GL11.glTranslatef(0, -BAR, 0);
+                tip.drawNear(TaskPanel.this.mouseX(), TaskPanel.this.mouseY(), boxW, boxH);
+                GL11.glPopMatrix();
+            }
+        }
+
+        private int maxScroll() {
+            return Math.max(0, pageH - windowH());
+        }
+
+        @Nullable
+        private Hit hover() {
+            if (!mouseIn()) return null;
+            return hitAt(lastPageHits, mouseX(), mouseY());
+        }
+
+        // region Layout
+
+        /** Where the title and notes go this frame, and the boxes moved there. */
+        private void layout() {
+            final Tasks.Task t = task();
+            if (t == null) return;
+            titleY = 8;
+            titleH = title.heightFor(title.isFocused() ? title.text() : t.title(), mainW);
+            int y = titleY + titleH + 6;
+            if (!wide) y += sideHeight(t) + SECTION;
+            notesY = y + LABEL;
+            final int lines = NoteText.of(notes.text(), mainW - 10, Hyb::width)
+                .lines()
+                .size();
+            notesH = Math.max(32, Math.min(122, lines * LINE + 10));
+            scroll = Math.max(0, Math.min(maxScroll(), scroll));
+            if (scroll != fieldsAt || title.getArea().height != titleH || notes.getArea().height != notesH - 2) {
+                fieldsAt = scroll;
+                title.pos(mainX, titleY - scroll)
+                    .size(mainW, titleH);
+                notes.pos(mainX + 1, notesY + 1 - scroll)
+                    .size(mainW - 2, notesH - 2);
+                scheduleResize();
+            }
+        }
+
+        // endregion
+
+        // region Drawing
+
+        private void drawPage(final Tasks.Task t, @Nullable final Hit hover, final float z) {
+            // The title: a heading, lit while the mouse is on it, a box to write in while it is being written.
+            if (title.isFocused()) {
+                Hyb.rect(mainX - 1, titleY - 1, mainW + 2, titleH + 2, 0xFF3E7F8C);
+                Hyb.rect(mainX, titleY, mainW, titleH, WELL);
+            } else if (title.isHovering()) Hyb.rect(mainX, titleY, mainW, titleH, ROW_HOVER);
+            int y = titleY + titleH + 6;
+            if (!wide) {
+                drawSide(t, hover, PAD, y, sideW);
+                y += sideHeight(t) + SECTION;
+            } else drawSide(t, hover, sideX, titleY, sideW);
+
+            // Notes.
+            label("Notes", null, y);
+            final boolean writing = notes.isFocused();
+            Hyb.rect(mainX, notesY, mainW, notesH, writing ? 0xFF3E7F8C : CardPaint.EDGE);
+            Hyb.rect(mainX + 1, notesY + 1, mainW - 2, notesH - 2, WELL);
+            y = notesY + notesH + SECTION;
+
+            // Things.
+            y = drawThings(t, hover, y, z);
+            y += SECTION;
+
+            // Comments.
+            y = drawComments(hover, y);
+            pageH = Math.max(y + 10, wide ? titleY + sideHeight(t) + 10 : 0);
+            lastPageHits.clear();
+            lastPageHits.addAll(pageHits);
+        }
+
+        /** A section's name, muted, with a count after it. */
+        private void label(final String name, @Nullable final String count, final int y) {
+            Hyb.text(name, mainX, y + 1, Hyb.MUTED);
+            if (count != null) Hyb.text(count, mainX + Hyb.width(name) + 5, y + 1, FAINT);
+        }
+
+        // region Things
+
+        private int drawThings(final Tasks.Task t, @Nullable final Hit hover, final int top, final float z) {
+            final List<TaskThings.Shown> things = TaskThings.of(session, graph(), taskId);
+            shown.clear();
+            for (final TaskThings.Shown s : things) shown.put(
+                s.item()
+                    .id(),
+                s);
+            int done = 0;
+            for (final TaskThings.Shown s : things) if (s.item()
+                .done()) done++;
+            label("Things", things.isEmpty() ? null : done + "/" + things.size(), top);
+            if (!things.isEmpty()) {
+                // How far along: a thin bar after the count.
+                final String n = done + "/" + things.size();
+                final int bx = mainX + Hyb.width("Things") + 5 + Hyb.width(n) + 8, bw = mainX + mainW - bx;
+                if (bw > 16) {
+                    Hyb.rect(bx, top + 4, bw, 3, 0xFF2C2E34);
+                    Hyb.rect(bx, top + 4, Math.round(bw * done / (float) things.size()), 3, Hyb.OK_INK);
+                }
+            }
+            int y = top + LABEL;
+            rows.clear();
+            int index = 0;
+            int dropY = -1;
+            for (final TaskThings.Shown s : things) {
+                final String id = s.item()
+                    .id();
+                final boolean carried = carrying && id.equals(pressed);
+                if (carrying && index == drop && !carried) dropY = y;
+                if (!carried) index++;
+                final int h = rowH(s);
+                rows.put(id, new int[] { y, h });
+                drawThing(s, hover, y, h, z, carried);
+                y += h;
+            }
+            if (carrying && dropY < 0) dropY = y;
+            if (carrying) Hyb.rect(mainX, dropY - 1, mainW, 2, CYAN);
+            if (things.isEmpty()) {
+                Hyb.text("Nothing on it yet.", mainX + 2, y + 2, FAINT);
+                y += 14;
+            }
+            // The keys that add things: where you stand and a screenshot, while in a world.
+            y += 4;
+            int x = mainX;
+            if (net.minecraft.client.Minecraft.getMinecraft().theWorld != null) {
+                x = addKey(x, y, "Add where I stand", Kind.ADD_HERE, hover, true);
+                if (x + 6 + keyW("Add a screenshot") > mainX + mainW) {
+                    x = mainX;
+                    y += KEY_H + 4;
+                } else x += 6;
+                addKey(x, y, "Add a screenshot", Kind.ADD_SHOT, hover, false);
+                y += KEY_H + 6;
+            }
+            final NoteText hint = NoteText.of("Add machines from a card's pin key.", mainW, Hyb::width);
+            for (int i = 0; i < hint.lines()
+                .size(); i++) {
+                Hyb.text(hint.shown(i), mainX, y + 1, FAINT);
+                y += LINE;
+            }
+            return y;
+        }
+
+        private int keyW(final String label) {
+            return Hyb.width(label) + 12 + Icons.SIZE + 4;
+        }
+
+        /** A key with an icon before its words; returns its right edge. */
+        private int addKey(final int x, final int y, final String label, final Kind kind, @Nullable final Hit hover,
+            final boolean pin) {
+            final int w = keyW(label);
+            final boolean hot = is(hover, kind);
+            Hyb.bevel(x, y, w, KEY_H, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
+            final int ix = x + 6, iy = y + (KEY_H - 1 - Icons.SIZE) / 2;
+            if (pin) Icons.pin(ix, iy, CYAN);
+            else Icons.camera(ix, iy, CYAN);
+            Hyb.text(label, ix + Icons.SIZE + 4, y + 4, Hyb.INK);
+            pageHits.add(new Hit(kind, x, y, x + w, y + KEY_H, null));
+            return x + w;
+        }
+
+        /** Where a thing's words start, after its checkbox and its picture. */
+        private int textX(final TaskThings.Shown s) {
+            return mainX + 17 + switch (s.kind()) {
+                case Tasks.MACHINE, Tasks.LOCATION -> 16 + 6;
+                case Tasks.PICTURE -> THUMB_W + 6;
+                default -> 0;
+            };
+        }
+
+        private static final int THUMB_W = 56, THUMB_H = 32;
+
+        /** The room a thing's words have: up to its keys at the right. */
+        private int textW(final TaskThings.Shown s) {
+            return mainX + mainW - textX(s) - 16 - (showKey(s) ? showKeyW(s) + 8 : 0);
+        }
+
+        private NoteText words(final TaskThings.Shown s) {
+            return NoteText.of(s.words(), textW(s), Hyb::width);
+        }
+
+        private List<String> detail(final TaskThings.Shown s) {
+            return parts(s.detail(), textW(s));
+        }
+
+        private int rowH(final TaskThings.Shown s) {
+            final int lines = words(s).lines()
+                .size() + detail(s).size();
+            final int picture = switch (s.kind()) {
+                case Tasks.MACHINE, Tasks.LOCATION -> 16;
+                case Tasks.PICTURE -> THUMB_H;
+                default -> 0;
+            };
+            return Math.max(picture, lines * LINE) + 2 * ROW_PAD;
+        }
+
+        /** Whether a thing has a key that shows where it is in the world: a spot here, a card placed here. */
+        private boolean showKey(final TaskThings.Shown s) {
+            return switch (s.kind()) {
+                case Tasks.LOCATION -> TaskThings.inThisWorld(
+                    s.item()
+                        .place());
+                case Tasks.MACHINE -> s.node() != null && !s.node().worldLinks.isEmpty();
+                default -> false;
+            };
+        }
+
+        private int showKeyW(final TaskThings.Shown s) {
+            return Tasks.LOCATION.equals(s.kind()) ? Hyb.width("Show") + 10 + Icons.SIZE + 3 : 16;
+        }
+
+        private void drawThing(final TaskThings.Shown s, @Nullable final Hit hover, final int y, final int h,
+            final float z, final boolean carried) {
+            final Tasks.Item item = s.item();
+            final String id = item.id();
+            final boolean rowHot = !carrying && hover != null && id.equals(hover.data());
+            if (rowHot) Hyb.rect(mainX, y, mainW, h, ROW_HOVER);
+            if (carried) Hyb.rect(mainX, y, mainW, h, 0x3022D3EE);
+            // Its checkbox, level with the first line of its words.
+            final NoteText words = words(s);
+            final List<String> detail = detail(s);
+            final int lines = words.lines()
+                .size() + detail.size();
+            final int textTop = y + (h - lines * LINE) / 2 + 1;
+            final int bx = mainX + 3, by = Math.max(y + ROW_PAD, textTop - 1);
+            final boolean boxHot = is(hover, Kind.BOX, id);
+            checkbox(bx, by, item.done(), boxHot);
+            // Its picture.
+            final int px = mainX + 17;
+            switch (s.kind()) {
+                case Tasks.MACHINE -> {
+                    if (s.icon() != null) {
+                        Hyb.item(s.icon(), px, y + (h - 16) / 2f, 16, z);
+                        GL11.glDisable(GL11.GL_LIGHTING);
+                    } else tile(px, y + (h - 16) / 2, Icons::card, s.gone() ? FAINT : Hyb.MUTED);
+                }
+                case Tasks.LOCATION -> tile(px, y + (h - 16) / 2, Icons::pin, CYAN);
+                case Tasks.PICTURE -> {
+                    final int ty = y + (h - THUMB_H) / 2;
+                    Hyb.rect(px - 1, ty - 1, THUMB_W + 2, THUMB_H + 2, CardPaint.EDGE);
+                    TaskPictures.draw(TaskPictures.thumb(item.picture()), px, ty, THUMB_W, THUMB_H);
+                }
+                default -> {}
+            }
+            // Its words and the line under them.
+            final int tx = textX(s);
+            final int ink = item.done() || s.gone() ? 0xFF8A8C94 : Hyb.INK;
+            int ty = textTop;
+            for (int i = 0; i < words.lines()
+                .size(); i++) {
+                final String line = words.shown(i);
+                Hyb.text(line, tx, ty, ink);
+                if (item.done()) Hyb.rect(tx, ty + 3, Hyb.width(line), 1, 0xA08A8C94);
+                ty += LINE;
+            }
+            for (final String line : detail) {
+                drawParts(line, tx, ty, s.gone() ? Hyb.AMBER_INK : DIM);
+                ty += LINE;
+            }
+            pageHits.add(new Hit(Kind.THING, mainX, y, mainX + mainW, y + h, id));
+            pageHits.add(new Hit(Kind.BOX, mainX, y, mainX + 15, y + h, id));
+            // Its keys: where it is in the world; hovered, take it off.
+            int right = mainX + mainW - 2;
+            if (rowHot) {
+                final boolean on = is(hover, Kind.THING_DELETE, id);
+                cross(right - 5f, y + h / 2f, on ? Hyb.RED_INK : Hyb.MUTED);
+                pageHits.add(new Hit(Kind.THING_DELETE, right - 11, y, right + 1, y + h, id));
+            }
+            right -= 14;
+            if (showKey(s)) {
+                final int kw = showKeyW(s), kx = right - kw, ky = y + (h - KEY_H) / 2;
+                final boolean on = is(hover, Kind.SHOW, id);
+                Hyb.bevel(kx, ky, kw, KEY_H, on ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
+                if (Tasks.LOCATION.equals(s.kind())) {
+                    Icons.pin(kx + 5, ky + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
+                    Hyb.text("Show", kx + 5 + Icons.SIZE + 3, ky + 4, Hyb.INK);
+                } else Icons.pin(kx + (kw - Icons.SIZE) / 2, ky + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
+                pageHits.add(new Hit(Kind.SHOW, kx, ky, kx + kw, ky + KEY_H, id));
+            }
+        }
+
+        private interface Picture {
+
+            void draw(int x, int y, int colour);
+        }
+
+        /** A 16 pixel tile with a small picture in it, for a thing with no item to show. */
+        private void tile(final int x, final int y, final Picture picture, final int colour) {
+            Hyb.rect(x, y, 16, 16, 0xFF2A2C31);
+            picture.draw(x + 3, y + 3, colour);
+        }
+
+        private void checkbox(final int x, final int y, final boolean done, final boolean hot) {
+            Hyb.rect(x, y, 10, 10, done ? Hyb.OK_INK : hot ? 0xFF8F939C : 0xFF5A5D66);
+            if (!done) {
+                Hyb.rect(x + 1, y + 1, 8, 8, WELL);
+                return;
+            }
+            // A tick.
+            final int ink = 0xFF0B1A12;
+            Hyb.rect(x + 2, y + 5, 1, 2, ink);
+            Hyb.rect(x + 3, y + 6, 1, 2, ink);
+            Hyb.rect(x + 4, y + 5, 1, 2, ink);
+            Hyb.rect(x + 5, y + 4, 1, 2, ink);
+            Hyb.rect(x + 6, y + 3, 1, 2, ink);
+            Hyb.rect(x + 7, y + 2, 1, 2, ink);
+        }
+
+        /** Where a carried thing would land: before the first other thing whose middle is below the mouse. */
+        private int findDrop() {
+            final int my = mouseY();
+            int index = 0;
+            for (final Map.Entry<String, int[]> e : rows.entrySet()) {
+                if (e.getKey()
+                    .equals(pressed)) continue;
+                final int[] r = e.getValue();
+                if (my < r[0] + r[1] / 2) return index;
+                index++;
+            }
+            return index;
+        }
+
+        /** The thing in hand, lifted, following the mouse. */
+        private void drawCarried() {
+            final TaskThings.Shown s = shown.get(pressed);
+            if (s == null) return;
+            final int h = rowH(s), y = Math.max(0, Math.min(windowH(), mouseY() - scroll)) - h / 2;
+            Hyb.rect(mainX + 3, y + 4, mainW, h, 0x50000000);
+            Hyb.rect(mainX, y, mainW, h, CardPaint.EDGE);
+            Hyb.rect(mainX + 1, y + 1, mainW - 2, h - 2, ROW_HOVER);
+            final NoteText words = words(s);
+            for (int i = 0; i < words.lines()
+                .size(); i++) Hyb.text(words.shown(i), textX(s), y + ROW_PAD + 1 + i * LINE, Hyb.INK);
+        }
+
+        // endregion
+
+        // region Comments
+
+        private int drawComments(@Nullable final Hit hover, final int top) {
+            final List<Tasks.Comment> comments = TaskEdits.comments(graph(), taskId);
+            label("Comments", comments.isEmpty() ? null : Integer.toString(comments.size()), top);
+            int y = top + LABEL;
+            if (comments.isEmpty()) {
+                Hyb.text("No comments yet.", mainX + 2, y + 2, FAINT);
+                return y + 14;
+            }
+            final int tx = mainX + TaskLook.FACE + 6, tw = mainX + mainW - tx;
+            for (final Tasks.Comment c : comments) {
+                final NoteText words = NoteText.of(c.text(), tw, Hyb::width);
+                final int h = 12 + words.lines()
+                    .size() * LINE + 2;
+                pageHits.add(new Hit(Kind.COMMENT, mainX, y, mainX + mainW, y + h, c.id()));
+                final boolean rowHot = hover != null && c.id()
+                    .equals(hover.data());
+                TaskLook.face(graph(), c.by(), mainX, y);
+                final String who = c.byName()
+                    .isEmpty() ? "Someone" : c.byName();
+                Hyb.text(who, tx, y + 2, Hyb.INK);
+                Hyb.text(TaskLook.ago(c.at()), tx + Hyb.width(who) + 6, y + 2, FAINT);
+                if (TaskLook.mine(c.by()) && rowHot) {
+                    final String del = "Delete";
+                    final int dx = mainX + mainW - Hyb.width(del) - 2;
+                    final boolean on = is(hover, Kind.COMMENT_DELETE, c.id());
+                    Hyb.text(del, dx, y + 2, on ? 0xFFFF8080 : Hyb.RED_INK);
+                    pageHits.add(new Hit(Kind.COMMENT_DELETE, dx - 2, y, dx + Hyb.width(del) + 2, y + 12, c.id()));
+                }
+                for (int i = 0; i < words.lines()
+                    .size(); i++) Hyb.text(words.shown(i), tx, y + 13 + i * LINE, 0xFFD4D5DA);
+                y += h + 8;
+            }
+            return y - 8;
+        }
+
+        // endregion
+
+        // region The side column
+
+        /** The side column's height at the box's width: its fields, and Delete task at its foot when narrow. */
+        private int sideHeight(final Tasks.Task t) {
+            return side(t, null, 0, 0, sideW, false);
+        }
+
+        /** The side column on a panel of its own: measured, its panel drawn, then its fields over it. */
+        private void drawSide(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w) {
+            final int h = side(t, null, x, y, w, false);
+            Hyb.rect(x, y, w, h, SIDE_EDGE);
+            Hyb.rect(x + 1, y + 1, w - 2, h - 2, SIDE);
+            side(t, hover, x, y, w, true);
+        }
+
+        /**
+         * The side column: Status, People, Board, Made, in a panel of its own. Wide, one under the other; narrow,
+         * Status and People side by side (faces only), then a line of the board and who made it with Delete task at
+         * its end. Returns its height; draws only when {@code draw}.
+         */
+        private int side(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean draw) {
+            final int inner = w - 2 * SIDE_PAD;
+            final int h;
+            if (wide) {
+                int at = y + SIDE_PAD;
+                at = field("Status", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                at = field(
+                    "People",
+                    x + SIDE_PAD,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> people(t, hover, fx, fy, fw, true, draw));
+                at = field(
+                    "Board",
+                    x + SIDE_PAD,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> words(boardName(), fx, fy, fw, draw));
+                at = field("Made", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> words(made(t), fx, fy, fw, draw));
+                h = at - SECTION / 2 + SIDE_PAD - y - 4;
+            } else {
+                final int half = (inner - 10) / 2, lx = x + SIDE_PAD, rx = lx + half + 10;
+                int at = y + SIDE_PAD;
+                final int a = field("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                final int b = field(
+                    "People",
+                    rx,
+                    at,
+                    half,
+                    draw,
+                    (fx, fy, fw) -> people(t, hover, fx, fy, fw, false, draw));
+                at = Math.max(a, b) - SECTION / 2;
+                if (draw) Hyb.rect(x + 1, at, w - 2, 1, SIDE_EDGE);
+                at += 7;
+                // The board and who made it, Delete task at the line's end.
+                final String del = "Delete task";
+                final int dw = Hyb.width(del) + 12, dx = x + w - SIDE_PAD - dw;
+                final List<String> info = parts(boardName() + TaskThings.SEP + madeBy(t), dx - 8 - lx);
+                if (draw) {
+                    for (int i = 0; i < info.size(); i++) drawParts(info.get(i), lx, at + 4 + i * LINE, DIM);
+                    Hyb.bevel(
+                        dx,
+                        at,
+                        dw,
+                        KEY_H,
+                        is(hover, Kind.DELETE) ? Hyb.KEY_HOVER : Hyb.KEY,
+                        Hyb.KEY_HI,
+                        Hyb.KEY_LO,
+                        0,
+                        1);
+                    Hyb.text(del, dx + 6, at + 4, Hyb.RED_INK);
+                    pageHits.add(new Hit(Kind.DELETE, dx, at, dx + dw, at + KEY_H, null));
+                }
+                h = at + Math.max(KEY_H, info.size() * LINE + 6) + SIDE_PAD - y;
+            }
+            return h;
+        }
+
+        private interface Field {
+
+            /** Draws (or measures) a field's value at x, y, w; returns the y under it. */
+            int at(int x, int y, int w);
+        }
+
+        /** A field: its name, muted, and its value under it; returns the y where the next starts. */
+        private int field(final String name, final int x, final int y, final int w, final boolean draw,
+            final Field value) {
+            if (draw) Hyb.text(name, x, y + 1, DIM);
+            return value.at(x, y + LABEL - 2, w) + SECTION / 2 + 4;
+        }
+
+        /** Words wrapped to a width; returns the y under them. */
+        private int words(final String text, final int x, final int y, final int w, final boolean draw) {
+            final NoteText lines = NoteText.of(text, w, Hyb::width);
+            int at = y;
+            for (int i = 0; i < lines.lines()
+                .size(); i++) {
+                if (draw) Hyb.text(lines.shown(i), x, at + 1, Hyb.INK);
+                at += LINE;
+            }
+            return at;
+        }
+
+        private String boardName() {
+            return graph().getName()
+                .isBlank() ? "Task board" : graph().getName();
+        }
+
+        /** "made by you 3d ago", "made by ann 5m ago": who made it and when, as a part of a line. */
+        private String madeBy(final Tasks.Task t) {
+            final String when = TaskLook.ago(t.createdAt());
+            final String by = TaskLook.mine(t.createdBy()) ? "you"
+                : t.createdBy() == null ? null : TaskLook.nameOf(graph(), t.createdBy());
+            String s = "made" + (by == null ? "" : " by " + by) + (when.isEmpty() ? "" : " " + when);
+            if (t.status() == Tasks.Status.DONE && t.doneAt() != null)
+                s += TaskThings.SEP + "done " + TaskLook.ago(t.doneAt());
+            return s;
+        }
+
+        /** "You, 3d ago", "ann, 5m ago": who made it and when. */
+        private String made(final Tasks.Task t) {
+            final String when = TaskLook.ago(t.createdAt());
+            final String by = TaskLook.mine(t.createdBy()) ? "You"
+                : t.createdBy() == null ? null : TaskLook.nameOf(graph(), t.createdBy());
+            String s = by == null ? "" : by;
+            if (!when.isEmpty()) s = s.isEmpty() ? when : s + ", " + when;
+            if (t.status() == Tasks.Status.DONE && t.doneAt() != null) s += ". Done " + TaskLook.ago(t.doneAt());
+            return s.isEmpty() ? "Not known" : s;
+        }
+
+        /** The status as a picker: its dot, its name and a caret, a menu of the four on a click. */
+        private int status(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean draw) {
+            final int h = 18;
+            if (draw) {
+                final boolean hot = is(hover, Kind.STATUS);
+                final int colour = TaskLook.colour(t.status());
+                Hyb.rect(x, y, w, h, hot ? Hyb.mix(colour, CONTROL, 0.5f) : Hyb.mix(colour, CONTROL, 0.65f));
+                Hyb.rect(
+                    x + 1,
+                    y + 1,
+                    w - 2,
+                    h - 2,
+                    hot ? Hyb.mix(colour, CardPaint.SURFACE, 0.22f) : Hyb.mix(colour, CardPaint.SURFACE, 0.14f));
+                TaskLook.dot(x + 6, y + 6, 6, colour);
+                Hyb.text(TaskLook.name(t.status()), x + 16, y + 5, Hyb.INK);
+                // The caret: a small triangle pointing down.
+                final int cx = x + w - 11, cy = y + 7;
+                for (int i = 0; i < 3; i++) Hyb.rect(cx + i, cy + i, 5 - 2 * i, 1, Hyb.MUTED);
+                pageHits.add(new Hit(Kind.STATUS, x, y, x + w, y + h, null));
+            }
+            return y + h;
+        }
+
+        /**
+         * Who is on it, a face and a name a line ({@code names}) or faces side by side; the key to choose who, or to
+         * sign in.
+         */
+        private int people(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean names, final boolean draw) {
+            int at = y;
+            if (names) for (final String id : t.assignees()) {
+                if (draw) {
+                    final int fw = TaskLook.face(graph(), id, x, at);
+                    final String name = TaskLook.mine(id) ? "You" : TaskLook.nameOf(graph(), id);
+                    final String shown = Hyb.width(name == null ? "Someone" : name) <= w - fw - 4
+                        ? name == null ? "Someone" : name
+                        : TaskLook.initials(name);
+                    Hyb.text(shown, x + fw + 4, at + 2, Hyb.INK);
+                }
+                at += TaskLook.FACE + 3;
+            }
+            else if (!t.assignees()
+                .isEmpty()) {
+                    // Faces in a row, wrapping.
+                    int fx = x;
+                    for (final String id : t.assignees()) {
+                        final int fw = TaskLook.faceWidth(TaskLook.initials(TaskLook.nameOf(graph(), id)));
+                        if (fx > x && fx + fw > x + w) {
+                            fx = x;
+                            at += TaskLook.FACE + 3;
+                        }
+                        if (draw) TaskLook.face(graph(), id, fx, at);
+                        fx += fw + 2;
+                    }
+                    at += TaskLook.FACE + 4;
+                }
+            final String me = Account.userId();
+            if (me == null) {
+                if (t.assignees()
+                    .isEmpty()) {
+                    if (draw) Hyb.text("No one yet.", x, at + 1, FAINT);
+                    at += LINE + 2;
+                }
+                final NoteText s = NoteText.of("Sign in to assign", w, Hyb::width);
+                if (draw) {
+                    final boolean hot = is(hover, Kind.SIGN_IN);
+                    for (int i = 0; i < s.lines()
+                        .size(); i++) Hyb.text(s.shown(i), x, at + 1 + i * LINE, hot ? 0xFFFFFFFF : CYAN);
+                    pageHits.add(
+                        new Hit(
+                            Kind.SIGN_IN,
+                            x,
+                            at,
+                            x + w,
+                            at + s.lines()
+                                .size() * LINE,
+                            null));
+                }
+                return at + s.lines()
+                    .size() * LINE;
+            }
+            final boolean shared = !TaskLook.people(graph())
+                .isEmpty();
+            final String s = shared ? "Assign"
+                : t.assignees()
+                    .contains(me) ? "Unassign me" : "Assign me";
+            final int kw = Math.min(w, Hyb.width(s) + 12);
+            if (draw) {
+                Hyb.bevel(
+                    x,
+                    at,
+                    kw,
+                    KEY_H,
+                    is(hover, Kind.ASSIGN) ? Hyb.KEY_HOVER : Hyb.KEY,
+                    Hyb.KEY_HI,
+                    Hyb.KEY_LO,
+                    0,
+                    1);
+                Hyb.text(s, x + 6, at + 4, Hyb.INK);
+                pageHits.add(new Hit(Kind.ASSIGN, x, at, x + kw, at + KEY_H, shared ? Boolean.TRUE : null));
+            }
+            return at + KEY_H;
+        }
+
+        // endregion
+
+        // endregion
+
+        // region Input
+
+        @Override
+        public Result onMousePressed(final int mouseButton) {
+            if (BoardScreen.textFocused(getScreen())) getContext().removeFocus();
+            final Hit hit = hover();
+            final Tasks.Task t = task();
+            if (hit == null || t == null) return Result.ACCEPT;
+            if (mouseButton == 1) {
+                if (hit.kind() == Kind.THING || hit.kind() == Kind.BOX) thingMenu((String) hit.data());
+                return Result.SUCCESS;
+            }
+            if (mouseButton != 0) return Result.ACCEPT;
+            final TaskThings.Shown s = hit.data() instanceof final String id ? shown.get(id) : null;
+            switch (hit.kind()) {
+                case STATUS -> pickStatus(t, hit);
+                case ASSIGN -> assign(t, hit);
+                case SIGN_IN -> {
+                    Hyb.click();
+                    com.gtnhplanner.ui.library.AccountForms.signIn(session.panel(), () -> {});
+                }
+                case BOX -> {
+                    if (s != null) toggle(s);
+                }
+                case THING -> {
+                    // A press on a thing: let go here to act on it, or carry it to a new place.
+                    if (s != null && !s.loose()) {
+                        pressed = s.item()
+                            .id();
+                        pressX = getContext().getAbsMouseX();
+                        pressY = getContext().getAbsMouseY();
+                    } else if (s != null) act(s);
+                }
+                case SHOW -> {
+                    if (s != null && Tasks.LOCATION.equals(s.kind())) showPlace(
+                        s.item()
+                            .place());
+                    else if (s != null) showPlaced(s);
+                }
+                case THING_DELETE -> {
+                    if (s != null) takeOff(s);
+                }
+                case ADD_HERE -> addHere();
+                case ADD_SHOT -> {
+                    Hyb.click();
+                    TaskPictures.take(graph(), taskId);
+                }
+                case COMMENT_DELETE -> {
+                    edit(() -> TaskEdits.removeComment(session.graph(), (String) hit.data()));
+                    Sfx.NOTE_CRUMPLE.play();
+                }
+                case DELETE -> confirmDelete(hit.x0(), hit.y0() - scroll + BAR);
+                default -> {}
+            }
+            return Result.SUCCESS;
+        }
+
+        @Override
+        public void onMouseDrag(final int mouseButton, final long timeSinceClick) {
+            lift();
+        }
+
+        @Override
+        public void onUpdate() {
+            super.onUpdate();
+            lift();
+        }
+
+        /** A thing pressed and moved {@value #DRAG_SLOP} pixels is carried. */
+        private void lift() {
+            if (pressed == null || carrying) return;
+            final int dx = getContext().getAbsMouseX() - pressX, dy = getContext().getAbsMouseY() - pressY;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) < DRAG_SLOP) return;
+            carrying = true;
+            drop = findDrop();
+            Sfx.LIFT.play();
+        }
+
+        @Override
+        public boolean onMouseRelease(final int mouseButton) {
+            if (mouseButton != 0 || pressed == null) return false;
+            release();
+            return true;
+        }
+
+        /** A thing let go: a click acts on it; a carry puts it where it would land. */
+        private void release() {
+            final String id = pressed;
+            pressed = null;
+            final TaskThings.Shown s = shown.get(id);
+            if (!carrying) {
+                if (s != null) act(s);
+                return;
+            }
+            carrying = false;
+            final int to = drop;
+            final List<Tasks.Item> items = TaskEdits.items(graph(), taskId);
+            final Tasks.Item item = TaskEdits.item(graph(), id);
+            if (item != null && items.indexOf(item) != to)
+                edit(() -> TaskEdits.moveItem(session.graph(), id, Math.min(to, items.size() - 1)));
+            Sfx.DROP.play();
+        }
+
+        @Override
+        public boolean onMouseScroll(final UpOrDown direction, final int amount) {
+            scroll = Math.max(0, Math.min(maxScroll(), scroll + (direction == UpOrDown.UP ? -1 : 1) * 24));
+            return true;
+        }
+
+        // endregion
+    }
+
+    // endregion
+
+    // region Menus
+
+    /** A thing's menu: what a click does, where it is, rename, take it off. */
+    private void thingMenu(final String id) {
+        final TaskThings.Shown s = page.shown.get(id);
+        if (s == null) return;
+        Hyb.click();
+        final List<PickList.Entry> rows = new ArrayList<>();
+        switch (s.kind()) {
+            case Tasks.MACHINE -> {
+                if (!s.gone()) rows.add(PickList.Entry.of("Show on its plan", () -> act(s)));
+                if (s.node() != null && !s.node().worldLinks.isEmpty())
+                    rows.add(PickList.Entry.of("Show in the world", () -> showPlaced(s)));
+            }
+            case Tasks.LOCATION -> {
+                if (TaskThings.inThisWorld(
+                    s.item()
+                        .place()))
+                    rows.add(PickList.Entry.of("Show where it is", () -> act(s)));
+                rows.add(PickList.Entry.of("Name it", () -> rename(s.item())));
+            }
+            case Tasks.PICTURE -> rows.add(PickList.Entry.of("See it big", () -> act(s)));
+            default -> rows.add(PickList.Entry.of("Change the words", () -> act(s)));
+        }
+        rows.add(
+            PickList.Entry.of(
+                s.item()
+                    .done() ? "Mark not done" : "Mark done",
+                () -> toggle(s)));
+        rows.add(PickList.Entry.rule());
+        rows.add(new PickList.Entry(null, "Take it off the task", "", Hyb.RED_INK, false, () -> takeOff(s)));
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_task_thing", null, rows, false, 140),
+            getContext().getAbsMouseX(),
+            getContext().getAbsMouseY());
+    }
+
+    /** The four columns, each with its dot; the task's own shaded. */
+    private void pickStatus(final Tasks.Task t, final Hit under) {
+        Hyb.click();
+        final List<PickList.Entry> rows = new ArrayList<>();
+        for (final Tasks.Status s : Tasks.Status.values()) rows.add(
+            new PickList.Entry(
+                null,
+                TaskLook.name(s),
+                "",
+                Hyb.INK,
+                s == t.status(),
+                () -> moveTo(s),
+                TaskLook.colour(s)));
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_task_status", null, rows, false, under.x1() - under.x0()),
+            getArea().x + under.x0(),
+            getArea().y + BAR + under.y1() - page.scroll + 2);
+    }
+
+    private void moveTo(final Tasks.Status s) {
+        final Tasks.Task t = task();
+        if (t == null || s == t.status()) return;
+        edit(
+            () -> TaskEdits.move(
+                session.graph(),
+                taskId,
+                s,
+                TaskEdits.column(session.graph(), s)
+                    .size(),
+                TaskLook.now()));
+        Sfx.TICK.play(1f + 0.1f * s.ordinal());
+    }
+
+    /** The Assign key: on a shared plan, a menu of its people; on a plan of this computer, yourself on or off. */
+    private void assign(final Tasks.Task t, final Hit key) {
+        final String me = Account.userId();
+        if (me == null) return;
+        if (key.data() != null) {
+            Hyb.click();
+            pickPeople(t, key);
+            return;
+        }
+        final List<String> next = new ArrayList<>(t.assignees());
+        final boolean on = !next.remove(me);
+        if (on) next.add(me);
+        put(x -> TaskEdits.withAssignees(x, next));
+        (on ? Sfx.TOGGLE_ON : Sfx.TOGGLE_OFF).play();
     }
 
     /** A shared plan's owner and members, under the Assign key: a pick puts them on the task or takes them off. */
@@ -559,493 +1467,18 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                         if (add) next.add(p.id());
                         put(x -> TaskEdits.withAssignees(x, next));
                         (add ? Sfx.TOGGLE_ON : Sfx.TOGGLE_OFF).play();
-                    }));
+                    },
+                    TaskLook.faceColour(p.id())));
         }
-        Popup.open(
-            getPanel(),
-            PickList.popup("gtnhplanner_task_people", "Who is on it", rows, rows.size() > 8, 150),
-            getArea().x + key.x0(),
-            getArea().y + key.y1() + 2);
-    }
-
-    private void drawNotes() {
-        Hyb.text("Notes", PAD, notesY - LABEL + 1, Hyb.MUTED);
-        Hyb.rect(PAD, notesY, leftW, notesH, CardPaint.EDGE);
-        Hyb.rect(PAD + 1, notesY + 1, leftW - 2, notesH - 2, WELL);
-    }
-
-    /** The cards the task is about, on whatever plans: each a row to click to see it on its plan. */
-    private void drawCards(final Tasks.Task t, @Nullable final Hit hover, final float z,
-        final ModularGuiContext context) {
-        final List<TaskActions.Card> cards = TaskActions.cards(session, graph(), t);
-        final int labelY = cardsY - LABEL + 1;
-        Hyb.text("Cards", PAD, labelY, Hyb.MUTED);
-        Hyb.text(Integer.toString(cards.size()), PAD + Hyb.width("Cards") + 4, labelY, 0xFF6A6C74);
-        final int top = cardsY, bottom = cardsBottom, tw = leftW - 22 - 14;
-        if (cards.isEmpty()) {
-            final List<String> hint = List.of("Right-click cards on a plan", "and Make a task.");
-            for (int i = 0; i < hint.size(); i++) Hyb.text(hint.get(i), PAD + 2, top + 4 + i * 10, 0xFF6A6C74);
-            return;
-        }
-        clip(PAD, top, leftW, bottom - top, context);
-        int y = top - cardsScroll;
-        for (final TaskActions.Card c : cards) {
-            final NoteText words = NoteText.of(
-                c.where()
-                    .isEmpty() ? c.line() : c.line() + " on " + c.where(),
-                tw,
-                Hyb::width);
-            final int rh = Math.max(
-                18,
-                words.lines()
-                    .size() * 10 + 8);
-            final boolean hot = y + rh > top && y < bottom
-                && (is(hover, Kind.CARD, c.link()) || is(hover, Kind.UNLINK, c.link()));
-            if (hot) Hyb.rect(PAD, y, leftW, rh, ROW_HOVER);
-            if (c.icon() != null) Hyb.item(c.icon(), PAD + 2, y + (rh - 16) / 2f, 16, z);
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_LIGHTING);
-            for (int i = 0; i < words.lines()
-                .size(); i++)
-                Hyb.text(
-                    words.shown(i),
-                    PAD + 22,
-                    y + (rh - words.lines()
-                        .size() * 10) / 2f + 1 + i * 10,
-                    c.gone() ? Hyb.MUTED : Hyb.INK);
-            final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-            if (y1 > y0) hits.add(new Hit(Kind.CARD, PAD, y0, PAD + leftW, y1, c.link()));
-            // Hovered, the key that unlinks it.
-            if (hot) {
-                final int ux = PAD + leftW - 12, uy = y + (rh - 10) / 2;
-                final boolean onX = is(hover, Kind.UNLINK, c.link());
-                cross(ux + 5f, uy + 5f, onX ? Hyb.RED_INK : Hyb.MUTED);
-                if (y >= top && y + rh <= bottom)
-                    hits.add(new Hit(Kind.UNLINK, ux - 2, uy - 2, ux + 12, uy + 12, c.link()));
-            }
-            y += rh;
-        }
-        Stencil.remove();
-        cardsH = y + cardsScroll - top;
-        cardsScroll = Math.max(0, Math.min(cardsScroll, cardsH - (bottom - top)));
-    }
-
-    /** The checklist: a box to tick, the words (click to write, drag to move), a card it points at, delete. */
-    private void drawChecklist(final Tasks.Task t, @Nullable final Hit hover, final ModularGuiContext context) {
-        final List<Tasks.Item> items = TaskEdits.items(graph(), taskId);
-        final long ticked = items.stream()
-            .filter(Tasks.Item::done)
-            .count();
-        final int labelY = itemsY - LABEL + 1;
-        Hyb.text("Checklist", rightX, labelY, Hyb.MUTED);
-        if (!items.isEmpty()) {
-            final String n = ticked + "/" + items.size();
-            final int nx = rightX + Hyb.width("Checklist") + 4;
-            Hyb.text(n, nx, labelY, ticked == items.size() ? Hyb.OK_INK : 0xFF6A6C74);
-            final int bx = nx + Hyb.width(n) + 6, bw = rightX + rightW - bx;
-            if (bw > 10) {
-                Hyb.rect(bx, labelY + 3, bw, 3, 0xFF2C2E34);
-                Hyb.rect(bx, labelY + 3, Math.round(bw * ticked / (float) items.size()), 3, Hyb.OK_INK);
-            }
-        }
-        final int top = itemsY, bottom = itemsBottom, tw = rightW - 14 - 30;
-        if (items.isEmpty()) {
-            Hyb.text("Nothing on it yet.", rightX + 2, top + 4, 0xFF6A6C74);
-            return;
-        }
-        clip(rightX, top, rightW, bottom - top, context);
-        int y = top - itemsScroll;
-        int dropY = -1, index = 0;
-        final boolean anyCards = !t.links()
-            .isEmpty();
-        for (final Tasks.Item item : items) {
-            final boolean carried = itemCarrying && item.id()
-                .equals(itemPressed);
-            final NoteText words = NoteText.of(item.text(), tw, Hyb::width);
-            final int rh = Math.max(
-                14,
-                words.lines()
-                    .size() * 10 + 4);
-            if (itemCarrying && index == itemDrop) dropY = y;
-            if (!carried) index++;
-            final boolean rowHot = !itemCarrying && hover != null
-                && item.id()
-                    .equals(hover.data());
-            if (rowHot) Hyb.rect(rightX, y, rightW, rh, ROW_HOVER);
-            if (carried) Hyb.rect(rightX, y, rightW, rh, 0x3022D3EE);
-            // The box.
-            final int bx = rightX + 2, by = y + 3;
-            final boolean boxHot = is(hover, Kind.BOX, item.id());
-            Hyb.rect(bx, by, 9, 9, item.done() ? Hyb.OK_INK : boxHot ? 0xFF8F939C : 0xFF5A5D66);
-            if (!item.done()) Hyb.rect(bx + 1, by + 1, 7, 7, WELL);
-            else {
-                // A tick in the box.
-                Hyb.rect(bx + 2, by + 4, 1, 2, 0xFF0B1A12);
-                Hyb.rect(bx + 3, by + 5, 1, 2, 0xFF0B1A12);
-                Hyb.rect(bx + 4, by + 4, 1, 2, 0xFF0B1A12);
-                Hyb.rect(bx + 5, by + 3, 1, 2, 0xFF0B1A12);
-                Hyb.rect(bx + 6, by + 2, 1, 2, 0xFF0B1A12);
-            }
-            for (int i = 0; i < words.lines()
-                .size(); i++) Hyb.text(words.shown(i), rightX + 15, y + 3 + i * 10, item.done() ? 0xFF8A8C94 : Hyb.INK);
-            final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-            if (y1 > y0) {
-                hits.add(new Hit(Kind.ITEM, rightX, y0, rightX + rightW, y1, item.id()));
-                hits.add(new Hit(Kind.BOX, rightX, y0, rightX + 13, y1, item.id()));
-            }
-            final boolean inView = y >= top && y + rh <= bottom;
-            // A line pointing at a card shows it; hovered, its keys.
-            final int kx = rightX + rightW - 24, ky = y + 2;
-            if (item.link() != null || rowHot && anyCards) {
-                final boolean on = is(hover, Kind.ITEM_LINK, item.id());
-                Icons.card(kx, ky + 1, item.link() != null ? on ? 0xFFFFFFFF : CYAN : on ? Hyb.INK : Hyb.MUTED);
-                if (inView) hits.add(new Hit(Kind.ITEM_LINK, kx - 2, ky - 1, kx + 11, ky + 11, item.id()));
-            }
-            if (rowHot) {
-                final boolean on = is(hover, Kind.ITEM_DELETE, item.id());
-                cross(kx + 18f, ky + 5.5f, on ? Hyb.RED_INK : Hyb.MUTED);
-                if (inView) hits.add(new Hit(Kind.ITEM_DELETE, kx + 12, ky - 1, kx + 24, ky + 11, item.id()));
-            }
-            y += rh;
-        }
-        if (itemCarrying && dropY < 0) dropY = y;
-        if (itemCarrying) Hyb.rect(rightX, dropY - 1, rightW, 2, CYAN);
-        Stencil.remove();
-        // The line in hand follows the mouse, lifted.
-        final Tasks.Item carried = itemCarrying ? TaskEdits.item(graph(), itemPressed) : null;
-        if (carried != null) {
-            final NoteText words = NoteText.of(carried.text(), tw, Hyb::width);
-            final int rh = Math.max(
-                14,
-                words.lines()
-                    .size() * 10 + 4),
-                cy = Math.max(top, Math.min(bottom, pageMouseY())) - rh / 2;
-            Hyb.rect(rightX + 3, cy + 4, rightW, rh, 0x50000000);
-            Hyb.rect(rightX, cy, rightW, rh, CardPaint.EDGE);
-            Hyb.rect(rightX + 1, cy + 1, rightW - 2, rh - 2, ROW_HOVER);
-            for (int i = 0; i < words.lines()
-                .size(); i++) Hyb.text(words.shown(i), rightX + 15, cy + 3 + i * 10, Hyb.INK);
-        }
-        itemsH = y + itemsScroll - top;
-        itemsScroll = Math.max(0, Math.min(itemsScroll, itemsH - (bottom - top)));
-        if (itemCarrying) findItemDrop(items);
-    }
-
-    /** Where a carried line would land: before the first other line whose middle is below the mouse. */
-    private void findItemDrop(final List<Tasks.Item> items) {
-        final int tw = rightW - 14 - 30, my = pageMouseY();
-        int y = itemsY - itemsScroll, index = 0, drop = -1;
-        for (final Tasks.Item item : items) {
-            final int rh = Math.max(
-                14,
-                NoteText.of(item.text(), tw, Hyb::width)
-                    .lines()
-                    .size() * 10 + 4);
-            if (!item.id()
-                .equals(itemPressed)) {
-                if (drop < 0 && my < y + rh / 2) drop = index;
-                index++;
-            }
-            y += rh;
-        }
-        itemDrop = drop < 0 ? index : drop;
-    }
-
-    /** The comments, oldest first: a face, who and when, then the words; your own has Delete while hovered. */
-    private void drawComments(final Tasks.Task t, @Nullable final Hit hover, final ModularGuiContext context) {
-        final List<Tasks.Comment> comments = TaskEdits.comments(graph(), taskId);
-        final int labelY = commentsY - LABEL + 1;
-        Hyb.text("Comments", rightX, labelY, Hyb.MUTED);
-        if (!comments.isEmpty())
-            Hyb.text(Integer.toString(comments.size()), rightX + Hyb.width("Comments") + 4, labelY, 0xFF6A6C74);
-        final int top = commentsY, bottom = commentsBottom, tw = rightW - 6;
-        if (comments.isEmpty()) Hyb.text("No comments yet.", rightX + 2, top + 4, 0xFF6A6C74);
-        else {
-            clip(rightX, top, rightW, bottom - top, context);
-            int y = top - commentsScroll;
-            for (final Tasks.Comment c : comments) {
-                final NoteText words = NoteText.of(c.text(), tw, Hyb::width);
-                final int rh = 14 + words.lines()
-                    .size() * 10 + 6;
-                // The whole comment is a row, so hovering it shows its Delete.
-                final int y0 = Math.max(top, y), y1 = Math.min(bottom, y + rh);
-                if (y1 > y0) hits.add(new Hit(Kind.COMMENT, rightX, y0, rightX + rightW, y1, c.id()));
-                final boolean rowHot = hover != null && c.id()
-                    .equals(hover.data());
-                final int fw = TaskLook.face(graph(), c.by(), rightX + 1, y);
-                final String who = c.byName()
-                    .isEmpty() ? "Someone" : c.byName();
-                Hyb.text(who, rightX + fw + 5, y + 2, Hyb.INK);
-                Hyb.text(TaskLook.ago(c.at()), rightX + fw + 5 + Hyb.width(who) + 5, y + 2, 0xFF6A6C74);
-                if (TaskLook.mine(c.by()) && rowHot) {
-                    final String del = "Delete";
-                    final int dx = rightX + rightW - Hyb.width(del) - 2;
-                    final boolean on = is(hover, Kind.COMMENT_DELETE, c.id());
-                    Hyb.text(del, dx, y + 2, on ? 0xFFFF8080 : Hyb.RED_INK);
-                    if (y >= top)
-                        hits.add(new Hit(Kind.COMMENT_DELETE, dx - 2, y, dx + Hyb.width(del) + 2, y + 12, c.id()));
-                }
-                for (int i = 0; i < words.lines()
-                    .size(); i++) Hyb.text(words.shown(i), rightX + 2, y + 15 + i * 10, 0xFFD4D5DA);
-                y += rh;
-            }
-            Stencil.remove();
-            commentsH = y + commentsScroll - top;
-            commentsScroll = Math.max(0, Math.min(commentsScroll, commentsH - (bottom - top)));
-        }
-        // The box to write in, and its key.
-        Hyb.rect(rightX, commentBoxY, rightW - 64, 26, CardPaint.EDGE);
-        Hyb.rect(rightX + 1, commentBoxY + 1, rightW - 66, 24, WELL);
-        final int kx = rightX + rightW - 58, ky = commentBoxY + 5;
-        final boolean hot = is(hover, Kind.POST);
-        Hyb.rect(kx, ky, 58, KEY_H, hot ? 0xFF38E1F5 : CYAN);
-        Hyb.rect(kx, ky, 58, 1, 0x66FFFFFF);
-        Hyb.text("Comment", kx + (58 - Hyb.width("Comment")) / 2f, ky + 4, 1f, 0xFF0B1A1E, false);
-        hits.add(new Hit(Kind.POST, kx, ky, kx + 58, ky + KEY_H, null));
-    }
-
-    /** Who made it and when; the key that deletes it. */
-    private void drawFoot(final Tasks.Task t, @Nullable final Hit hover) {
-        final int y = h - FOOT;
-        Hyb.rect(1, y, boxW - 2, 1, CardPaint.HAIR);
-        final String by = t.createdBy() == null ? null : TaskLook.nameOf(graph(), t.createdBy());
-        final String when = TaskLook.ago(t.createdAt());
-        final String made = TaskLook.mine(t.createdBy()) ? "You made it" + (when.isEmpty() ? "" : " " + when)
-            : by != null ? "Made by " + by + (when.isEmpty() ? "" : " " + when) : when.isEmpty() ? "" : "Made " + when;
-        Hyb.text(made, PAD, y + 9, 0xFF6A6C74);
-        final String del = "Delete task";
-        final int kw = Hyb.width(del) + 12, kx = boxW - PAD - kw, ky = y + 5;
-        Hyb.bevel(kx, ky, kw, KEY_H, is(hover, Kind.DELETE) ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
-        Hyb.text(del, kx + 6, ky + 4, Hyb.RED_INK);
-        hits.add(new Hit(Kind.DELETE, kx, ky, kx + kw, ky + KEY_H, null));
-    }
-
-    private static void cross(final float cx, final float cy, final int colour) {
-        for (int d = -3; d <= 3; d++) {
-            Hyb.rect(cx + d - 0.5f, cy + d - 0.5f, 1, 1, colour);
-            Hyb.rect(cx + d - 0.5f, cy - d - 0.5f, 1, 1, colour);
-        }
-    }
-
-    /** Tips wait until the mouse has rested on their thing a moment. */
-    private final Tip.Wait tipWait = new Tip.Wait();
-
-    @Override
-    public void drawOverlay(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
-        super.drawOverlay(context, widgetTheme);
-        // A menu or form over the box explains itself.
-        if (getScreen().getPanelManager()
-            .getTopMostPanel() != getPanel()) return;
-        final Hit hover = itemCarrying ? null : hitAt(lastHits);
-        if (!tipWait.ready(hover == null ? null : hover.kind() + ":" + hover.data())) return;
-        final Tip tip = tip(hover);
-        if (tip != null) tip.drawNear(mouseX(), mouseY(), boxW, h);
-    }
-
-    @Nullable
-    private Tip tip(@Nullable final Hit hit) {
-        if (hit == null) return null;
-        return switch (hit.kind()) {
-            case CLOSE -> Tip.of("Close (Esc)");
-            case STATUS -> Tip.of("Move it to " + TaskLook.name((Tasks.Status) hit.data()));
-            case ASSIGN -> Tip.of("Put yourself on this task or take yourself off");
-            case SIGN_IN -> Tip.of("Sign in to your account");
-            case CARD -> Tip.of("Show it on its plan");
-            case UNLINK -> Tip.of("Unlink this card");
-            case BOX -> Tip.of("Tick it off");
-            case ITEM -> Tip.of("A line of the checklist")
-                .action(Tip.Input.LEFT, "Change the words")
-                .action(Tip.Input.DRAG, "Move it");
-            case COMMENT -> null;
-            case ITEM_LINK -> Tip.of("Point this line at one of the task's cards");
-            case ITEM_DELETE -> Tip.of("Delete this line");
-            case COMMENT_DELETE -> Tip.of("Delete your comment");
-            case POST -> Tip.of("Add your comment");
-            case DELETE -> Tip.of("Delete this task with its checklist and comments");
-        };
-    }
-
-    // endregion
-
-    // region Input
-
-    @Override
-    public Result onMousePressed(final int mouseButton) {
-        // A press anywhere in the box but its fields ends the writing (what was written goes in), so the keys are the
-        // board's again: undo, redo.
-        if (BoardScreen.textFocused(getScreen())) getContext().removeFocus();
-        final Hit hit = hitAt(lastHits);
-        final Tasks.Task t = task();
-        if (hit == null || t == null) return Result.ACCEPT;
-        if (mouseButton != 0) return Result.ACCEPT;
-        switch (hit.kind()) {
-            case CLOSE -> close();
-            case STATUS -> {
-                final Tasks.Status s = (Tasks.Status) hit.data();
-                if (s != t.status()) {
-                    edit(
-                        () -> TaskEdits.move(
-                            session.graph(),
-                            taskId,
-                            s,
-                            TaskEdits.column(session.graph(), s)
-                                .size(),
-                            TaskLook.now()));
-                    Sfx.TICK.play(1f + 0.1f * s.ordinal());
-                }
-            }
-            case ASSIGN -> {
-                final String me = Account.userId();
-                if (me == null) break;
-                if (hit.data() != null) {
-                    Hyb.click();
-                    pickPeople(t, hit);
-                    break;
-                }
-                final List<String> next = new ArrayList<>(t.assignees());
-                final boolean on = !next.remove(me);
-                if (on) next.add(me);
-                put(x -> TaskEdits.withAssignees(x, next));
-                (on ? Sfx.TOGGLE_ON : Sfx.TOGGLE_OFF).play();
-            }
-            case SIGN_IN -> {
-                Hyb.click();
-                com.gtnhplanner.ui.library.AccountForms.signIn(session.panel(), () -> {});
-            }
-            case CARD -> show((Tasks.Link) hit.data());
-            case UNLINK -> unlink(t, (Tasks.Link) hit.data());
-            case BOX -> {
-                final Tasks.Item item = TaskEdits.item(graph(), (String) hit.data());
-                if (item != null) {
-                    putItem(TaskEdits.withDone(item, !item.done()));
-                    (item.done() ? Sfx.TOGGLE_OFF : Sfx.TOGGLE_ON).play();
-                }
-            }
-            case ITEM -> {
-                // A checklist line: let go here to write in it, or carry it.
-                itemPressed = (String) hit.data();
-                itemPressX = getContext().getAbsMouseX();
-                itemPressY = getContext().getAbsMouseY();
-            }
-            case COMMENT -> {}
-            case ITEM_LINK -> openItemLink(t, (String) hit.data(), hit);
-            case ITEM_DELETE -> {
-                edit(() -> TaskEdits.removeItem(session.graph(), (String) hit.data()));
-                Sfx.NOTE_CRUMPLE.play();
-            }
-            case COMMENT_DELETE -> {
-                edit(() -> TaskEdits.removeComment(session.graph(), (String) hit.data()));
-                Sfx.NOTE_CRUMPLE.play();
-            }
-            case POST -> post();
-            case DELETE -> confirmDelete(hit);
-        }
-        return Result.SUCCESS;
-    }
-
-    @Override
-    public void onMouseDrag(final int mouseButton, final long timeSinceClick) {
-        liftItem();
-    }
-
-    /**
-     * A checklist line pressed and moved {@value #DRAG_SLOP} pixels is carried. As the mouse moves, and every frame.
-     */
-    private void liftItem() {
-        if (itemPressed == null || itemCarrying) return;
-        final int dx = getContext().getAbsMouseX() - itemPressX, dy = getContext().getAbsMouseY() - itemPressY;
-        if (Math.max(Math.abs(dx), Math.abs(dy)) < DRAG_SLOP) return;
-        itemCarrying = true;
-        Sfx.LIFT.play();
-    }
-
-    @Override
-    public boolean onMouseRelease(final int mouseButton) {
-        if (mouseButton != 0 || itemPressed == null) return false;
-        releaseItem();
-        return true;
-    }
-
-    /** A checklist line let go: a click writes in it; a carry puts it where it would land. */
-    private void releaseItem() {
-        final String id = itemPressed;
-        itemPressed = null;
-        final Tasks.Item item = TaskEdits.item(graph(), id);
-        if (item == null) {
-            itemCarrying = false;
-            return;
-        }
-        if (!itemCarrying) {
-            Popup.open(session.panel(), TextPopup.create("Checklist line", item.text(), text -> {
-                if (text == null || text.isBlank()) return;
-                final Tasks.Item now = TaskEdits.item(session.graph(), id);
-                if (now != null && !text.strip()
-                    .equals(now.text())) putItem(TaskEdits.withText(now, text));
-            }), getContext().getAbsMouseX(), getContext().getAbsMouseY());
-            return;
-        }
-        itemCarrying = false;
-        final List<Tasks.Item> items = TaskEdits.items(graph(), taskId);
-        final int was = items.indexOf(item), to = itemDrop;
-        if (was != to) edit(() -> TaskEdits.moveItem(session.graph(), id, to));
-        Sfx.DROP.play();
-    }
-
-    @Override
-    public boolean onMouseScroll(final UpOrDown direction, final int amount) {
-        final int step = (direction == UpOrDown.UP ? -1 : 1) * 20, x = mouseX(), y = pageMouseY();
-        // A list under the mouse scrolls while it has further to go that way; else the page does.
-        if (x >= PAD && x < PAD + leftW
-            && y >= cardsY
-            && y < cardsBottom
-            && moves(cardsScroll, cardsH - (cardsBottom - cardsY), step)) cardsScroll = Math.max(0, cardsScroll + step);
-        else if (x >= rightX && y >= itemsY
-            && y < itemsBottom
-            && moves(itemsScroll, itemsH - (itemsBottom - itemsY), step)) itemsScroll = Math.max(0, itemsScroll + step);
-        else if (x >= rightX && y >= commentsY
-            && y < commentsBottom
-            && moves(commentsScroll, commentsH - (commentsBottom - commentsY), step))
-            commentsScroll = Math.max(0, commentsScroll + step);
-        else page = Math.max(0, Math.min(maxPage(), page + step));
-        return true;
-    }
-
-    /** Whether a list scrolled {@code at} of {@code max} goes anywhere by {@code step}. */
-    private static boolean moves(final int at, final int max, final int step) {
-        return step < 0 ? at > 0 : at < max;
-    }
-
-    /** Which of the task's cards a checklist line points at: one of them, none, or show the one it has. */
-    private void openItemLink(final Tasks.Task t, final String itemId, final Hit under) {
-        final Tasks.Item item = TaskEdits.item(graph(), itemId);
-        if (item == null) return;
-        Hyb.click();
-        final List<PickList.Entry> rows = new ArrayList<>();
-        if (item.link() != null) rows.add(PickList.Entry.of("Show it on its plan", () -> show(item.link())));
-        for (final TaskActions.Card c : TaskActions.cards(session, graph(), t)) {
-            if (c.gone()) continue;
-            final boolean current = c.link()
-                .equals(item.link());
-            rows.add(
-                new PickList.Entry(
-                    c.icon(),
-                    c.line(),
-                    "",
-                    Hyb.INK,
-                    current,
-                    () -> putItem(TaskEdits.withLink(item, c.link()))));
-        }
-        if (item.link() != null)
-            rows.add(PickList.Entry.of("Point at no card", () -> putItem(TaskEdits.withLink(item, null))));
-        if (rows.isEmpty()) return;
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_task_item_card", null, rows, false, 160),
-            getArea().x + under.x0(),
-            getArea().y + under.y1() + 2);
+            PickList.popup("gtnhplanner_task_people", "Who is on it", rows, rows.size() > 8, 150),
+            getArea().x + key.x0(),
+            getArea().y + BAR + key.y1() - page.scroll + 2);
     }
 
-    /** Asks before deleting the task: its checklist and comments go with it. */
-    private void confirmDelete(final Hit under) {
+    /** Asks before deleting the task: its things and comments go with it. */
+    private void confirmDelete(final int x, final int y) {
         Hyb.click();
         final List<PickList.Entry> rows = List.of(new PickList.Entry(null, "Delete it", "", Hyb.RED_INK, false, () -> {
             edit(() -> TaskEdits.remove(session.graph(), taskId));
@@ -1054,8 +1487,161 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         Popup.open(
             session.panel(),
             PickList.popup("gtnhplanner_task_delete", "Delete this task for good?", rows, false, 150),
-            getArea().x + under.x0(),
-            getArea().y + under.y0() - 64);
+            getArea().x + x,
+            getArea().y + y - 64);
+    }
+
+    // endregion
+
+    // region Tips and input in the bar and the foot
+
+    /** Tips wait until the mouse has rested on their thing a moment. */
+    private final Tip.Wait tipWait = new Tip.Wait();
+
+    @Nullable
+    private Tip tip(@Nullable final Hit hit) {
+        if (hit == null) return null;
+        final TaskThings.Shown s = hit.data() instanceof final String id ? page.shown.get(id) : null;
+        return switch (hit.kind()) {
+            case CLOSE -> Tip.of("Close (Esc)");
+            case STATUS -> Tip.of("Move it to another column");
+            case ASSIGN -> Tip.of(hit.data() != null ? "Choose who is on it" : "Put yourself on it or take yourself off");
+            case SIGN_IN -> Tip.of("Sign in to your account");
+            case BOX -> s == null ? null
+                : Tip.of(
+                    s.item()
+                        .done() ? "Not done after all" : "Tick it off");
+            case THING -> s == null ? null : thingTip(s);
+            case SHOW -> s == null ? null
+                : Tip.of(Tasks.LOCATION.equals(s.kind()) ? "Show where it is" : "Show it in the world")
+                    .sub("The planner closes and a beam marks the spot");
+            case THING_DELETE -> Tip.of("Take it off the task");
+            case ADD_HERE -> Tip.of("Add the spot you stand on");
+            case ADD_SHOT -> Tip.of("Add a screenshot of the world")
+                .sub("The planner steps aside for the shot and comes back");
+            case COMMENT -> null;
+            case COMMENT_DELETE -> Tip.of("Delete your comment");
+            case POST -> Tip.of("Add your comment");
+            case DELETE -> Tip.of("Delete this task with its things and comments");
+        };
+    }
+
+    private Tip thingTip(final TaskThings.Shown s) {
+        final Tip tip = Tip.of(s.words());
+        if (!s.detail()
+            .isEmpty())
+            tip.sub(
+                s.detail()
+                    .replace(TaskThings.SEP, ", "));
+        switch (s.kind()) {
+            case Tasks.MACHINE -> {
+                if (!s.gone()) tip.action(Tip.Input.LEFT, "Show it on its plan");
+            }
+            case Tasks.LOCATION -> tip.action(Tip.Input.LEFT, "Show where it is");
+            case Tasks.PICTURE -> tip.action(Tip.Input.LEFT, "See it big");
+            default -> tip.action(Tip.Input.LEFT, "Change the words");
+        }
+        if (!s.loose()) tip.action(Tip.Input.DRAG, "Move it");
+        return tip.action(Tip.Input.RIGHT, "More");
+    }
+
+    @Override
+    public Result onMousePressed(final int mouseButton) {
+        // A press anywhere in the box but its fields ends the writing (what was written goes in), so the keys are the
+        // board's again: undo, redo.
+        if (BoardScreen.textFocused(getScreen())) getContext().removeFocus();
+        final Hit hit = hitAt(lastHits, mouseX(), mouseY());
+        if (hit == null || mouseButton != 0) return Result.ACCEPT;
+        switch (hit.kind()) {
+            case CLOSE -> close();
+            case POST -> post();
+            case DELETE -> confirmDelete(hit.x0(), hit.y0());
+            default -> {}
+        }
+        return Result.SUCCESS;
+    }
+
+    private static boolean is(@Nullable final Hit hover, final Kind kind) {
+        return hover != null && hover.kind() == kind;
+    }
+
+    private static boolean is(@Nullable final Hit hover, final Kind kind, final Object data) {
+        return is(hover, kind) && data.equals(hover.data());
+    }
+
+    @Nullable
+    private static Hit hitAt(final List<Hit> from, final int x, final int y) {
+        for (int i = from.size() - 1; i >= 0; i--) if (from.get(i)
+            .contains(x, y)) return from.get(i);
+        return null;
+    }
+
+    /**
+     * A line of parts joined by {@link TaskThings#SEP}, wrapped to a width a whole part at a time (a part wider than
+     * the width wraps at its words), so "11 m north" is never split across lines.
+     */
+    static List<String> parts(final String text, final int width) {
+        final List<String> out = new ArrayList<>();
+        if (text.isEmpty()) return out;
+        String line = "";
+        for (final String part : text.split(java.util.regex.Pattern.quote(TaskThings.SEP))) {
+            final String next = line.isEmpty() ? part : line + TaskThings.SEP + part;
+            if (partsWidth(next) <= width) {
+                line = next;
+                continue;
+            }
+            if (!line.isEmpty()) out.add(line);
+            line = "";
+            if (Hyb.width(part) <= width) {
+                line = part;
+                continue;
+            }
+            final NoteText words = NoteText.of(part, width, Hyb::width);
+            for (int i = 0; i < words.lines()
+                .size() - 1; i++) out.add(words.shown(i));
+            line = words.shown(
+                words.lines()
+                    .size() - 1);
+        }
+        if (!line.isEmpty()) out.add(line);
+        return out;
+    }
+
+    /** The room between two parts of a line, where a small dot sits. */
+    private static final int SEP_W = 11;
+
+    private static List<String> split(final String line) {
+        return List.of(line.split(java.util.regex.Pattern.quote(TaskThings.SEP)));
+    }
+
+    /** How wide a line of parts draws: its parts, and a dot's room between each two. */
+    static int partsWidth(final String line) {
+        final List<String> parts = split(line);
+        int w = (parts.size() - 1) * SEP_W;
+        for (final String p : parts) w += Hyb.width(p);
+        return w;
+    }
+
+    /** A line of parts, a small dot between each two (the font's middle dot reads as a dash). */
+    static void drawParts(final String line, final float x, final float y, final int colour) {
+        float at = x;
+        boolean first = true;
+        for (final String p : split(line)) {
+            if (!first) {
+                Hyb.rect(at + 4, y + 3, 2, 2, Hyb.mix(colour, 0xFF000000, 0.8f));
+                at += SEP_W;
+            }
+            first = false;
+            Hyb.text(p, at, y, colour);
+            at += Hyb.width(p);
+        }
+    }
+
+    static void cross(final float cx, final float cy, final int colour) {
+        for (int d = -3; d <= 3; d++) {
+            Hyb.rect(cx + d - 0.5f, cy + d - 0.5f, 1, 1, colour);
+            Hyb.rect(cx + d - 0.5f, cy - d - 0.5f, 1, 1, colour);
+        }
     }
 
     // endregion
@@ -1069,24 +1655,53 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         if (p == null || p.closed) return null;
         final Map<String, Object> out = new LinkedHashMap<>();
         out.put("task", p.taskId);
+        out.put("size", List.of(p.boxW, p.boxH));
+        out.put("wide", p.wide);
+        out.put("scroll", p.page.scroll);
+        out.put("pageHeight", p.page.pageH);
         final Map<String, Object> parts = new LinkedHashMap<>();
-        for (final Hit h : p.lastHits) {
-            if (h.x0() < 0) continue;
-            final String key = h.kind()
-                .name()
-                .toLowerCase(java.util.Locale.ROOT) + (h.data() == null ? "" : ":" + h.data());
-            parts.putIfAbsent(key, p.rect(h.x0(), h.y0(), h.x1() - h.x0(), h.y1() - h.y0()));
+        for (final Hit h : p.lastHits)
+            parts.putIfAbsent(key(h), p.rect(h.x0(), h.y0(), h.x1() - h.x0(), h.y1() - h.y0()));
+        for (final Hit h : p.page.lastPageHits) {
+            final int y0 = Math.max(0, h.y0() - p.page.scroll), y1 = Math.min(p.page.windowH(), h.y1() - p.page.scroll);
+            if (y1 <= y0) continue;
+            parts.putIfAbsent(key(h), p.rect(h.x0(), BAR + y0, h.x1() - h.x0(), y1 - y0));
         }
-        parts.put("title", p.rect(p.titleField));
-        parts.put("notes", p.rect(p.notes));
-        parts.put("add", p.rect(p.addField));
-        parts.put("comment", p.rect(p.comment));
+        parts.put(
+            "title",
+            p.rect(
+                p.title.getArea().rx,
+                BAR + p.title.getArea().ry,
+                p.title.getArea().width,
+                p.title.getArea().height));
+        parts.put(
+            "notes",
+            p.rect(
+                p.notes.getArea().rx,
+                BAR + p.notes.getArea().ry,
+                p.notes.getArea().width,
+                p.notes.getArea().height));
+        parts.put(
+            "comment",
+            p.rect(
+                p.comment.getArea().rx,
+                p.comment.getArea().ry,
+                p.comment.getArea().width,
+                p.comment.getArea().height));
         out.put("parts", parts);
         return out;
     }
 
-    private Map<String, Object> rect(final com.cleanroommc.modularui.widget.Widget<?> w) {
-        return rect(w.getArea().rx, w.getArea().ry, w.getArea().width, w.getArea().height);
+    /** Scrolls the open box's page to {@code y} (clamped), for the harness. */
+    public static void scrollTo(final int y) {
+        final TaskPanel p = showing.get();
+        if (p != null) p.page.scroll = y;
+    }
+
+    private static String key(final Hit h) {
+        return h.kind()
+            .name()
+            .toLowerCase(java.util.Locale.ROOT) + (h.data() == null ? "" : ":" + h.data());
     }
 
     private Map<String, Object> rect(final int lx, final int ly, final int lw, final int lh) {
@@ -1094,19 +1709,6 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final int w = PlannerScale.toGame(getArea().x + lx + lw) - x,
             hh = PlannerScale.toGame(getArea().y + ly + lh) - y;
         return Map.of("x", x, "y", y, "w", w, "h", hh, "cx", x + w / 2, "cy", y + hh / 2);
-    }
-
-    // endregion
-
-    // region Helpers
-
-    @Nullable
-    private Hit hitAt(final List<Hit> from) {
-        if (!isHovering()) return null;
-        final int x = mouseX(), y = mouseY();
-        for (int i = from.size() - 1; i >= 0; i--) if (from.get(i)
-            .contains(x, y)) return from.get(i);
-        return null;
     }
 
     // endregion
