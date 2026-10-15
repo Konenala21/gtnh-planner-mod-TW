@@ -678,11 +678,6 @@ public final class CloudSession {
         d.joining();
     }
 
-    /** Joins again in a moment: the service asked for fewer batches. */
-    void rejoinSoon(final LiveDoc d) {
-        tried.put("rejoin:" + d.key(), System.currentTimeMillis());
-    }
-
     void notice(final String text) {
         host.notice(text);
     }
@@ -834,11 +829,7 @@ public final class CloudSession {
         final Set<String> joined = c.joined();
         for (final LiveDoc d : want) {
             wanted.put(d.key(), now);
-            final Long again = tried.get("rejoin:" + d.key());
-            if (again != null && now - again > 2_000) {
-                tried.remove("rejoin:" + d.key());
-                rejoin(d);
-            } else if (!joined.contains(d.key())) {
+            if (!joined.contains(d.key())) {
                 c.join(d.key());
                 d.joining();
             }

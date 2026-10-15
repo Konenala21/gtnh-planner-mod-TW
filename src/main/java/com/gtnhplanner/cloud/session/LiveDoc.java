@@ -42,10 +42,12 @@ import com.gtnhplanner.library.PlanExport;
  */
 public final class LiveDoc {
 
-    /** Batches are cut below this size: the service takes 256 KB. */
-    public static final int MAX_BATCH_BYTES = 200 * 1024;
+    /** The most bytes (UTF-8 JSON) of one whole ops frame: the service takes 256 KB a batch, this leaves headroom. */
+    public static final int MAX_FRAME_BYTES = 240 * 1024;
     /** How often, at most, the confirmed plan is written to this device's copy while it changes. */
     static final long SAVE_EVERY_MS = 2_000;
+    /** A batch the service called too fast is sent again after this long. */
+    static final long RATE_RETRY_MS = 3_000;
 
     private final CloudSession session;
     private final String key;
@@ -64,6 +66,8 @@ public final class LiveDoc {
     private boolean behind;
     /** A snapshot came since the room was last joined: batches sent now are heard, and ones heard count. */
     private boolean inRoom;
+    /** Nothing is sent before this time (millis), after the service said a batch came too fast. */
+    private long holdUntil;
 
     private String role = "";
     @Nullable
@@ -314,6 +318,42 @@ public final class LiveDoc {
      * so only what the player did goes, cut into batches the service takes; each kept on disk, then sent. True when
      * anything went.
      */
+    /**
+     * What a frame carries besides its ops, measured on one with none (a long cid and base stand in for any), and a
+     * margin; the ops then fit what is left of {@link #MAX_FRAME_BYTES}.
+     */
+    int maxOpBytes() {
+        final JsonObject f = new JsonObject();
+        f.addProperty("t", "ops");
+        f.addProperty("doc", key);
+        f.addProperty("base", Long.MAX_VALUE);
+        f.addProperty("cid", "0123456789abcdef0123456789abcdef0123456789abcdef");
+        f.add("ops", new JsonArray());
+        return MAX_FRAME_BYTES - f.toString()
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8).length - 256;
+    }
+
+    /**
+     * Tells the player, and the log, of ops too big to send (a huge card): they are kept out of the pending batches.
+     */
+    private void warnTooBig() {
+        final List<LiveOp> big = state.takeTooBig();
+        if (big.isEmpty()) return;
+        for (final LiveOp op : big) GtnhPlanner.LOG.warn(
+            "An edit to {} is too big for the live service ({} bytes of {} allowed) and was not sent: {} {}",
+            key,
+            LiveState.size(op),
+            maxOpBytes(),
+            op.toJson()
+                .get("o"),
+            op.toJson()
+                .has("id")
+                    ? op.toJson()
+                        .get("id")
+                    : "");
+        session.notice("A card is too big to share and stays on this device only");
+    }
+
     boolean commit() {
         final Graph g = read.graph();
         if (g.version() == synced) return false;
@@ -321,7 +361,8 @@ public final class LiveDoc {
         final List<LiveOp> ops = CloudPlans.diff(read.plan(), w.plan());
         synced = g.version();
         final boolean caughtUp = !behind;
-        final List<LiveState.Batch> batches = ops.isEmpty() ? List.of() : state.local(ops, MAX_BATCH_BYTES);
+        final List<LiveState.Batch> batches = ops.isEmpty() ? List.of() : state.local(ops, maxOpBytes());
+        warnTooBig();
         // Caught up, the board is the live copy: what follows reads against its objects, sharing the most.
         read = read.after(w, caughtUp && !batches.isEmpty() ? state.view() : w.plan());
         for (final LiveState.Batch b : batches) keep(b);
@@ -366,12 +407,16 @@ public final class LiveDoc {
     /** Undoes this player's last own edit (as a new edit); false when there is none. Read in by the next catch-up. */
     boolean undo() {
         commit();
-        return applyOwn(state.undo(MAX_BATCH_BYTES));
+        final boolean did = applyOwn(state.undo(maxOpBytes()));
+        warnTooBig();
+        return did;
     }
 
     boolean redo() {
         commit();
-        return applyOwn(state.redo(MAX_BATCH_BYTES));
+        final boolean did = applyOwn(state.redo(maxOpBytes()));
+        warnTooBig();
+        return did;
     }
 
     private boolean applyOwn(final List<LiveState.Batch> batches) {
@@ -391,7 +436,7 @@ public final class LiveDoc {
 
     /** Sends the waiting batches whose copies are on disk, oldest first, while in the room. */
     void send(final LiveClient client) {
-        if (!inRoom || !client.ready()) return;
+        if (!inRoom || !client.ready() || System.currentTimeMillis() < holdUntil) return;
         while (!unsent.isEmpty()) {
             final String cid = unsent.peekFirst();
             final LiveState.Batch b = pendingBatch(cid);
@@ -463,6 +508,8 @@ public final class LiveDoc {
     void ops(final LiveClient.OpsBatch b) {
         if (!inRoom) return;
         final LiveOps.Read r = LiveOps.read(b.ops());
+        final LiveState.Batch sent = b.cid()
+            .isEmpty() ? null : pendingBatch(b.cid());
         if (r.ops() == null) {
             GtnhPlanner.LOG.warn("A batch for {} did not read ({}); joining again", key, r.error());
             session.rejoin(this);
@@ -473,18 +520,32 @@ public final class LiveDoc {
             b.cid()
                 .isEmpty() ? null : b.cid(),
             r.ops());
-        if (got.own()) applied.add(new Object[] { b.cid(), b.seq() });
-        else behind = true;
+        if (got.own()) {
+            applied.add(new Object[] { b.cid(), b.seq() });
+            // The service may have corrected what it was sent (the schema's output, a task's createdBy): the echo is
+            // what it kept, so the board reads it.
+            if (sent != null && b.ops()
+                .size() > 0
+                && !LiveOp.toJson(sent.ops())
+                    .equals(b.ops()))
+                behind = true;
+        } else behind = true;
         if (got.gap()) session.rejoin(this);
     }
 
     /**
-     * The room refused one of this player's batches. Too many too fast: it goes again from the next snapshot. Anything
-     * else: it never happened, and the board goes back to the live copy.
+     * The room refused one of this player's batches. Too many too fast: it stays pending and goes again after a
+     * moment. Anything else (too big, a bad op): it never happened, and the board goes back to the live copy.
      */
     void refused(final String cid, final String code) {
         if ("rate".equals(code)) {
-            session.rejoinSoon(this);
+            if (pendingBatch(cid) == null) return;
+            holdUntil = System.currentTimeMillis() + RATE_RETRY_MS;
+            // Back in the line in the order the batches were made.
+            final java.util.Set<String> again = new java.util.HashSet<>(unsent);
+            again.add(cid);
+            unsent.clear();
+            for (final LiveState.Batch p : state.pending()) if (again.contains(p.cid())) unsent.add(p.cid());
             return;
         }
         if (!state.refuse(cid)) return;

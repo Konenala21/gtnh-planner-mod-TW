@@ -564,4 +564,116 @@ class CloudSessionTest {
             "uploaded once");
         assertFalse(host.notices.contains("Your plans from this world are now in your account"));
     }
+
+    @Test
+    void aBatchTheServiceCallsTooFastStaysPendingAndGoesAgain() {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+        live.refuse = "rate";
+        live.refuseTimes.set(1);
+        final Node moved = board.getNodes()
+            .iterator()
+            .next();
+        moved.x += 40;
+        board.touchLayout();
+        session.save(p);
+        tickUntil("refused once", () -> live.refuseTimes.get() < 1);
+        assertTrue(doc.waiting(), "kept pending");
+        assertTrue(host.notices.isEmpty(), "not a lost edit");
+        tickUntil("sent again and applied", () -> !doc.waiting());
+        assertEquals(2, opsFrames(), "the same batch twice");
+        assertEquals(
+            live.framesOf("ops")
+                .get(0)
+                .get("cid"),
+            live.framesOf("ops")
+                .get(1)
+                .get("cid"));
+    }
+
+    @Test
+    void aBatchTheServiceCallsBadIsDroppedAndTold() {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+        live.refuse = "bad_op";
+        final Node moved = board.getNodes()
+            .iterator()
+            .next();
+        moved.x += 40;
+        board.touchLayout();
+        session.save(p);
+        tickUntil("dropped", () -> !doc.waiting() && !host.notices.isEmpty());
+        assertEquals(1, opsFrames(), "never sent again");
+    }
+
+    @Test
+    void anEchoThatDiffersFromWhatWasSentIsReadIntoTheBoard() {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+        // The service stores the schema's output: here, a position nudged by one.
+        live.correct = ops -> {
+            final JsonArray out = new JsonArray();
+            for (final JsonElement e : ops) {
+                final JsonObject op = new JsonParser().parse(e.toString())
+                    .getAsJsonObject();
+                if (op.has("f") && op.getAsJsonObject("f")
+                    .has("position"))
+                    op.getAsJsonObject("f")
+                        .getAsJsonObject("position")
+                        .addProperty("x", 777);
+                out.add(op);
+            }
+            return out;
+        };
+        final Node moved = board.getNodes()
+            .iterator()
+            .next();
+        moved.x += 40;
+        board.touchLayout();
+        session.save(p);
+        tickUntil("applied", () -> opsFrames() == 1 && !doc.waiting());
+        tickUntil("read back", () -> slot(p, ME + ":d1") != board);
+        assertEquals(com.gtnhplanner.library.PlanExport.gameX(777), slot(p, ME + ":d1").nodes.get(moved.id).x);
+    }
+
+    @Test
+    void bigEditsGoInBatchesUnderTheLimitsAndAHugeCardStaysOut() {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+        for (int i = 0; i < 2200; i++) {
+            final com.gtnhplanner.data.flowchart.Note n = new com.gtnhplanner.data.flowchart.Note();
+            n.getText()
+                .add("note " + i);
+            board.notes.put(n.getId(), n);
+        }
+        final com.gtnhplanner.data.flowchart.Note huge = new com.gtnhplanner.data.flowchart.Note();
+        huge.getText()
+            .add("h".repeat(300_000));
+        board.notes.put(huge.getId(), huge);
+        board.touchLayout();
+        session.save(p);
+        tickUntil("all sent", () -> opsFrames() >= 3 && !doc.waiting());
+        int ops = 0;
+        for (final String frame : live.received) {
+            if (!frame.contains("\"t\":\"ops\"")) continue;
+            assertTrue(frame.getBytes(StandardCharsets.UTF_8).length <= 256 * 1024);
+            final int n = new JsonParser().parse(frame)
+                .getAsJsonObject()
+                .getAsJsonArray("ops")
+                .size();
+            assertTrue(n <= 1000);
+            ops += n;
+        }
+        assertEquals(2200, ops, "the huge card was not sent");
+        assertFalse(host.notices.isEmpty(), "and the player was told");
+    }
+
 }
