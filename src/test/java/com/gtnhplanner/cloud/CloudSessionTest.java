@@ -678,7 +678,6 @@ class CloudSessionTest {
         assertFalse(host.notices.isEmpty(), "and the player was told");
     }
 
-
     private List<JsonObject> presenceSent() {
         return live.framesOf("presence");
     }
