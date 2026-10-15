@@ -24,7 +24,6 @@ import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteText;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
-import com.gtnhplanner.ui.popup.TextPopup;
 import com.gtnhplanner.ui.popup.Tip;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -699,16 +698,14 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         return true;
     }
 
-    /** Asks for a new task's title, then adds it at the bottom of {@code status}. */
+    /** Adds a task at the bottom of {@code status} at once and opens its box, where the rest of it is written. */
     private void newTask(final Tasks.Status status, final Hit under) {
-        Popup.open(session.panel(), TextPopup.create("New task in " + TaskLook.name(status), "", title -> {
-            if (title == null || title.isBlank()) return;
-            final String id = UUID.randomUUID()
-                .toString();
-            session.editTasks(
-                () -> TaskEdits.add(session.graph(), id, title, status, List.of(), TaskLook.me(), TaskLook.now()));
-            Sfx.NOTE_STICK.play();
-        }), getArea().x + under.x0(), getArea().y + under.y1() + 2);
+        final String id = UUID.randomUUID()
+            .toString();
+        session.editTasks(
+            () -> TaskEdits.add(session.graph(), id, "New task", status, List.of(), TaskLook.me(), TaskLook.now()));
+        Sfx.NOTE_STICK.play();
+        TaskPanel.open(session, id);
     }
 
     /** A card's right-click menu: open it, move it to another column, or delete it. */
