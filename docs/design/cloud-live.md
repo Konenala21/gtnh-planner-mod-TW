@@ -1,0 +1,245 @@
+# Cloud plans, live co-editing and task boards
+
+The owner's call (2026-10-14): plans live in the player's account, saved on every edit and the same on every
+device; a plan can be shared with other accounts and edited together live, with everyone's cursor on the board; a
+task board (Jira, kept simple) is just a plan shown as a board. The game and gtnhplanner.com edit the same plans the
+same way. Signed out, the game works exactly as before: plans on this computer.
+
+This file is the contract both repositories build against: the game (`jackwrichards/gtnh-planner-mod`) and the
+website (`jackwrichards/gtnh-factory-flow`, branch `cloud-live`, worktree `C:\Users\jack\ff-cloud`).
+
+## Ground rules
+
+- Release nothing. The website's `main` is what the owner deploys from: all website work stays on `cloud-live` until
+  the rollout. Never touch the droplet, Cloudflare or the production Supabase project; the rollout is a separate,
+  supervised step at the end (see Rollout).
+- Never copy the website's `.env.local` into a worktree: it points at a real Supabase project. Local work runs on the
+  local database (see Local development).
+- Never lose a plan. A game plan that goes to the cloud keeps its local save untouched as a backup.
+- Identity is the website's accounts only (`community_users`: id, username). No Minecraft identity is linked. The
+  game helps pick people: signed-in players in the same game come first, then a search of every account.
+- Mobile is not a priority.
+- Players never see the website's name in the game (as before): it is "your account", "the library", "plans".
+
+## What players see
+
+- **My plans** (game and website): every plan in your account, and every plan shared with you, marked with the faces
+  (initials, coloured) of who else is in it. No save button: every edit is saved as you make it. Make a copy replaces
+  Save as.
+- **Share**: invite accounts as editors. Everyone with the plan open sees the others' cursors (name tag, colour) and
+  what they have selected, and their edits as they make them.
+- **Publish**: posts a one-time public copy to the library (today's "Share to library"). Update in library refreshes
+  it. Publishing never shares the live plan.
+- **Task board**: any plan can hold tasks; a plan made as a board opens on its task view. Columns To do, Doing,
+  Blocked, Done; a task has a title, text, assignees (members of the plan), a checklist, linked cards and comments.
+- Signed out: My plans is this computer's plans, as today; Share is greyed out with "Sign in to share".
+
+## Accounts and auth
+
+- Session: the website's `gtnh_session` cookie (`<userId>.<expiresMs>.<hmac>`, HMAC-SHA256 with
+  `COMMUNITY_HASH_SALT`, `src/lib/server/community.ts`). The browser sends it itself. The game keeps it (as it does now,
+  `library/Account`) and sends `Cookie: gtnh_session=<token>` on every request, the live socket's upgrade included.
+- The live service verifies the same token with the same secret (shared module, constant-time compare).
+
+## Cloud plans (database)
+
+A cloud plan is a `library_designs` row, addressed everywhere as `<ownerId>:<designId>` (the "doc key"). Additive
+schema changes only (the live site keeps running on the old code while they are applied):
+
+```sql
+alter table library_designs add column if not exists seq bigint not null default 0;
+alter table library_designs add column if not exists live_lease_until timestamptz;
+create table if not exists library_design_members (
+  owner_id uuid not null references community_users(id) on delete cascade,
+  design_id text not null,
+  member_id uuid not null references community_users(id) on delete cascade,
+  role text not null default 'editor' check (role in ('editor')),
+  added_at timestamptz not null default now(),
+  primary key (owner_id, design_id, member_id),
+  foreign key (owner_id, design_id) references library_designs(user_id, id) on delete cascade
+);
+create index if not exists library_design_members_member on library_design_members(member_id);
+```
+
+- `seq` counts applied edit batches; the live service writes it with each flush.
+- `live_lease_until`: while it is in the future the live service holds the plan in memory and is its only writer. The
+  REST plan PUT refuses a plan body then (409 `{ "live": true }`); metadata (name, folder, order, favorite, closed)
+  still goes through REST.
+- Shared plans count against the owner's limits only.
+
+## REST additions (website)
+
+All signed-in, cookie auth, rate-limited like the existing library routes.
+
+- `GET /api/library` adds `shared`: plans shared with me, `{ ownerId, ownerName, id, name, icon, updatedAt,
+  planUpdatedAt, members }`, and each own design gains `members` (ids and usernames).
+- `GET /api/library/designs/[id]?owner=<ownerId>`: an owner's or member's read of the plan.
+- `GET /api/library/designs/[id]/members`, `PUT /api/library/designs/[id]/members/[userId]` (owner only),
+  `DELETE /api/library/designs/[id]/members/[userId]` (owner, or the member leaving). Changes are pushed to the live
+  service (internal call, below) so open rooms update and a removed member is dropped.
+- `GET /api/accounts/search?q=<prefix>`: up to 10 `{ id, username }`, signed-in only, rate-limited.
+- Deleting a design also tells the live service (members are dropped from the room).
+
+## The live service
+
+A separate Node process beside Next.js (`next start` cannot hold WebSockets): the `ws` package, one process, rooms in
+memory. Production: systemd unit `gtnh-live` on 127.0.0.1:3001, Caddy routes `/live` to it (WebSocket upgrade), behind
+Cloudflare (pings every 25 s keep its 100 s idle limit away). Local: `ws://localhost:3001/live`. The website reads its
+URL from `NEXT_PUBLIC_LIVE_URL`; unset, the website has no live features and behaves as today (so merging to `main`
+before the service runs is safe).
+
+- Room per doc key. Opening a room loads the plan from the database, takes the lease, and keeps it renewed (every
+  30 s, 90 s ahead). The room flushes the plan, `seq`, `plan_updated_at` and `updated_at` at most every 8 s while
+  dirty and when the last person leaves, then lets the lease go. The Supabase instance is small: never a write per
+  edit.
+- Journal: every accepted batch is appended to a per-room file (`LIVE_JOURNAL_DIR`) before it is broadcast, and the
+  file is cleared after a flush. On start the service replays journals over the stored plans, so a crash loses
+  nothing.
+- Validation: each entity a batch puts or patches must pass that collection's Zod schema afterwards; a batch over
+  256 KB, a plan over the upload limit, or more than 30 batches a second from one connection is refused. Server time
+  stamps comments (`at`).
+- Presence is relayed, never stored, at most 20 a second per connection.
+- Internal HTTP on the same port, `POST /internal/{members,deleted}` with `LIVE_INTERNAL_TOKEN`, from the Next.js
+  routes. `GET /live/nearby` (cookie auth): signed-in accounts connected from the same game server as me (the `game`
+  hash in `hello`), for the game's share helper.
+
+### Wire protocol (JSON text frames, version 1)
+
+Client to server:
+
+| Frame | Meaning |
+|---|---|
+| `{ t:"hello", v:1, client:"game"\|"web", clientVersion, game?:{ server:"<sha256 of address or world>", mcName } }` | first frame; answered with `welcome` |
+| `{ t:"join", doc }` | open a room; answered with `snapshot` |
+| `{ t:"leave", doc }` | |
+| `{ t:"ops", doc, base, cid, ops:[Op] }` | one local edit; `base` = the seq the client had; `cid` = client batch id |
+| `{ t:"presence", doc, cursor:{x,y}\|null, sel:[ids], view?:{x,y,zoom} }` | board coordinates (the plan's own) |
+| `{ t:"ping" }` | every 25 s |
+
+Server to client:
+
+| Frame | Meaning |
+|---|---|
+| `{ t:"welcome", v:1, you:{ id, username, color } }` | |
+| `{ t:"snapshot", doc, seq, plan, role:"owner"\|"editor", members:[{id,username}], present:[Person] }` | the whole plan |
+| `{ t:"ops", doc, seq, by, cid, ops }` | an accepted batch, to everyone in the room including its sender (the sender's ack is its own `cid`) |
+| `{ t:"presence", doc, who, cursor, sel, view? }` | |
+| `{ t:"present", doc, present:[Person] }` | someone joined or left; `Person = { id, username, color, client }` |
+| `{ t:"members", doc, members }` | sharing changed |
+| `{ t:"kicked", doc, reason:"unshared"\|"deleted" }` | |
+| `{ t:"error", doc?, code:"auth"\|"forbidden"\|"not_found"\|"too_big"\|"rate"\|"bad_op"\|"version", msg }` | |
+| `{ t:"pong" }` | |
+
+Colours: the server gives each account a colour from a fixed palette, stable per account (hash of id).
+
+### Ops
+
+The plan is the website's `FactoryProject`. Its arrays of things with an `id` are collections: `recipes`, `nodes`,
+`storages`, `edges`, `annotations`, `pockets`, `fuelProfiles`, `productionGroups`, `tasks`, `taskItems`,
+`taskComments` (and any later array of `{ id }`). Every other top-level field is meta.
+
+```
+{ o:"put",   c, id, v }            insert or replace the whole thing
+{ o:"patch", c, id, f, d? }        set top-level fields f, delete fields d (names); ignored if the thing is gone
+{ o:"del",   c, id }               no-op if already gone
+{ o:"meta",  f, d? }               set / delete top-level plan fields
+```
+
+- The server applies batches in arrival order and gives each a `seq`. Later writes to the same field win
+  (Figma's rule). Collection order is not meaningful; a new thing is appended.
+- Clients send only what a person did: derived data (solve results, runtime tables, anything recomputed on load) is
+  never in an op. Each client strips the same derived fields before diffing.
+
+### The client algorithm (game and website alike)
+
+- Keep `confirmed` (the plan at the last seq heard) and `pending` (own batches not yet echoed back). What the editor
+  shows is `confirmed` with `pending` applied on top.
+- A local edit: diff the plan before and after it (things by id; changed top-level fields as a patch; meta), send the
+  batch, add it to `pending`, record its inverse for undo.
+- A batch from someone else: apply to `confirmed`, re-apply `pending`, show the result. Own echo: apply to
+  `confirmed`, drop it from `pending`.
+- Reconnect: join again, take the snapshot as `confirmed`, send `pending` again.
+- Undo undoes only your own edits: it applies the recorded inverse as a new edit (the fields you changed go back to
+  what they were). If someone changed the same field since, undo overwrites it, as in Figma.
+- Offline: edits wait in `pending` (kept on disk in the game, IndexedDB on the website) and go when the connection
+  comes back. A plan opened offline is the last copy this device saw.
+
+## Plan document additions (both sides)
+
+`FactoryProject` and its schema gain, all optional (the Zod schemas strip unknown keys, so each must be declared):
+
+- `gtnhplanner?: Record<string, unknown>` on the project, nodes, storages, edges and annotations: the game's own data
+  for that thing, opaque to the website, kept as is through every website edit (see Game mapping). At most 64 KB per
+  thing.
+- `primaryView?: "plan" | "tasks"`: which view the plan opens on. A task board is a plan with `"tasks"`.
+- `tasks?: PlanTask[]`: `{ id, title (1-120), text? (≤4000), status: "todo"|"doing"|"blocked"|"done", order: string
+  (fractional index), assignees?: string[] (account ids), nodeIds?: string[], createdBy?, createdAt?, doneAt? }`
+- `taskItems?: PlanTaskItem[]`: `{ id, taskId, text (1-200), done: boolean, order: string, nodeId? }` (the
+  checklist; separate things so two people can tick two lines at once)
+- `taskComments?: PlanTaskComment[]`: `{ id, taskId, by (account id), byName, at (server time), text (1-2000) }`
+
+## Ops in detail (both engines must agree exactly)
+
+- Collections are a fixed list, `LIVE_COLLECTIONS`, defined in the website's `src/lib/live/ops.ts` and mirrored in the
+  game; changing it bumps the protocol version. An absent collection equals an empty one.
+- Equality is JSON equality with numbers compared by value (`1` equals `1.0`), objects by keys regardless of order,
+  arrays in order. A field set to its absent state is a delete (`d`), never `null`.
+- A diff of two plans: for each collection, things only in the new plan are `put`, only in the old are `del`, in both
+  with any top-level field different are `patch` (changed fields in `f`, removed fields in `d`); then one `meta` for
+  changed top-level plan fields. Order inside a batch: puts, patches, dels, meta.
+- The inverse of a batch, computed against the plan before it: `put` becomes `del`, `del` becomes `put` of the old
+  thing, `patch` becomes a `patch` restoring the old values of exactly those fields (deleting the ones that were
+  absent), `meta` likewise.
+- Both engines ship the same test vectors (`live-vectors.json`: plan, batch, expected plan; plan pair, expected diff),
+  checked in on each side.
+
+## Game mapping
+
+The game keeps its own model (`Graph`) and maps it to and from the shared plan, losslessly for anything the game
+made.
+
+- Ids: the game's UUID strings are the plan's ids (as `PlanExport` already writes them). A thing the website made keeps
+  its id string; the game maps it to a UUID with `UUID.nameUUIDFromBytes` and writes the same string back. Drawer-link
+  wires keep their composite `<drawer>:<node>:<port>` ids. A card's recipe is `gtnhplanner:<nodeId>`.
+- Positions: the plan's coordinates are the website's. The game converts with the export's scale, exactly both ways
+  and without snapping, so a move on either side lands where it was meant to.
+- Each node, storage, edge and annotation the game writes carries `gtnhplanner: { v: 1, game: <the game's own JSON for
+  it>, sum: <hash of the website fields it was written with, position left out> }`. The plan's own `gtnhplanner`
+  holds what belongs to the whole plan (balance mode, setting pins, spare shares, groups and shared machines).
+- Reading: a thing whose `sum` still matches is rebuilt from `game` exactly, taking only its position from the website
+  fields. A thing the website made or changed beyond its position is built from the website fields (the importer's
+  path, never new ids), keeping from `game` what the website has no place for (world links, game-only settings).
+- Per player, never in the plan: camera, selection, folded sections, the pin list (a cloud plan keeps its pins on this
+  device, per plan).
+- Placed machines (world links) are shared, each keyed by the world it was placed in; a game shows the ones for its
+  own world.
+- What the solve or the export computes is derived: stripped before every diff.
+- Tasks are part of `Graph` (`tasks`, `taskItems`, `taskComments`, `primaryView`) for local plans too, saved by
+  `Serializer` like everything else.
+- WebSocket: Minecraft's own netty (`io.netty.handler.codec.http.websocketx`, TLS through the JDK's SSLEngine), so no
+  new library ships; the jar still runs on Java 8.
+- Undo for a cloud plan applies recorded inverses (above) instead of restoring snapshots; local plans keep today's
+  undo.
+
+## Local development
+
+- Website: `npm run dev:local` runs Next.js and the live service against a local database: real Postgres in-process
+  (PGlite) loaded from `supabase/schema.sql` plus the migration, behind a PostgREST-compatible `fetch` shim handed to
+  supabase-js, so the existing server code runs unchanged. Data in `scratch/local-db/`. No Supabase credentials
+  anywhere.
+- Game: `call 'library?url=http://localhost:3000'` points the game at it (the live URL follows: `ws://localhost:3001/
+  live`, or `call 'library?live=...'`).
+- Two people: the dev game plus the website in a browser, or two browser profiles; a headless test client in each
+  repository drives the protocol.
+
+## Rollout (last step, with the owner)
+
+1. Apply the migration SQL to production Supabase (additive).
+2. Merge `cloud-live` into the website's `main`, bump the version and changelog, deploy.
+3. Install the live service: systemd unit, env (`COMMUNITY_HASH_SALT`, Supabase keys, `LIVE_INTERNAL_TOKEN`,
+   `LIVE_JOURNAL_DIR`), Caddy route, check WebSockets through Cloudflare; then set `NEXT_PUBLIC_LIVE_URL` and deploy
+   once more.
+4. The mod ships in its next release, as usual.
+
+Each step is reversible on its own: the columns and table are unused by old code; unsetting `NEXT_PUBLIC_LIVE_URL`
+turns the live features off.
