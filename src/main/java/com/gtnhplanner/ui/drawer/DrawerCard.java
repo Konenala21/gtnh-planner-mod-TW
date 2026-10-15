@@ -477,7 +477,25 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                 }
             }
             default -> {
-                // The body: a click selects it (Shift adds); the right button is the board's.
+                // The body: a click selects it (Shift adds); the right button opens its menu: its rule key's rows and
+                // Delete drawer (docs/design/groups.md, Menus).
+                if (mouseButton == 1) {
+                    final List<PickList.Entry> rows = ruleRows(session, model);
+                    rows.add(
+                        new PickList.Entry(
+                            null,
+                            "Delete drawer",
+                            "",
+                            Hyb.RED_INK,
+                            false,
+                            () -> session.deleteDrawer(drawer)));
+                    Popup.open(
+                        session.panel(),
+                        PickList.popup("gtnhplanner_drawer", null, rows, false, 120),
+                        getContext().getAbsMouseX(),
+                        getContext().getAbsMouseY());
+                    return Result.SUCCESS;
+                }
                 if (mouseButton != 0) return Result.IGNORE;
                 if (canvas() != null) canvas().clickSelect(drawerId);
                 return Result.SUCCESS;
@@ -552,6 +570,17 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
      */
     public static void openRules(final ModularPanel panel, final BoardSession session, final DrawerModel model,
         final int screenX, final int screenY) {
+        Popup.open(
+            panel,
+            PickList.popup("gtnhplanner_rule", null, ruleRows(session, model), false, 110),
+            screenX,
+            screenY);
+    }
+
+    /**
+     * The rule rows (each rule, the current one ticked) and the product and trash row, for the rule key and the menu.
+     */
+    public static List<PickList.Entry> ruleRows(final BoardSession session, final DrawerModel model) {
         final List<PickList.Entry> rows = new ArrayList<>();
         if (model.kind.hasRule()) for (final Drawer.Rule rule : Drawer.Rule.values()) {
             rows.add(
@@ -571,7 +600,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                 Hyb.MUTED,
                 false,
                 () -> session.cycleDrawer(model.drawer)));
-        Popup.open(panel, PickList.popup("gtnhplanner_rule", null, rows, false, 110), screenX, screenY);
+        return rows;
     }
 
     /** The rate box for a drawer, in the board's unit; the overview's drawer rows open the same one. */

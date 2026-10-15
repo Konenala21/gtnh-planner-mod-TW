@@ -666,6 +666,15 @@ public final class BoardScreen extends ModularScreen {
                 }
                 return true;
             }
+            // Ctrl+G: a group round the selection (docs/design/groups.md).
+            if (net.minecraft.client.gui.GuiScreen.isCtrlKeyDown() && keyCode == org.lwjgl.input.Keyboard.KEY_G) {
+                final long event = org.lwjgl.input.Keyboard.getEventNanoseconds();
+                if (event == lastKeyEvent) return true;
+                lastKeyEvent = event;
+                if (session.hasSelection()) canvas.groups()
+                    .group(new java.util.ArrayList<>(session.selection()));
+                return true;
+            }
             // Ctrl+C, Ctrl+X, Ctrl+V: the selection with its wires, pasted at the mouse (or the middle of the view).
             if (net.minecraft.client.gui.GuiScreen.isCtrlKeyDown()
                 && (keyCode == org.lwjgl.input.Keyboard.KEY_C || keyCode == org.lwjgl.input.Keyboard.KEY_X
@@ -857,6 +866,8 @@ public final class BoardScreen extends ModularScreen {
             tip = drawer.tip();
         } else if (hovered instanceof final com.gtnhplanner.ui.note.NoteCard note) {
             tip = note.tip();
+        } else if (hovered instanceof final com.gtnhplanner.ui.group.GroupCard group) {
+            tip = group.tip();
         } else if (hovered instanceof final PlanTabs tabs) {
             tip = Tip.ofLines(tabs.hoverLines());
         } else if (hovered instanceof final OverviewRail overview) {
@@ -869,9 +880,12 @@ public final class BoardScreen extends ModularScreen {
             return;
         } else if (hovered == null || hovered == canvas) {
             tip = Tip.ofLines(canvas.wireLines());
-        } else if (hovered instanceof SelectionBar) {
-            tip = Tip.of("Combine into one shared machine")
-                .muted("The selected recipes run on one machine and share its settings.");
+        } else if (hovered instanceof final SelectionBar bar) {
+            tip = bar.overGroupKey() ? Tip.of("Group these")
+                .muted("A frame round the selection. Drag things in and out of it.")
+                .action(Tip.Input.KEY, "Ctrl+G")
+                : Tip.of("Combine into one shared machine")
+                    .muted("The selected recipes run on one machine and share its settings.");
         } else if (hovered instanceof final PortSlot slot) {
             tip = portTip(slot);
         } else if (hovered instanceof final com.gtnhplanner.ui.card.SocketSlot socket) {

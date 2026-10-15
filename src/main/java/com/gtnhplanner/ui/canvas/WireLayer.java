@@ -55,6 +55,12 @@ final class WireLayer {
      */
     private final WireRouter router = new WireRouter();
 
+    /**
+     * A collapsed group's summary card on the board {x, y, w, h}, or null (docs/design/groups.md): wires between what
+     * it hides and the rest dock on it. Set by the board.
+     */
+    java.util.function.Function<UUID, int[]> groupBox = id -> null;
+
     WireLayer(final BoardSession session) {
         this.session = session;
     }
@@ -276,6 +282,14 @@ final class WireLayer {
         }
         for (final Edge e : edges())
             sig = ((sig * 31 + e.id.hashCode()) * 31 + e.sourceOutputIndex) * 31 + e.targetInputIndex;
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph.boardGroups.values()) {
+            sig = ((sig * 31 + g.getId()
+                .hashCode()) * 31 + (g.isCollapsed() ? 1 : 0)) * 31 + (g.getParent() == null ? 0
+                    : g.getParent()
+                        .hashCode());
+            final int[] b = g.isCollapsed() ? groupBox.apply(g.getId()) : null;
+            if (b != null) sig = ((sig * 31 + b[0]) * 31 + b[1]) * 31 + b[3];
+        }
         return sig;
     }
 
@@ -312,10 +326,27 @@ final class WireLayer {
         final Map<UUID, Integer> drawerBox = new HashMap<>();
         final java.util.Collection<Drawer> drawerList = drawers();
         for (final Drawer d : drawerList) {
+            // Out of sight in a collapsed group: its wires dock on the group's summary.
+            if (d.getGroup() != null && com.gtnhplanner.data.flowchart.Groups.hidden(graph, d.getId())) continue;
             drawerBox.put(d.getId(), boxes.size());
             keys.add(d.getId());
             boxes.add(new WireRouter.Box(d.getX(), d.getY(), DrawerCard.W, DrawerCard.H));
         }
+        // Collapsed groups on show: one box each, where what they hide is wired to (docs/design/groups.md).
+        final Map<UUID, Integer> groupBoxes = new HashMap<>();
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph.boardGroups.values()) {
+            if (!g.isCollapsed() || !com.gtnhplanner.data.flowchart.Groups.shows(graph, g)) continue;
+            final int[] b = groupBox.apply(g.getId());
+            if (b == null) continue;
+            groupBoxes.put(g.getId(), boxes.size());
+            keys.add(g.getId());
+            boxes.add(new WireRouter.Box(b[0], b[1], b[2], b[3]));
+        }
+        final java.util.function.Function<UUID, Integer> hiddenIn = id -> {
+            final UUID hider = groupBoxes.isEmpty() ? null : com.gtnhplanner.data.flowchart.Groups.hiddenBy(graph, id);
+            return hider == null ? null : groupBoxes.get(hider);
+        };
+        final java.util.Set<Integer> groupIndex = new java.util.HashSet<>(groupBoxes.values());
 
         // Each wire's two boxes, source first, and whether it loops.
         final List<int[]> between = new ArrayList<>();
@@ -326,8 +357,12 @@ final class WireLayer {
             if (src == null || dst == null
                 || e.sourceOutputIndex >= src.outputs.size()
                 || e.targetInputIndex >= dst.inputs.size()) continue;
-            final Integer a = cardBox.get(cards.get(src.id)), b = cardBox.get(cards.get(dst.id));
+            Integer a = cardBox.get(cards.get(src.id)), b = cardBox.get(cards.get(dst.id));
+            if (a == null) a = hiddenIn.apply(src.id);
+            if (b == null) b = hiddenIn.apply(dst.id);
             if (a == null || b == null) continue;
+            // Both ends inside one collapsed group: not drawn.
+            if (a.equals(b) && groupIndex.contains(a)) continue;
             final Port<?> port = src.outputs.get(e.sourceOutputIndex);
             between.add(new int[] { a, b });
             pending.add(
@@ -346,14 +381,18 @@ final class WireLayer {
         for (final Drawer d : drawerList) {
             final boolean source = d.getKind()
                 .linksInputs();
-            final int drawer = drawerBox.get(d.getId());
+            Integer drawerAt = drawerBox.get(d.getId());
+            if (drawerAt == null) drawerAt = hiddenIn.apply(d.getId());
+            if (drawerAt == null) continue;
+            final int drawer = drawerAt;
             for (final Drawer.Link link : linksOf(d)) {
                 final Node n = graph.nodes.get(link.nodeId());
                 if (n == null) continue;
                 final List<Port<?>> ports = source ? n.inputs : n.outputs;
                 if (link.portIndex() >= ports.size()) continue;
-                final Integer card = cardBox.get(cards.get(n.id));
-                if (card == null) continue;
+                Integer card = cardBox.get(cards.get(n.id));
+                if (card == null) card = hiddenIn.apply(n.id);
+                if (card == null || card == drawer && groupIndex.contains(card)) continue;
                 final Port<?> port = ports.get(link.portIndex());
                 final UUID key = UUID.nameUUIDFromBytes(
                     (d.getId() + ":" + link.nodeId() + ":" + link.portIndex()).getBytes(StandardCharsets.UTF_8));

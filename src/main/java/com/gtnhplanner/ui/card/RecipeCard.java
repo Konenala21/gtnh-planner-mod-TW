@@ -1901,7 +1901,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 if (mouseButton == 0) openPin();
             }
             default -> {
-                // The body: a click selects it (Shift adds); the right button is the board's.
+                // The body: a click selects it (Shift adds); the right button opens its actions, as the key does
+                // (docs/design/groups.md, Menus).
+                if (mouseButton == 1) {
+                    openActionsAt(getContext().getAbsMouseX(), getContext().getAbsMouseY());
+                    return Result.SUCCESS;
+                }
                 if (mouseButton != 0) return Result.IGNORE;
                 if (canvas() != null) canvas().clickSelect(nodeId);
                 return Result.SUCCESS;
@@ -2259,6 +2264,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     private void openActions() {
+        openActionsAt(screenX(KEY_X), screenY(CHIP_Y + CHIP_H + 2));
+    }
+
+    /** The card's actions (its key's menu, and a right click on it) at a screen point. */
+    private void openActionsAt(final int sx, final int sy) {
         final Node node = model.node;
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(PickList.Entry.of("Clone node", () -> session.cloneNode(node)));
@@ -2273,11 +2283,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
         }
         rows.add(new PickList.Entry(null, "Delete node", "", Hyb.RED_INK, false, () -> session.delete(node)));
-        Popup.open(
-            session.panel(),
-            PickList.popup("gtnhplanner_actions", null, rows, false, 150),
-            screenX(KEY_X),
-            screenY(CHIP_Y + CHIP_H + 2));
+        Popup.open(session.panel(), PickList.popup("gtnhplanner_actions", null, rows, false, 150), sx, sy);
     }
 
     private void openMachines() {

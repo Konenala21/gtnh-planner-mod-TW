@@ -64,6 +64,15 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     private final Map<UUID, RecipeCard> cards = new HashMap<>();
     private final Map<UUID, DrawerCard> drawers = new HashMap<>();
     private final Map<UUID, com.gtnhplanner.ui.note.NoteCard> notes = new HashMap<>();
+    /** The groups on show (docs/design/groups.md): open frames and collapsed summary cards. */
+    private final Map<UUID, com.gtnhplanner.ui.group.GroupCard> groupCards = new HashMap<>();
+    @Nullable
+    private com.gtnhplanner.ui.group.GroupEdits groupEdits;
+    /** The groups as the widgets were last built for them: which there are, which are collapsed, what holds them. */
+    private long builtGroups = Long.MIN_VALUE;
+    /** While something is carried: the group it would join, and the group it would leave. */
+    @Nullable
+    private UUID dropGroup, leavingGroup;
     private final WireLayer wires;
     private int builtStructure = -1;
     /** The models every card and drawer, in view or not, last caught up with. */
@@ -80,7 +89,100 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         this.session = session;
         this.panel = panel;
         this.wires = new WireLayer(session);
+        this.wires.groupBox = this::collapsedBox;
     }
+
+    // region Groups
+
+    /** The group edits, measuring things as the board draws them. */
+    public com.gtnhplanner.ui.group.GroupEdits groups() {
+        if (groupEdits == null) groupEdits = new com.gtnhplanner.ui.group.GroupEdits(session, this::thingBox);
+        return groupEdits;
+    }
+
+    public Map<UUID, com.gtnhplanner.ui.group.GroupCard> groupCards() {
+        return groupCards;
+    }
+
+    /** The group a carried thing would join now, or null. */
+    @Nullable
+    public UUID dropGroup() {
+        return dropGroup;
+    }
+
+    /** The group a carried thing would leave now, or null. */
+    @Nullable
+    public UUID leavingGroup() {
+        return leavingGroup;
+    }
+
+    /** A card's, drawer's or note's box on the board {x, y, w, h} as drawn; null for anything else. */
+    @Nullable
+    private int[] thingBox(final UUID id) {
+        final Node n = graph().nodes.get(id);
+        if (n != null) {
+            final RecipeCard card = cards.get(id);
+            return new int[] { n.x, n.y, CardLayout.W,
+                card != null && card.layout() != null ? card.layout().height : 100 };
+        }
+        final Drawer d = graph().getDrawer(id);
+        if (d != null) return new int[] { d.getX(), d.getY(), DrawerCard.W, DrawerCard.H };
+        final com.gtnhplanner.data.flowchart.Note note = graph().notes.get(id);
+        if (note != null) return new int[] { note.getX(), note.getY(), note.getWidth(), Math.max(1, note.getHeight()) };
+        return null;
+    }
+
+    /** A collapsed group's summary card {x, y, w, h}, or null. */
+    @Nullable
+    private int[] collapsedBox(final UUID id) {
+        final com.gtnhplanner.data.flowchart.BoardGroup g = graph().boardGroups.get(id);
+        if (g == null || !g.isCollapsed()) return null;
+        final com.gtnhplanner.ui.group.GroupCard card = groupCards.get(id);
+        final int rows = card != null ? card.summary()
+            .rows() : 1;
+        return new int[] { g.getX(), g.getY(), com.gtnhplanner.ui.group.GroupPaint.SUM_W,
+            com.gtnhplanner.ui.group.GroupPaint.summaryHeight(rows) };
+    }
+
+    /** Which groups there are, collapsed or not, and what holds them: a change builds the widgets afresh. */
+    private long groupsKey() {
+        long k = System.identityHashCode(graph());
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph().boardGroups.values()) k = ((k * 31 + g.getId()
+            .hashCode()) * 31 + (g.isCollapsed() ? 1 : 2)) * 31 + java.util.Objects.hashCode(g.getParent());
+        // A thing joining or leaving a collapsed group comes and goes from the board.
+        for (final Node n : graph().getNodes()) if (n.group != null) k = k * 31 + n.group.hashCode() + n.id.hashCode();
+        for (final Drawer d : graph().getDrawers()) if (d.getGroup() != null) k = k * 31 + d.getGroup()
+            .hashCode()
+            + d.getId()
+                .hashCode();
+        for (final com.gtnhplanner.data.flowchart.Note n : graph().getNotes()) if (n.getGroup() != null) k = k * 31
+            + n.getGroup()
+                .hashCode()
+            + n.getId()
+                .hashCode();
+        return k;
+    }
+
+    /** Open groups' bodies, under the wires: outer groups first. */
+    private void paintGroupBodies() {
+        final List<com.gtnhplanner.data.flowchart.BoardGroup> open = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph().boardGroups.values())
+            if (!g.isCollapsed() && com.gtnhplanner.data.flowchart.Groups.shows(graph(), g)) open.add(g);
+        if (open.isEmpty()) return;
+        open.sort(
+            java.util.Comparator.comparingInt(
+                g -> com.gtnhplanner.data.flowchart.Groups.ancestors(graph(), g.getId())
+                    .size()));
+        final boolean picture = PlanPicture.drawing();
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : open) com.gtnhplanner.ui.group.GroupPaint.body(
+            g,
+            !picture && g.getId()
+                .equals(dropGroup),
+            !picture && g.getId()
+                .equals(leavingGroup));
+    }
+
+    // endregion
 
     private Graph graph() {
         return session.graph();
@@ -98,7 +200,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             getContext().removeFocus();
         session.tick();
         Popup.openPending();
-        boolean rebuild = builtStructure != session.structure();
+        boolean rebuild = builtStructure != session.structure() || builtGroups != groupsKey();
         final boolean modelsMoved = session.models() != syncedModels
             || com.gtnhplanner.ui.card.SettingPins.version() != syncedPins;
         if (!rebuild && modelsMoved) for (final RecipeCard card : cards.values()) rebuild |= card.shapeChanged();
@@ -192,19 +294,36 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     private void buildCards() {
         builds++;
         builtStructure = session.structure();
+        builtGroups = groupsKey();
         builtAt = System.currentTimeMillis();
         removeAll();
         cards.clear();
         drawers.clear();
         notes.clear();
+        groupCards.clear();
+        final Graph g = session.graph();
+        // Groups first, outer before inner, so everything they hold draws over them.
+        final List<com.gtnhplanner.data.flowchart.BoardGroup> shown = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.BoardGroup b : g.boardGroups.values())
+            if (com.gtnhplanner.data.flowchart.Groups.shows(g, b)) shown.add(b);
+        shown.sort(
+            java.util.Comparator.comparingInt(
+                b -> com.gtnhplanner.data.flowchart.Groups.ancestors(g, b.getId())
+                    .size()));
+        for (final com.gtnhplanner.data.flowchart.BoardGroup b : shown) {
+            final com.gtnhplanner.ui.group.GroupCard card = new com.gtnhplanner.ui.group.GroupCard(session, b.getId());
+            groupCards.put(b.getId(), card);
+            child(card);
+            adding.add(card);
+        }
         // Boxes, zones and pictures first (the board's backdrop), then notes and arrows, then drawers, so cards draw
         // over them where they overlap.
         final java.util.List<UUID> order = new ArrayList<>();
         // Pictures are not supported: kept in the plan, given no widget.
         for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
-            if (n.isBackdrop()) order.add(n.getId());
+            if (n.isBackdrop() && !com.gtnhplanner.data.flowchart.Groups.hidden(g, n.getId())) order.add(n.getId());
         for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
-            if (!n.isBackdrop() && !n.isHidden()) order.add(n.getId());
+            if (!n.isBackdrop() && com.gtnhplanner.ui.group.GroupEdits.shows(g, n)) order.add(n.getId());
         for (final UUID id : order) {
             final com.gtnhplanner.ui.note.NoteCard note = new com.gtnhplanner.ui.note.NoteCard(session, id);
             notes.put(id, note);
@@ -213,6 +332,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         for (final DrawerModel model : session.drawerModels()
             .values()) {
+            if (com.gtnhplanner.ui.group.GroupEdits.hidden(g, model.drawer)) continue;
             final DrawerCard drawer = new DrawerCard(session, model.drawer.getId());
             drawers.put(model.drawer.getId(), drawer);
             child(drawer);
@@ -223,6 +343,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             // A shared machine is one card: its first recipe makes it, and every recipe on it finds it.
             final UUID host = session.hostOf(model.node.id);
             if (!host.equals(model.node.id)) continue;
+            if (com.gtnhplanner.ui.group.GroupEdits.hidden(g, model.node)) continue;
             final RecipeCard card = new RecipeCard(session, host);
             for (final UUID section : session.sectionsOf(host)) cards.put(section, card);
             child(card);
@@ -391,6 +512,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         // World space, under the cards.
         labels.clear();
+        paintGroupBodies();
         if (PlanPicture.drawing()) {
             routed = wires.wires(cards, drawers, false);
             wires.draw(routed, com.gtnhplanner.ui.HoverScope.NONE, Float.MAX_VALUE);
@@ -560,6 +682,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         // A shared machine moves whole: every recipe on its card.
         for (final UUID s : new ArrayList<>(ids))
             for (final UUID section : session.sectionsOf(s)) if (!ids.contains(section)) ids.add(section);
+        // A group moves with everything it holds, however deep.
+        for (final UUID s : new ArrayList<>(ids)) if (graph().boardGroups.containsKey(s))
+            for (final UUID inside : com.gtnhplanner.data.flowchart.Groups.descendants(graph(), s))
+                if (!ids.contains(inside)) ids.add(inside);
         moveStart = new HashMap<>();
         for (final UUID m : ids) {
             final Node n = graph().nodes.get(m);
@@ -568,8 +694,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             if (d != null) moveStart.put(m, new int[] { d.getX(), d.getY() });
             final com.gtnhplanner.data.flowchart.Note note = graph().notes.get(m);
             if (note != null) moveStart.put(m, new int[] { note.getX(), note.getY() });
+            final com.gtnhplanner.data.flowchart.BoardGroup group = graph().boardGroups.get(m);
+            if (group != null) moveStart.put(m, new int[] { group.getX(), group.getY() });
         }
         moveAnchor = id;
+        dropGroup = leavingGroup = null;
+        aimFrom = graph().boardGroups.containsKey(id) ? null
+            : com.gtnhplanner.data.flowchart.Groups.groupOf(graph(), id);
+        aims = !graph().boardGroups.containsKey(id);
         moveMouseX = getContext().getAbsMouseX();
         moveMouseY = getContext().getAbsMouseY();
         moveDX = moveDY = 0;
@@ -830,7 +962,33 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final int[] to = nearestClear(BoardSession.snap(rawX / zoom), BoardSession.snap(rawY / zoom));
         moveDX = to[0];
         moveDY = to[1];
+        aim(rawX / zoom, rawY / zoom);
         stepMoveGlide();
+    }
+
+    /** Whether the thing in hand can join a group (a card, drawer or note; a carried group keeps its parent). */
+    private boolean aims;
+    /** The group the thing in hand was in when the move began. */
+    @Nullable
+    private UUID aimFrom;
+
+    /**
+     * The group the pointer aims the carried thing at: the innermost open group its centre is over, before the board
+     * slides it clear of what is in the way (so a full group still takes it). It lights up; coming over a new one
+     * ticks.
+     */
+    private void aim(final float dx, final float dy) {
+        if (!aims || moveAnchor == null) return;
+        final int[] start = moveStart.get(moveAnchor), box = thingBox(moveAnchor);
+        if (start == null || box == null) return;
+        final java.util.Set<UUID> carriedGroups = new java.util.HashSet<>();
+        for (final UUID id : moveStart.keySet()) if (graph().boardGroups.containsKey(id)) carriedGroups.add(id);
+        final UUID next = com.gtnhplanner.ui.group.GroupEdits
+            .groupUnder(graph(), start[0] + dx + box[2] / 2f, start[1] + dy + box[3] / 2f, carriedGroups);
+        if (!java.util.Objects.equals(next, dropGroup) && next != null && !next.equals(aimFrom))
+            Sfx.WIRE_SNAP.play(0.6f, 1f);
+        dropGroup = next;
+        leavingGroup = aimFrom != null && !aimFrom.equals(next) ? aimFrom : null;
     }
 
     /**
@@ -916,6 +1074,17 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             if (start != null) carried.add(new int[] { start[0], start[1], DrawerCard.W, DrawerCard.H });
             else obstacles.add(new int[] { d.getX(), d.getY(), DrawerCard.W, DrawerCard.H });
         }
+        // A collapsed group is a card on the board; an open group carried keeps its frame off other things.
+        for (final com.gtnhplanner.ui.group.GroupCard card : groupCards.values()) {
+            final com.gtnhplanner.data.flowchart.BoardGroup g = card.group();
+            if (g == null) continue;
+            final int[] start = moveStart.get(card.groupId);
+            final int w = card.getArea().width, h = card.getArea().height;
+            if (start != null) {
+                if (g.getParent() == null || !moveStart.containsKey(g.getParent()))
+                    carried.add(new int[] { start[0], start[1], w, h });
+            } else if (g.isCollapsed()) obstacles.add(new int[] { g.getX(), g.getY(), w, h });
+        }
         obstacles.removeIf(
             o -> carried.stream()
                 .anyMatch(c -> overlaps(c, 0, 0, o)));
@@ -940,14 +1109,22 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         if (moveStart == null) return false;
         final boolean click = !moveStarted;
         moveStarted = false;
+        final UUID target = dropGroup;
+        final boolean aimed = aims;
+        dropGroup = leavingGroup = null;
+        aims = false;
         if (click) {
             moveStart = null;
             moveUndo = null;
             return true;
         }
-        if (moveDX == 0 && moveDY == 0) place(moveStart);
+        // A drop into or out of a group counts even where the board put it back: the pointer chose.
+        final boolean regroups = aimed && successful && !java.util.Objects.equals(target, aimFrom);
+        if (moveDX == 0 && moveDY == 0 && !regroups) place(moveStart);
         else if (successful) {
             place(offset(moveDX, moveDY));
+            int[] moved = { 0, 0 };
+            if (aimed) moved = groups().land(moveStart.keySet(), target);
             for (final UUID id : moveStart.keySet()) {
                 raised.remove(id);
                 raised.add(id);
@@ -956,7 +1133,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 .commitEdit(moveUndo, graph());
             graph().touchLayout();
             com.gtnhplanner.api.PlanAPI.save();
-            Sfx.DROP.play();
+            // In a group higher, out of one lower, as on the website.
+            if (moved[0] > 0) Sfx.MERGE.play(1f, 1.12f);
+            else if (moved[1] > 0) Sfx.MERGE.play(0.8f, 0.85f);
+            else Sfx.DROP.play();
         } else place(moveStart);
         moveStart = null;
         moveUndo = null;
@@ -996,8 +1176,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             if (d.getX() < x1 && d.getX() + DrawerCard.W > x0 && d.getY() < y1 && d.getY() + DrawerCard.H > y0)
                 session.select(d.getId(), true);
         }
+        // A group is picked only whole (its frame, or its summary card, inside the box).
+        for (final com.gtnhplanner.ui.group.GroupCard card : groupCards.values()) {
+            final Area a = card.getArea();
+            if (a.rx >= x0 && a.ry >= y0 && a.rx + a.width <= x1 && a.ry + a.height <= y1)
+                session.select(card.groupId, true);
+        }
         for (final com.gtnhplanner.data.flowchart.Note n : graph().getNotes()) {
-            if (n.isHidden()) continue;
+            if (!com.gtnhplanner.ui.group.GroupEdits.shows(graph(), n)) continue;
             // A backdrop (a box, zone or picture) is picked only whole: grazing its edge is not reaching for it.
             final boolean touched = n.isBackdrop()
                 ? n.getX() >= x0 && n.getX() + n.getWidth() <= x1 && n.getY() >= y0 && n.getY() + n.getHeight() <= y1
@@ -2776,6 +2962,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 note.setX(e.getValue()[0]);
                 note.setY(e.getValue()[1]);
                 final com.gtnhplanner.ui.note.NoteCard widget = notes.get(note.getId());
+                if (widget != null) widget.sync();
+                continue;
+            }
+            final com.gtnhplanner.data.flowchart.BoardGroup group = g.boardGroups.get(e.getKey());
+            if (group != null) {
+                group.setX(e.getValue()[0]);
+                group.setY(e.getValue()[1]);
+                final com.gtnhplanner.ui.group.GroupCard widget = groupCards.get(group.getId());
                 if (widget != null) widget.sync();
                 continue;
             }
