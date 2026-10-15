@@ -1226,6 +1226,85 @@ public final class BoardSession {
 
     // endregion
 
+    // region Task board
+
+    /** Which plans show their task board, by slot; a plan not here opens on its primary view. Never saved. */
+    private final Map<UUID, Boolean> tasksShown = new HashMap<>();
+
+    /** Whether the open plan shows its task board in place of the board. */
+    public boolean showsTasks() {
+        final Boolean shown = tasksShown.get(graph.slot());
+        return shown != null ? shown : com.gtnhplanner.data.flowchart.Tasks.TASKS.equals(graph.getPrimaryView());
+    }
+
+    /** Shows the open plan's task board, or its board. */
+    public void showTasks(final boolean on) {
+        if (on == showsTasks()) return;
+        tasksShown.put(graph.slot(), on);
+        Sfx.PAGE.play();
+    }
+
+    /**
+     * One undoable change to the task board: saved, never solved again (tasks take no part in the solve). Every task,
+     * checklist and comment edit goes through here.
+     */
+    public void editTasks(final Runnable change) {
+        editLayout(change);
+    }
+
+    /** Shows a card on the board: the plan's board view, the card centred and selected. */
+    public void focusCard(final UUID nodeId) {
+        if (!graph.nodes.containsKey(nodeId)) {
+            Sfx.DENY.play();
+            return;
+        }
+        showTasks(false);
+        justAdded = hostOf(nodeId);
+        focusAdded = true;
+    }
+
+    private Graph dotsGraph;
+    private long dotsVersion = Long.MIN_VALUE;
+    private Map<UUID, com.gtnhplanner.data.flowchart.Tasks.Status> dots = Map.of();
+
+    /** The status of the most pressing task a card is on (any of its recipes), or null: the dot on its header. */
+    @Nullable
+    public com.gtnhplanner.data.flowchart.Tasks.Status taskStatus(final UUID nodeId) {
+        if (graph.tasks.isEmpty()) return null;
+        if (dotsGraph != graph || dotsVersion != graph.version()) {
+            final Map<UUID, com.gtnhplanner.data.flowchart.Tasks.Status> next = new HashMap<>();
+            for (final Map.Entry<String, com.gtnhplanner.data.flowchart.Tasks.Status> e : com.gtnhplanner.data.flowchart.TaskEdits
+                .statusByNode(graph)
+                .entrySet()) next.put(com.gtnhplanner.cloud.map.PlanIds.uuid(e.getKey()), e.getValue());
+            dots = next;
+            dotsGraph = graph;
+            dotsVersion = graph.version();
+        }
+        com.gtnhplanner.data.flowchart.Tasks.Status most = null;
+        for (final UUID id : sectionsOf(nodeId)) {
+            final com.gtnhplanner.data.flowchart.Tasks.Status s = dots.get(id);
+            if (s != null && (most == null || com.gtnhplanner.data.flowchart.TaskEdits.urgency(s)
+                > com.gtnhplanner.data.flowchart.TaskEdits.urgency(most))) most = s;
+        }
+        return most;
+    }
+
+    /** A new plan made as a task board: it opens on its tasks. */
+    public void addTaskBoard() {
+        final Plan plan = Plan.getInstance();
+        final int size = plan.getGraphs()
+            .size();
+        final Graph board = new Graph("Task board " + (size + 1));
+        board.setPrimaryView(com.gtnhplanner.data.flowchart.Tasks.TASKS);
+        plan.getGraphs()
+            .add(board);
+        plan.setActiveIndex(size);
+        PlanAPI.save();
+        Sfx.PAGE.play();
+    }
+
+    // endregion
+
     // region Selection
 
     /**

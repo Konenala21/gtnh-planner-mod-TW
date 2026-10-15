@@ -362,6 +362,24 @@ public final class DevHarness {
                 });
             case "/board":
                 return onClient(DevBoard::board);
+            case "/tasks":
+                // The task board: which view shows, each column's cards with their GUI rects, and the task box open;
+                // show=1 or 0 switches the view, open=<task id> opens a task's box.
+                return onClient(() -> {
+                    final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
+                    if (screen == null) return error("the planner is not open");
+                    if (q.containsKey("show")) screen.session()
+                        .showTasks("1".equals(q.get("show")));
+                    if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(screen.session(), q.get("open"));
+                    final Map<String, Object> m = new LinkedHashMap<>();
+                    m.put(
+                        "view",
+                        screen.session()
+                            .showsTasks() ? "tasks" : "plan");
+                    m.put("board", ((com.gtnhplanner.ui.task.TaskBoardView) screen.key("taskBoard")).describe());
+                    m.put("panel", com.gtnhplanner.ui.task.TaskPanel.describe());
+                    return m;
+                });
             case "/pin":
                 // Pins card N (the board report's order) at a count, or unpins it with no count or 0: for setting up a
                 // plan to look at without clicking every card.

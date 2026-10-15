@@ -1,5 +1,9 @@
 package com.gtnhplanner.ui.popup;
 
+import java.util.function.Consumer;
+
+import javax.annotation.Nullable;
+
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.ChatAllowedCharacters;
 
@@ -38,6 +42,31 @@ public final class TextArea extends Widget<TextArea> implements Interactable, IF
 
     public String text() {
         return text;
+    }
+
+    /** Puts text in the box (its caller keeps it from changing what is being written). */
+    public TextArea text(@Nullable final String text) {
+        this.text = text == null ? "" : text;
+        caret = anchor = Math.min(caret, this.text.length());
+        return this;
+    }
+
+    /** Told what was written each time the box lets go of the keyboard. */
+    @Nullable
+    private Consumer<String> onDone;
+
+    /** Lets {@code done} hear the text each time writing ends (Esc, or a click elsewhere). */
+    public TextArea onDone(final Consumer<String> done) {
+        onDone = done;
+        return this;
+    }
+
+    /** The most it holds, in characters. */
+    private int maxLength = Integer.MAX_VALUE;
+
+    public TextArea maxLength(final int max) {
+        maxLength = max;
+        return this;
     }
 
     /** Stops taking input, as a form being sent does. */
@@ -132,7 +161,9 @@ public final class TextArea extends Widget<TextArea> implements Interactable, IF
 
     @Override
     public void onRemoveFocus(final ModularGuiContext context) {
+        final boolean was = focused;
         focused = false;
+        if (was && onDone != null) onDone.accept(text);
     }
 
     @Override
@@ -215,8 +246,9 @@ public final class TextArea extends Widget<TextArea> implements Interactable, IF
         return Result.SUCCESS;
     }
 
-    private void insert(final String s) {
+    private void insert(final String typed) {
         final int a = Math.min(caret, anchor), b = Math.max(caret, anchor);
+        final String s = typed.substring(0, Math.max(0, Math.min(typed.length(), maxLength - text.length() + b - a)));
         text = text.substring(0, a) + s + text.substring(b);
         caret = anchor = a + s.length();
     }

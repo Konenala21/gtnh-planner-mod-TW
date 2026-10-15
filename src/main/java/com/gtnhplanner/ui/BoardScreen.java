@@ -124,6 +124,8 @@ public final class BoardScreen extends ModularScreen {
         picker.setEnabled(false);
         final Runnable openPicker = () -> {
             library.set(false);
+            // What it adds goes on the board.
+            session.showTasks(false);
             com.gtnhplanner.ui.sound.Sfx.OPEN.play();
             picker.opened();
             picker.setEnabled(true);
@@ -153,7 +155,7 @@ public final class BoardScreen extends ModularScreen {
                 "arrange",
                 key(
                     canvas::arrangeLabel,
-                    () -> true,
+                    () -> !session.showsTasks(),
                     "Auto-arrange the plan (press again to stop)",
                     fit("Arrange", "Arranging 100%"),
                     canvas::arrange).marginLeft(GROUP_GAP)));
@@ -161,7 +163,12 @@ public final class BoardScreen extends ModularScreen {
             named(
                 parts,
                 "fit",
-                key(() -> "Fit", () -> true, "Zoom to fit the whole plan", fit("Fit"), canvas::frameAll)));
+                key(
+                    () -> "Fit",
+                    () -> !session.showsTasks(),
+                    "Zoom to fit the whole plan",
+                    fit("Fit"),
+                    canvas::frameAll)));
         topBar.child(
             named(
                 parts,
@@ -199,6 +206,22 @@ public final class BoardScreen extends ModularScreen {
                     fit("Peak", "Avg"),
                     session::togglePeakPower,
                     step -> session.togglePeakPower())));
+        // The plan's task board in the board's place, and back.
+        topBar.child(
+            named(
+                parts,
+                "tasks",
+                key(
+                    () -> !library.open && session.showsTasks() ? "Plan" : "Tasks",
+                    () -> true,
+                    "Switch between the plan and its task board",
+                    fit("Tasks", "Plan"),
+                    () -> {
+                        final boolean tasks = library.open || !session.showsTasks();
+                        library.set(false);
+                        session.showTasks(tasks);
+                        library.apply();
+                    }).marginLeft(GROUP_GAP)));
         topBar.child(
             named(
                 parts,
@@ -208,7 +231,7 @@ public final class BoardScreen extends ModularScreen {
                     () -> true,
                     "Library: your plans, and plans other players shared",
                     fit("Library", "Board"),
-                    () -> library.set(!library.open)).marginLeft(GROUP_GAP)));
+                    () -> library.set(!library.open))));
         topBar.child(
             named(
                 parts,
@@ -257,6 +280,12 @@ public final class BoardScreen extends ModularScreen {
         body.child(
             canvas.heightRel(1f)
                 .expanded());
+        final com.gtnhplanner.ui.task.TaskBoardView tasks = new com.gtnhplanner.ui.task.TaskBoardView(session);
+        tasks.heightRel(1f)
+            .expanded()
+            .setEnabled(false);
+        body.child(tasks);
+        parts.put("taskBoard", tasks);
         library.view.heightRel(1f)
             .expanded()
             .setEnabled(false);
@@ -287,9 +316,13 @@ public final class BoardScreen extends ModularScreen {
         // Over everything, so the board waits under it.
         panel.child(offer);
         library.body = body;
-        library.board = List.of(rail, canvas, notices, selectionBar);
+        library.session = session;
+        library.board = List.of(rail);
+        library.plan = List.of(canvas, notices, selectionBar);
+        library.tasks = tasks;
         parts.put("picker", picker);
         parts.put("libraryView", library.view);
+        library.apply();
         return new BoardScreen(panel, session, canvas, library, picker, parts);
     }
 
@@ -392,23 +425,47 @@ public final class BoardScreen extends ModularScreen {
             TOP_BAR + 2);
     }
 
-    /** Swaps the board (the overview, the canvas and the bars over it) for the library, and back. */
+    /**
+     * Swaps the board (the overview, the canvas and the bars over it) for the library, and back; and the canvas and its
+     * bars for the open plan's task board while it shows that (the overview stays).
+     */
     private static final class LibraryDoor {
 
         LibraryView view;
         Flow body;
-        List<com.cleanroommc.modularui.widget.Widget<?>> board = List.of();
+        BoardSession session;
+        /** What shows whenever the library is shut, and what only the plan's board view shows. */
+        List<com.cleanroommc.modularui.widget.Widget<?>> board = List.of(), plan = List.of();
+        com.gtnhplanner.ui.task.TaskBoardView tasks;
         boolean open;
+        /** Whether the task board was showing when the widgets were last set. */
+        boolean tasksShown;
 
         void set(final boolean open) {
             if (open == this.open) return;
             this.open = open;
             com.gtnhplanner.ui.sound.Sfx.PAGE.play();
             view.setEnabled(open);
-            for (final com.cleanroommc.modularui.widget.Widget<?> w : board) w.setEnabled(!open);
+            apply();
             if (open) view.opened();
+        }
+
+        /** Shows what is open: the library, else the plan's board or its task board, with the overview. */
+        void apply() {
+            tasksShown = session.showsTasks();
+            final boolean taskBoard = !open && tasksShown;
+            for (final com.cleanroommc.modularui.widget.Widget<?> w : board) w.setEnabled(!open);
+            for (final com.cleanroommc.modularui.widget.Widget<?> w : plan) w.setEnabled(!open && !taskBoard);
+            tasks.setEnabled(taskBoard);
             body.scheduleResize();
         }
+    }
+
+    /** A plan opened or switched to shows the view it opens on (or the one it was left on). */
+    @Override
+    public void onUpdate() {
+        super.onUpdate();
+        if (library.tasksShown != session.showsTasks()) library.apply();
     }
 
     /** Every gesture on the board, in one list. */
@@ -629,6 +686,11 @@ public final class BoardScreen extends ModularScreen {
             }
             return super.onKeyPressed(typedChar, keyCode);
         }
+        // The task board: only undo and redo of the board's keys, which act on the plan out of sight.
+        if (session.showsTasks()) {
+            if (!textFocused(this) && undoKeys()) return true;
+            return super.onKeyPressed(typedChar, keyCode);
+        }
         // Linking a machine from the world: Esc gives up and goes back to the world.
         if (com.gtnhplanner.ui.world.LinkTarget.active() && keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE
             && !textFocused(this)) {
@@ -677,20 +739,24 @@ public final class BoardScreen extends ModularScreen {
                 else if (session.copySelection() && keyCode == org.lwjgl.input.Keyboard.KEY_X) session.deleteSelected();
                 return true;
             }
-            final boolean undo = NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigUndoKey.KEY);
-            if (undo || NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigRedoKey.KEY)
-                || NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigRedoAltKey.KEY)) {
-                // ModularUI offers each key event twice (char and key paths); act once per event.
-                final long event = org.lwjgl.input.Keyboard.getEventNanoseconds();
-                if (event != lastKeyEvent) {
-                    lastKeyEvent = event;
-                    if (undo) session.undo();
-                    else session.redo();
-                }
-                return true;
-            }
+            if (undoKeys()) return true;
         }
         return super.onKeyPressed(typedChar, keyCode);
+    }
+
+    /** Undo and redo, as NEI's settings bind them: true when the key was one of them. */
+    private boolean undoKeys() {
+        final boolean undo = NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigUndoKey.KEY);
+        if (!undo && !NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigRedoKey.KEY)
+            && !NEIClientConfig.isKeyHashDown(NEIPlanConfig.ConfigRedoAltKey.KEY)) return false;
+        // ModularUI offers each key event twice (char and key paths); act once per event.
+        final long event = org.lwjgl.input.Keyboard.getEventNanoseconds();
+        if (event != lastKeyEvent) {
+            lastKeyEvent = event;
+            if (undo) session.undo();
+            else session.redo();
+        }
+        return true;
     }
 
     /**
@@ -728,7 +794,11 @@ public final class BoardScreen extends ModularScreen {
     @Override
     public boolean onMouseRelease(final int mouseButton) {
         if (mouseButton == 2) canvas.endMiddlePan();
-        return super.onMouseRelease(mouseButton);
+        final boolean taken = super.onMouseRelease(mouseButton);
+        // A task card or checklist line let go off its view: it is put down all the same.
+        library.tasks.screenReleased(mouseButton);
+        com.gtnhplanner.ui.task.TaskPanel.screenReleased(mouseButton);
+        return taken;
     }
 
     @Override

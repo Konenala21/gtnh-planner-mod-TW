@@ -46,6 +46,15 @@ public final class Account {
         return token() != null;
     }
 
+    /** The signed-in account's id (the session's first part, {@code <userId>.<expires>.<hmac>}), or null. */
+    @Nullable
+    public static String userId() {
+        final String token = token();
+        if (token == null) return null;
+        final int dot = token.indexOf('.');
+        return dot > 0 ? token.substring(0, dot) : null;
+    }
+
     static void signedIn(final CommunityApi.SignedIn s) {
         load().setProperty(SESSION, s.token());
         load().setProperty(USERNAME, s.username());

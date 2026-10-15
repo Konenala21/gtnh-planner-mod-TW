@@ -41,6 +41,21 @@ public final class Icons {
         draw(BULB, x, y, c, false);
     }
 
+    /** A tick, for a checklist. */
+    public static void check(final int x, final int y, final int c) {
+        draw(CHECK, x, y, c, false);
+    }
+
+    /** A speech bubble, for comments. */
+    public static void comment(final int x, final int y, final int c) {
+        draw(COMMENT, x, y, c, false);
+    }
+
+    /** A card with its header, for the cards a task is about. */
+    public static void card(final int x, final int y, final int c) {
+        draw(CARD, x, y, c, false);
+    }
+
     /**
      * Where an icon goes on a key {@code w} by {@code h}: the middle of its lit face (the dark edge right and below
      * melts into the bar), its rows level with a label's letters. Exact on a key of even width and height.
@@ -59,6 +74,12 @@ public final class Icons {
         ".........", "....##...", "....##..." };
     private static final String[] BULB = { "...###...", "..##.##..", ".##...##.", ".##...##.", "..##.##..", "...###...",
         ".........", "...###...", "...###..." };
+    private static final String[] CHECK = { ".........", ".......##", "......###", ".....###.", "##..###..",
+        "######...", ".####....", "..##.....", "........." };
+    private static final String[] COMMENT = { ".#######.", "#########", "##.....##", "##.....##", "#########",
+        ".#######.", "..##.....", ".##......", "........." };
+    private static final String[] CARD = { "#########", "#########", "#.......#", "#########", "#.......#", "#.......#",
+        "#.......#", "#########", "........." };
 
     private static void draw(final String[] rows, final int x, final int y, final int c, final boolean mirror) {
         final boolean own = !Hyb.batching();

@@ -125,8 +125,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             reveal = List.of(added);
             revealFocus = focus;
         }
-        if (!reveal.isEmpty() && reveal.stream()
-            .allMatch(id -> cards.containsKey(id) || drawers.containsKey(id))) {
+        // Only once the board shows, at its size: a card shown from the task board waits for the board to be back.
+        if (!reveal.isEmpty() && isEnabled()
+            && getArea().width > 0
+            && reveal.stream()
+                .allMatch(id -> cards.containsKey(id) || drawers.containsKey(id))) {
             final int[] box = box(reveal);
             if (box != null && revealFocus) focusBox(reveal.get(0), box);
             else if (box != null) revealBox(box[0], box[1], box[2], box[3]);

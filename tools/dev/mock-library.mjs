@@ -38,8 +38,11 @@ const userOf = (req) => {
   const m = /(?:^|;\s*)gtnh_session=([^;]+)/.exec(req.headers.cookie ?? "");
   return m ? sessions.get(m[1]) : undefined;
 };
+const ids = new Map(); // name -> account id
 const signIn = (res, name) => {
-  const token = randomUUID();
+  if (!ids.has(name)) ids.set(name, randomUUID());
+  // Spelled as the website's session is, <userId>.<expiresMs>.<hmac>, so the game reads the account's id from it.
+  const token = `${ids.get(name)}.${Date.now() + 15552000000}.${randomUUID().replaceAll("-", "")}`;
   sessions.set(token, name);
   json(res, 200, { username: name, isAdmin: false }, {
     "Set-Cookie": `gtnh_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000`,
