@@ -191,7 +191,9 @@ class LiveSocketTest {
         socket = new LiveSocket(URI.create("ws://127.0.0.1:" + server.port() + "/live"), () -> null, null, FAST);
         final Log log = new Log();
         socket.start();
-        await(log, socket, () -> socket.state() == LiveSocket.State.CLOSED);
+        // The socket starts closed and stays so: wait for its reason, not its state (start runs on the event loop).
+        await(log, socket, () -> !log.reasons.isEmpty());
+        assertEquals(LiveSocket.State.CLOSED, socket.state());
         assertEquals(LiveSocket.AUTH, log.reasons.get(0));
         assertTrue(server.cookies.isEmpty());
     }
