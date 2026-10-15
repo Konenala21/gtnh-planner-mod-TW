@@ -139,6 +139,25 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
         return -1;
     }
 
+    /**
+     * The GUI rectangle {x, y, w, h} of the first notice's key labelled {@code label} (the tour presses one), or null
+     * when none shows.
+     */
+    public int[] keyRect(final String label) {
+        final List<Notice> notices = session.notices();
+        final int w = getArea().width;
+        int y = 0;
+        for (int i = 0; i < Math.min(notices.size(), MAX_ROWS); i++) {
+            final Notice n = notices.get(i);
+            if (n.hasKey() && label.equals(n.keyLabel())) {
+                final int showW = Hyb.width(n.keyLabel());
+                return new int[] { getArea().x + rowWidth(n, w) - showW - 5, getArea().y + y + 2, showW, LINE + 2 };
+            }
+            y += rowHeight(n, w);
+        }
+        return null;
+    }
+
     /** A row is as wide as its sentence and "Show me", so the board stays visible beside it. */
     private static int rowWidth(final Notice n, final int max) {
         final int show = n.hasKey() ? Hyb.width(n.keyLabel()) + 10 : 0;

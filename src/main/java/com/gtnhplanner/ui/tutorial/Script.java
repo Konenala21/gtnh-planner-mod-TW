@@ -55,6 +55,8 @@ final class Script {
         plans(out);
         note(out);
         world(out);
+        tasks(out);
+        end(out);
         return out;
     }
 
@@ -852,6 +854,18 @@ final class Script {
             .note(Targets.around(Targets.topKey("tabs"), Targets.popup()), "Here's how you make a *new plan*.");
 
         beat(out).escIf(Script::popupOpen)
+            .rest()
+            .note(
+                Targets.topKey("invite"),
+                "Sign in and your plans save as you edit, on any computer. *Invite* someone and you build the plan together, live.");
+
+        beat(out).click(Targets.topKey("plans"))
+            .until(Script::libraryOpen, 2000)
+            .pause(400)
+            .rest()
+            .note(Targets.topKey("plans"), "*Plans* has all your plans, and the ones people shared with you.");
+
+        beat(out).escIf(Script::popupOpen)
             .click(Targets.topKey("community"))
             .until(
                 () -> Targets.board() != null && Targets.board()
@@ -1014,9 +1028,47 @@ final class Script {
             .pause(200)
             .run(Minimap.INSTANCE::recentre);
 
-        // Back on the board, at the Feedback key.
+    }
+
+    // endregion
+
+    // region Task boards
+
+    private static void tasks(final List<Beat> out) {
+        // Back on the board: the reactor goes on a task, on a new task board.
+        final Target open = Targets.boardPart("notice:Open");
         beat(out).run(com.gtnhplanner.ui.Planner::open)
             .until(() -> Targets.board() != null, 3000)
+            .escIf(Script::popupOpen)
+            .opens(card(ACID, RecipeCard.Part.ACTIONS))
+            .click(Targets.popupRow("Add to a task"))
+            .until(
+                () -> Targets.popupRow("New task board")
+                    .rect() != null,
+                2000)
+            .click(Targets.popupRow("New task board"))
+            .until(() -> open.rect() != null, 3000)
+            .rest()
+            .note(
+                Targets.boardPart("notices"),
+                "*Add to a task* puts machines on a task board, with how many to build.");
+
+        beat(out).click(open)
+            .until(Script::popupOpen, 3000)
+            .pause(300)
+            .rest()
+            .note(
+                Targets.popup(),
+                "A *task* holds notes, a checklist, comments and who is on it. Drag it across the columns as the work goes.");
+    }
+
+    // endregion
+
+    // region The end
+
+    private static void end(final List<Beat> out) {
+        // At the Feedback key, the task's box put away.
+        beat(out).escIf(Script::popupOpen)
             .rest()
             .note(
                 Targets.topKey("feedback"),

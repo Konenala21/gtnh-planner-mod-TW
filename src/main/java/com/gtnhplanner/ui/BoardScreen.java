@@ -486,6 +486,10 @@ public final class BoardScreen extends ModularScreen {
             final com.cleanroommc.modularui.widget.sizer.Area a = s.getArea();
             return new int[] { a.x, a.y, a.width, a.height };
         }
+        if (id.startsWith("notice:")) {
+            final IWidget n = parts.get("notices");
+            return n instanceof final NoticeBar bar && bar.isEnabled() ? bar.keyRect(id.substring(7)) : null;
+        }
         if ("notices".equals(id)) {
             final IWidget n = parts.get("notices");
             if (n == null || !n.isEnabled()) return null;
