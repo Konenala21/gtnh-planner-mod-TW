@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
@@ -163,6 +164,7 @@ public final class PlanExport {
             final JsonObject node = node(n, recipeId, world);
             if (picks.entrySet()
                 .size() > 0) node.add("recipeInputOverrides", picks);
+            inGroup(g, node, n.group, n.x, n.y);
             nodes.add(node);
         }
         for (final Edge e : g.getEdges()) {
@@ -177,7 +179,9 @@ public final class PlanExport {
             if (r == null) continue;
             final boolean source = d.getKind()
                 .linksInputs();
-            storages.add(storage(d, r));
+            final JsonObject storage = storage(d, r);
+            inGroup(g, storage, d.getGroup(), d.getX(), d.getY());
+            storages.add(storage);
             for (final Drawer.Link link : d.getLinks()) {
                 final Node n = g.nodes.get(link.nodeId());
                 if (n == null) continue;
@@ -198,7 +202,13 @@ public final class PlanExport {
             }
         }
         final JsonArray annotations = new JsonArray();
-        for (final Note n : g.getNotes()) annotations.add(note(n));
+        for (final Note n : g.getNotes()) {
+            final JsonObject note = note(n);
+            inGroup(g, note, n.getGroup(), n.getX(), n.getY());
+            annotations.add(note);
+        }
+        final JsonArray pockets = new JsonArray();
+        for (final BoardGroup b : g.boardGroups.values()) pockets.add(pocket(g, b));
         final JsonObject p = new JsonObject();
         p.addProperty("schemaVersion", 1);
         p.addProperty(
@@ -216,7 +226,7 @@ public final class PlanExport {
         p.add("nodes", nodes);
         p.add("storages", storages);
         p.add("annotations", annotations);
-        p.add("pockets", new JsonArray());
+        p.add("pockets", pockets);
         p.add("edges", edges);
         p.add("fuelProfiles", new JsonArray());
         final JsonObject meta = new JsonObject();
@@ -844,6 +854,43 @@ public final class PlanExport {
         o.addProperty("id", r.id());
         if (!r.name()
             .isEmpty()) o.addProperty("displayName", r.name());
+        return o;
+    }
+
+    /**
+     * A member of a group, as the website keeps one (docs/design/groups.md): {@code pocketId} its board's id, its
+     * position measured from the board's frame corner.
+     */
+    private static void inGroup(final Graph g, final JsonObject o, @Nullable final UUID group, final int x,
+        final int y) {
+        final BoardGroup b = group == null ? null : g.boardGroups.get(group);
+        if (b == null) return;
+        o.addProperty("pocketId", b.webId());
+        o.add("position", position(x - b.getX(), y - b.getY()));
+    }
+
+    /**
+     * A group as the website's board ({@code FactoryPocket}): its frame (corner from its parent's, size in the card
+     * scale), open or not, its colour and the paper it came with.
+     */
+    private static JsonObject pocket(final Graph g, final BoardGroup b) {
+        final JsonObject o = new JsonObject();
+        o.addProperty("id", b.webId());
+        o.addProperty("name", b.getName());
+        if (b.getColor() != null && COLOR_TAGS.contains(b.getColor())) o.addProperty("colorTag", b.getColor());
+        final BoardGroup parent = b.getParent() == null ? null : g.boardGroups.get(b.getParent());
+        if (parent != null) o.addProperty("parentPocketId", parent.webId());
+        o.add(
+            "position",
+            parent == null ? position(b.getX(), b.getY())
+                : position(b.getX() - parent.getX(), b.getY() - parent.getY()));
+        o.addProperty("expanded", !b.isCollapsed());
+        final JsonObject size = new JsonObject();
+        size.addProperty("width", cells(b.getWidth() * SCALE_X));
+        size.addProperty("height", cells(b.getHeight() * SCALE_Y));
+        o.add("size", size);
+        if (b.getTheme() != null) o.addProperty("theme", b.getTheme());
+        if (b.getPattern() != null) o.addProperty("pattern", b.getPattern());
         return o;
     }
 

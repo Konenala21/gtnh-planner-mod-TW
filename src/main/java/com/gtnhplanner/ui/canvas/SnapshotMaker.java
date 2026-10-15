@@ -24,7 +24,8 @@ final class SnapshotMaker {
     private SnapshotMaker() {}
 
     static PlanSnapshot make(final BoardSession session, final Map<UUID, RecipeCard> cards,
-        final Map<UUID, DrawerCard> drawers, final List<WireLayer.Wire> wires, final float viewX, final float viewY) {
+        final Map<UUID, DrawerCard> drawers, final List<WireLayer.Wire> wires, final float viewX, final float viewY,
+        final List<PlanSnapshot.GroupBox> groups) {
         final Graph graph = session.graph();
         final List<PlanSnapshot.Card> outCards = new ArrayList<>();
         for (final RecipeCard card : new LinkedHashSet<>(cards.values())) {
@@ -120,7 +121,8 @@ final class SnapshotMaker {
             viewX,
             viewY,
             session.rateUnit(),
-            List.copyOf(graph.pinList));
+            List.copyOf(graph.pinList),
+            groups);
     }
 
     private static PlanSnapshot.Flow flow(final CardModel.PortView p) {

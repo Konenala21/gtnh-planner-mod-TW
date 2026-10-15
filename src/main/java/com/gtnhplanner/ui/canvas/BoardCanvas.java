@@ -629,7 +629,40 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         snapshotPins = com.gtnhplanner.ui.card.SettingPins.version();
         final Area a = getArea();
         com.gtnhplanner.ui.world.PlanSnapshot.publish(
-            SnapshotMaker.make(session, cards, drawers, routed, worldX(a.x + a.width / 2), worldY(a.y + a.height / 2)));
+            SnapshotMaker.make(
+                session,
+                cards,
+                drawers,
+                routed,
+                worldX(a.x + a.width / 2),
+                worldY(a.y + a.height / 2),
+                groupBoxes()));
+    }
+
+    /** The groups on show for the minimap, outer first: open frames and collapsed summary cards. */
+    private List<com.gtnhplanner.ui.world.PlanSnapshot.GroupBox> groupBoxes() {
+        if (groupCards.isEmpty()) return List.of();
+        final List<com.gtnhplanner.ui.group.GroupCard> shown = new ArrayList<>(groupCards.values());
+        shown.sort(
+            java.util.Comparator.comparingInt(
+                c -> com.gtnhplanner.data.flowchart.Groups.ancestors(graph(), c.groupId)
+                    .size()));
+        final List<com.gtnhplanner.ui.world.PlanSnapshot.GroupBox> out = new ArrayList<>();
+        for (final com.gtnhplanner.ui.group.GroupCard c : shown) {
+            final com.gtnhplanner.data.flowchart.BoardGroup g = c.group();
+            if (g == null) continue;
+            final Area a = c.getArea();
+            out.add(
+                new com.gtnhplanner.ui.world.PlanSnapshot.GroupBox(
+                    g.getId(),
+                    g.getX(),
+                    g.getY(),
+                    a.width,
+                    a.height,
+                    com.gtnhplanner.ui.group.GroupPaint.color(g),
+                    g.isCollapsed()));
+        }
+        return out;
     }
 
     /** The names over cards and drawers zoomed far out, gathered as they draw and placed over everything. */
@@ -2712,12 +2745,17 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             return;
         }
         final Graph g = graph();
-        // A shared machine is one box: every recipe on it answers to its card.
+        // A shared machine is one box: every recipe on it answers to its card. A group on the board is one box too, its
+        // insides untouched (docs/design/groups.md, Arrange): whatever it holds answers to it.
         final List<com.gtnhplanner.layout.arrange.ArrangeCard> boxes = new ArrayList<>();
         final java.util.Map<UUID, UUID> owner = new HashMap<>();
+        final java.util.function.Function<UUID, UUID> top = id -> {
+            final List<UUID> up = com.gtnhplanner.data.flowchart.Groups.ancestors(g, id);
+            return up.isEmpty() ? null : up.get(up.size() - 1);
+        };
         for (final RecipeCard card : new java.util.LinkedHashSet<>(cards.values())) {
             final Node n = g.nodes.get(card.nodeId);
-            if (n == null || card.model() == null || card.layout() == null) continue;
+            if (n == null || card.model() == null || card.layout() == null || n.group != null) continue;
             for (int s = 0; s < card.layout()
                 .sections(); s++) owner.put(card.sectionId(s), card.nodeId);
             boxes.add(
@@ -2729,7 +2767,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                     card.layout().height,
                     false));
         }
-        for (final Drawer d : g.getDrawers()) boxes.add(
+        for (final Drawer d : g.getDrawers()) if (d.getGroup() == null) boxes.add(
             new com.gtnhplanner.layout.arrange.ArrangeCard(
                 d.getId()
                     .toString(),
@@ -2738,6 +2776,23 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 DrawerCard.W,
                 DrawerCard.H,
                 true));
+        for (final com.gtnhplanner.ui.group.GroupCard card : groupCards.values()) {
+            final com.gtnhplanner.data.flowchart.BoardGroup b = card.group();
+            if (b == null || b.getParent() != null) continue;
+            boxes.add(
+                new com.gtnhplanner.layout.arrange.ArrangeCard(
+                    b.getId()
+                        .toString(),
+                    b.getX(),
+                    b.getY(),
+                    card.getArea().width,
+                    card.getArea().height,
+                    false));
+        }
+        for (final Node n : g.getNodes()) {
+            final UUID holder = n.group == null ? null : top.apply(n.id);
+            if (holder != null) owner.put(n.id, holder);
+        }
         if (boxes.isEmpty()) return;
         // The wires, with the ports they leave and enter at, weighed by the width they are drawn at.
         final java.util.Map<UUID, Double> width = new HashMap<>();
@@ -2746,31 +2801,38 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         for (final Edge e : g.getEdges()) {
             final UUID from = owner.get(e.sourceNodeId), to = owner.get(e.targetNodeId);
             if (from == null || to == null) continue;
+            final boolean fromGroup = g.boardGroups.containsKey(from), toGroup = g.boardGroups.containsKey(to);
+            if (fromGroup && from.equals(to)) continue;
             links.add(
                 new com.gtnhplanner.layout.arrange.ArrangeWire(
                     e.id.toString(),
                     from.toString(),
                     to.toString(),
-                    (double) cards.get(e.sourceNodeId)
-                        .anchorY(e.sourceNodeId, true, e.sourceOutputIndex),
-                    (double) cards.get(e.targetNodeId)
-                        .anchorY(e.targetNodeId, false, e.targetInputIndex),
+                    fromGroup ? null
+                        : (Double) (double) cards.get(e.sourceNodeId)
+                            .anchorY(e.sourceNodeId, true, e.sourceOutputIndex),
+                    toGroup ? null
+                        : (Double) (double) cards.get(e.targetNodeId)
+                            .anchorY(e.targetNodeId, false, e.targetInputIndex),
                     null,
                     width.get(e.id)));
         }
         for (final Drawer d : g.getDrawers()) {
             final boolean source = d.getKind()
                 .linksInputs();
+            final UUID drawerHolder = d.getGroup() == null ? null : top.apply(d.getId());
             for (final Drawer.Link link : d.getLinks()) {
                 final UUID card = owner.get(link.nodeId());
                 if (card == null) continue;
+                final boolean cardGroup = g.boardGroups.containsKey(card);
+                if (drawerHolder != null && drawerHolder.equals(card)) continue;
                 final UUID key = UUID.nameUUIDFromBytes(
                     (d.getId() + ":" + link.nodeId() + ":" + link.portIndex())
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                final double port = cards.get(link.nodeId())
-                    .anchorY(link.nodeId(), !source, link.portIndex());
-                final String drawer = d.getId()
-                    .toString();
+                final Double port = cardGroup ? null
+                    : (Double) (double) cards.get(link.nodeId())
+                        .anchorY(link.nodeId(), !source, link.portIndex());
+                final String drawer = (drawerHolder != null ? drawerHolder : d.getId()).toString();
                 links.add(
                     source
                         ? new com.gtnhplanner.layout.arrange.ArrangeWire(
@@ -2906,6 +2968,20 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 (int) Math.round(
                     e.getValue()
                         .y()) };
+            final com.gtnhplanner.data.flowchart.BoardGroup group = g.boardGroups.get(id);
+            if (group != null) {
+                // A group moves whole: everything in it by as much as its frame.
+                final int dx = at[0] - group.getX(), dy = at[1] - group.getY();
+                from.put(id, new int[] { group.getX(), group.getY() });
+                to.put(id, at);
+                for (final UUID inside : com.gtnhplanner.data.flowchart.Groups.descendants(g, id)) {
+                    final int[] was = placeOf(inside);
+                    if (was == null) continue;
+                    from.put(inside, was);
+                    to.put(inside, new int[] { was[0] + dx, was[1] + dy });
+                }
+                continue;
+            }
             final Node n = g.nodes.get(id);
             final Drawer d = n == null ? g.getDrawer(id) : null;
             if (n == null && d == null) continue;
@@ -2931,6 +3007,20 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             by1 = Math.max(by1, e.getValue()[1] + h);
         }
         if (bx0 != Integer.MAX_VALUE) frameBox(bx0, by0, bx1, by1);
+    }
+
+    /** Where a card, drawer, note or group stands {x, y}; null for none. */
+    @Nullable
+    private int[] placeOf(final UUID id) {
+        final Graph g = graph();
+        final Node n = g.nodes.get(id);
+        if (n != null) return new int[] { n.x, n.y };
+        final Drawer d = g.getDrawer(id);
+        if (d != null) return new int[] { d.getX(), d.getY() };
+        final com.gtnhplanner.data.flowchart.Note note = g.notes.get(id);
+        if (note != null) return new int[] { note.getX(), note.getY() };
+        final com.gtnhplanner.data.flowchart.BoardGroup b = g.boardGroups.get(id);
+        return b == null ? null : new int[] { b.getX(), b.getY() };
     }
 
     private static final long GLIDE_MS = 250;
