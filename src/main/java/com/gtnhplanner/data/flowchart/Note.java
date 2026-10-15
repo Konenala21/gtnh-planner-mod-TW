@@ -53,7 +53,12 @@ public class Note extends GraphData {
     /** Zone: the outline's corners {x, y}, relative to the note, in the board's own px. */
     @Nullable
     private List<int[]> points;
-    /** Image: where the picture lives. The text is its caption. */
+    /** Arrow: {@code end} (default, a head at the end only) or {@code both}. */
+    @Nullable
+    private String arrowHeads;
+    /** Arrow: the line's thickness in board px (1 thin, 2 normal and default, 4 thick); 0 is the default. */
+    private int arrowWidth;
+    /** Image: where the picture lives. The text is its caption. Pictures are kept in the data but never shown. */
     @Nullable
     private String imageUrl;
     /** Box, zone, image: {@code solid} (default), {@code dashed} or {@code none}. */
@@ -88,10 +93,28 @@ public class Note extends GraphData {
         return !TEXT.equals(kind());
     }
 
-    /** Whether it sits behind the cards (a box, zone or image) rather than over the wires. */
+    /**
+     * Pictures are no longer supported: a picture annotation is kept as it came (for a plan going back out) and not
+     * shown.
+     */
+    public boolean isHidden() {
+        return IMAGE.equals(kind());
+    }
+
+    /** An arrow's line thickness, 2 unless set. */
+    public int arrowThickness() {
+        return arrowWidth <= 0 ? 2 : Math.min(8, arrowWidth);
+    }
+
+    /** Whether an arrow wears a head at both ends. */
+    public boolean bothHeads() {
+        return "both".equals(arrowHeads);
+    }
+
+    /** Whether it sits behind the cards (a box or zone) rather than over the wires. */
     public boolean isBackdrop() {
         final String k = kind();
-        return BOX.equals(k) || ZONE.equals(k) || IMAGE.equals(k);
+        return BOX.equals(k) || ZONE.equals(k);
     }
 
     /** The border style, never null. */
@@ -144,6 +167,8 @@ public class Note extends GraphData {
         n.fontSize = fontSize;
         n.kind = kind;
         n.arrowDirection = arrowDirection;
+        n.arrowHeads = arrowHeads;
+        n.arrowWidth = arrowWidth;
         if (points != null) {
             n.points = new ArrayList<>();
             for (final int[] p : points) n.points.add(p.clone());

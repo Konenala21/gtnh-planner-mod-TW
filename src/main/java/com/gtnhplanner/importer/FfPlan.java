@@ -320,5 +320,13 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRe
      */
     public record FfDrawing(String kind, @Nullable String arrowDirection, @Nullable List<double[]> points,
         @Nullable String imageUrl, @Nullable String border, @Nullable String borderColor, @Nullable String fillColor,
-        @Nullable String fill, @Nullable String marks) {}
+        @Nullable String fill, @Nullable String marks, @Nullable String arrowHeads, int arrowWidth) {
+
+        public FfDrawing(final String kind, @Nullable final String arrowDirection,
+            @Nullable final List<double[]> points, @Nullable final String imageUrl, @Nullable final String border,
+            @Nullable final String borderColor, @Nullable final String fillColor, @Nullable final String fill,
+            @Nullable final String marks) {
+            this(kind, arrowDirection, points, imageUrl, border, borderColor, fillColor, fill, marks, null, 0);
+        }
+    }
 }

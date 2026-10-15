@@ -383,7 +383,9 @@ public final class FfPlanParser {
                 style == null ? null : str(style, "borderColor"),
                 style == null ? null : str(style, "fillColor"),
                 fill,
-                marks));
+                marks,
+                str(a, "arrowHeads"),
+                (int) Math.round(num(a, "arrowWidth") == null ? 0 : num(a, "arrowWidth"))));
     }
 
     // endregion

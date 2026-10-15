@@ -945,8 +945,10 @@ public final class FfConverter {
                 note.setX(px(n.x()));
                 note.setY(py(n.y()));
                 final FfPlan.FfDrawing d = n.drawing();
-                final int minW = d == null ? Note.MIN_W : Note.DRAWING_MIN;
-                final int minH = d == null ? Note.MIN_H : Note.DRAWING_MIN;
+                // An arrow may run level (an axis of 0); every other drawing is at least a cell.
+                final boolean arrow = d != null && Note.ARROW.equals(d.kind());
+                final int minW = d == null ? Note.MIN_W : arrow ? 0 : Note.DRAWING_MIN;
+                final int minH = d == null ? Note.MIN_H : arrow ? 0 : Note.DRAWING_MIN;
                 note.setWidth(Math.max(minW, (int) Math.round(n.width() * SCALE_X)));
                 note.setHeight(Math.max(minH, (int) Math.round(n.height() * SCALE_Y)));
                 if (n.colorTag() != null && !n.colorTag()
@@ -958,6 +960,8 @@ public final class FfConverter {
                 if (d != null) {
                     note.setKind(d.kind());
                     note.setArrowDirection(d.arrowDirection());
+                    note.setArrowHeads(d.arrowHeads());
+                    note.setArrowWidth(d.arrowWidth());
                     if (d.points() != null) {
                         final List<int[]> pts = new ArrayList<>();
                         for (final double[] p : d.points())

@@ -200,10 +200,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         // Boxes, zones and pictures first (the board's backdrop), then notes and arrows, then drawers, so cards draw
         // over them where they overlap.
         final java.util.List<UUID> order = new ArrayList<>();
+        // Pictures are not supported: kept in the plan, given no widget.
         for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
             if (n.isBackdrop()) order.add(n.getId());
         for (final com.gtnhplanner.data.flowchart.Note n : session.graph().notes.values())
-            if (!n.isBackdrop()) order.add(n.getId());
+            if (!n.isBackdrop() && !n.isHidden()) order.add(n.getId());
         for (final UUID id : order) {
             final com.gtnhplanner.ui.note.NoteCard note = new com.gtnhplanner.ui.note.NoteCard(session, id);
             notes.put(id, note);
@@ -996,6 +997,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 session.select(d.getId(), true);
         }
         for (final com.gtnhplanner.data.flowchart.Note n : graph().getNotes()) {
+            if (n.isHidden()) continue;
             // A backdrop (a box, zone or picture) is picked only whole: grazing its edge is not reaching for it.
             final boolean touched = n.isBackdrop()
                 ? n.getX() >= x0 && n.getX() + n.getWidth() <= x1 && n.getY() >= y0 && n.getY() + n.getHeight() <= y1
@@ -2965,7 +2967,12 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final int sx = getContext().getAbsMouseX(), sy = getContext().getAbsMouseY();
         final int wx = Math.round(worldX(sx)), wy = Math.round(worldY(sy));
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Add a sticky note", () -> addNoteAt(wx, wy)));
+        rows.add(PickList.Entry.of("Add sticky note", () -> addNoteAt(wx, wy)));
+        rows.add(
+            PickList.Entry.of("Add box", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.BOX, wx, wy)));
+        rows.add(
+            PickList.Entry
+                .of("Add arrow", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.ARROW, wx, wy)));
         Popup.open(getPanel(), PickList.popup("gtnhplanner_board_menu", null, rows, false, 140), sx, sy);
     }
 

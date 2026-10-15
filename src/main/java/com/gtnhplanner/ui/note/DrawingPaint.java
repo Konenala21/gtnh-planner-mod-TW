@@ -3,13 +3,11 @@ package com.gtnhplanner.ui.note;
 import java.util.Arrays;
 import java.util.List;
 
-import net.minecraft.util.ResourceLocation;
-
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.ui.theme.Hyb;
 
 /**
- * How a box, zone, arrow or image annotation is drawn (docs/design/annotations.md; the website's
+ * How a box, zone or arrow annotation is drawn (docs/design/annotations.md; the website's
  * {@code clean/note/CleanDrawing} draws the same): flat and square, a 2 px line, no shadow, no rounding. Everything is
  * in the note's own pixels, from its top left. Hit testing lives here too, so a box lets clicks through its inside and
  * an arrow takes only its line.
@@ -18,13 +16,10 @@ public final class DrawingPaint {
 
     private DrawingPaint() {}
 
-    /** The line (border, arrow), its dashes, the arrowhead, the image panel's frame, inset and caption strip. */
-    public static final int LINE = 2, DASH_ON = 8, DASH_OFF = 6, HEAD_LENGTH = 14, HEAD_WIDTH = 10, FRAME = 2,
-        INSET = 3, CAPTION = 16;
+    /** The line (border, arrow), its dashes and the arrowhead (an arrow thicker than 2 has a bigger head). */
+    public static final int LINE = 2, DASH_ON = 8, DASH_OFF = 6, HEAD_LENGTH = 14, HEAD_WIDTH = 10;
     /** The surface's alpha for a tint and a solid, and the marks' alphas. */
     public static final int TINT = 0x14, SOLID = 0x47;
-    /** The clean card's frame grey and panel dark, and the caption's ink. */
-    public static final int FRAME_GREY = 0xFF3C3E45, PANEL = 0xFF26282C, CAPTION_INK = 0xFF9A9CA4;
     /** A mark's cell, and the most cells marks are drawn on (a vast zone goes bare rather than slow). */
     private static final int CELL = 10, MAX_MARK_CELLS = 12000;
     /** How far from a drawing's line the pointer still takes it. */
@@ -32,20 +27,14 @@ public final class DrawingPaint {
 
     // region Colours
 
-    /** The border's colour: its tag, else the note's; a picture with no colour at all wears the frame grey. */
+    /** The border's colour: its tag, else the note's. */
     public static int borderColor(final Note n) {
-        if (Note.IMAGE.equals(n.kind()) && n.getBorderColor() == null && !hasOwnColor(n)) return FRAME_GREY;
         return NoteColors.swatch(n.getBorderColor() != null ? n.getBorderColor() : n.colorTag());
     }
 
     /** The fill's colour: its tag, else the note's. */
     public static int fillColor(final Note n) {
         return NoteColors.swatch(n.getFillColor() != null ? n.getFillColor() : n.colorTag());
-    }
-
-    private static boolean hasOwnColor(final Note n) {
-        return n.getColor() != null && !n.getColor()
-            .isEmpty();
     }
 
     /** The surface colour: the fill at a tint's or a solid's alpha; 0 for none. */
@@ -71,7 +60,6 @@ public final class DrawingPaint {
             case Note.BOX -> box(n, w, h);
             case Note.ZONE -> zone(n, w, h);
             case Note.ARROW -> arrow(n, w, h);
-            case Note.IMAGE -> image(n, w, h);
             default -> {}
         }
     }
@@ -219,58 +207,33 @@ public final class DrawingPaint {
         return new float[] { left ? w : 0, up ? h : 0, left ? 0 : w, up ? 0 : h };
     }
 
+    /** The head's length and width for a line {@code t} thick: 14 by 10, bigger on a thick line. */
+    public static float headLength(final int t) {
+        return Math.max(HEAD_LENGTH, 4f * t);
+    }
+
+    public static float headWidth(final int t) {
+        return Math.max(HEAD_WIDTH, 3f * t);
+    }
+
     private static void arrow(final Note n, final int w, final int h) {
         final float[] e = ends(n, w, h);
         final int c = borderColor(n);
         final float len = (float) Math.hypot(e[2] - e[0], e[3] - e[1]);
         if (len < 1) return;
         final float ux = (e[2] - e[0]) / len, uy = (e[3] - e[1]) / len;
-        final float head = Math.min(HEAD_LENGTH, len);
+        final int t = n.arrowThickness();
+        final boolean both = n.bothHeads();
+        final float head = Math.min(headLength(t), both ? len / 2 : len), wide = headWidth(t);
+        // The line stops where the head starts, at either end that has one.
         final float bx = e[2] - ux * head, by = e[3] - uy * head;
+        final float ax = both ? e[0] + ux * head : e[0], ay = both ? e[1] + uy * head : e[1];
         Hyb.beginBatch();
-        segment(e[0], e[1], bx, by, LINE, false, c);
-        final float nx = -uy * HEAD_WIDTH / 2, ny = ux * HEAD_WIDTH / 2;
+        segment(ax, ay, bx, by, t, false, c);
+        final float nx = -uy * wide / 2, ny = ux * wide / 2;
         Hyb.triangle(e[2], e[3], bx + nx, by + ny, bx - nx, by - ny, c);
+        if (both) Hyb.triangle(e[0], e[1], ax + nx, ay + ny, ax - nx, ay - ny, c);
         Hyb.endBatch();
-    }
-
-    // endregion
-
-    // region Image
-
-    private static void image(final Note n, final int w, final int h) {
-        final int frame = "none".equals(n.borderStyle()) ? 0 : FRAME;
-        final String caption = n.joined()
-            .trim();
-        final int pad = frame + INSET;
-        Hyb.beginBatch();
-        Hyb.rect(0, 0, w, h, PANEL);
-        if (frame > 0) {
-            final int c = borderColor(n);
-            final boolean dashed = "dashed".equals(n.borderStyle());
-            edge(0, 0, w, frame, dashed, c, true);
-            edge(0, h - frame, w, frame, dashed, c, true);
-            edge(0, frame, frame, h - 2 * frame, dashed, c, false);
-            edge(w - frame, frame, frame, h - 2 * frame, dashed, c, false);
-        }
-        Hyb.endBatch();
-        final int strip = caption.isEmpty() ? 0 : CAPTION;
-        final float px = pad, py = pad, pw = w - 2 * pad, ph = h - 2 * pad - strip;
-        if (pw > 4 && ph > 4) {
-            final ImageCache.Entry e = n.getImageUrl() == null ? null : ImageCache.of(n.getImageUrl());
-            final ResourceLocation tex = e == null ? null : e.texture();
-            if (tex != null && e.width() > 0) {
-                // The whole picture, its own shape, in the middle of its room.
-                final float s = Math.min(pw / e.width(), ph / e.height());
-                final float iw = e.width() * s, ih = e.height() * s;
-                Hyb.texture(tex, px + (pw - iw) / 2, py + (ph - ih) / 2, iw, ih);
-            } else {
-                final String word = e != null && e.state() == ImageCache.State.LOADING ? "loading"
-                    : "image unavailable";
-                Hyb.text(Hyb.fit(word, (int) pw), px + 3, py + 3, 1f, CAPTION_INK, false);
-            }
-        }
-        if (strip > 0) Hyb.text(Hyb.fit(caption, w - 2 * pad), pad, h - pad - strip + 4, 1f, CAPTION_INK, false);
     }
 
     // endregion
@@ -279,8 +242,8 @@ public final class DrawingPaint {
 
     /**
      * Whether a point of the note (its own pixels) is on the drawing as the pointer should take it: a box or zone only
-     * at its border (a band either side), an arrow near its line, an image anywhere. A drawing is never solid inside,
-     * so the cards over it keep every click.
+     * at its border (a band either side), an arrow near its line. A drawing is never solid inside, so the cards over
+     * it keep every click.
      */
     public static boolean hit(final Note n, final int w, final int h, final float x, final float y) {
         final float reach = REACH;

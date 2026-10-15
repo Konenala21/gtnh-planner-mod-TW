@@ -58,12 +58,7 @@ class DrawingPaintTest {
     }
 
     @Test
-    void aPictureTakesItsWholeFace() {
-        assertTrue(DrawingPaint.hit(of(Note.IMAGE), 200, 100, 100, 50));
-    }
-
-    @Test
-    void coloursFollowTheTagAndALonePictureWearsGrey() {
+    void coloursFollowTheTag() {
         final Note box = of(Note.BOX);
         box.setColor("azure");
         assertEquals(NoteColors.swatch("azure"), DrawingPaint.borderColor(box));
@@ -75,17 +70,46 @@ class DrawingPaintTest {
         assertEquals(0x47, DrawingPaint.surface(box) >>> 24);
         box.setFill("none");
         assertEquals(0, DrawingPaint.surface(box));
-        final Note picture = of(Note.IMAGE);
-        picture.setColor("");
-        assertEquals(DrawingPaint.FRAME_GREY, DrawingPaint.borderColor(picture));
     }
 
     @Test
-    void imageAddressesAreTheWebOnly() {
-        assertTrue(ImageCache.allowed("https://example.com/a.png"));
-        assertTrue(ImageCache.allowed("HTTP://example.com/a.png"));
-        assertFalse(ImageCache.allowed("file:///C:/secret.png"));
-        assertFalse(ImageCache.allowed("jar:file:/x!/y.png"));
+    void aPictureIsKeptButNeverShown() {
+        final Note picture = of(Note.IMAGE);
+        assertTrue(picture.isHidden());
+        assertFalse(picture.isBackdrop());
+        assertFalse(of(Note.BOX).isHidden());
+        final Note back = Serializer.GSON.fromJson(Serializer.GSON.toJson(picture), Note.class);
+        assertEquals(Note.IMAGE, back.kind(), "kept as it came");
+    }
+
+    @Test
+    void anArrowIsTwoThickWithOneHeadUnlessItSaysOtherwise() {
+        final Note arrow = of(Note.ARROW);
+        assertEquals(2, arrow.arrowThickness());
+        assertFalse(arrow.bothHeads());
+        arrow.setArrowWidth(4);
+        arrow.setArrowHeads("both");
+        assertEquals(4, arrow.arrowThickness());
+        assertTrue(arrow.bothHeads());
+        final Note back = Serializer.GSON.fromJson(Serializer.GSON.toJson(arrow), Note.class);
+        assertEquals(4, back.arrowThickness());
+        assertTrue(back.bothHeads());
+        assertEquals(
+            4,
+            arrow.copy()
+                .arrowThickness());
+        assertTrue(
+            arrow.copy()
+                .bothHeads());
+        assertTrue(DrawingPaint.headLength(4) > DrawingPaint.headLength(2), "a thick line has a bigger head");
+    }
+
+    @Test
+    void aLevelArrowIsStillTakenAlongItsLine() {
+        final Note arrow = of(Note.ARROW);
+        arrow.setArrowDirection("down-right");
+        assertTrue(DrawingPaint.hit(arrow, 160, 0, 80, 4));
+        assertFalse(DrawingPaint.hit(arrow, 160, 0, 80, 30));
     }
 
     @Test

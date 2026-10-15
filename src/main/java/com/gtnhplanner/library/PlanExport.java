@@ -770,9 +770,14 @@ public final class PlanExport {
             .isEmpty()) o.addProperty("text", n.joined());
         o.add("position", position(n.getX(), n.getY()));
         final JsonObject size = new JsonObject();
-        final int minW = drawing ? Note.DRAWING_MIN : Note.MIN_W, minH = drawing ? Note.DRAWING_MIN : Note.MIN_H;
-        size.addProperty("width", cells(Math.max(minW, n.getWidth()) * SCALE_X));
-        size.addProperty("height", cells(Math.max(minH, n.getHeight()) * SCALE_Y));
+        final boolean arrow = Note.ARROW.equals(n.kind());
+        final int minW = arrow ? 0 : drawing ? Note.DRAWING_MIN : Note.MIN_W,
+            minH = arrow ? 0 : drawing ? Note.DRAWING_MIN : Note.MIN_H;
+        // An arrow may run level: an axis of 0 stays 0.
+        size.addProperty("width", arrow ? axis(n.getWidth() * SCALE_X) : cells(Math.max(minW, n.getWidth()) * SCALE_X));
+        size.addProperty(
+            "height",
+            arrow ? axis(n.getHeight() * SCALE_Y) : cells(Math.max(minH, n.getHeight()) * SCALE_Y));
         o.add("size", size);
         if (!drawing) {
             o.addProperty("fontSize", n.fontSizeOrDefault());
@@ -780,6 +785,8 @@ public final class PlanExport {
         }
         if (Note.ARROW.equals(n.kind()) && n.getArrowDirection() != null)
             o.addProperty("arrowDirection", n.getArrowDirection());
+        if (Note.ARROW.equals(n.kind()) && n.getArrowHeads() != null) o.addProperty("arrowHeads", n.getArrowHeads());
+        if (Note.ARROW.equals(n.kind()) && n.getArrowWidth() > 0) o.addProperty("arrowWidth", n.getArrowWidth());
         if (Note.IMAGE.equals(n.kind()) && n.getImageUrl() != null) o.addProperty("imageUrl", n.getImageUrl());
         if (Note.ZONE.equals(n.kind()) && n.getPoints() != null) {
             final JsonArray points = new JsonArray();
@@ -802,6 +809,11 @@ public final class PlanExport {
         if (!style.entrySet()
             .isEmpty()) o.add("style", style);
         return o;
+    }
+
+    /** A length to the nearest whole number of the site's cells, possibly none (a level arrow). */
+    private static int axis(final double length) {
+        return (int) Math.round(length / CELL) * CELL;
     }
 
     /** A length to the nearest whole number of the site's cells, at least one. */
