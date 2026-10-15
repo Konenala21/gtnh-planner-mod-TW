@@ -186,6 +186,8 @@ public final class CloudSession {
     /** Network work under way or failed lately, by what it is for: tried again after a while. */
     private final Map<String, Long> tried = new HashMap<>();
     private final Set<String> busyCalls = new HashSet<>();
+    /** Plans whose room refused this game, by doc key: not joined again until the account's list has been asked. */
+    private final Set<String> refusedRooms = new HashSet<>();
     /** The plan's name as last told to the account's list, by doc key. */
     private final Map<String, String> named = new HashMap<>();
     /** What was last kept of this device's own state (tabs, pins), so it is written only when it changes. */
@@ -762,12 +764,13 @@ public final class CloudSession {
             if (d == null || d.creating()) return;
             switch (reason) {
                 case "unshared" -> dropped(d, "is no longer shared with you");
-                case "deleted", "not_found" -> dropped(d, "was deleted");
-                case "forbidden" -> dropped(
-                    d,
-                    d.ownerId()
-                        .equals(accountId) ? "is not in your account" : "is no longer shared with you");
-                default -> {}
+                case "deleted" -> dropped(d, "was deleted");
+                default -> {
+                    // A join refused ("forbidden", "not_found"): not joined again, and never dropped on that alone;
+                    // the account's list, asked now, says whether the plan is still the player's.
+                    refusedRooms.add(doc);
+                    listAt = -LIST_EVERY_MS;
+                }
             }
         }
     }
@@ -823,9 +826,10 @@ public final class CloudSession {
                 : doc(
                     plan.getGraphs()
                         .get(at));
-        if (open != null && !open.creating()) want.add(open);
+        if (open != null && !open.creating() && !refusedRooms.contains(open.key())) want.add(open);
         for (final LiveDoc d : docs.values())
-            if (want.size() < ROOMS && d != open && !d.creating() && d.waiting()) want.add(d);
+            if (want.size() < ROOMS && d != open && !d.creating() && d.waiting() && !refusedRooms.contains(d.key()))
+                want.add(d);
         final LiveClient c = connection();
         final Set<String> joined = c.joined();
         for (final LiveDoc d : want) {
@@ -932,6 +936,8 @@ public final class CloudSession {
         listing = false;
         library = lib;
         listFresh = true;
+        // The list says which refused rooms are gone (dropped below) and which are worth joining again.
+        refusedRooms.clear();
         cache.saveList(lib);
         if (plan == null) return;
         // The list's names: a plan whose own name differs is renamed in the list.
@@ -951,6 +957,8 @@ public final class CloudSession {
         }
         for (final LiveDoc d : new ArrayList<>(docs.values())) {
             if (d.creating() || listed(d.key())) continue;
+            // Edits not yet in the account are never thrown away on the list's word alone: the room decides.
+            if (d.waiting()) continue;
             dropped(
                 d,
                 d.ownerId()
