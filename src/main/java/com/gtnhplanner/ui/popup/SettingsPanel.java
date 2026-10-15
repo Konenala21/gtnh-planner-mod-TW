@@ -163,7 +163,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     }
 
     /** A new size lays the planner out again at once, as a resized window would (NEI's list keeps its own). */
-    private static void setSize(final int size) {
+    public static void setSize(final int size) {
         if (size == PlannerSettings.size()) return;
         PlannerSettings.setSize(size);
         final Minecraft mc = Minecraft.getMinecraft();

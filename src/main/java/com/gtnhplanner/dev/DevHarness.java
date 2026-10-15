@@ -571,6 +571,8 @@ public final class DevHarness {
                             mc.currentScreen.setWorldAndResolution(mc, sr.getScaledWidth(), sr.getScaledHeight());
                         }
                     }
+                    // The planner's Size (the gear's: 0 Tiny to 3 Large), laid out again at once.
+                    if (q.containsKey("size")) com.gtnhplanner.ui.popup.SettingsPanel.setSize(intArg(q, "size"));
                     final ScaledResolution sr = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
                     final Map<String, Object> r = new LinkedHashMap<>();
                     r.put("width", mc.displayWidth);
@@ -578,6 +580,8 @@ public final class DevHarness {
                     r.put("guiScale", mc.gameSettings.guiScale);
                     r.put("guiWidth", sr.getScaledWidth());
                     r.put("guiHeight", sr.getScaledHeight());
+                    r.put("plannerSize", com.gtnhplanner.ui.PlannerSettings.size());
+                    r.put("plannerScale", com.gtnhplanner.ui.PlannerScale.board());
                     return r;
                 });
             case "/sfx":
@@ -1014,6 +1018,20 @@ public final class DevHarness {
             case "/clearplan":
                 requireWorld();
                 return onClient(DevRecipes::clearPlan);
+            case "/notice":
+                // A notice along the top of the open board, as the planner raises one: text=<sentence>[&level=info|
+                // warn|error]. For seeing how notices read on a narrow board.
+                return onClient(() -> {
+                    final com.gtnhplanner.ui.BoardScreen board = DevBoard.screen();
+                    if (board == null) throw new IllegalStateException("the planner is not open");
+                    board.session()
+                        .flash(
+                            com.gtnhplanner.data.flowchart.balancer.Severity.valueOf(
+                                q.getOrDefault("level", "info")
+                                    .toUpperCase(java.util.Locale.ROOT)),
+                            arg(q, "text"));
+                    return ok();
+                });
             case "/exportff":
                 // Writes the open plan as the site's project JSON, as posting it would send: file=<path> (from the repo
                 // root when relative).
@@ -1140,6 +1158,8 @@ public final class DevHarness {
                 "/crops[?items=<id,id>] - every CropsNH crop's drops against its card's outputs: lost drops, amounts, drops sharing an ore name (full pack); items= lists ore names",
                 "/slots[?add=name | switch=i | delete=i] - list, open, switch or delete plan slots",
                 "/clearplan - empty the active board (one undoable edit)",
+                "/notice?text=<sentence>[&level=info|warn|error] - a notice along the top of the open board",
+                "/window[?w&h][&scale][&size=0..3] - the window's size, the GUI scale and the planner's Size",
                 "/board - open board as data: view, and per card its state and every control's GUI rect (cx, cy)",
                 "/view?zoom&panX&panY - set the board view (defaults 1, 0, 0)",
                 "/structurepic?meta=1000 - (re)build that GT multiblock's card picture, save it as screenshots/structure-<meta>.png; no meta lists the controllers",
