@@ -2954,12 +2954,25 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     // region Pan and zoom
 
-    /** A right-click on empty board: what can be added there. */
-    private void openBoardMenu() {
+    /**
+     * A right-click on empty board: what can be added there. On a card: a task made from it, or from the selection it
+     * is
+     * part of.
+     */
+    public void openBoardMenu() {
         final int sx = getContext().getAbsMouseX(), sy = getContext().getAbsMouseY();
         final int wx = Math.round(worldX(sx)), wy = Math.round(worldY(sy));
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Add a sticky note", () -> addNoteAt(wx, wy)));
+        final RecipeCard under = cardAt(wx, wy);
+        final List<UUID> taskCards = under == null || session.isSelected(under.nodeId)
+            ? session.cardsIn(session.selection())
+            : session.cardsIn(List.of(under.nodeId));
+        if (!taskCards.isEmpty()) rows.add(
+            PickList.Entry.of(
+                taskCards.size() > 1 ? "Make a task from " + taskCards.size() + " cards"
+                    : under != null ? "Make a task from this card" : "Make a task from the selected card",
+                () -> com.gtnhplanner.ui.task.TaskActions.fromCards(session, taskCards)));
+        if (under == null) rows.add(PickList.Entry.of("Add a sticky note", () -> addNoteAt(wx, wy)));
         Popup.open(getPanel(), PickList.popup("gtnhplanner_board_menu", null, rows, false, 140), sx, sy);
     }
 

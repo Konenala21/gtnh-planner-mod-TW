@@ -109,6 +109,18 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   to move (even while writing), drag the folded corner or an edge to resize, click to write, right-click for colour,
   text size and delete; hovering or writing shows keys (delete top left, text size top right) at a fixed size on
   screen whenever they fit on the note. A selection outline shows only when several things are selected.
+- Task boards (`ui/task/`; the model is `data/flowchart/Tasks`, docs/design/cloud-live.md): the top bar's Tasks key
+  swaps the board for the open plan's tasks, the overview staying (`TaskBoardView`; per plan, never saved,
+  `BoardSession.showsTasks`; a plan whose `primaryView` is "tasks" opens on them, and the + tab menu's New task board
+  makes one). Four columns of task cards, carried by the board's rules, ordered by fractional keys
+  (`data/flowchart/OrderKeys`, the npm fractional-indexing scheme; every edit is in `TaskEdits`, pure and tested). A
+  click opens `TaskPanel`: title, column, assignees, notes, the cards it is about (a click shows one on the plan,
+  centred and selected, `BoardSession.focusCard`), a checklist and comments. Every change is
+  `BoardSession.editTasks` (undoable and saved, never solved). Right-click cards, or a card's actions key, to make a
+  task from them (`TaskActions.fromCards`: a checklist line per card with how many to build); a card on a task shows
+  its most pressing task's colour as a dot before its name. People are account ids: assigning and comments use the
+  signed-in account (`Account.userId`, from the session); signed out a comment is by "You" (`local`). `call tasks`
+  reports the view and the parts' rects (`show=1|0` switches, `open=<id>` opens a task).
 - On the board a left press on anything (a card's keys and chips too, a drawer's, a note's) is a click when let go
   within 3 GUI pixels (`BoardCanvas.DRAG_SLOP`) and acts then; moved further, it carries the thing. Carried things
   glide (about 120 ms) between 10 px grid spots and never land on another card or drawer: each frame they go to the

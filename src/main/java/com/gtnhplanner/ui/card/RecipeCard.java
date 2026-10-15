@@ -570,6 +570,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
         } else drawMachineArt(m, (w - side) / 2f, (h - side) / 2f, side, side, side, z, true);
+        // On a task: its dot in the top left corner, ten screen pixels across while that is small beside the card.
+        final com.gtnhplanner.data.flowchart.Tasks.Status task = com.gtnhplanner.ui.canvas.PlanPicture.drawing() ? null
+            : session.taskStatus(nodeId);
+        if (task != null) {
+            final float d = Math.min(w / 6f, 10 / zoom);
+            com.gtnhplanner.ui.task.TaskLook
+                .dot(rim + d / 2, rim + d / 2, d, com.gtnhplanner.ui.task.TaskLook.colour(task));
+        }
         if (countless()) {
             if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
             return;
@@ -699,9 +707,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         // has no other machine to pick: its name alone, in the power wing's amber.
         final boolean menu = !m.isPower();
         if (hover == Part.MACHINE && menu) Hyb.rect(BAR_X - 4, y, barRight() - BAR_X + 4, CHIP_H, 0x14FFFFFF);
+        // On a task: a dot in its column's colour before the name (the most pressing task's, when on several).
+        final com.gtnhplanner.data.flowchart.Tasks.Status task = com.gtnhplanner.ui.canvas.PlanPicture.drawing() ? null
+            : session.taskStatus(nodeId);
+        if (task != null) com.gtnhplanner.ui.task.TaskLook
+            .dot(BAR_X, y + (CHIP_H - 9) / 2f, 9, com.gtnhplanner.ui.task.TaskLook.colour(task));
         final float end = CardPaint.name(
             m.machineName,
-            BAR_X,
+            BAR_X + (task != null ? 14 : 0),
             barRight() - (menu ? 12 : 0),
             com.gtnhplanner.power.Holders.is(m.node) ? CUSTOM_RATE_INK : m.isPower() ? 0xFFFEF3C7 : Hyb.INK);
         if (menu) chevron(Math.round(end + 5), y + 9, hover == Part.MACHINE ? Hyb.INK : Hyb.MUTED);
@@ -1901,7 +1914,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 if (mouseButton == 0) openPin();
             }
             default -> {
-                // The body: a click selects it (Shift adds); the right button is the board's.
+                // The body: a click selects it (Shift adds); the right button opens the board's menu, about this card.
+                if (mouseButton == 1 && canvas() != null) {
+                    canvas().openBoardMenu();
+                    return Result.SUCCESS;
+                }
                 if (mouseButton != 0) return Result.IGNORE;
                 if (canvas() != null) canvas().clickSelect(nodeId);
                 return Result.SUCCESS;
@@ -2262,6 +2279,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final Node node = model.node;
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(PickList.Entry.of("Clone node", () -> session.cloneNode(node)));
+        rows.add(
+            PickList.Entry.of(
+                "Make a task from it",
+                () -> com.gtnhplanner.ui.task.TaskActions.fromCards(session, List.of(nodeId))));
         // Its place in the world, once it has one.
         if (placed()) {
             rows.add(
