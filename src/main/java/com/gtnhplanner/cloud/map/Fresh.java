@@ -13,6 +13,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.gtnhplanner.cloud.sync.LiveJson;
+import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
@@ -36,8 +37,9 @@ final class Fresh {
     /**
      * One board thing written: the plan collection it goes in, its plan id, what it is on the board, its state
      * ({@link Canon} of its game data, with what else it hangs on for a wire; place left out), the game's own data for
-     * it (written as its {@code gtnhplanner.game}; null on a task) and its place. Its website fields (and a card's
-     * recipe) are worked out when first asked: a write asks only for the things that changed.
+     * it (written as its {@code gtnhplanner.game}; null on a task) and its place: the group it is in (its pocket's plan
+     * id, null on the board) and where it is in that group's frame, in the board's pixels. Its website fields (and a
+     * card's recipe) are worked out when first asked: a write asks only for the things that changed.
      */
     static final class Thing {
 
@@ -46,6 +48,8 @@ final class Fresh {
         private final JsonObject game;
         private final boolean placed;
         private final int x, y;
+        @Nullable
+        private final String pocket;
         private final Supplier<JsonObject[]> make;
         @Nullable
         private JsonObject[] made;
@@ -53,6 +57,12 @@ final class Fresh {
         Thing(final String c, final String id, final String gameKey, final String state,
             @Nullable final JsonObject game, final boolean placed, final int x, final int y,
             final Supplier<JsonObject[]> make) {
+            this(c, id, gameKey, state, game, placed, x, y, null, make);
+        }
+
+        Thing(final String c, final String id, final String gameKey, final String state,
+            @Nullable final JsonObject game, final boolean placed, final int x, final int y,
+            @Nullable final String pocket, final Supplier<JsonObject[]> make) {
             this.c = c;
             this.id = id;
             this.gameKey = gameKey;
@@ -61,6 +71,7 @@ final class Fresh {
             this.placed = placed;
             this.x = x;
             this.y = y;
+            this.pocket = pocket;
             this.make = make;
         }
 
@@ -97,6 +108,12 @@ final class Fresh {
             return y;
         }
 
+        /** The plan id of the group (pocket) it is in; null on the board or for a thing with no place. */
+        @Nullable
+        String pocket() {
+            return pocket;
+        }
+
         /** Its website fields, place and game data left out. */
         JsonObject site() {
             if (made == null) made = make.get();
@@ -116,12 +133,17 @@ final class Fresh {
 
     private Fresh() {}
 
-    /** Every board thing written, by game key, cards first, then drawers, their links, wires, notes and tasks. */
+    /**
+     * Every board thing written, by game key, cards first, then drawers, their links, wires, notes, groups and tasks.
+     */
     static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names) {
         return of(g, game, names, Set.of());
     }
 
-    /** As {@link #of(Graph, CloudGame, Basis)}, leaving out the cards, links, wires and notes {@code skip} names. */
+    /**
+     * As {@link #of(Graph, CloudGame, Basis)}, leaving out the cards, links, wires, notes and groups {@code skip}
+     * names.
+     */
     static Map<String, Thing> of(final Graph g, final CloudGame game, final Basis names, final Set<String> skip) {
         final Map<String, Thing> out = new LinkedHashMap<>();
         for (final Node n : g.getNodes()) {
@@ -129,7 +151,9 @@ final class Fresh {
             if (names.isCarried(gameKey) || skip.contains(gameKey)) continue;
             final String id = names.id("node", n.id);
             final JsonObject data = nodeGame(n, game.world());
-            out.put(gameKey, new Thing("nodes", id, gameKey, Canon.of(data), data, true, n.x, n.y, () -> {
+            final int[] at = inGroup(g, n.group, n.x, n.y);
+            final String in = pocket(g, names, n.group);
+            out.put(gameKey, new Thing("nodes", id, gameKey, Canon.of(data), data, true, at[0], at[1], in, () -> {
                 final PlanExport.Card card = PlanExport
                     .card(n, FfPlan.GAME_RECIPE_PREFIX + id, game, n.machineConfig.getMachineCount());
                 final JsonObject site = withoutPlace(card.node());
@@ -141,7 +165,9 @@ final class Fresh {
             final String gameKey = "drawer:" + d.getId();
             final String id = names.id("drawer", d.getId());
             final JsonObject data = drawerGame(d);
-            out.put(gameKey, new Thing("storages", id, gameKey, Canon.of(data), data, true, d.getX(), d.getY(), () -> {
+            final int[] at = inGroup(g, d.getGroup(), d.getX(), d.getY());
+            final String in = pocket(g, names, d.getGroup());
+            out.put(gameKey, new Thing("storages", id, gameKey, Canon.of(data), data, true, at[0], at[1], in, () -> {
                 final JsonObject site = withoutPlace(PlanExport.storage(d, resource(d, game)));
                 site.addProperty("id", id);
                 return new JsonObject[] { site };
@@ -199,14 +225,28 @@ final class Fresh {
             final String gameKey = "note:" + n.getId();
             if (skip.contains(gameKey)) continue;
             final String id = names.id("note", n.getId());
-            final JsonObject data = graphData(Serializer.GSON.toJsonTree(n));
-            out.put(
-                gameKey,
-                new Thing("annotations", id, gameKey, Canon.of(data), data, true, n.getX(), n.getY(), () -> {
-                    final JsonObject site = withoutPlace(PlanExport.note(n));
-                    site.addProperty("id", id);
-                    return new JsonObject[] { site };
-                }));
+            final JsonObject data = noteGame(n);
+            final int[] at = inGroup(g, n.getGroup(), n.getX(), n.getY());
+            final String in = pocket(g, names, n.getGroup());
+            out.put(gameKey, new Thing("annotations", id, gameKey, Canon.of(data), data, true, at[0], at[1], in, () -> {
+                final JsonObject site = withoutPlace(PlanExport.note(n));
+                site.addProperty("id", id);
+                return new JsonObject[] { site };
+            }));
+        }
+        // The groups: the website's boards (pockets), nested by their parent, each placed in its parent's frame.
+        for (final BoardGroup b : g.boardGroups.values()) {
+            final String gameKey = "pocket:" + b.getId();
+            if (skip.contains(gameKey)) continue;
+            final String id = names.id("pocket", b.getId());
+            final JsonObject data = groupGame(b);
+            final int[] at = inGroup(g, b.getParent(), b.getX(), b.getY());
+            final String in = pocket(g, names, b.getParent());
+            out.put(gameKey, new Thing("pockets", id, gameKey, Canon.of(data), data, true, at[0], at[1], in, () -> {
+                final JsonObject site = withoutPlace(PlanExport.pocket(g, b));
+                site.addProperty("id", id);
+                return new JsonObject[] { site };
+            }));
         }
         // A task names its cards by the plan's ids: a card the website made by the website's, not the board's UUID.
         for (final Tasks.Task t : g.tasks)
@@ -332,6 +372,8 @@ final class Fresh {
         o.remove("id");
         o.remove("x");
         o.remove("y");
+        // The group it is in is the plan's pocketId.
+        o.remove("group");
         final JsonElement here = o.remove("worldLinks");
         if (here != null || !n.elsewhere.isEmpty()) {
             final java.util.SortedMap<String, JsonElement> by = new java.util.TreeMap<>();
@@ -383,7 +425,40 @@ final class Fresh {
         final JsonObject o = graphData(Serializer.GSON.toJsonTree(d, Drawer.class));
         o.remove("links");
         o.remove("takers");
+        o.remove("group");
         return o;
+    }
+
+    /** A note's or drawing's save, without its id, place and group (the plan's pocketId). */
+    static JsonObject noteGame(final Note n) {
+        final JsonObject o = graphData(Serializer.GSON.toJsonTree(n));
+        o.remove("group");
+        return o;
+    }
+
+    /**
+     * A group's save, without its id, its frame's corner and the group it sits in (the pocket's place and
+     * parentPocketId); its size, name, colour, paper and the website id it was imported with are its own.
+     */
+    static JsonObject groupGame(final BoardGroup b) {
+        final JsonObject o = Serializer.boardGroupToJson(b);
+        o.remove("id");
+        o.remove("x");
+        o.remove("y");
+        o.remove("parent");
+        return o;
+    }
+
+    /** Where a thing is in its group's frame, {x, y}; where it is on the board when it is in none. */
+    static int[] inGroup(final Graph g, @Nullable final java.util.UUID group, final int x, final int y) {
+        final BoardGroup b = group == null ? null : g.boardGroups.get(group);
+        return b == null ? new int[] { x, y } : new int[] { x - b.getX(), y - b.getY() };
+    }
+
+    /** The plan id of the pocket a group is, or null for none on the board. */
+    @Nullable
+    static String pocket(final Graph g, final Basis names, @Nullable final java.util.UUID group) {
+        return group == null || !g.boardGroups.containsKey(group) ? null : names.id("pocket", group);
     }
 
     /** A board thing's save without its id and place. */
@@ -464,11 +539,21 @@ final class Fresh {
 
     // endregion
 
-    /** A copy without the position, which a thing's place gives. */
+    /** A copy without the position and the pocket it is in, which a thing's place gives. */
     static JsonObject withoutPlace(final JsonObject site) {
         final JsonObject o = LiveJson.shallow(site);
         o.remove("position");
+        o.remove(POCKET);
+        o.remove(PARENT_POCKET);
         return o;
+    }
+
+    /** The field naming the pocket a thing is in, and the one naming the pocket a pocket is in. */
+    static final String POCKET = "pocketId", PARENT_POCKET = "parentPocketId";
+
+    /** The field that says which pocket a thing of a collection is in. */
+    static String pocketField(final String c) {
+        return "pockets".equals(c) ? PARENT_POCKET : POCKET;
     }
 
     /** The game data a thing carries: {@code {v: 1, game, sum}}, the sum over its website fields, place left out. */
@@ -480,10 +565,15 @@ final class Fresh {
         return ext;
     }
 
-    /** The sum of a thing's website fields: everything but its position and its game data. */
+    /**
+     * The sum of a thing's website fields: everything but its place (its position and the pocket it is in) and its
+     * game data.
+     */
     static String sum(final JsonObject thing) {
         final JsonObject o = LiveJson.shallow(thing);
         o.remove("position");
+        o.remove(POCKET);
+        o.remove(PARENT_POCKET);
         o.remove("gtnhplanner");
         return Canon.sum(o);
     }

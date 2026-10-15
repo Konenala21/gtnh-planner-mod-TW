@@ -11,10 +11,12 @@ import java.util.UUID;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Group;
+import com.gtnhplanner.data.flowchart.Groups;
 import com.gtnhplanner.data.flowchart.MachineGroup;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
@@ -34,13 +36,14 @@ import com.gtnhplanner.importer.FfImport;
 public final class Boards {
 
     /** The plans written from the game, under {@code /solver-corpus/}. */
-    static final String[] CORPUS = { "alumina-line-shared-reactor", "benzene", "full-platline", "glass", "hv-diesel",
-        "mega-iv-nitrobenzene-power-plant", "mv", "oxygen-silicon-loop", "pa-cell-loop", "platline", "single-card-v2",
-        "sulfuric-acid", "titanium-line-chembath", "titanium-line-tour" };
+    static final String[] CORPUS = { "alumina-line-shared-reactor", "benzene", "buffer-drawers", "full-platline",
+        "glass", "hv-diesel", "mega-iv-nitrobenzene-power-plant", "mv", "oxygen-silicon-loop", "pa-cell-loop",
+        "platline", "single-card-v2", "sulfuric-acid", "titanium-line-chembath", "titanium-line-tour" };
 
     /** The website's plans, under {@code /factory-flow/}. */
-    static final String[] WEBSITE = { "alumina-line-shared-reactor", "biodiesel-demo", "high-amperage-reactor",
-        "pa-cell-loop-plan", "titanium-line-chembath.slim", "titanium-line-posted-alpha5" };
+    static final String[] WEBSITE = { "alumina-line-shared-reactor", "biodiesel-demo", "early-baux-ti-w-boards",
+        "high-amperage-reactor", "pa-cell-loop-plan", "passive-chemicals-collapsed-boards",
+        "titanium-line-chembath.slim", "titanium-line-posted-alpha5" };
 
     private Boards() {}
 
@@ -141,6 +144,8 @@ public final class Boards {
             drawer.setX(-303);
             drawer.setY(dy + 13 + j++ * 97);
             for (final Drawer.Link l : d.links()) drawer.addLink(l);
+            // A buffer's users: the input ports it feeds.
+            for (final Drawer.Link l : d.takers()) drawer.addPort(l, true);
             g.addDrawer(drawer);
         }
         for (final SolveInput.PoolIn p : in.pools()) {
@@ -165,6 +170,8 @@ public final class Boards {
     /**
      * What a player adds that the website has no place for: a note, a plain group, setting pins, a place in the world,
      * an input's target rate, a setting only the game has, a pin list, and a task board; a description and an icon.
+     * And what it has a place for that the importer does not make: groups (one in another, the inner one collapsed)
+     * round a card, a drawer and the notes, and a drawing of every kind with all it can wear.
      */
     public static Graph dress(final Graph g) {
         final List<Node> nodes = new ArrayList<>(g.getNodes());
@@ -186,6 +193,8 @@ public final class Boards {
         note.setFontSize(18);
         note.setJoined("Feed it\nfrom the ME system");
         g.notes.put(note.getId(), note);
+        drawings(g);
+        groups(g, first, note);
         final Group frame = Serializer.GSON.fromJson(
             "{\"id\":\"" + UUID.nameUUIDFromBytes((g.getName() + ":frame").getBytes(StandardCharsets.UTF_8))
                 + "\",\"type\":\"group\",\"x\":5,\"y\":6,\"width\":700,\"height\":400,\"header\":\"Ore line\"}",
@@ -219,6 +228,92 @@ public final class Boards {
                 "2026-10-14T10:05:00Z",
                 "On it"));
         return g;
+    }
+
+    private static UUID id(final Graph g, final String what) {
+        return UUID.nameUUIDFromBytes((g.getName() + ":" + what).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** A box, a zone, an arrow and a picture, each with every field its kind keeps, at places off the grid. */
+    static void drawings(final Graph g) {
+        final Note box = new Note(id(g, "box"));
+        box.setKind(Note.BOX);
+        box.setX(-411);
+        box.setY(-233);
+        box.setWidth(377);
+        box.setHeight(151);
+        box.setColor("orange");
+        box.setJoined("");
+        box.setBorder("dashed");
+        box.setBorderColor("red");
+        box.setFillColor("light_blue");
+        box.setFill("solid");
+        box.setMarks("graph");
+        g.notes.put(box.getId(), box);
+        final Note zone = new Note(id(g, "zone"));
+        zone.setKind(Note.ZONE);
+        zone.setX(1503);
+        zone.setY(-91);
+        zone.setWidth(203);
+        zone.setHeight(117);
+        zone.setColor("lime");
+        zone.setPoints(new ArrayList<>(List.of(new int[] { 0, 0 }, new int[] { 203, 13 }, new int[] { 97, 117 })));
+        zone.setMarks("hatch");
+        g.notes.put(zone.getId(), zone);
+        final Note arrow = new Note(id(g, "arrow"));
+        arrow.setKind(Note.ARROW);
+        arrow.setX(-57);
+        arrow.setY(-143);
+        // A level arrow: no height.
+        arrow.setWidth(163);
+        arrow.setHeight(0);
+        arrow.setColor("magenta");
+        arrow.setArrowDirection("up-left");
+        arrow.setArrowHeads("both");
+        arrow.setArrowWidth(4);
+        g.notes.put(arrow.getId(), arrow);
+        final Note picture = new Note(id(g, "picture"));
+        picture.setKind(Note.IMAGE);
+        picture.setX(2011);
+        picture.setY(733);
+        picture.setWidth(160);
+        picture.setHeight(90);
+        picture.setColor("");
+        picture.setJoined("The finished line");
+        picture.setImageUrl("https://example.com/line.png");
+        g.notes.put(picture.getId(), picture);
+    }
+
+    /**
+     * Two groups, the website's pockets: an open one round a drawer and the box, and inside it a collapsed one, from
+     * an imported plan (its website id kept), round the first card, the note and the arrow. Frames off the grid.
+     */
+    static void groups(final Graph g, final Node card, final Note note) {
+        final BoardGroup outer = new BoardGroup(id(g, "outer"));
+        outer.setName("Ore line");
+        outer.setColor("orange");
+        outer.setTheme("blueprint");
+        outer.setPattern("dots");
+        outer.setX(-523);
+        outer.setY(-311);
+        outer.setWidth(2741);
+        outer.setHeight(1307);
+        g.boardGroups.put(outer.getId(), outer);
+        final BoardGroup inner = new BoardGroup(id(g, "inner"));
+        inner.setName("Smelting");
+        inner.setFfId("pocket-imported-smelting");
+        inner.setCollapsed(true);
+        inner.setX(-117);
+        inner.setY(-199);
+        inner.setWidth(613);
+        inner.setHeight(421);
+        g.boardGroups.put(inner.getId(), inner);
+        Groups.setGroupOf(g, inner.getId(), outer.getId());
+        Groups.setGroupOf(g, card.id, inner.getId());
+        Groups.setGroupOf(g, note.getId(), inner.getId());
+        Groups.setGroupOf(g, id(g, "arrow"), inner.getId());
+        Groups.setGroupOf(g, id(g, "box"), outer.getId());
+        if (!g.drawers.isEmpty()) Groups.setGroupOf(g, g.drawers.firstKey(), outer.getId());
     }
 
     /**

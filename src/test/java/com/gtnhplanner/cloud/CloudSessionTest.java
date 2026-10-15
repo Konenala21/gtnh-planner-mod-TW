@@ -224,6 +224,20 @@ class CloudSessionTest {
 
     // region Helpers
 
+    /** A card, on the board itself when one is: a plan position is its place in its group's frame. */
+    private static Node onTheBoard(final Graph g) {
+        for (final Node n : g.getNodes()) if (n.group == null) return n;
+        return g.getNodes()
+            .iterator()
+            .next();
+    }
+
+    /** The corner of the frame a card's plan position is measured from: its group's, or the board's. */
+    private static int[] frame(final Graph g, final Node n) {
+        final com.gtnhplanner.data.flowchart.BoardGroup b = n.group == null ? null : g.boardGroups.get(n.group);
+        return b == null ? new int[] { 0, 0 } : new int[] { b.getX(), b.getY() };
+    }
+
     /** A plan in the account: a corpus board written as the website's plan, in its room at seq 3. */
     private Graph inAccount(final String id, final String corpus) {
         final Graph g = Boards.dress(Boards.corpus(corpus));
@@ -503,9 +517,7 @@ class CloudSessionTest {
         // The live service goes away: edits are kept on this device.
         CloudApi.useLive("ws://127.0.0.1:1/live");
         live.dropAll();
-        final Node n = board.getNodes()
-            .iterator()
-            .next();
+        final Node n = onTheBoard(board);
         n.y += 25;
         board.touchLayout();
         session.save(p);
@@ -532,7 +544,7 @@ class CloudSessionTest {
         ticks(20);
         assertEquals(4L, live.seqs.get(ME + ":d1"), "applied once");
         assertEquals(
-            com.gtnhplanner.library.PlanExport.position(n.x, n.y)
+            com.gtnhplanner.library.PlanExport.position(n.x - frame(reopened, n)[0], n.y - frame(reopened, n)[1])
                 .get("y")
                 .getAsDouble(),
             nodeIn(live.plans.get(ME + ":d1"), n.id).getAsJsonObject("position")
@@ -725,15 +737,15 @@ class CloudSessionTest {
             }
             return out;
         };
-        final Node moved = board.getNodes()
-            .iterator()
-            .next();
+        final Node moved = onTheBoard(board);
         moved.x += 40;
         board.touchLayout();
         session.save(p);
         tickUntil("applied", () -> opsFrames() == 1 && !doc.waiting());
         tickUntil("read back", () -> slot(p, ME + ":d1") != board);
-        assertEquals(com.gtnhplanner.library.PlanExport.gameX(777), slot(p, ME + ":d1").nodes.get(moved.id).x);
+        assertEquals(
+            frame(board, moved)[0] + com.gtnhplanner.library.PlanExport.gameX(777),
+            slot(p, ME + ":d1").nodes.get(moved.id).x);
     }
 
     @Test

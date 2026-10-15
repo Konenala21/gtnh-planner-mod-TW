@@ -13,12 +13,10 @@ import javax.annotation.Nullable;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import com.gtnhplanner.cloud.sync.LiveJson;
 import com.gtnhplanner.cloud.sync.LiveOps;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.importer.FfPlan;
-import com.gtnhplanner.importer.FfPlanParser;
 import com.gtnhplanner.library.PlanExport;
 
 /**
@@ -38,7 +36,6 @@ final class PlanWrite {
     private final CloudGame game;
     private final JsonObject base;
     private final Basis basis;
-    private final FfPlanParser.Things things;
     private final Basis next = new Basis();
     /** Recipes the board's cards changed or brought, by id. */
     private final Map<String, JsonObject> recipes = new LinkedHashMap<>();
@@ -50,7 +47,6 @@ final class PlanWrite {
         this.game = game;
         this.base = base == null ? new JsonObject() : base;
         this.basis = basis == null ? new Basis() : basis;
-        this.things = new FfPlanParser.Things(this.base);
         next.carried.putAll(this.basis.carried);
     }
 
@@ -134,25 +130,32 @@ final class PlanWrite {
     private JsonObject emit(final String id, final JsonObject thing, final Basis.Entry entry, final Fresh.Thing now,
         final Map<String, JsonObject> baseRecipes) {
         next.map(now.c(), id, now.gameKey());
-        final boolean moved = now.placed() && (now.x() != entry.x() || now.y() != entry.y());
+        final boolean moved = now.placed() && !entry.at(now);
         if (now.state()
             .equals(entry.state())) {
             next.things.put(
                 Basis.key(now.c(), id),
-                new Basis.Entry(entry.gameKey(), entry.state(), entry.site(), entry.recipe(), now.x(), now.y()));
+                new Basis.Entry(
+                    entry.gameKey(),
+                    entry.state(),
+                    entry.site(),
+                    entry.recipe(),
+                    now.x(),
+                    now.y(),
+                    now.pocket()));
             final Boolean sum = basis.sums.get(thing);
             if (!moved) {
                 if (sum != null) next.sums.put(thing, sum);
                 return thing;
             }
             final JsonObject o = LiveJson.shallow(thing);
-            o.add("position", position(now, thing));
+            place(o, now);
             return o;
         }
         next.things.put(Basis.key(now.c(), id), Basis.Entry.of(now));
         final JsonObject o = LiveJson.shallow(thing);
         merge(o, entry.site(), now.site());
-        if (moved) o.add("position", position(now, thing));
+        if (moved) place(o, now);
         if ("nodes".equals(now.c())) recipe(o, entry.recipe(), now, baseRecipes);
         if (now.game() != null) o.add("gtnhplanner", Fresh.extension(now.game(), o));
         return o;
@@ -163,7 +166,7 @@ final class PlanWrite {
         next.map(now.c(), now.id(), now.gameKey());
         next.things.put(Basis.key(now.c(), now.id()), Basis.Entry.of(now));
         final JsonObject o = LiveJson.copy(now.site());
-        if (now.placed()) o.add("position", PlanExport.position(now.x(), now.y()));
+        if (now.placed()) place(o, now);
         if (now.recipe() != null) recipes.put(ownRecipe(now.id()), withId(now.recipe(), ownRecipe(now.id())));
         if (now.game() != null) o.add("gtnhplanner", Fresh.extension(now.game(), o));
         return o;
@@ -255,22 +258,15 @@ final class PlanWrite {
             if (!now.has(e.getKey()) && !"id".equals(e.getKey())) target.remove(e.getKey());
     }
 
-    /** A moved thing's place at the site's scale, on the board it sits on. */
-    private JsonObject position(final Fresh.Thing now, final JsonObject thing) {
-        final JsonObject p = PlanExport.position(now.x(), now.y());
-        final double[] off = things.offset(PlanRead.str(thing, "pocketId"));
-        if (off[0] == 0 && off[1] == 0) return p;
-        final JsonObject o = new JsonObject();
-        o.add(
-            "x",
-            new JsonPrimitive(
-                p.get("x")
-                    .getAsDouble() - off[0]));
-        o.add(
-            "y",
-            new JsonPrimitive(
-                p.get("y")
-                    .getAsDouble() - off[1]));
-        return o;
+    /**
+     * A thing's place, written: the pocket it is in (none on the board) and its position at the site's scale, in that
+     * pocket's frame. Each position is measured from its own pocket's corner in the board's pixels, so a group moved
+     * moves only its pocket, and every one comes back to the pixel ({@code PlanExport.gameX}).
+     */
+    private static void place(final JsonObject o, final Fresh.Thing now) {
+        o.add("position", PlanExport.position(now.x(), now.y()));
+        final String field = Fresh.pocketField(now.c());
+        if (now.pocket() != null) o.addProperty(field, now.pocket());
+        else o.remove(field);
     }
 }

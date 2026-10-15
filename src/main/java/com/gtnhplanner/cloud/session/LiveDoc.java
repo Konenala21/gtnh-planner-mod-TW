@@ -297,8 +297,8 @@ public final class LiveDoc {
     }
 
     /**
-     * The plan's id of a board thing ({@code kind} {@code node}, {@code drawer}, {@code edge} or {@code note}), as
-     * presence names a selection; {@code cloud.map.PlanIds.uuid} turns one back into the board's.
+     * The plan's id of a board thing ({@code kind} {@code node}, {@code drawer}, {@code edge}, {@code note} or
+     * {@code pocket}), as presence names a selection; {@code cloud.map.PlanIds.uuid} turns one back into the board's.
      */
     public String planId(final String kind, final java.util.UUID boardId) {
         return read.basis()

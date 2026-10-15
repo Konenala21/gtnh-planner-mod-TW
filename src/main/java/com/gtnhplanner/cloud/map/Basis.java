@@ -28,12 +28,19 @@ public final class Basis {
      * @param state   the game's own data for it, in one spelling ({@link Canon}), place left out
      * @param site    the website fields the game writes for it, place left out
      * @param recipe  a card's recipe as the game writes it; null on anything else
-     * @param x       its place on the board, when it has one
+     * @param x       its place, when it has one: where it is in its group's frame (on the board, in none)
+     * @param pocket  the plan id of the group (pocket) it is in; null on the board
      */
-    public record Entry(String gameKey, String state, JsonObject site, @Nullable JsonObject recipe, int x, int y) {
+    public record Entry(String gameKey, String state, JsonObject site, @Nullable JsonObject recipe, int x, int y,
+        @Nullable String pocket) {
 
         static Entry of(final Fresh.Thing t) {
-            return new Entry(t.gameKey(), t.state(), t.site(), t.recipe(), t.x(), t.y());
+            return new Entry(t.gameKey(), t.state(), t.site(), t.recipe(), t.x(), t.y(), t.pocket());
+        }
+
+        /** Whether a thing is where this entry has it. */
+        boolean at(final Fresh.Thing t) {
+            return x == t.x() && y == t.y() && java.util.Objects.equals(pocket, t.pocket());
         }
     }
 
@@ -103,7 +110,7 @@ public final class Basis {
                 if (usable && kept.contains(m.getKey())) things.put(m.getValue(), was);
                 else it.remove();
             } else if (usable && was.state()
-                .equals(t.state()) && was.x() == t.x() && was.y() == t.y()) things.put(m.getValue(), was);
+                .equals(t.state()) && was.at(t)) things.put(m.getValue(), was);
             else things.put(m.getValue(), Entry.of(t));
         }
     }
@@ -119,16 +126,16 @@ public final class Basis {
     }
 
     /**
-     * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}), as presence names what
-     * is selected: the one it was read from, else its UUID. {@link PlanIds#uuid} turns one back.
+     * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}, {@code pocket}), as
+     * presence names what is selected: the one it was read from, else its UUID. {@link PlanIds#uuid} turns one back.
      */
     public String planId(final String kind, final UUID uuid) {
         return id(kind, uuid);
     }
 
     /**
-     * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}): the one it was read from
-     * (a carried thing's card's), else its UUID.
+     * The plan id of a board thing ({@code node}, {@code drawer}, {@code edge}, {@code note}, {@code pocket}): the one
+     * it was read from (a carried thing's card's), else its UUID.
      */
     String id(final String kind, final UUID uuid) {
         final String gameKey = kind + ":" + uuid;

@@ -835,7 +835,8 @@ public final class PlanExport {
         if (Note.ARROW.equals(n.kind()) && n.getArrowDirection() != null)
             o.addProperty("arrowDirection", n.getArrowDirection());
         if (Note.ARROW.equals(n.kind()) && n.getArrowHeads() != null) o.addProperty("arrowHeads", n.getArrowHeads());
-        if (Note.ARROW.equals(n.kind()) && n.getArrowWidth() > 0) o.addProperty("arrowWidth", n.getArrowWidth());
+        if (Note.ARROW.equals(n.kind()) && n.getArrowWidth() > 0)
+            o.addProperty("arrowWidth", Math.min(8, n.getArrowWidth()));
         if (Note.IMAGE.equals(n.kind()) && n.getImageUrl() != null) o.addProperty("imageUrl", n.getImageUrl());
         if (Note.ZONE.equals(n.kind()) && n.getPoints() != null) {
             final JsonArray points = new JsonArray();
@@ -913,10 +914,14 @@ public final class PlanExport {
      * A group as the website's board ({@code FactoryPocket}): its frame (corner from its parent's, size in the card
      * scale), open or not, its colour and the paper it came with.
      */
-    private static JsonObject pocket(final Graph g, final BoardGroup b) {
+    public static JsonObject pocket(final Graph g, final BoardGroup b) {
         final JsonObject o = new JsonObject();
         o.addProperty("id", b.webId());
-        o.addProperty("name", b.getName());
+        // The site's boards always have a name.
+        o.addProperty(
+            "name",
+            b.getName() == null || b.getName()
+                .isBlank() ? "Group" : b.getName());
         if (b.getColor() != null && COLOR_TAGS.contains(b.getColor())) o.addProperty("colorTag", b.getColor());
         final BoardGroup parent = b.getParent() == null ? null : g.boardGroups.get(b.getParent());
         if (parent != null) o.addProperty("parentPocketId", parent.webId());

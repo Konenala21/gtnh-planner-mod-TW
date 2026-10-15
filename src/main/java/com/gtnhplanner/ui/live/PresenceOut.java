@@ -120,13 +120,14 @@ public final class PresenceOut {
         return v;
     }
 
-    /** The plan's ids of the selected cards, drawers and notes. */
+    /** The plan's ids of the selected cards, drawers, notes and groups. */
     private static List<String> planIds(final LiveDoc doc, final Graph g, final List<UUID> selection) {
         final List<String> out = new ArrayList<>();
         for (final UUID id : selection) {
             if (out.size() >= MAX_SELECTED) break;
             final String kind = g.nodes.containsKey(id) ? "node"
-                : g.drawers.containsKey(id) ? "drawer" : g.notes.containsKey(id) ? "note" : null;
+                : g.drawers.containsKey(id) ? "drawer"
+                    : g.notes.containsKey(id) ? "note" : g.boardGroups.containsKey(id) ? "pocket" : null;
             if (kind != null) out.add(doc.planId(kind, id));
         }
         return out;

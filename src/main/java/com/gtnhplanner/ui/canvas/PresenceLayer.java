@@ -118,7 +118,9 @@ final class PresenceLayer {
         return out;
     }
 
-    /** What a board id is drawn as: its card (a shared machine's, whichever recipe), drawer or note; else null. */
+    /**
+     * What a board id is drawn as: its card (a shared machine's, whichever recipe), drawer, note or group; else null.
+     */
     @Nullable
     private Object thing(final UUID id) {
         final RecipeCard card = canvas.cards()
@@ -127,6 +129,9 @@ final class PresenceLayer {
         final DrawerCard drawer = canvas.drawers()
             .get(id);
         if (drawer != null) return drawer.model() == null ? null : drawer;
+        final com.gtnhplanner.ui.group.GroupCard group = canvas.groupCards()
+            .get(id);
+        if (group != null) return group.group() == null ? null : group;
         return canvas.session()
             .graph().notes.get(id);
     }
@@ -140,6 +145,16 @@ final class PresenceLayer {
         if (thing instanceof final DrawerCard drawer) {
             final Drawer d = drawer.model().drawer;
             return new float[] { d.getX(), d.getY(), DrawerCard.W, DrawerCard.H };
+        }
+        if (thing instanceof final com.gtnhplanner.ui.group.GroupCard card) {
+            // Its frame, or its summary card when collapsed.
+            final com.gtnhplanner.data.flowchart.BoardGroup g = card.group();
+            return g.isCollapsed()
+                ? new float[] { g.getX(), g.getY(), com.gtnhplanner.ui.group.GroupPaint.SUM_W,
+                    com.gtnhplanner.ui.group.GroupPaint.summaryHeight(
+                        card.summary()
+                            .rows()) }
+                : new float[] { g.getX(), g.getY(), g.getWidth(), g.getHeight() };
         }
         final Note n = (Note) thing;
         return new float[] { n.getX(), n.getY(), n.getWidth(), n.getHeight() };

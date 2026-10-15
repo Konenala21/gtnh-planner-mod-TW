@@ -854,24 +854,14 @@ public final class FfConverter {
                 .isEmpty()) return;
             final Map<String, BoardGroup> byFf = new HashMap<>();
             for (final FfPlan.FfBoard b : plan.boards()) {
-                final BoardGroup g = new BoardGroup();
-                g.setFfId(b.id());
-                g.setName(
+                final BoardGroup g = group(
+                    b,
+                    UUID.randomUUID(),
+                    px(b.x()),
+                    py(b.y()),
                     b.name() == null || b.name()
                         .isEmpty() ? Groups.newName(graph) : b.name());
-                if (b.colorTag() != null && !b.colorTag()
-                    .isEmpty()) g.setColor(b.colorTag());
-                g.setTheme(b.theme());
-                g.setPattern(b.pattern());
-                g.setCollapsed(!b.expanded());
-                g.setX(px(b.x()));
-                g.setY(py(b.y()));
-                g.setWidth(
-                    b.width() == null ? BoardGroup.MIN_W
-                        : Math.max(BoardGroup.MIN_W, (int) Math.round(b.width() * SCALE_X)));
-                g.setHeight(
-                    b.height() == null ? BoardGroup.MIN_H
-                        : Math.max(BoardGroup.MIN_H, (int) Math.round(b.height() * SCALE_Y)));
+                g.setFfId(b.id());
                 graph.boardGroups.put(g.getId(), g);
                 byFf.put(b.id(), g);
             }
@@ -963,6 +953,27 @@ public final class FfConverter {
             note.setMarks(d.marks());
         }
         return note;
+    }
+
+    /**
+     * A board (FF's pocket) as a group at a place, its parent and website id left to the caller: its frame at the
+     * cards' scale (the smallest a frame gets when it has no size), open or collapsed as it was, its colour and paper.
+     */
+    public static BoardGroup group(final FfPlan.FfBoard b, final UUID id, final int x, final int y, final String name) {
+        final BoardGroup g = new BoardGroup(id);
+        g.setName(name);
+        if (b.colorTag() != null && !b.colorTag()
+            .isEmpty()) g.setColor(b.colorTag());
+        g.setTheme(b.theme());
+        g.setPattern(b.pattern());
+        g.setCollapsed(!b.expanded());
+        g.setX(x);
+        g.setY(y);
+        g.setWidth(
+            b.width() == null ? BoardGroup.MIN_W : Math.max(BoardGroup.MIN_W, (int) Math.round(b.width() * SCALE_X)));
+        g.setHeight(
+            b.height() == null ? BoardGroup.MIN_H : Math.max(BoardGroup.MIN_H, (int) Math.round(b.height() * SCALE_Y)));
+        return g;
     }
 
     private static int snap(final double v) {

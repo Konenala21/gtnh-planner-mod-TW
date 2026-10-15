@@ -72,7 +72,7 @@ class CloudPlansTest {
                 name + ": " + firstDifference(Boards.persisted(g), Boards.persisted(r.graph())));
             assertTrue(r.graph().pinList.isEmpty(), name + ": the pin list is each player's own, never in the plan");
             // Every thing the game wrote carries its own data.
-            for (final String c : List.of("nodes", "storages", "edges", "annotations"))
+            for (final String c : List.of("nodes", "storages", "edges", "annotations", "pockets"))
                 for (final JsonElement t : LiveOps.collection(w.plan(), c)) assertTrue(
                     t.getAsJsonObject()
                         .has("gtnhplanner"),
@@ -131,8 +131,11 @@ class CloudPlansTest {
             final JsonObject edited = LiveOps.apply(plan, List.of(LiveOp.patch("nodes", moved.id.toString(), f, null)));
             final CloudPlans.Read r = CloudPlans.read(edited, game);
             final Node there = r.graph().nodes.get(moved.id);
-            assertEquals(PlanExport.gameX(1001.5), there.x, name);
-            assertEquals(PlanExport.gameY(-333), there.y, name);
+            // In its group's frame, when it is in one (the dressed first card is).
+            final com.gtnhplanner.data.flowchart.BoardGroup frame = moved.group == null ? null
+                : g.boardGroups.get(moved.group);
+            assertEquals((frame == null ? 0 : frame.getX()) + PlanExport.gameX(1001.5), there.x, name);
+            assertEquals((frame == null ? 0 : frame.getY()) + PlanExport.gameY(-333), there.y, name);
             final JsonObject before = Boards.persisted(g), after = Boards.persisted(r.graph());
             for (final JsonElement n : after.getAsJsonArray("nodes")) if (n.getAsJsonObject()
                 .get("id")

@@ -170,10 +170,36 @@ public final class FfPlanParser {
             return FfPlanParser.edge(e);
         }
 
-        /** A text annotation as a note; any other annotation reads as null. */
+        /** An annotation as a note: text as a sticky note, a box, zone, arrow or image as a drawing; else null. */
         @Nullable
         public FfNote note(final JsonObject a) {
-            return "text".equals(str(a, "kind", "")) ? FfPlanParser.note(a, boards) : null;
+            final String kind = str(a, "kind", "");
+            if ("text".equals(kind)) return FfPlanParser.note(a, boards);
+            return DRAWINGS.contains(kind) ? FfPlanParser.drawing(a, kind, boards) : null;
+        }
+
+        /** A board (FF's pocket); null without an id. */
+        @Nullable
+        public FfPlan.FfBoard board(final JsonObject p) {
+            return FfPlanParser.board(p, boards);
+        }
+
+        /**
+         * What a board adds to its own members' positions, its parent's left out: its frame's corner, or for a board
+         * that never stood open (no size) the shift the website gives its members when it first opens; null for no
+         * such board.
+         */
+        @Nullable
+        public double[] shift(@Nullable final String boardId) {
+            final Board b = boardId == null ? null : boards.get(boardId);
+            return b == null ? null : new double[] { b.x(), b.y() };
+        }
+
+        /** The board a board sits on; null on the plan's own board or for no such board. */
+        @Nullable
+        public String parentOf(@Nullable final String boardId) {
+            final Board b = boardId == null ? null : boards.get(boardId);
+            return b == null ? null : b.parent();
         }
 
         /** Where a thing on a board is drawn from: what the board adds to its position (none off any board). */

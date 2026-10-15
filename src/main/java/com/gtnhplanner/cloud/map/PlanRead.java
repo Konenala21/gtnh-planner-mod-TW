@@ -16,11 +16,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.gtnhplanner.cloud.sync.LiveJson;
 import com.gtnhplanner.data.Settings;
+import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.GraphData;
 import com.gtnhplanner.data.flowchart.Group;
+import com.gtnhplanner.data.flowchart.Groups;
 import com.gtnhplanner.data.flowchart.MachineGroup;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
@@ -50,7 +52,8 @@ import com.gtnhplanner.library.PlanExport;
  * fields (its {@code sum}) is the game's own again, exactly, at the place the plan gives it; anything the website made
  * or changed beyond its place is built the importer's way ({@link FfCards}) under its own id, keeping from its game
  * data what the website has no place for. What the game has no place for at all is left out of the board and kept
- * in the plan untouched.
+ * in the plan untouched. The website's boards (pockets) are the board's groups: each thing sits in the group its
+ * {@code pocketId} names, at its position in that group's frame.
  */
 final class PlanRead {
 
@@ -117,6 +120,10 @@ final class PlanRead {
     private final Map<String, FfStorage> storages = new HashMap<>();
     /** Drawers the website made, by plan id: their resource key and name come from the first port they hold. */
     private final Map<String, Drawer> unkeyed = new LinkedHashMap<>();
+    /** The groups on the board by their pocket's plan id. */
+    private final Map<String, BoardGroup> groupsByPlan = new HashMap<>();
+    /** Where each pocket's members are measured from on the board, by plan id (worked out on first ask). */
+    private final Map<String, int[]> bases = new HashMap<>();
 
     /** The read this one follows, or null; its plan's things by key and its recipes by id. */
     @Nullable
@@ -142,7 +149,7 @@ final class PlanRead {
         final String name = str(plan, "name");
         this.graph = new Graph(name == null ? "" : name);
         if (previous != null) {
-            for (final String c : List.of("nodes", "storages", "edges", "annotations")) {
+            for (final String c : List.of("nodes", "storages", "edges", "annotations", "pockets")) {
                 for (final JsonObject o : objects(previous.plan(), c)) {
                     final String id = str(o, "id");
                     if (id != null) before.put(Basis.key(c, id), o);
@@ -188,6 +195,8 @@ final class PlanRead {
             final String id = str(r, "id");
             if (id != null) recipeJson.putIfAbsent(id, r);
         }
+        // The groups first: every thing's place is measured from its group's frame.
+        pockets();
         for (final JsonObject n : objects(plan, "nodes")) node(n);
         final List<FfEdge> wires = new ArrayList<>();
         final List<JsonObject> wireJson = new ArrayList<>();
@@ -235,6 +244,8 @@ final class PlanRead {
         }
         for (final JsonObject a : objects(plan, "annotations")) note(a);
         groups(data);
+        // As a load repairs groups: a group inside itself is lifted onto the board.
+        Groups.sanitize(graph);
         tasks();
         if (previous != null) {
             sameThings();
@@ -261,7 +272,7 @@ final class PlanRead {
      * it carries): what they were read as still holds while the board writes them the same.
      */
     private void sameThings() {
-        for (final String c : List.of("storages", "annotations")) {
+        for (final String c : List.of("storages", "annotations", "pockets")) {
             for (final JsonObject o : objects(plan, c)) {
                 final String id = str(o, "id");
                 if (id != null && unchanged(c, id, o)) same.add(Basis.key(c, id));
@@ -373,7 +384,13 @@ final class PlanRead {
         if (id == null) return;
         final UUID uuid = PlanIds.uuid(id);
         final Node was = keptCard(json, id, uuid);
+        final int[] at = place(json);
+        final UUID group = group(json);
         if (was != null) {
+            // Its own JSON is the same, but its group's frame may have moved.
+            was.x = at[0];
+            was.y = at[1];
+            was.group = group;
             graph.addNode(was);
             basis.map("nodes", id, "node:" + uuid);
             kept.add("node:" + uuid);
@@ -385,7 +402,7 @@ final class PlanRead {
         }
         final FfNode card = things.node(json);
         if (card == null) return;
-        final int x = PlanExport.gameX(card.x()), y = PlanExport.gameY(card.y());
+        final int x = at[0], y = at[1];
         final FfRecipe recipe = recipe(card.recipeId());
         final Ext ext = Ext.of(json);
         // A shared machine the website made is always its recipes the importer's way: its game data is its first's.
@@ -398,6 +415,7 @@ final class PlanRead {
         final Map<Integer, Section> made = own == null || portless ? importCard(card, recipe, id, uuid, x, y)
             : Map.of();
         if (own != null && made.isEmpty()) {
+            own.group = group;
             graph.addNode(own);
             basis.map("nodes", id, "node:" + uuid);
             final Map<Integer, Section> sections = new HashMap<>();
@@ -409,7 +427,11 @@ final class PlanRead {
         final Node first = made.get(0)
             .node();
         if (ext != null) keepGameOnly(first, ext.game(), game.world());
-        for (final Section s : made.values()) graph.addNode(s.node());
+        // Every recipe of a shared machine is in its card's group.
+        for (final Section s : made.values()) {
+            s.node().group = group;
+            graph.addNode(s.node());
+        }
         basis.map("nodes", id, "node:" + uuid);
         cards.put(id, made);
         if (made.size() > 1) {
@@ -607,12 +629,19 @@ final class PlanRead {
         final FfStorage s = id == null ? null : things.storage(json);
         if (s == null) return;
         final UUID uuid = PlanIds.uuid(id);
-        final int x = PlanExport.gameX(s.x()), y = PlanExport.gameY(s.y());
+        FfDrawers.Role role = roles.getOrDefault(id, FfDrawers.Role.IDLE);
+        // A buffer wired to another drawer or by a cell wire has no drawer on the board (the importer joins its wires
+        // instead): it stays in the plan as it is, the game's own or not.
+        if (role == FfDrawers.Role.BUFFER && !FfDrawers.keepsBuffer(id, wires, storageIds)) {
+            report.add(Kind.DROPPED, id, "a buffer drawer wired to another drawer or by a cell wire; left in the plan");
+            return;
+        }
+        final int[] at = place(json);
+        final int x = at[0], y = at[1];
         final Ext ext = Ext.of(json);
         final Drawer had = ext == null ? null : drawerFromGame(ext.game(), uuid, x, y);
         Drawer d = had != null && matches(ext, json) ? had : null;
         if (d == null) {
-            FfDrawers.Role role = roles.getOrDefault(id, FfDrawers.Role.IDLE);
             Drawer.Kind kind = FfDrawers.kindOf(role);
             // A drawer of the game's with no wires is still the kind it was.
             if (kind == null && had != null && role == FfDrawers.Role.IDLE) {
@@ -622,15 +651,6 @@ final class PlanRead {
             }
             if (kind == null) {
                 report.add(Kind.DROPPED, id, "an unwired drawer; left in the plan");
-                return;
-            }
-            // A buffer wired to another drawer or by a cell wire has no drawer on the board (the importer joins its
-            // wires instead): it stays in the plan as it is.
-            if (role == FfDrawers.Role.BUFFER && !FfDrawers.keepsBuffer(id, wires, storageIds)) {
-                report.add(
-                    Kind.DROPPED,
-                    id,
-                    "a buffer drawer wired to another drawer or by a cell wire; left in the plan");
                 return;
             }
             // The game's own key while the website still names the same resource; else the first port it holds gives
@@ -648,6 +668,7 @@ final class PlanRead {
             d.setTarget(target.rule(), target.rate());
             if (!same) unkeyed.put(id, d);
         }
+        d.setGroup(group(json));
         graph.addDrawer(d);
         drawers.put(id, d);
         storages.put(id, s);
@@ -785,13 +806,13 @@ final class PlanRead {
 
     // region Notes
 
-    /** A text annotation as a note; the website's other drawings have no place on the board. */
+    /** An annotation as a note: a sticky note, or a box, zone, arrow or picture (kept, never shown). */
     private void note(final JsonObject json) {
         final String id = str(json, "id");
         if (id == null) return;
         final UUID uuid = PlanIds.uuid(id);
-        final double[] at = at(json);
-        final int x = PlanExport.gameX(at[0]), y = PlanExport.gameY(at[1]);
+        final int[] at = place(json);
+        final int x = at[0], y = at[1];
         final Ext ext = Ext.of(json);
         Note note = null;
         if (ext != null && matches(ext, json)) {
@@ -808,20 +829,123 @@ final class PlanRead {
             if (n == null) return;
             note = FfConverter.note(n, uuid, x, y);
         }
+        note.setGroup(group(json));
         graph.notes.put(uuid, note);
         basis.map("annotations", id, "note:" + uuid);
     }
 
-    /** A thing's place on the site's board, its board's offset added. */
-    private double[] at(final JsonObject json) {
+    // endregion
+
+    // region Groups and places
+
+    /**
+     * The website's boards (pockets) as the board's groups, before anything is put in them: one whose game data still
+     * matches is the game's own group again; any other is built from the website's fields, keeping the website's id to
+     * post under, and the size the game had while the website's is the one the game wrote. Then each takes its place,
+     * nested in the pocket its {@code parentPocketId} names.
+     */
+    private void pockets() {
+        final List<JsonObject> list = objects(plan, "pockets");
+        for (final JsonObject json : list) {
+            final String id = str(json, "id");
+            if (id == null || groupsByPlan.containsKey(id)) continue;
+            final FfPlan.FfBoard b = things.board(json);
+            if (b == null) continue;
+            final UUID uuid = PlanIds.uuid(id);
+            final Ext ext = Ext.of(json);
+            BoardGroup g = ext != null && matches(ext, json) ? groupFromGame(ext.game(), uuid) : null;
+            if (g == null) {
+                g = FfConverter.group(
+                    b,
+                    uuid,
+                    0,
+                    0,
+                    b.name()
+                        .isBlank() ? "Group" : b.name());
+                if (!uuid.toString()
+                    .equals(id)) g.setFfId(id);
+                final BoardGroup was = ext == null ? null : groupFromGame(ext.game(), uuid);
+                if (was != null) keepGameOnly(g, was, json);
+            }
+            graph.boardGroups.put(uuid, g);
+            groupsByPlan.put(id, g);
+            basis.map("pockets", id, "pocket:" + uuid);
+        }
+        for (final JsonObject json : list) {
+            final String id = str(json, "id");
+            final BoardGroup g = id == null ? null : groupsByPlan.get(id);
+            if (g == null) continue;
+            final BoardGroup parent = groupsByPlan.get(str(json, Fresh.PARENT_POCKET));
+            g.setParent(parent == null || parent == g ? null : parent.getId());
+            final int[] at = place(json);
+            g.setX(at[0]);
+            g.setY(at[1]);
+        }
+    }
+
+    /** A group from its game data, as a load reads it; null when that does not read. */
+    @Nullable
+    private static BoardGroup groupFromGame(final JsonObject data, final UUID uuid) {
+        final JsonObject saved = LiveJson.copy(data);
+        saved.addProperty("id", uuid.toString());
+        return Serializer.readBoardGroup(saved);
+    }
+
+    /**
+     * What a group's game data has that the website's board does not, onto a group built from the website's fields:
+     * the website id it was imported with, and its exact size while the website's is still the one the game wrote
+     * for it (the website keeps sizes to whole cells).
+     */
+    private void keepGameOnly(final BoardGroup g, final BoardGroup was, final JsonObject json) {
+        if (g.getFfId() == null) g.setFfId(was.getFfId());
+        if (LiveJson.equal(
+            PlanExport.pocket(graph, was)
+                .get("size"),
+            json.get("size"))) {
+            g.setWidth(was.getWidth());
+            g.setHeight(was.getHeight());
+        }
+    }
+
+    /** The group a thing is in: the one its pocket ({@code pocketId}) became; null on the board. */
+    @Nullable
+    private UUID group(final JsonObject json) {
+        final BoardGroup g = groupsByPlan.get(str(json, Fresh.POCKET));
+        return g == null ? null : g.getId();
+    }
+
+    /**
+     * Where a thing (or a pocket's frame) is on the board: its position, at the board's scale, from where the pocket it
+     * sits in has its members ({@link #base}). A game's own pocket has them at its frame's corner, so a thing the game
+     * wrote comes back to the pixel.
+     */
+    private int[] place(final JsonObject json) {
         final JsonElement p = json.get("position");
         double x = 0, y = 0;
         if (p != null && p.isJsonObject()) {
             x = number(p.getAsJsonObject(), "x");
             y = number(p.getAsJsonObject(), "y");
         }
-        final double[] off = things.offset(str(json, "pocketId"));
-        return new double[] { x + off[0], y + off[1] };
+        final String in = str(json, json.has(Fresh.PARENT_POCKET) ? Fresh.PARENT_POCKET : Fresh.POCKET);
+        final int[] base = base(in, new HashSet<>());
+        return new int[] { base[0] + PlanExport.gameX(x), base[1] + PlanExport.gameY(y) };
+    }
+
+    /**
+     * Where a pocket's members are measured from on the board: the pocket it sits in's, plus its own corner (for a
+     * board the website never opened, no size, the shift the website gives its members when it opens it); the board's
+     * corner for none, an unknown pocket, or one inside itself.
+     */
+    private int[] base(@Nullable final String pocketId, final Set<String> seen) {
+        if (pocketId == null || !seen.add(pocketId)) return new int[] { 0, 0 };
+        final int[] known = bases.get(pocketId);
+        if (known != null) return known;
+        final double[] shift = things.shift(pocketId);
+        if (shift == null) return new int[] { 0, 0 };
+        final int[] parent = base(things.parentOf(pocketId), seen);
+        final int[] at = { parent[0] + PlanExport.gameX(shift[0]), parent[1] + PlanExport.gameY(shift[1]) };
+        bases.put(pocketId, at);
+        return at;
     }
 
     // endregion
