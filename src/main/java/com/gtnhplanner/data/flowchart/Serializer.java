@@ -130,6 +130,7 @@ public final class Serializer {
             if (graph.getLastOpen() > 0) slotObj.addProperty("lastOpen", graph.getLastOpen());
             if (!graph.isOpen()) slotObj.addProperty("open", false);
             if (graph.getPostId() != null) slotObj.addProperty("postId", graph.getPostId());
+            if (graph.getCloudKey() != null) slotObj.addProperty("cloudKey", graph.getCloudKey());
             if (!graph.getDescription()
                 .isEmpty()) slotObj.addProperty("description", graph.getDescription());
             if (graph.getIcon() != null) slotObj.addProperty("icon", graph.getIcon());
@@ -209,6 +210,9 @@ public final class Serializer {
                         .getAsLong());
                 if (obj.has("postId")) graph.setPostId(
                     obj.get("postId")
+                        .getAsString());
+                if (obj.has("cloudKey")) graph.setCloudKey(
+                    obj.get("cloudKey")
                         .getAsString());
                 if (obj.has("description")) graph.setDescription(
                     obj.get("description")
