@@ -176,8 +176,23 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   cards Detailed or Simple (the zoomed-out glance view, with room for the names), an optional footer as the website's
   export bar (a title row: icon, name, machines and EU/t; Inputs and Outputs as tinted panels in even columns, from the
   overview's totals) and a small "GTNH Planner" mark; previewed in a box nearly the screen's size, then saved as a PNG
-  in `screenshots/` or copied. "Share
-  to library..." (`AccountForms.shareRow`, also in a tab's or a plan tile's menu) sends the plan as Factory Flow
+  in `screenshots/` or copied. The Share menu has the website's rows in the website's words (the owner, 2026-10-14:
+  each side keeps its own plans, nothing syncs, a post is like an uploaded file): Save to library, or Update in
+  library and Save as new post for a plan posted (`AccountForms.shareRows`, also in a tab's and a plan tile's menu),
+  Copy plan link (the website's `#p=` link, `FfPlanCode.encode`, from the plan as `Posting.write` sends it), Copy
+  plan code (our own), Export plan file (that JSON in `gtnhplanner/exports/`), Open in website (`client/Browser`:
+  the system browser at `<site>/#p=<code>`, the code in the fragment so it never reaches a server; links over 2,000
+  characters go through a small redirect page in the temp folder, as Windows cuts long command lines; over a
+  million it says to export instead), Share in chat and Screenshot.... The other way, the website's "Open in the
+  mod" POSTs a plan code to `client/WebsiteListener` on 127.0.0.1, the first free port of 25640-25649, started by
+  the client proxy only (never on a server) and gone with the game: it answers CORS and Private Network Access
+  preflights for the website's origins only (gtnhplanner.com, www., `CommunityApi.site()`, http://localhost or
+  127.0.0.1 on any port), refuses any other Origin or a Host not naming the loopback, JSON only, 4 MB at most, a code
+  that decodes to a JSON object; `GET /ping` gives the mod's version. Nothing opens unasked: `WebsiteInbox` keeps the
+  newest plan and asks, over the board (`ui/popup/IncomingOffer`) or in chat with Open and Not now
+  (`/gtnhplanner_website`, keyed to that plan), and again when the planner opens; Open imports it as a new plan.
+  `call website` reports the port and the plan waiting (`answer=open`, `link=1`). "Save
+  to library..." sends the plan as Factory Flow
   project JSON (`library/PlanExport`, checked against the website's own schema) with a title, a description and an
   icon (picked from the plan's items; `library/Posting` looks up the website's picture of it by name in its item list,
   as the site draws an item from nothing else). A plan remembers its post (`Graph.postId`, `description`, `icon`, saved
@@ -189,6 +204,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - Players never see the website (the owner, 2026-10-09): no links or keys to it, and no text naming gtnhplanner.com or
   Factory Flow in the UI, its messages, the config files it writes or `mcmod.info`. The library is "the library";
   pasted plans are "a plan link or code". Code comments and docs may still name the website as the design's source.
+  The exceptions (the owner, 2026-10-14): the Share menu's Open in website, the prompt about a plan the website sent,
+  and the library.
 - Feedback (the top bar's red bug key, `ui/popup/FeedbackPanel`): three mood faces, Bug / Idea / Help chips, one text
   box (`ui/popup/TextArea`, our own: MUI2's multi-line editor crashed the game), a line naming what goes with it (the
   open plan by name, the game log, a crash report if there is one) and Send. `library/Reports` sends it, with a Simple
