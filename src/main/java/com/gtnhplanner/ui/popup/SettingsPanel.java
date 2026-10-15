@@ -121,6 +121,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
     /** Opens the settings in the middle of the screen. */
     public static void open(final ModularPanel parent) {
+        if (Popup.toggled("settings")) return;
         final SettingsPanel settings = new SettingsPanel(sections());
         final int H = settings.h;
         final int wide = settings.width();
@@ -134,6 +135,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                 CardPaint.surface(getArea().width, getArea().height);
             }
         };
+        popup.toggledBy("settings");
         popup.child(settings.pos(0, 0));
         Popup.open(parent, popup, (PlannerScale.width() - wide) / 2, (PlannerScale.height() - H) / 2);
     }

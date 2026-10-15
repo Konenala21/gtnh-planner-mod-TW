@@ -48,7 +48,7 @@ public class OpenPlanCommand extends CommandBase {
             com.gtnhplanner.ui.Planner.open();
             return null;
         }
-        return "That plan has not arrived yet: open the library in a moment";
+        return "That plan has not arrived yet: open Plans in a moment";
     }
 
     @Override

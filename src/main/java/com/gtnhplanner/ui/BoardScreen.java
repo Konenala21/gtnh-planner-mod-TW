@@ -211,15 +211,15 @@ public final class BoardScreen extends ModularScreen {
             0,
             named(
                 parts,
-                "library",
+                "invite",
                 key(
-                    () -> library.open ? "Board" : "Library",
-                    () -> true,
-                    "Library: your plans, plans shared with you, and plans other players posted",
-                    fit("Library", "Board"),
-                    () -> library.set(!library.open))),
-            fit("Library", "Board"),
-            tight("Library", "Board"));
+                    () -> "Invite",
+                    () -> session.live() != null,
+                    "Invite people to edit this plan with you (sign in to invite)",
+                    fit("Invite"),
+                    () -> com.gtnhplanner.ui.popup.SharePanel.open(panel, session))),
+            fit("Invite"),
+            tight("Invite"));
         topBar.key(
             0,
             named(
@@ -228,11 +228,46 @@ public final class BoardScreen extends ModularScreen {
                 key(
                     () -> "Share",
                     () -> true,
-                    "Share this plan: with people, to the library, as a code or in chat",
+                    "Share a copy of this plan: a link, a code, in chat, a file or a picture, or post it to Community",
                     fit("Share"),
                     () -> openShare(panel, session, canvas, parts.get("share")))),
             fit("Share"),
             tight("Share"));
+        topBar.key(
+            0,
+            named(
+                parts,
+                "plans",
+                key(
+                    () -> "Plans",
+                    () -> true,
+                    "Plans: every plan you have, and the plans shared with you",
+                    fit("Plans"),
+                    () -> {
+                        if (library.open && library.view.onMine()) {
+                            library.set(false);
+                            return;
+                        }
+                        library.view.showMine();
+                        library.set(true);
+                    })),
+            fit("Plans"),
+            tight("Plans"));
+        topBar.key(
+            0,
+            named(
+                parts,
+                "community",
+                key(() -> "Community", () -> true, "Community: plans other players posted", fit("Community"), () -> {
+                    if (library.open && library.view.onPublic()) {
+                        library.set(false);
+                        return;
+                    }
+                    library.view.showPublic();
+                    library.set(true);
+                })),
+            fit("Community"),
+            tight("Community"));
         final ButtonWidget<?> account = named(parts, "account", accountKey(panel, session, parts));
         topBar.key(0, account, () -> accountWidth(true), () -> accountWidth(false));
         topBar.key(
@@ -478,31 +513,19 @@ public final class BoardScreen extends ModularScreen {
     private static void openShare(final ModularPanel panel, final BoardSession session, final BoardCanvas canvas,
         final IWidget key) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
-        // Signed in, every plan is in the account from the moment it exists: always there to share with people.
-        if (session.live() != null) rows.add(
-            com.gtnhplanner.ui.popup.PickList.Entry
-                .of("Share with people...", () -> com.gtnhplanner.ui.popup.SharePanel.open(panel, session)));
-        else rows.add(
-            new com.gtnhplanner.ui.popup.PickList.Entry(
-                null,
-                "Share with people",
-                "Sign in to share",
-                0xFF5A5C65,
-                false,
-                () -> com.gtnhplanner.ui.library.AccountForms.signIn(panel, () -> {})));
-        for (final com.gtnhplanner.ui.popup.PickList.Entry library : com.gtnhplanner.ui.library.AccountForms
-            .shareRows(panel, session, session.graph()))
-            rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
         final int slot = session.activeSlot();
-        // The website's Share menu has these rows too.
+        // Copies only: people are invited with the Invite key. The website's Share menu has the same rows.
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan link", session::copyPlanLink));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan code", () -> session.copyPlan(slot)));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in game chat", () -> session.shareInChat(slot)));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Export plan file", session::exportPlanFile));
-        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Open in website", session::openInWebsite));
-        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in chat", () -> session.shareInChat(slot)));
         rows.add(
             com.gtnhplanner.ui.popup.PickList.Entry
                 .of("Screenshot...", () -> com.gtnhplanner.ui.popup.ScreenshotPanel.open(panel, session, canvas)));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Open on website", session::openInWebsite));
+        for (final com.gtnhplanner.ui.popup.PickList.Entry post : com.gtnhplanner.ui.library.AccountForms
+            .shareRows(panel, session, session.graph()))
+            rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(post.label(), post.action()));
         com.gtnhplanner.ui.popup.Popup.open(
             panel,
             com.gtnhplanner.ui.popup.PickList.popup("gtnhplanner_share_menu", null, rows, false, 0),
@@ -1049,7 +1072,7 @@ public final class BoardScreen extends ModularScreen {
             + (b.item() == null ? ""
                 : ", in front of the " + b.item()
                     .getDisplayName());
-        final String how = "Click a card, in this plan or another (tabs, Library). Esc cancels.";
+        final String how = "Click a card, in this plan or another (tabs, Plans). Esc cancels.";
         final String note = com.gtnhplanner.ui.world.LinkTarget.note();
         final int w = Math.max(Math.max(Hyb.width(what) + 24, Hyb.width(how) + 24), Hyb.width(note) + 24) + 8;
         final int h = note.isEmpty() ? 30 : 41;

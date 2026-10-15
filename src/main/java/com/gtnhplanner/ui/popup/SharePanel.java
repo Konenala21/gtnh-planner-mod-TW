@@ -403,7 +403,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
         final String me = Account.userId();
         final boolean owns = owns();
 
-        Hyb.text("Share with people", PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
+        Hyb.text("Plan together", PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
         final int[] close = { boxW - 4 - 14, (TITLE - 14) / 2, 14, 14 };
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);

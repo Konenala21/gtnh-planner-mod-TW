@@ -84,6 +84,7 @@ public class Popup extends ModularPanel {
             popup.pos(
                 Math.max(r[0] + 2, Math.min(want[0], r[0] + r[2] - w - 2)),
                 Math.max(r[1] + 2, Math.min(want[1], r[1] + r[3] - h - 2)));
+            popup.shown = true;
             IPanelHandler.simple(parent, (p, player) -> popup, true)
                 .openPanel();
             com.gtnhplanner.ui.sound.Sfx.OPEN.play();
@@ -91,6 +92,40 @@ public class Popup extends ModularPanel {
     }
 
     private static final List<Runnable> PENDING = new ArrayList<>();
+
+    /** Boxes opened from a key that toggles, by key name: that key again closes the box, and it never opens twice. */
+    private static final java.util.Map<String, Popup> TOGGLED = new java.util.HashMap<>();
+    private static final java.util.Map<String, Long> CLICKED_OFF = new java.util.HashMap<>();
+    private String toggleKey;
+    private boolean shown;
+
+    /** Marks this box as the one {@code key} opens (see {@link #toggled}). */
+    public <P extends Popup> P toggledBy(final String key) {
+        toggleKey = key;
+        TOGGLED.put(key, this);
+        @SuppressWarnings("unchecked")
+        final P self = (P) this;
+        return self;
+    }
+
+    /**
+     * Whether the key's press only closes (or waits on) its box: it is open, it is about to open, or the press that
+     * landed just now was the click off it that closed it. False means open it.
+     */
+    public static boolean toggled(final String key) {
+        final Long off = CLICKED_OFF.remove(key);
+        if (off != null && System.currentTimeMillis() - off < 250) return true;
+        final Popup p = TOGGLED.get(key);
+        if (p == null) return false;
+        if (!p.shown) return true;
+        if (p.isOpen()) {
+            p.closeIfOpen();
+            com.gtnhplanner.ui.sound.Sfx.CLOSE.play();
+            return true;
+        }
+        TOGGLED.remove(key);
+        return false;
+    }
 
     /** Opens the popups asked for since the last tick. The board calls this every tick. */
     public static void openPending() {
@@ -103,6 +138,7 @@ public class Popup extends ModularPanel {
     /** A click off the popup dismisses it, with the fold-away sound (picking a row sounds as what it does). */
     @Override
     public boolean closeOnOutOfBoundsClick() {
+        if (toggleKey != null) CLICKED_OFF.put(toggleKey, System.currentTimeMillis());
         com.gtnhplanner.ui.sound.Sfx.CLOSE.play();
         return true;
     }

@@ -845,14 +845,14 @@ final class Script {
 
     // endregion
 
-    // region Plans and the Library
+    // region Plans and Community
 
     private static void plans(final List<Beat> out) {
         beat(out).opens(Targets.boardPart("tab:+"))
             .note(Targets.around(Targets.topKey("tabs"), Targets.popup()), "Here's how you make a *new plan*.");
 
         beat(out).escIf(Script::popupOpen)
-            .click(Targets.topKey("library"))
+            .click(Targets.topKey("community"))
             .until(
                 () -> Targets.board() != null && Targets.board()
                     .libraryOpen(),
@@ -870,7 +870,7 @@ final class Script {
             .rest()
             .note(
                 Targets.boardPart("library:all"),
-                "The *Library* is where people upload plans. You can browse them here.");
+                "*Community* is where people post plans. You can browse them here.");
     }
 
     private static boolean libraryOpen() {
@@ -894,7 +894,7 @@ final class Script {
         final Target grip = Targets.note(null, NoteCard.Part.RESIZE);
         final Target bigger = Targets.note(null, NoteCard.Part.BIGGER);
         // The whole plan in view first, so there is empty board to write on.
-        beat(out).when(Script::libraryOpen, Steps.click(Targets.topKey("library")))
+        beat(out).when(Script::libraryOpen, Steps.click(Targets.topKey("community")))
             .until(() -> !libraryOpen(), 2000)
             .click(Targets.topKey("fit"))
             .pause(400)

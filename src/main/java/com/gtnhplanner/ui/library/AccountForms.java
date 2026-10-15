@@ -87,10 +87,12 @@ public final class AccountForms {
      */
     public static List<PickList.Entry> shareRows(final ModularPanel parent, final BoardSession session,
         final Graph plan) {
+        // A task board is never posted.
+        if (com.gtnhplanner.data.flowchart.Tasks.TASKS.equals(plan.getPrimaryView())) return List.of();
         if (plan.getPostId() == null) return List.of(
             new PickList.Entry(
                 null,
-                "Publish to library...",
+                "Post a copy to Community...",
                 "for other players",
                 Hyb.INK,
                 false,
@@ -98,14 +100,14 @@ public final class AccountForms {
         return List.of(
             new PickList.Entry(
                 null,
-                "Update in library...",
+                "Update my post...",
                 "with the plan as it is",
                 Hyb.INK,
                 false,
                 () -> post(parent, session, plan, false, null, null)),
             new PickList.Entry(
                 null,
-                "Publish as new post...",
+                "Post a new copy...",
                 "a post of its own",
                 Hyb.INK,
                 false,
@@ -329,7 +331,7 @@ public final class AccountForms {
 
         @Override
         String title() {
-            return create ? "Create a library account" : "Sign in to the library";
+            return create ? "Create an account" : "Sign in";
         }
 
         @Override
@@ -545,12 +547,12 @@ public final class AccountForms {
         @Override
         String title() {
             if (posted) return wasUpdate ? "Updated!" : "Published!";
-            return update ? "Update your post" : "Publish to the library";
+            return update ? "Update your post" : "Post to Community";
         }
 
         @Override
         String subtitle() {
-            if (posted) return "Everyone can find it in Public setups";
+            if (posted) return "Everyone can find it in Community";
             return update ? "With the plan as it is now; its votes stay"
                 : "As " + Account.username() + ", for everyone to find";
         }
@@ -615,7 +617,7 @@ public final class AccountForms {
             }
             if (plan.getNodes()
                 .isEmpty()) {
-                error = "Add a recipe first: the library takes no empty plans";
+                error = "Add a recipe first: Community takes no empty plans";
                 return;
             }
             busy = true;

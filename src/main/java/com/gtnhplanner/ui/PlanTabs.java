@@ -645,7 +645,14 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
                 new PickList.Entry(null, "New task board", "a plan of tasks", Hyb.INK, false, session::addTaskBoard));
             rows.add(new PickList.Entry(null, "Open a plan...", "My plans", Hyb.INK, false, session::openMyPlans));
             rows.add(new PickList.Entry(null, "Paste plan", "a plan link or code", Hyb.INK, false, session::pastePlan));
-            rows.add(new PickList.Entry(null, "Browse library", "public plans", Hyb.INK, false, session::openLibrary));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    "Browse Community",
+                    "plans others posted",
+                    Hyb.INK,
+                    false,
+                    session::openLibrary));
             Popup.open(getPanel(), PickList.popup("gtnhplanner_new_plan", null, rows, false, 190), sx, sy);
             return Result.SUCCESS;
         }

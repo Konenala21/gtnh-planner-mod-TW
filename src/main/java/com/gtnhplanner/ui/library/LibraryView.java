@@ -187,6 +187,16 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
     }
 
     /** Opens on the public setups. */
+    /** Whether the plans shelf (My plans) is the one showing. */
+    public boolean onMine() {
+        return shelf == Shelf.MINE;
+    }
+
+    /** Whether the Community shelf is the one showing. */
+    public boolean onPublic() {
+        return shelf == Shelf.PUBLIC;
+    }
+
     public void showPublic() {
         shelf(Shelf.PUBLIC);
     }
@@ -335,14 +345,14 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final boolean roomy = PAD + shelfW("MY PLANS", Integer.toString(own))
             + 6
             + (hasShared() ? shelfW("SHARED WITH ME", Integer.toString(shared)) + 6 : 0)
-            + shelfW("PUBLIC SETUPS", publicCount)
+            + shelfW("COMMUNITY", publicCount)
             + 12
             + 100
             + 30 <= w;
         x = shelfTab(x, "MY PLANS", Integer.toString(own), Shelf.MINE, hover) + 6;
         if (hasShared())
             x = shelfTab(x, roomy ? "SHARED WITH ME" : "SHARED", Integer.toString(shared), Shelf.SHARED, hover) + 6;
-        x = shelfTab(x, roomy ? "PUBLIC SETUPS" : "PUBLIC", publicCount, Shelf.PUBLIC, hover) + 12;
+        x = shelfTab(x, "COMMUNITY", publicCount, Shelf.PUBLIC, hover) + 12;
         // Right to left: close, then the public list's version, tier and sort.
         int right = w - PAD;
         right = closeKey(right, 4, Kind.CLOSE, hover) - 8;
@@ -435,7 +445,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int cols = columns(), tw = tileW();
         int y = top + PAD - scroll;
         if (setups.isEmpty()) {
-            final String msg = feed.error() != null ? "Couldn't reach the library: " + feed.error()
+            final String msg = feed.error() != null ? "Couldn't reach Community: " + feed.error()
                 : feed.loading() || !feed.started() ? "Loading shared plans..." : "No setups match.";
             final float cx = (PAD + gridRight()) / 2f, cy = top + (h - top) / 2f - 10;
             Hyb.textCentered(msg, cx, cy, feed.error() != null ? Hyb.AMBER_INK : Hyb.MUTED);
@@ -1068,7 +1078,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             getPanel(),
             PickList.popup(
                 "gtnhplanner_delete_post",
-                "Take '" + Hyb.fit(s.name(), 150) + "' out of the library?",
+                "Take '" + Hyb.fit(s.name(), 150) + "' out of Community?",
                 rows,
                 false,
                 150),
@@ -1086,7 +1096,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             feed.remove(s.id());
             if (picked != null && picked.id()
                 .equals(s.id())) pick(null);
-            session.flash(Severity.INFO, "Took '" + s.name() + "' out of the library");
+            session.flash(Severity.INFO, "Took '" + s.name() + "' out of Community");
         }, why -> {
             deleting = null;
             openError = "Couldn't delete it: " + why;
@@ -1164,7 +1174,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                     missing == 0 ? Severity.INFO : Severity.WARN,
                     "Opened '" + r.graph()
                         .getName()
-                        + "' from the library: "
+                        + "' from Community: "
                         + r.report()
                             .summary());
             } catch (final RuntimeException e) {
@@ -1206,7 +1216,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             }
             case OPEN -> List.of("Open as a new plan");
             case EDIT -> List.of("Change its title, description and icon");
-            case DELETE -> List.of("Take it out of the library for good");
+            case DELETE -> List.of("Take it out of Community for good");
             case TAG -> List.of("Show plans tagged #" + hit.data());
             case AUTHOR -> List.of("Show plans by " + hit.data());
             case TIER_BADGE -> List.of("Show plans up to this tier");
@@ -1217,7 +1227,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             case MAKES_CLEAR -> List.of("Clear this filter");
             case SHELF -> hit.data() == Shelf.MINE ? List.of("My plans: every plan of yours, open or closed")
                 : hit.data() == Shelf.SHARED ? List.of("Shared with me: plans other players shared with your account")
-                    : List.of("Setups other players posted to the library");
+                    : List.of("Setups other players posted to Community");
             case MY_TILE -> List.of(
                 Plan.getInstance()
                     .getGraphs()
