@@ -305,6 +305,17 @@ public final class Tasks {
             t.blockedBy());
     }
 
+    /**
+     * The thing as a shared plan holds it: a screenshot whose picture stayed behind (it came in a plan code or a chat
+     * link) goes without its picture, as a plan takes no screenshot without one; it keeps its kind and words.
+     */
+    public static Item forPlan(final Item i) {
+        final Picture p = i.picture();
+        if (p == null || !p.thumb()
+            .isEmpty()) return i;
+        return new Item(i.id(), i.taskId(), i.kind(), i.text(), i.done(), i.order(), i.link(), i.place(), null);
+    }
+
     public static Item claimed(final Item i, final String plan) {
         final Link l = i.link();
         if (l == null || !l.plan()

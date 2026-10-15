@@ -254,7 +254,7 @@ final class Fresh {
         for (final Tasks.Task t : g.tasks)
             task(out, "tasks", "task:", t.id(), Tasks.toJson(Tasks.claimed(t, g.planId())));
         for (final Tasks.Item i : g.taskItems)
-            task(out, "taskItems", "item:", i.id(), Tasks.toJson(Tasks.claimed(i, g.planId())));
+            task(out, "taskItems", "item:", i.id(), Tasks.toJson(Tasks.forPlan(Tasks.claimed(i, g.planId()))));
         for (final Tasks.Comment c : g.taskComments) task(out, "taskComments", "comment:", c.id(), Tasks.toJson(c));
         return out;
     }

@@ -17,6 +17,8 @@ import com.gtnhplanner.cloud.sync.LiveOp;
 import com.gtnhplanner.cloud.sync.LiveOps;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.TaskEdits;
+import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.library.PlanExport;
 
 /**
@@ -84,6 +86,41 @@ class CloudPlansTest {
                     .size(),
                 name + ": a recipe per card");
         }
+    }
+
+    /**
+     * A screenshot that came in a plan code or a chat link has no picture: the plan holds it as a screenshot thing
+     * with no picture (the website refuses a picture without its thumbnail, so the whole plan would never go up).
+     */
+    @Test
+    void aScreenshotWithoutItsPictureGoesUpWithoutOne() {
+        final Graph g = new Graph("Board");
+        g.setPrimaryView(Tasks.TASKS);
+        TaskEdits.add(g, "t", "Build the line", Tasks.Status.TODO, List.of(), null, "2026-10-15T09:00:00.000Z");
+        TaskEdits.addThing(
+            g,
+            "p",
+            "t",
+            Tasks.PICTURE,
+            "Screenshot",
+            null,
+            null,
+            new Tasks.Picture("", 1920, 1080, "2026-10-15T09:00:00.000Z", null));
+        final JsonObject item = LiveOps.collection(
+            CloudPlans.write(g, new TestGame().knowing(g), null, null)
+                .plan(),
+            "taskItems")
+            .get(0)
+            .getAsJsonObject();
+        assertTrue(!item.has("picture"), item.toString());
+        assertEquals(
+            "picture",
+            item.get("kind")
+                .getAsString());
+        assertEquals(
+            "Screenshot",
+            item.get("text")
+                .getAsString());
     }
 
     /** Plan, board, plan: a plan read and written straight back is unchanged, the website's own plans too. */
