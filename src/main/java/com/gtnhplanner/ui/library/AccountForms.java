@@ -81,13 +81,14 @@ public final class AccountForms {
     }
 
     /**
-     * The menu row that shares a plan to the library, or updates what it shared: the Share key's, a tab's, a tile's.
+     * The menu row that publishes a plan to the library (a copy for everyone, never the plan itself), or updates what
+     * it published: the Share key's, a tab's, a tile's.
      */
     public static PickList.Entry shareRow(final ModularPanel parent, final BoardSession session, final Graph plan) {
         final boolean shared = plan.getPostId() != null;
         return new PickList.Entry(
             null,
-            shared ? "Update in library..." : "Share to library...",
+            shared ? "Update in library..." : "Publish to library...",
             shared ? "with the plan as it is" : "for other players",
             Hyb.INK,
             false,
@@ -523,8 +524,8 @@ public final class AccountForms {
 
         @Override
         String title() {
-            if (posted) return wasUpdate ? "Updated!" : "Shared!";
-            return update ? "Update your post" : "Share to the public library";
+            if (posted) return wasUpdate ? "Updated!" : "Published!";
+            return update ? "Update your post" : "Publish to the library";
         }
 
         @Override
@@ -553,19 +554,19 @@ public final class AccountForms {
         @Override
         String button() {
             if (posted) return "Done";
-            return update ? "Update post" : "Share";
+            return update ? "Update post" : "Publish";
         }
 
         @Override
         String busyButton() {
-            return update ? "Updating..." : "Sharing...";
+            return update ? "Updating..." : "Publishing...";
         }
 
         @Override
         @Nullable
         String link() {
             if (posted) return null;
-            return update ? "Share it as a new one instead" : "Not " + Account.username() + "? Sign out";
+            return update ? "Publish it as a new one instead" : "Not " + Account.username() + "? Sign out";
         }
 
         @Override

@@ -239,7 +239,7 @@ public final class BoardScreen extends ModularScreen {
                 key(
                     () -> "Share",
                     () -> true,
-                    "Share this plan: to the library, as a code or in chat",
+                    "Share this plan: with people, to the library, as a code or in chat",
                     fit("Share"),
                     () -> openShare(panel, session, canvas, parts.get("share")))));
         topBar.child(
@@ -376,13 +376,33 @@ public final class BoardScreen extends ModularScreen {
     }
 
     /**
-     * The Share key's menu, under the key: the open plan to the library (or an update of what it shared), its plan
-     * code to the clipboard, a line in the game's chat that opens it (client/ChatShare), and a picture of it. Labels
-     * only, as narrow as they are: each says what it does.
+     * The Share key's menu, under the key: the people who edit the open plan with the player (a plan in the account;
+     * greyed signed out, or for a plan on this computer only), the open plan published to the library (or an update of
+     * what it published), its plan code to the clipboard, a line in the game's chat that opens it (client/ChatShare),
+     * and a picture of it. Labels only, as narrow as they are: each says what it does.
      */
     private static void openShare(final ModularPanel panel, final BoardSession session, final BoardCanvas canvas,
         final IWidget key) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
+        if (session.live() != null) rows.add(
+            com.gtnhplanner.ui.popup.PickList.Entry
+                .of("Share with people...", () -> com.gtnhplanner.ui.popup.SharePanel.open(panel, session)));
+        else if (!com.gtnhplanner.library.Account.signedIn()) rows.add(
+            new com.gtnhplanner.ui.popup.PickList.Entry(
+                null,
+                "Share with people",
+                "Sign in to share",
+                0xFF5A5C65,
+                false,
+                () -> com.gtnhplanner.ui.library.AccountForms.signIn(panel, () -> {})));
+        else rows.add(
+            new com.gtnhplanner.ui.popup.PickList.Entry(
+                null,
+                "Share with people",
+                "Not in your account",
+                0xFF5A5C65,
+                false,
+                () -> {}));
         final com.gtnhplanner.ui.popup.PickList.Entry library = com.gtnhplanner.ui.library.AccountForms
             .shareRow(panel, session, session.graph());
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));

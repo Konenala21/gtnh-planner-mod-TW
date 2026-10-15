@@ -323,6 +323,14 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   the service's own (`Peers.colourOf` is the website's `colorFor`), task faces included, so one person is one colour
   everywhere. On a cloud plan a task's Assign key lists its owner and members (`TaskLook.people`) and a pick puts them
   on the task or takes them off; a plan on this computer keeps Assign me.
+- Share with people (the top bar's Share menu; greyed with "Sign in to share" signed out, and for a plan on this
+  computer only): `ui/popup/SharePanel`, a box in the middle of the screen. Who can edit (the owner, then the members:
+  the owner removes them, a member leaves through the tab's own Leave plan), then for the owner the signed-in players in
+  this game (`CloudApi.nearby` with the tab list's names, at most 100; asked when the box opens and on Look again,
+  never on a timer, as the service limits it) and a search of every account as a name is typed (300 ms after the last
+  key). Each shows its username, an in-game one its Minecraft name too. The list follows the room (`members` pushes)
+  and `CloudApi.sharing` (`GET .../members`). The library's post is Publish to library (Update in library once
+  published): it never shares the live plan.
 
 ## Local development
 
@@ -332,6 +340,9 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   anywhere.
 - Game: `call 'library?url=http://localhost:3000'` points the game at it (the live URL follows: `ws://localhost:3001/
   live`, or `call 'library?live=...'`).
+- Game alone: `node tools/dev/mock-library.mjs` with `tools/dev/mock-live.mjs` is a stand-in for the site and the live
+  service in one process (in memory, kept in `build/dev-client/mock-*.json`), with two stand-in accounts who open a plan
+  shared with them and point at its cards: sharing, presence and faces end to end without the website.
 - Two people: the dev game plus the website in a browser, or two browser profiles; a headless test client in each
   repository drives the protocol.
 
