@@ -17,10 +17,39 @@ import javax.annotation.Nullable;
  *
  * @param textNotes FF's annotations (text notes, boxes, zones, arrows, images), which become the board's notes
  * @param notes     what the parser saw and left out (boards, other annotations, pool scopes), for the import report
+ * @param boards    FF's boards (pockets), which become the board's groups
+ * @param boardOf   which board each card, storage and annotation is in, by FF id
  */
 public record FfPlan(String name, boolean solveMode, boolean poolMode, List<FfRecipe> recipes, List<FfNode> nodes,
     List<FfEdge> edges, List<FfStorage> storages, List<FfNote> textNotes, @Nullable FfTarget targetRate,
-    List<String> notes) {
+    List<String> notes, List<FfBoard> boards, Map<String, String> boardOf) {
+
+    /** A plan without boards. */
+    public FfPlan(final String name, final boolean solveMode, final boolean poolMode, final List<FfRecipe> recipes,
+        final List<FfNode> nodes, final List<FfEdge> edges, final List<FfStorage> storages,
+        final List<FfNote> textNotes, @Nullable final FfTarget targetRate, final List<String> notes) {
+        this(
+            name,
+            solveMode,
+            poolMode,
+            recipes,
+            nodes,
+            edges,
+            storages,
+            textNotes,
+            targetRate,
+            notes,
+            List.of(),
+            Map.of());
+    }
+
+    /**
+     * One of FF's boards ({@code FactoryPocket}): its frame's corner in FF's absolute board px (members' positions are
+     * flattened the same way), its size (null when it never had one), and the rest kept as it came.
+     */
+    public record FfBoard(String id, String name, @Nullable String colorTag, @Nullable String parent, double x,
+        double y, @Nullable Double width, @Nullable Double height, boolean expanded, @Nullable String theme,
+        @Nullable String pattern) {}
 
     /** FF's synthetic "dial a rate" card; see FF's custom-rate.ts. */
     public static final String CUSTOM_RATE_MACHINE = "Custom Rate";

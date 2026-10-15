@@ -31,7 +31,8 @@ import com.gtnhplanner.importer.FfPlan.FfTarget;
  * Reads FF's plan JSON (FF's types.ts and schemas.ts) leniently: unknown keys are ignored, a missing field takes
  * FF's default, and an entry too broken to use is skipped rather than failing the plan. Then does the parts of FF's
  * load funnel (project-normalize.ts) that change what the plan means: pool mode implies solve mode, the old "OpV"
- * tier is UXV, legacy trash cans become trash drawers, and boards are flattened (flatten-boards.ts).
+ * tier is UXV, legacy trash cans become trash drawers, and positions are flattened out of boards (flatten-boards.ts),
+ * which come along as {@link FfPlan.FfBoard}s.
  */
 public final class FfPlanParser {
 
@@ -65,15 +66,53 @@ public final class FfPlanParser {
         final boolean pool = bool(root, "poolMode", false);
         final boolean solve = bool(root, "solveMode", false) || pool;
 
+        // Members of a board that never stood open (no size) are in a space of their own: the website moves their box
+        // a cell inside the frame, under its title, when it first opens, and so does this.
+        final Map<String, double[]> ownSpace = new HashMap<>();
+        for (final String list : List.of("nodes", "storages", "annotations"))
+            for (final JsonObject m : objects(root, list)) {
+                final String in = str(m, "pocketId");
+                if (in == null) continue;
+                final double[] at = position(m);
+                ownSpace.merge(in, at, (a, b) -> new double[] { Math.min(a[0], b[0]), Math.min(a[1], b[1]) });
+            }
         final Map<String, Board> boards = new HashMap<>();
-        for (final JsonObject p : objects(root, "pockets")) {
+        final List<JsonObject> pockets = objects(root, "pockets");
+        for (final JsonObject p : pockets) {
             final String id = str(p, "id");
             if (id == null) continue;
             final double[] at = position(p);
-            boards.put(id, new Board(str(p, "parentPocketId"), at[0], at[1], p.has("size")));
+            final double[] own = p.has("size") ? null : ownSpace.get(id);
+            final double dx = own == null ? at[0] : at[0] + BOARD_PAD - own[0];
+            final double dy = own == null ? at[1] : at[1] + BOARD_TITLE + BOARD_PAD - own[1];
+            boards.put(id, new Board(str(p, "parentPocketId"), dx, dy));
         }
-        if (!boards.isEmpty())
-            notes.add(boards.size() + " board" + (boards.size() == 1 ? "" : "s") + " flattened onto one board.");
+        final List<FfPlan.FfBoard> ffBoards = new ArrayList<>();
+        for (final JsonObject p : pockets) {
+            final String id = str(p, "id");
+            if (id == null) continue;
+            final double[] at = absolute(position(p), str(p, "parentPocketId"), boards);
+            final JsonObject size = obj(p, "size");
+            ffBoards.add(
+                new FfPlan.FfBoard(
+                    id,
+                    str(p, "name", ""),
+                    str(p, "colorTag"),
+                    str(p, "parentPocketId"),
+                    at[0],
+                    at[1],
+                    size == null ? null : num(size, "width"),
+                    size == null ? null : num(size, "height"),
+                    bool(p, "expanded", false),
+                    str(p, "theme"),
+                    str(p, "pattern")));
+        }
+        final Map<String, String> boardOf = new HashMap<>();
+        for (final String list : List.of("nodes", "storages", "annotations"))
+            for (final JsonObject m : objects(root, list)) {
+                final String id = str(m, "id"), in = str(m, "pocketId");
+                if (id != null && in != null && boards.containsKey(in)) boardOf.put(id, in);
+            }
 
         final List<FfRecipe> recipes = new ArrayList<>();
         for (final JsonObject r : objects(root, "recipes")) {
@@ -121,7 +160,9 @@ public final class FfPlanParser {
             storages,
             textNotes,
             targetRate,
-            notes);
+            notes,
+            ffBoards,
+            boardOf);
         return migrateTrashCans(plan);
     }
 
@@ -392,8 +433,11 @@ public final class FfPlanParser {
 
     // region Load funnel
 
-    /** A board frame; a board that has a size holds frame-relative member positions (FF's flatten-boards.ts). */
-    private record Board(@Nullable String parent, double x, double y, boolean sized) {}
+    /** FF's board title strip and the room it fits round its members (board-grid.ts), in FF px. */
+    private static final double BOARD_TITLE = 40, BOARD_PAD = 20;
+
+    /** A board frame: what its members' positions are measured from (FF's flatten-boards.ts, legacy boards rebased). */
+    private record Board(@Nullable String parent, double x, double y) {}
 
     private static double[] absolute(final double[] at, @Nullable final String boardId,
         final Map<String, Board> boards) {
@@ -402,10 +446,8 @@ public final class FfPlanParser {
         for (String id = boardId; id != null && seen.add(id);) {
             final Board board = boards.get(id);
             if (board == null) break;
-            if (board.sized()) {
-                x += board.x();
-                y += board.y();
-            }
+            x += board.x();
+            y += board.y();
             id = board.parent();
         }
         return new double[] { x, y };
@@ -496,7 +538,9 @@ public final class FfPlanParser {
             storages,
             plan.textNotes(),
             plan.targetRate(),
-            notes);
+            notes,
+            plan.boards(),
+            plan.boardOf());
     }
 
     private static String encode(final String id) {

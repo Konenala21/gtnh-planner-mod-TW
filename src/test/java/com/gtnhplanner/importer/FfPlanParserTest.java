@@ -422,11 +422,17 @@ class FfPlanParserTest {
                 .getFirst()
                 .y());
         assertEquals(
-            20,
+            9020,
             plan.nodes()
                 .get(1)
                 .x(),
-            "a board that never stood open keeps its members' coordinates");
+            "a board that never stood open has its members a cell inside its frame, as the website opens it");
+        assertEquals(
+            9060,
+            plan.nodes()
+                .get(1)
+                .y(),
+            "and under its title strip");
         assertEquals(
             20,
             plan.nodes()
@@ -438,10 +444,29 @@ class FfPlanParserTest {
             plan.storages()
                 .getFirst()
                 .x());
-        assertTrue(
-            plan.notes()
-                .stream()
-                .anyMatch(s -> s.contains("3 boards")));
+        assertEquals(
+            3,
+            plan.boards()
+                .size(),
+            "boards come along as groups");
+        assertEquals(
+            1100,
+            plan.boards()
+                .get(1)
+                .x(),
+            "a nested board's corner is absolute too");
+        assertEquals(
+            "inner",
+            plan.boardOf()
+                .get("a"));
+        assertEquals(
+            "outer",
+            plan.boardOf()
+                .get("s"));
+        assertNull(
+            plan.boardOf()
+                .get("c"),
+            "a missing board holds nothing");
     }
 
     @Test
