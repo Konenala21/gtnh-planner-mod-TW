@@ -343,18 +343,24 @@ public final class BoardScreen extends ModularScreen {
     }
 
     /**
-     * The Share key's menu, under the key: the open plan to the library (or an update of what it shared), its plan
-     * code to the clipboard, a line in the game's chat that opens it (client/ChatShare), and a picture of it. Labels
-     * only, as narrow as they are: each says what it does.
+     * The Share key's menu, under the key: the open plan to the library (Save to library, or Update in library and
+     * Save as new post for one posted), its website link and its plan code to the clipboard, a plan file the website
+     * opens, the plan opened on the website in the browser, a line in the game's chat that opens it
+     * (client/ChatShare), and a picture of it. The website's Share menu has the same rows. Labels only, as narrow as
+     * they are: each says what it does.
      */
     private static void openShare(final ModularPanel panel, final BoardSession session, final BoardCanvas canvas,
         final IWidget key) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
-        final com.gtnhplanner.ui.popup.PickList.Entry library = com.gtnhplanner.ui.library.AccountForms
-            .shareRow(panel, session, session.graph());
-        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
+        for (final com.gtnhplanner.ui.popup.PickList.Entry library : com.gtnhplanner.ui.library.AccountForms
+            .shareRows(panel, session, session.graph()))
+            rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
         final int slot = session.activeSlot();
+        // The website's Share menu has the same rows, in the same words.
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan link", session::copyPlanLink));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan code", () -> session.copyPlan(slot)));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Export plan file", session::exportPlanFile));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Open in website", session::openInWebsite));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in chat", () -> session.shareInChat(slot)));
         rows.add(
             com.gtnhplanner.ui.popup.PickList.Entry
@@ -737,8 +743,9 @@ public final class BoardScreen extends ModularScreen {
         session.reopen();
         session.disarmPending();
         // After a crash the planner had a hand in: whether to send the report (not over the tour's first offer).
-        // Else a newer release, once per version.
+        // Else a newer release, once per version. A plan the website sent comes first: the player just asked for it.
         if (PlannerSettings.tourOffered() && !com.gtnhplanner.ui.tutorial.Tutorial.active()) {
+            if (com.gtnhplanner.ui.popup.IncomingOffer.offer(getMainPanel())) return;
             if (com.gtnhplanner.client.CrashReports.pending() != null)
                 com.gtnhplanner.ui.popup.CrashOffer.offer(getMainPanel(), session, canvas);
             else com.gtnhplanner.ui.popup.UpdateOffer.offer(getMainPanel());

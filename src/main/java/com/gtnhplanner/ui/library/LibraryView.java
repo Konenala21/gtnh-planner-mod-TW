@@ -699,7 +699,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
-        rows.add(AccountForms.shareRow(getPanel(), session, g));
+        rows.addAll(AccountForms.shareRows(getPanel(), session, g));
         rows.add(
             new PickList.Entry(
                 null,

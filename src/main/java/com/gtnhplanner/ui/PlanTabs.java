@@ -324,7 +324,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
-        rows.add(com.gtnhplanner.ui.library.AccountForms.shareRow(getPanel(), session, g));
+        rows.addAll(com.gtnhplanner.ui.library.AccountForms.shareRows(getPanel(), session, g));
         if (canClose()) {
             rows.add(
                 new PickList.Entry(
