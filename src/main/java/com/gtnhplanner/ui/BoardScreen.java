@@ -377,9 +377,12 @@ public final class BoardScreen extends ModularScreen {
 
     /**
      * The Share key's menu, under the key: the people who edit the open plan with the player (a plan in the account;
-     * greyed signed out, or for a plan on this computer only), the open plan published to the library (or an update of
-     * what it published), its plan code to the clipboard, a line in the game's chat that opens it (client/ChatShare),
-     * and a picture of it. Labels only, as narrow as they are: each says what it does.
+     * greyed signed out, or for a plan on this computer only), the open plan published to the library (Publish to
+     * library, or Update in library and Publish as new post for one posted: a copy for everyone, never the plan
+     * itself), its website link and its plan code to the clipboard, a plan file the website
+     * opens, the plan opened on the website in the browser, a line in the game's chat that opens it
+     * (client/ChatShare), and a picture of it. The website's Share menu has the same rows. Labels only, as narrow as
+     * they are: each says what it does.
      */
     private static void openShare(final ModularPanel panel, final BoardSession session, final BoardCanvas canvas,
         final IWidget key) {
@@ -403,11 +406,15 @@ public final class BoardScreen extends ModularScreen {
                 0xFF5A5C65,
                 false,
                 () -> {}));
-        final com.gtnhplanner.ui.popup.PickList.Entry library = com.gtnhplanner.ui.library.AccountForms
-            .shareRow(panel, session, session.graph());
-        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
+        for (final com.gtnhplanner.ui.popup.PickList.Entry library : com.gtnhplanner.ui.library.AccountForms
+            .shareRows(panel, session, session.graph()))
+            rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of(library.label(), library.action()));
         final int slot = session.activeSlot();
+        // The website's Share menu has these rows too.
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan link", session::copyPlanLink));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan code", () -> session.copyPlan(slot)));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Export plan file", session::exportPlanFile));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Open in website", session::openInWebsite));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in chat", () -> session.shareInChat(slot)));
         rows.add(
             com.gtnhplanner.ui.popup.PickList.Entry
@@ -852,8 +859,9 @@ public final class BoardScreen extends ModularScreen {
         session.reopen();
         session.disarmPending();
         // After a crash the planner had a hand in: whether to send the report (not over the tour's first offer).
-        // Else a newer release, once per version.
+        // Else a newer release, once per version. A plan the website sent comes first: the player just asked for it.
         if (PlannerSettings.tourOffered() && !com.gtnhplanner.ui.tutorial.Tutorial.active()) {
+            if (com.gtnhplanner.ui.popup.IncomingOffer.offer(getMainPanel())) return;
             if (com.gtnhplanner.client.CrashReports.pending() != null)
                 com.gtnhplanner.ui.popup.CrashOffer.offer(getMainPanel(), session, canvas);
             else com.gtnhplanner.ui.popup.UpdateOffer.offer(getMainPanel());

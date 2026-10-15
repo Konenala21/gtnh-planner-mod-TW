@@ -692,6 +692,32 @@ public final class DevHarness {
                         "1".equals(q.get("uses")),
                         !"0".equals(q.get("planner")),
                         q.getOrDefault("tab", "")));
+            case "/website":
+                // The website's "Open in the mod" (client/WebsiteInbox): the port it listens on and the plan waiting;
+                // answer=open or answer=drop answers it as the prompt would. link=1 opens the open plan's website link
+                // in the browser, as the Share menu's "Open in website" does; code=1 returns that link instead.
+                return onClient(() -> {
+                    final Map<String, Object> r = new LinkedHashMap<>();
+                    if ("open".equals(q.get("answer")))
+                        r.put("opened", String.valueOf(com.gtnhplanner.client.WebsiteInbox.open(null)));
+                    if ("drop".equals(q.get("answer"))) com.gtnhplanner.client.WebsiteInbox.drop(null);
+                    final com.gtnhplanner.ui.BoardScreen board = DevBoard.screen();
+                    if (board != null && "1".equals(q.get("link"))) board.session()
+                        .openInWebsite();
+                    if (board != null && "1".equals(q.get("code"))) {
+                        board.session()
+                            .copyPlanLink();
+                        r.put("link", net.minecraft.client.gui.GuiScreen.getClipboardString());
+                    }
+                    r.put("port", com.gtnhplanner.client.WebsiteInbox.port());
+                    final com.gtnhplanner.client.WebsiteInbox.Pending p = com.gtnhplanner.client.WebsiteInbox.pending();
+                    r.put(
+                        "pending",
+                        p == null ? null
+                            : p.arrival()
+                                .name());
+                    return r;
+                });
             case "/update":
                 // The update offer: latest=<tag>[&url=] fakes the newest release and offers it again on the next open.
                 return onClient(() -> {

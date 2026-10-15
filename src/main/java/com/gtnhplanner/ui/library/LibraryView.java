@@ -713,7 +713,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             session.copySlot(slot);
             close.run();
         }));
-        rows.add(AccountForms.shareRow(getPanel(), session, g));
+        rows.addAll(AccountForms.shareRows(getPanel(), session, g));
         rows.add(
             new PickList.Entry(
                 null,

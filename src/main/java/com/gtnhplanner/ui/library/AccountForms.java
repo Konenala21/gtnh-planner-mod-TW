@@ -62,37 +62,55 @@ public final class AccountForms {
      * post with the plan as it is now. Signs in first when needed.
      */
     public static void post(final ModularPanel parent, final BoardSession session, final Graph plan) {
-        post(parent, session, plan, null, null);
+        post(parent, session, plan, false, null, null);
     }
 
     /**
-     * As above, filled in with {@code draft} (what was typed before a sign-in ran out) rather than from the plan;
-     * {@code why} is said on the sign-in form when one comes first.
+     * As above; {@code asNew} posts a new one even for a plan already posted (Save as new post). Filled in with
+     * {@code draft} (what was typed before a sign-in ran out) rather than from the plan; {@code why} is said on the
+     * sign-in form when one comes first.
      */
     private static void post(final ModularPanel parent, final BoardSession session, final Graph plan,
-        @Nullable final Posting.Face draft, @Nullable final String why) {
+        final boolean asNew, @Nullable final Posting.Face draft, @Nullable final String why) {
         if (!Account.signedIn()) {
-            signIn(parent, () -> post(parent, session, plan, draft, null), why);
+            signIn(parent, () -> post(parent, session, plan, asNew, draft, null), why);
             return;
         }
         final Popup popup = new Popup("gtnhplanner_post", W, 158);
-        popup.child(new Post(popup, parent, session, plan, draft).size(W, 158));
+        popup.child(new Post(popup, parent, session, plan, asNew, draft).size(W, 158));
         open(parent, popup, 158);
     }
 
     /**
-     * The menu row that publishes a plan to the library (a copy for everyone, never the plan itself), or updates what
-     * it published: the Share key's, a tab's, a tile's.
+     * The menu rows that publish a plan to the library, the Share key's, a tab's and a tile's: a plan not posted yet
+     * has Publish to library; one posted has Update in library (its post, votes kept) and Publish as new post. Posts
+     * are copies for everyone, never the plan itself: nothing follows the plan by itself.
      */
-    public static PickList.Entry shareRow(final ModularPanel parent, final BoardSession session, final Graph plan) {
-        final boolean shared = plan.getPostId() != null;
-        return new PickList.Entry(
-            null,
-            shared ? "Update in library..." : "Publish to library...",
-            shared ? "with the plan as it is" : "for other players",
-            Hyb.INK,
-            false,
-            () -> post(parent, session, plan));
+    public static List<PickList.Entry> shareRows(final ModularPanel parent, final BoardSession session,
+        final Graph plan) {
+        if (plan.getPostId() == null) return List.of(
+            new PickList.Entry(
+                null,
+                "Publish to library...",
+                "for other players",
+                Hyb.INK,
+                false,
+                () -> post(parent, session, plan, false, null, null)));
+        return List.of(
+            new PickList.Entry(
+                null,
+                "Update in library...",
+                "with the plan as it is",
+                Hyb.INK,
+                false,
+                () -> post(parent, session, plan, false, null, null)),
+            new PickList.Entry(
+                null,
+                "Publish as new post...",
+                "a post of its own",
+                Hyb.INK,
+                false,
+                () -> post(parent, session, plan, true, null, null)));
     }
 
     /**
@@ -503,9 +521,11 @@ public final class AccountForms {
         /** Whether this updates the plan's post rather than making a new one. */
         private boolean update;
         private boolean posted, wasUpdate;
+        /** Asked as Save as new post: a sign-in running out comes back to the same question. */
+        private final boolean asNew;
 
         Post(final Popup popup, final ModularPanel parent, final BoardSession session, final Graph plan,
-            @Nullable final Posting.Face draft) {
+            final boolean asNew, @Nullable final Posting.Face draft) {
             super(
                 popup,
                 draft != null ? draft.title() : plan.getName(),
@@ -514,7 +534,8 @@ public final class AccountForms {
             this.parent = parent;
             this.session = session;
             this.plan = plan;
-            update = plan.getPostId() != null;
+            this.asNew = asNew;
+            update = !asNew && plan.getPostId() != null;
         }
 
         @Override
@@ -616,7 +637,7 @@ public final class AccountForms {
                 // The sign-in ran out: sign in again, then back here with what was typed.
                 if (!Account.signedIn()) {
                     popup.closeIfOpen();
-                    post(parent, session, plan, f, why);
+                    post(parent, session, plan, asNew, f, why);
                 }
             });
         }
