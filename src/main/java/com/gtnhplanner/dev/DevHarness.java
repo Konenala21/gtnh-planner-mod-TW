@@ -364,16 +364,70 @@ public final class DevHarness {
                 return onClient(DevBoard::board);
             case "/tasks":
                 // The task board: whether the open plan is one, each column's cards with their GUI rects, and the task
-                // box open; open=<task id> opens a task's box.
+                // box open; open=<task id> opens a task's box, scroll=<y> scrolls its page. For setting up a board to
+                // look at: add=<title>[&status=doing] makes a task; task=<id> with comment=<text>&by=<id>&name=<name>
+                // [&ago=<minutes>] writes a comment as someone else, assign=<id> puts someone on it.
                 return onClient(() -> {
                     final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
                     if (screen == null) return error("the planner is not open");
-                    if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(screen.session(), q.get("open"));
+                    final com.gtnhplanner.ui.BoardSession session = screen.session();
+                    final com.gtnhplanner.data.flowchart.Graph g = session.graph();
+                    String made = null;
+                    if (q.containsKey("add")) {
+                        final String id = java.util.UUID.randomUUID()
+                            .toString();
+                        final com.gtnhplanner.data.flowchart.Tasks.Status status = com.gtnhplanner.data.flowchart.Tasks.Status
+                            .of(q.getOrDefault("status", "todo"));
+                        session.editTasks(
+                            () -> com.gtnhplanner.data.flowchart.TaskEdits.add(
+                                g,
+                                id,
+                                q.get("add"),
+                                status == null ? com.gtnhplanner.data.flowchart.Tasks.Status.TODO : status,
+                                List.of(),
+                                com.gtnhplanner.ui.task.TaskLook.me(),
+                                com.gtnhplanner.ui.task.TaskLook.now()));
+                        made = id;
+                    }
+                    final String task = q.get("task");
+                    if (task != null && q.containsKey("comment")) {
+                        final long ago = Long.parseLong(q.getOrDefault("ago", "0"));
+                        final String at = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                            .withZone(java.time.ZoneOffset.UTC)
+                            .format(
+                                java.time.Instant.now()
+                                    .minusSeconds(ago * 60));
+                        session.editTasks(
+                            () -> com.gtnhplanner.data.flowchart.TaskEdits.addComment(
+                                g,
+                                java.util.UUID.randomUUID()
+                                    .toString(),
+                                task,
+                                q.getOrDefault("by", com.gtnhplanner.ui.task.TaskLook.me()),
+                                q.getOrDefault("name", com.gtnhplanner.ui.task.TaskLook.myName()),
+                                at,
+                                q.get("comment")));
+                    }
+                    if (task != null && q.containsKey("assign")) {
+                        final com.gtnhplanner.data.flowchart.Tasks.Task t = com.gtnhplanner.data.flowchart.TaskEdits
+                            .task(g, task);
+                        if (t != null && !t.assignees()
+                            .contains(q.get("assign"))) {
+                            final List<String> next = new ArrayList<>(t.assignees());
+                            next.add(q.get("assign"));
+                            session.editTasks(
+                                () -> com.gtnhplanner.data.flowchart.TaskEdits
+                                    .put(g, com.gtnhplanner.data.flowchart.TaskEdits.withAssignees(t, next)));
+                        }
+                    }
+                    if (q.containsKey("open")) com.gtnhplanner.ui.task.TaskPanel.open(session, q.get("open"));
+                    if (q.containsKey("scroll")) com.gtnhplanner.ui.task.TaskPanel.scrollTo(intArg(q, "scroll"));
                     final Map<String, Object> m = new LinkedHashMap<>();
                     m.put(
                         "view",
                         screen.session()
                             .showsTasks() ? "tasks" : "plan");
+                    if (made != null) m.put("made", made);
                     m.put("board", ((com.gtnhplanner.ui.task.TaskBoardView) screen.key("taskBoard")).describe());
                     m.put("panel", com.gtnhplanner.ui.task.TaskPanel.describe());
                     return m;

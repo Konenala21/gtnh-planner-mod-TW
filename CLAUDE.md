@@ -133,22 +133,41 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   text size and delete; hovering or writing shows keys (delete top left, text size top right) at a fixed size on
   screen whenever they fit on the note. A selection outline shows only when several things are selected.
 - Task boards (`ui/task/`; the model is `data/flowchart/Tasks`, docs/design/cloud-live.md) are their own kind of plan
-  (`primaryView` "tasks", `BoardSession.showsTasks`; the + tab menu's New task board, or "Make a task" on cards): the
+  (`primaryView` "tasks", `BoardSession.showsTasks`; the + tab menu's New task board, or "Add to a task" on cards): the
   plan always shows its tasks (`TaskBoardView`, its own header in the place of the toolbar: title, count, New task; no
-  overview) and a normal plan never does. Four columns of task cards, carried by the board's rules, ordered by
-  fractional keys (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did
-  not write; both sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A click opens
-  `TaskPanel`: title, column, assignees, notes, the cards it is about, a checklist and comments. Every change is
-  `BoardSession.editTasks` (undoable and saved, never solved). A link is `Tasks.Link {plan, node}`: the plan's id
-  (`Graph.planId()`: its cloud doc key, else its saved local id; `isPlan` takes either) and the card's id as that plan
-  spells it (`BoardSession.linkOf`, `PlanIds.uuid` back); older saves' `nodeIds`/`nodeId` read as links with no plan
-  (the holder's own) and are written with its id. A click on one is `BoardSession.openLink`: opens that plan and centres
-  the card, or says "That plan is gone". Right-click cards, or a card's actions key: "Make a task" opens a menu of the
-  task boards and New task board (`TaskActions.makeMenu`); the task goes into the one chosen, without leaving the plan,
-  a checklist line per card with how many to build. A card shows the dot of its most pressing task from every task board
-  loaded (`BoardSession.taskStatus`). People are account ids: assigning and comments use the signed-in account
-  (`Account.userId`); signed out a comment is by "You" (`local`). `call tasks` reports the view and the parts' rects
-  (`open=<id>` opens a task).
+  overview) and a normal plan never does. Four columns of task cards (title, faces, things done of all "3/5", comments,
+  its first screenshot across the top), carried by the board's rules, ordered by fractional keys
+  (`data/flowchart/OrderKeys`, the website's base-62 midpoint scheme, never throwing on a key it did not write; both
+  sides run `order-key-vectors.json`; every edit is in `TaskEdits`, pure and tested). A click opens `TaskPanel`, laid
+  out as Jira's issue view (the owner, 2026-10-15): a main column (the title big and written in place, a `TextArea` at
+  a scale of whole screen pixels; notes; the things; the comment thread; the comment box at the foot, growing to four
+  lines) and a side column on a panel of its own (Status as a picker, People, Board, Made, Delete task at its foot);
+  below 400 px the side column goes under the title (Status and People side by side, faces only, then the board and
+  who made it with Delete task). Everything between the bar and the foot is one page that scrolls (`Page`, an
+  `IViewport` only for its clip: its boxes are moved, not transformed, so their mouse maths stays the screen's). A task
+  is a title, status, people, notes, a list of **things** (`taskItems`, each with its own checkbox, drag to reorder,
+  right-click for its menu) and comments. Things (`TaskThings` shows them): a **machine** (`Tasks.MACHINE`, a `link`:
+  icon, "4× Electric Blast Furnace (HV)", its plan, where it is placed in this world; a click shows it on its plan, its
+  pin key in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
+  where I stand" adds the block under the player and asks for a name; its Show key closes the planner and stands a
+  beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`) and a **screenshot**
+  (`Tasks.Picture`, game only: "Add a screenshot" closes the planner, hides the GUI, reads the frame at a render tick's
+  end, saves the full PNG in `screenshots/` and puts a 320 px JPEG data URL under 40 KB on the task, then reopens the
+  planner on the task, `TaskPictures`; a click shows it big, `PictureView`). Older checklist lines (no kind) show as
+  words, or as a machine when they point at a card, and a task's older `links` no thing names show as machines too.
+  Every change is `BoardSession.editTasks` (undoable and saved, never solved). A link is `Tasks.Link {plan, node}`: the
+  plan's id (`Graph.planId()`: its cloud doc key, else its saved local id; `isPlan` takes either) and the card's id as
+  that plan spells it (`BoardSession.linkOf`, `PlanIds.uuid` back); older saves' `nodeIds`/`nodeId` read as links with
+  no plan (the holder's own) and are written with its id. A click on one is `BoardSession.openLink`: opens that plan and
+  centres the card, or says "That plan is gone". "Add to a task" (a card's pin key, `RecipeCard.openPlaceMenu`, also on
+  the overview's machine lines; a card's actions; a right click on the board with cards selected) asks which task board,
+  then which task with its status dot, or New task (`TaskActions.addMenu`), adds one machine thing per card with how
+  many to build, and says so with an Open key (`BoardSession.openTask`, `TaskPanel.openWhenShown`). A card shows the dot
+  of its most pressing task from every task board loaded (`BoardSession.taskStatus`; machine things count). People are
+  account ids: assigning and comments use the signed-in account (`Account.userId`); signed out a comment is by "You"
+  (`local`). `call tasks` reports the view and the parts' rects (`open=<id>` opens a task, `scroll=<y>` scrolls its
+  page; `add=<title>&status=`, `task=<id>&comment=<text>&by=<id>&name=<name>&ago=<minutes>` and `assign=<id>` set a
+  board up to look at).
 - The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
   key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
   views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,
