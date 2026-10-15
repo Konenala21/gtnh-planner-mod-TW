@@ -46,6 +46,22 @@ public final class TaskLook {
         };
     }
 
+    /**
+     * Words cut to fit a width at a word, ending in "..." when it had to; a first word too long for it is cut where it
+     * must be.
+     */
+    public static String fitWords(final String s, final int maxWidth) {
+        if (Hyb.width(s) <= maxWidth) return s;
+        String out = "";
+        for (final String w : s.split(" ")) {
+            if (w.isEmpty()) continue;
+            final String next = out.isEmpty() ? w : out + " " + w;
+            if (Hyb.width(next + "...") > maxWidth) break;
+            out = next;
+        }
+        return out.isEmpty() ? Hyb.fit(s, maxWidth) : out + "...";
+    }
+
     /** A disc {@code d} across, in whole steps of the space it is drawn in. */
     public static void dot(final float x, final float y, final float d, final int colour) {
         Hyb.roundRect(x, y, d, d, d / 2, colour);

@@ -55,12 +55,21 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
     /** The box's widest and tallest, and the least width that holds the side column beside the main one. */
     private static final int MAX_W = 600, MAX_H = 460, TWO_COLUMNS = 400;
-    private static final int BAR = 22, FOOT = 38, PAD = 12, GUTTER = 14, SIDE_W = 138, SIDE_PAD = 8;
+    private static final int BAR = 22, FOOT = 38, PAD = 12, GUTTER = 14, SIDE_W = 150, SIDE_PAD = 10;
     private static final int LINE = 10, LABEL = 14, SECTION = 16, KEY_H = 16, ROW_PAD = 5;
     /** Colours: the wells written in, keys and rows lit, the side column's panel, the quieter words. */
     static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
         ROW_HOVER = 0xFF2A2C31, SIDE = 0xFF1D1F23, SIDE_EDGE = 0xFF2C2E34, DIM = 0xFF7E8089, FAINT = 0xFF6A6C74;
     private static final int DRAG_SLOP = 6;
+    /** A row of the side column's lists of tasks. */
+    private static final int LINK_H = 15;
+    /** The side column's rhythm: the room under a label and between items; its labels' quiet ink. */
+    private static final int LABEL_GAP = 13, ITEM_GAP = 14, LABEL_INK = 0xFF6F727B;
+
+    /** Why the last task picked to wait on was refused, shown under the list a few seconds. */
+    @Nullable
+    private String refused;
+    private long refusedUntil;
 
     /** The box open now, for the dev harness and the screen's releases. */
     private static WeakReference<TaskPanel> showing = new WeakReference<>(null);
@@ -91,7 +100,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         COMMENT,
         COMMENT_DELETE,
         POST,
-        DELETE
+        DELETE,
+        BLOCKER,
+        UNBLOCK,
+        ADD_BLOCKER,
+        BLOCKS
     }
 
     private record Hit(Kind kind, int x0, int y0, int x1, int y1, @Nullable Object data) {
@@ -111,8 +124,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         this.boxH = boxH;
         wide = boxW >= TWO_COLUMNS;
         mainX = PAD;
-        sideW = wide ? SIDE_W : boxW - 2 * PAD;
-        sideX = wide ? boxW - PAD - SIDE_W : PAD;
+        // About a third of the box, so its lists read on one line: 150 to 184 wide.
+        sideW = wide ? Math.max(SIDE_W, Math.min(184, Math.round(boxW * 0.31f))) : boxW - 2 * PAD;
+        sideX = wide ? boxW - PAD - sideW : PAD;
         mainW = wide ? sideX - GUTTER - mainX : boxW - 2 * PAD;
         final int k = Math.max(1, PlannerScale.board());
         titleScale = (k + 1) / (float) k;
@@ -1017,68 +1031,59 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
 
         /**
-         * The side column: Status, People, Board, Made, in a panel of its own. Wide, one under the other; narrow,
-         * Status and People side by side (faces only), then a line of the board and who made it with Delete task at
-         * its end. Returns its height; draws only when {@code draw}.
+         * The side column, in a panel of its own: Status, Priority and People; Waiting on and Unblocks; Board, Made and
+         * Time. Wide, one under the other in three groups; narrow, two side by side (faces only), then a line of the
+         * board and who made it with Delete task at its end. Returns its height; draws only when {@code draw}.
          */
         private int side(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
             final boolean draw) {
             final int inner = w - 2 * SIDE_PAD;
             final int h;
             if (wide) {
-                int at = y + SIDE_PAD;
-                at = field("Status", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
-                at = field(
-                    "Priority",
-                    x + SIDE_PAD,
-                    at,
-                    inner,
-                    draw,
-                    (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
-                at = field(
-                    "People",
-                    x + SIDE_PAD,
-                    at,
-                    inner,
-                    draw,
-                    (fx, fy, fw) -> people(t, hover, fx, fy, fw, true, draw));
-                at = field(
-                    "Board",
-                    x + SIDE_PAD,
-                    at,
-                    inner,
-                    draw,
-                    (fx, fy, fw) -> words(boardName(), fx, fy, fw, draw));
-                at = field("Made", x + SIDE_PAD, at, inner, draw, (fx, fy, fw) -> words(made(t), fx, fy, fw, draw));
-                at = field(
-                    "Time",
-                    x + SIDE_PAD,
-                    at,
-                    inner,
-                    draw,
-                    (fx, fy, fw) -> words(TaskLook.inColumnShort(t), fx, fy, fw, draw));
-                h = at - SECTION / 2 + SIDE_PAD - y - 4;
+                // Three groups, a hairline between each: the task's state; what it waits on and unblocks; quiet facts.
+                final int fx0 = x + SIDE_PAD;
+                int at = y + SIDE_PAD + 2;
+                at = item("Status", fx0, at, inner, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                at = item("Priority", fx0, at, inner, draw, (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
+                at = item("People", fx0, at, inner, draw, (fx, fy, fw) -> people(t, hover, fx, fy, fw, true, draw));
+                at = divider(x, at, w, draw);
+                at = item("Waiting on", fx0, at, inner, draw, (fx, fy, fw) -> blockedBy(t, hover, fx, fy, fw, draw));
+                at = item("Unblocks", fx0, at, inner, draw, (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
+                at = divider(x, at, w, draw);
+                at = fact("Board", boardName(), fx0, at, inner, draw);
+                at = fact("Made", made(t), fx0, at, inner, draw);
+                at = fact("Time", TaskLook.inColumnShort(t), fx0, at, inner, draw);
+                h = at - 6 + SIDE_PAD - y;
             } else {
-                final int half = (inner - 10) / 2, lx = x + SIDE_PAD, rx = lx + half + 10;
-                int at = y + SIDE_PAD;
-                final int a0 = field("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
-                final int a = field(
+                final int half = (inner - 12) / 2, lx = x + SIDE_PAD, rx = lx + half + 12;
+                int at = y + SIDE_PAD + 2;
+                final int a0 = item("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                final int a = item(
                     "Priority",
                     lx,
                     a0,
                     half,
                     draw,
                     (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
-                final int b = field(
+                final int b = item(
                     "People",
                     rx,
                     at,
                     half,
                     draw,
                     (fx, fy, fw) -> people(t, hover, fx, fy, fw, false, draw));
-                at = Math.max(a, b) - SECTION / 2;
-                if (draw) Hyb.rect(x + 1, at, w - 2, 1, SIDE_EDGE);
-                at += 7;
+                at = divider(x, Math.max(a, b), w, draw);
+                // What it waits on and what it unblocks, side by side.
+                final int c0 = at;
+                final int c = item(
+                    "Waiting on",
+                    lx,
+                    c0,
+                    half,
+                    draw,
+                    (fx, fy, fw) -> blockedBy(t, hover, fx, fy, fw, draw));
+                final int d = item("Unblocks", rx, c0, half, draw, (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
+                at = divider(x, Math.max(c, d), w, draw) - 3;
                 // The board and who made it, Delete task at the line's end.
                 final String del = "Delete task";
                 final int dw = Hyb.width(del) + 12, dx = x + w - SIDE_PAD - dw;
@@ -1109,11 +1114,43 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             int at(int x, int y, int w);
         }
 
-        /** A field: its name, muted, and its value under it; returns the y where the next starts. */
-        private int field(final String name, final int x, final int y, final int w, final boolean draw,
+        /**
+         * A side column item: its label, quiet and in capitals, and its value under it; returns where the next starts.
+         */
+        private int item(final String name, final int x, final int y, final int w, final boolean draw,
             final Field value) {
-            if (draw) Hyb.text(name, x, y + 1, DIM);
-            return value.at(x, y + LABEL - 2, w) + SECTION / 2 + 4;
+            if (draw) Hyb.text(name.toUpperCase(java.util.Locale.ROOT), x, y, LABEL_INK);
+            return value.at(x, y + LABEL_GAP, w) + ITEM_GAP;
+        }
+
+        /** A hairline across the panel between two groups; returns where the next group starts. */
+        private int divider(final int x, final int y, final int w, final boolean draw) {
+            if (draw) Hyb.rect(x + 1, y - 2, w - 2, 1, SIDE_EDGE);
+            return y + ITEM_GAP - 2;
+        }
+
+        /**
+         * A quiet fact: its label and its words on one line, the words at the right; when they do not fit side by
+         * side, the words go under the label. Returns where the next starts.
+         */
+        private int fact(final String name, final String text, final int x, final int y, final int w,
+            final boolean draw) {
+            if (Hyb.width(name) + 10 + Hyb.width(text) <= w) {
+                if (draw) {
+                    Hyb.text(name, x, y, LABEL_INK);
+                    Hyb.textRight(text, x + w, y, Hyb.MUTED);
+                }
+                return y + LINE + 6;
+            }
+            if (draw) Hyb.text(name, x, y, LABEL_INK);
+            final NoteText lines = NoteText.of(text, w, Hyb::width);
+            int at = y + LINE + 1;
+            for (int i = 0; i < lines.lines()
+                .size(); i++) {
+                if (draw) Hyb.text(lines.shown(i), x, at, Hyb.MUTED);
+                at += LINE;
+            }
+            return at + 6;
         }
 
         /** Words wrapped to a width; returns the y under them. */
@@ -1201,6 +1238,86 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 pageHits.add(new Hit(Kind.PRIORITY, x, y, x + w, y + h, null));
             }
             return y + h;
+        }
+
+        /**
+         * A task in a list of the side column: its status dot and title on one line, cut after a whole word; a click
+         * opens it. Returns
+         * its height; draws only when {@code draw}.
+         */
+        private int linkRow(final Tasks.Task o, final Kind kind, @Nullable final Hit hover, final int x, final int y,
+            final int w, final boolean removable, final boolean draw) {
+            final int room = w - 9 - (removable ? 12 : 0);
+            // One line, cut after a whole word; its tip has the whole title.
+            final List<String> lines = List.of(TaskLook.fitWords(o.title(), room));
+            final int h = LINK_H;
+            if (!draw) return h;
+            final boolean hot = is(hover, kind, o.id()) || removable && is(hover, Kind.UNBLOCK, o.id());
+            if (hot) Hyb.rect(x - 2, y, w + 4, h, CONTROL_HOVER);
+            TaskLook.dot(x, y + 5, 5, TaskLook.colour(o.status()));
+            final boolean done = o.status() == Tasks.Status.DONE;
+            for (int i = 0; i < lines.size(); i++)
+                Hyb.text(lines.get(i), x + 9, y + 4 + i * LINE, done ? DIM : Hyb.INK);
+            pageHits.add(new Hit(kind, x - 2, y, x + w + 2, y + h, o.id()));
+            if (removable && hot) {
+                final boolean on = is(hover, Kind.UNBLOCK, o.id());
+                cross(x + w - 4f, y + 7.5f, on ? Hyb.RED_INK : Hyb.MUTED);
+                pageHits.add(new Hit(Kind.UNBLOCK, x + w - 10, y, x + w + 2, y + h, o.id()));
+            }
+            return h;
+        }
+
+        /** The tasks it waits on, each a row with a key off it, then the key that adds one; why one was refused. */
+        private int blockedBy(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean draw) {
+            int at = y;
+            for (final Tasks.Task o : TaskEdits.blockers(graph(), t.id())) {
+                at += linkRow(o, Kind.BLOCKER, hover, x, at, w, true, draw);
+            }
+            if (at > y) at += 3;
+            final String label = "Add";
+            final int kw = Hyb.width(label) + 12 + Icons.SIZE + 3;
+            if (draw) {
+                Hyb.bevel(
+                    x,
+                    at,
+                    kw,
+                    KEY_H,
+                    is(hover, Kind.ADD_BLOCKER) ? Hyb.KEY_HOVER : Hyb.KEY,
+                    Hyb.KEY_HI,
+                    Hyb.KEY_LO,
+                    0,
+                    1);
+                Icons.plus(x + 5, at + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
+                Hyb.text(label, x + 5 + Icons.SIZE + 3, at + 4, Hyb.INK);
+                pageHits.add(new Hit(Kind.ADD_BLOCKER, x, at, x + kw, at + KEY_H, null));
+            }
+            at += KEY_H;
+            if (refused != null && System.currentTimeMillis() < refusedUntil) {
+                final NoteText why = NoteText.of(refused, w, Hyb::width);
+                for (int i = 0; i < why.lines()
+                    .size(); i++) {
+                    if (draw) Hyb.text(why.shown(i), x, at + 3 + i * LINE, Hyb.AMBER_INK);
+                }
+                at += 3 + why.lines()
+                    .size() * LINE;
+            }
+            return at;
+        }
+
+        /** The tasks waiting on it, read only: each a row that opens it. */
+        private int blocks(final Tasks.Task t, @Nullable final Hit hover, final int x, final int y, final int w,
+            final boolean draw) {
+            final List<Tasks.Task> waiting = TaskEdits.blocking(graph(), t.id());
+            if (waiting.isEmpty()) {
+                if (draw) Hyb.text("Nothing waits on it.", x, y + 1, FAINT);
+                return y + LINE;
+            }
+            int at = y;
+            for (final Tasks.Task o : waiting) {
+                at += linkRow(o, Kind.BLOCKS, hover, x, at, w, false, draw);
+            }
+            return at;
         }
 
         /**
@@ -1341,6 +1458,12 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     Sfx.NOTE_CRUMPLE.play();
                 }
                 case DELETE -> confirmDelete(hit.x0(), hit.y0() - scroll + BAR);
+                case BLOCKER, BLOCKS -> openOther((String) hit.data());
+                case UNBLOCK -> {
+                    edit(() -> TaskEdits.removeBlocker(session.graph(), taskId, (String) hit.data()));
+                    Sfx.NOTE_CRUMPLE.play();
+                }
+                case ADD_BLOCKER -> pickBlocker(hit);
                 default -> {}
             }
             return Result.SUCCESS;
@@ -1544,6 +1667,81 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             getArea().y + BAR + key.y1() - page.scroll + 2);
     }
 
+    /** Opens another task of the board in this box's place. */
+    private void openOther(final String id) {
+        if (TaskEdits.task(graph(), id) == null) return;
+        Hyb.click();
+        if (getPanel() != null) getPanel().closeIfOpen();
+        open(session, id);
+    }
+
+    /**
+     * The board's other tasks, by column with their dots, under the Add key: a pick makes this task wait on it. One
+     * that waits on this task (directly or down the chain) is refused, and the box says why.
+     */
+    private void pickBlocker(final Hit under) {
+        final Tasks.Task t = task();
+        if (t == null) return;
+        Hyb.click();
+        final List<PickList.Entry> rows = new ArrayList<>();
+        for (final Tasks.Status s : Tasks.Status.values()) for (final Tasks.Task o : TaskEdits.column(graph(), s)) {
+            if (o.id()
+                .equals(taskId)
+                || t.blockedBy()
+                    .contains(o.id()))
+                continue;
+            final boolean loops = TaskEdits.wouldLoop(graph(), taskId, o.id());
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    TaskLook.fitWords(o.title(), 180),
+                    loops ? "waits on this" : "",
+                    loops ? FAINT : Hyb.INK,
+                    false,
+                    () -> addBlocker(o.id()),
+                    TaskLook.colour(o.status())));
+        }
+        if (rows.isEmpty()) {
+            refuse("There is no other task to wait on.");
+            return;
+        }
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_task_blocker", "Waiting on", rows, rows.size() > 8, 160),
+            getArea().x + under.x0(),
+            getArea().y + BAR + under.y1() - page.scroll + 2);
+    }
+
+    private void addBlocker(final String blocker) {
+        if (TaskEdits.wouldLoop(graph(), taskId, blocker)) {
+            refuse("That task already waits on this one.");
+            return;
+        }
+        final boolean[] added = new boolean[1];
+        edit(() -> added[0] = TaskEdits.addBlocker(session.graph(), taskId, blocker));
+        if (added[0]) {
+            refused = null;
+            Sfx.TOGGLE_ON.play();
+        }
+    }
+
+    private void refuse(final String why) {
+        refused = why;
+        refusedUntil = System.currentTimeMillis() + 5000;
+        Sfx.DENY.play();
+    }
+
+    /** Another task of the board, in a tip: its title, its column, how it is tied to this one. */
+    @Nullable
+    private Tip otherTip(final String id, final String how) {
+        final Tasks.Task o = TaskEdits.task(graph(), id);
+        return o == null ? null
+            : Tip.of(o.title())
+                .sub(TaskLook.inColumn(o))
+                .muted(how)
+                .action(Tip.Input.LEFT, "Open it");
+    }
+
     /** Asks before deleting the task: its things and comments go with it. */
     private void confirmDelete(final int x, final int y) {
         Hyb.click();
@@ -1591,6 +1789,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             case COMMENT_DELETE -> Tip.of("Delete your comment");
             case POST -> Tip.of("Add your comment");
             case DELETE -> Tip.of("Delete this task with its things and comments");
+            case BLOCKER -> otherTip((String) hit.data(), "This task waits on it");
+            case BLOCKS -> otherTip((String) hit.data(), "It waits on this task");
+            case UNBLOCK -> Tip.of("It waits on this no more");
+            case ADD_BLOCKER -> Tip.of("Add a task it waits on");
         };
     }
 
