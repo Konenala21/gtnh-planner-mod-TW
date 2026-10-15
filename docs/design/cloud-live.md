@@ -49,6 +49,7 @@ schema changes only (the live site keeps running on the old code while they are 
 ```sql
 alter table library_designs add column if not exists seq bigint not null default 0;
 alter table library_designs add column if not exists live_lease_until timestamptz;
+alter table library_designs add column if not exists live_lease_token text;
 create table if not exists library_design_members (
   owner_id uuid not null references community_users(id) on delete cascade,
   design_id text not null,
@@ -98,8 +99,19 @@ staging and, after the switch, the main domain); unset, the website has no live 
 merging to `main` before the service runs is safe). Exactly one live service runs per database: it takes leases
 without asking.
 
-- Limits: 200 frames/s, 30 batches/s, 10 joins/s per connection; 8 rooms a connection; 16 sockets an account; 5000
-  ops and 256 KB a batch. `GET /live/health`; `POST /internal/shutdown` (token) flushes and exits.
+- Limits: 200 frames/s, 30 batches/s, 10 joins/s per connection; 8 rooms an account across its sockets and 500 in
+  the service; 16 sockets an account; upgrades limited per account and per address; 1000 ops and 256 KB (UTF-8) a
+  batch, 512 KB a frame (bigger closes the socket, 1009); 250 ms of batch work a second an account; 8 MB unflushed a
+  room (refused as `rate`); JSON nested at most 64 deep. `GET /live/health`; `POST /internal/shutdown` (token)
+  flushes and exits.
+- The lease is owned: `live_lease_token` is the room's, every lease write is conditional on it, and a REST save
+  clears it. A room that lost its lease stops writing and closes its sockets with 1012.
+- Close codes: 1012 = reconnect, rejoin and resend pending; 1013 = try again later (not a sign-in problem); an
+  upgrade can answer HTTP 429 (back off). A `rate` error on a batch means send it again later; on a join, retry after
+  a few seconds. An echo may carry corrective ops beyond what was sent (the stored thing is the schema's output), and
+  the server stamps a task's `createdBy`: clients apply the echo's ops, not their own copy.
+- Empty rooms stay open 60 s; whole-plan writes go through one queue (4 at a time) that backs off while the database
+  errors.
 - A `meta` op may only set plan fields the schema knows and may not delete required ones. The server fills a new
   comment's `by`, `byName` and `at`; only its author may change it, anyone in the plan may delete it.
 
@@ -115,8 +127,9 @@ without asking.
   stamps comments (`at`).
 - Presence is relayed, never stored, at most 20 a second per connection.
 - Internal HTTP on the same port, `POST /internal/{members,deleted}` with `LIVE_INTERNAL_TOKEN`, from the Next.js
-  routes. `GET /live/nearby` (cookie auth): signed-in accounts connected from the same game server as me (the `game`
-  hash in `hello`), for the game's share helper.
+  routes. `GET /live/nearby?names=<tab-list names, comma-separated, at most 100>` (cookie auth, rate-limited):
+  signed-in accounts connected from the same game server as me (the `game` hash in `hello`) whose `mcName` is one of
+  the names I sent, so it only tells me accounts of players I can already see; without names it answers `[]`.
 
 ### Wire protocol (JSON text frames, version 1)
 
