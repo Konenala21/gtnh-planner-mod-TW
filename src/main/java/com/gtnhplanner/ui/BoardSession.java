@@ -2812,6 +2812,96 @@ public final class BoardSession {
         flash(Severity.INFO, "Shared '" + graph.getName() + "' in chat");
     }
 
+    /**
+     * The open plan as the website's project JSON, as posting it sends it, with the board's machine counts. Read on
+     * the client thread: it touches the game's items and NEI's recipes.
+     */
+    private com.google.gson.JsonObject websiteJson() {
+        return com.gtnhplanner.library.Posting.write(graph, graph.getName(), id -> {
+            final CardModel m = model(id);
+            return m == null ? null : m.machines;
+        });
+    }
+
+    /** The open plan's link on the website: its plan code after {@code #p=}, so it never reaches a server. */
+    @Nullable
+    private String websiteLink() {
+        try {
+            return com.gtnhplanner.importer.FfPlanCode.link(
+                com.gtnhplanner.library.CommunityApi.site(),
+                com.gtnhplanner.importer.FfPlanCode.encode(websiteJson().toString()));
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Could not write the plan out", e);
+            flash(Severity.WARN, "Couldn't write the plan out");
+            Sfx.DENY.play();
+            return null;
+        }
+    }
+
+    /** Copies the open plan's website link: it opens there, and pastes into any planner's + tab. */
+    public void copyPlanLink() {
+        final String link = websiteLink();
+        if (link == null) return;
+        net.minecraft.client.gui.GuiScreen.setClipboardString(link);
+        flash(Severity.INFO, "Copied the link to '" + graph.getName() + "'");
+    }
+
+    /** Opens the open plan on the website in the player's browser, as a new plan there. */
+    public void openInWebsite() {
+        final String link = websiteLink();
+        if (link == null) return;
+        if (!com.gtnhplanner.client.Browser.open(link)) {
+            flash(Severity.WARN, "This plan is too big for a link. Use Export plan file");
+            Sfx.DENY.play();
+            return;
+        }
+        flash(Severity.INFO, "Opening '" + graph.getName() + "' in your browser");
+    }
+
+    /**
+     * Writes the open plan to a file the website opens (its project JSON), in {@code gtnhplanner/exports} beside the
+     * game's other folders, and says where.
+     */
+    public void exportPlanFile() {
+        final String json;
+        try {
+            json = new com.google.gson.GsonBuilder().setPrettyPrinting()
+                .create()
+                .toJson(websiteJson());
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Could not write the plan out", e);
+            flash(Severity.WARN, "Couldn't write the plan out");
+            Sfx.DENY.play();
+            return;
+        }
+        final java.io.File dir = new java.io.File(
+            net.minecraft.client.Minecraft.getMinecraft().mcDataDir,
+            "gtnhplanner/exports");
+        final String base = exportName(graph.getName());
+        java.io.File file = new java.io.File(dir, base + ".json");
+        for (int n = 2; file.exists(); n++) file = new java.io.File(dir, base + " " + n + ".json");
+        try {
+            java.nio.file.Files.createDirectories(dir.toPath());
+            java.nio.file.Files.write(file.toPath(), json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (final java.io.IOException e) {
+            GtnhPlanner.LOG.warn("Could not save the plan file", e);
+            flash(Severity.WARN, "Couldn't save the plan file");
+            Sfx.DENY.play();
+            return;
+        }
+        flash(Severity.INFO, "Saved gtnhplanner/exports/" + file.getName());
+    }
+
+    /** A plan's name as a file name: what no file system takes left out, never empty. */
+    static String exportName(@Nullable final String name) {
+        final String clean = name == null ? ""
+            : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "")
+                .trim();
+        final String cut = clean.length() > 60 ? clean.substring(0, 60)
+            .trim() : clean;
+        return cut.isEmpty() || cut.startsWith(".") ? "plan" : cut;
+    }
+
     /** True when the solver had nothing to scale the plan by: no product rate and no pinned count. */
     public boolean nothingToSolveFor() {
         return nothingToSolveFor;
