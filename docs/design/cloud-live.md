@@ -308,13 +308,18 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
 - Rooms: the open plan's, and any plan with edits still to send (at most 8); others are left after 10 s. A refused
   batch is dropped and the board goes back (`rate` is sent again from the next snapshot instead).
 - A plan new to the planner (made, pasted, imported, shared in chat, a library download, the tour's) becomes a new cloud
-  plan once it holds anything: an empty new plan stays a tab on this device until it does. It is created with REST
-  (retried until it goes), then joined. Renaming is an edit (`meta name`) and also renames the list entry (REST, the
-  owner's or, with `?owner=`, a member's). Deleting asks the account to delete (owner) or leave (member); a plan taken
-  off the planner any other way stays in the account. A plan deleted or unshared elsewhere leaves the planner with a
-  notice.
+  plan once it holds anything (a card, a drawer, a note or a task): an empty new plan stays a tab on this device until
+  it does. It is created with REST (retried until it goes), then joined. Renaming is an edit (`meta name`; changing a
+  plan's name, description, icon or view moves the board's version like any edit) and also renames the list entry
+  (REST, the owner's or, with `?owner=`, a member's). The list's name is the plan's name: the website renames the list
+  alone and leaves the plan's `name` as it was, so the game takes a list rename it hears into the board (unless its
+  own rename is still on its way), which writes it into the plan too, and reading others' edits takes the plan's
+  `name` only when that name itself moved. Deleting asks the account to delete (owner) or leave (member), and drops it
+  from this device's copy of the list at once; a plan taken off the planner any other way stays in the account. A plan
+  deleted or unshared elsewhere leaves the planner with a notice.
 - A world's own plans go up once (`Migration`), against a list fetched this session, after a backup; the world's save
-  keeps them and their keys. One notice when any arrived; a plan that failed goes next time.
+  keeps them and their keys. One notice when any arrived; a plan that failed goes next time. An account with no plans
+  yet opens on one empty plan, which the world's plans replace when they arrive (the one the world had open opens).
 - The top bar's tab strip ends in the status while signed in: Live, Connecting, or Offline (with ": edits kept" while
   edits wait).
 - Presence and sharing build on `BoardSession.live()` (the open plan's `LiveDoc`: `key`, `role`, `owner`, `members`,
@@ -332,7 +337,8 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
   is drawn, and nothing measurable spent, while nobody is pointing at or holding anything. `call 'cloud?fake=N'`
   (dev/DevPeople) puts stand-ins on the open plan without a live service.
 - Faces: the tab strip ends in who else has the open plan open (one face per account, its initials in its colour,
-  five and then a count; the tooltip names them and says in game, in a browser or both), then the status. Colours are
+  five and then a count; the tooltip names them and says in game, in a browser or both; none while not in the room,
+  offline included, as who is there is not known), then the status. Colours are
   the service's own (`Peers.colourOf` is the website's `colorFor`), task faces included, so one person is one colour
   everywhere. On a cloud plan a task's Assign key lists its owner and members (`TaskLook.people`) and a pick puts them
   on the task or takes them off; a plan on this computer keeps Assign me.

@@ -410,6 +410,66 @@ class CloudSessionTest {
     }
 
     @Test
+    void aRenameHoldsBothWays() {
+        inAccount("d1", "sulfuric-acid");
+        final Plan p = begin();
+        final Graph board = open(p, ME + ":d1");
+        final LiveDoc doc = session.doc(board);
+
+        // Renamed here: the plan's name goes as an edit, and the list hears it.
+        board.setName("Acid line");
+        session.save(p);
+        tickUntil(
+            "the name went",
+            () -> !doc.waiting() && "Acid line".equals(
+                live.plans.get(ME + ":d1")
+                    .get("name")
+                    .getAsString()));
+        tickUntil(
+            "and the list has it",
+            () -> "Acid line".equals(
+                designs.get("d1")
+                    .get("name")
+                    .getAsString()));
+        // Someone else's edit afterwards leaves it as it is.
+        final Node other = board.getNodes()
+            .iterator()
+            .next();
+        final JsonObject at = new JsonObject();
+        final JsonObject pos = new JsonObject();
+        pos.addProperty("x", 999);
+        pos.addProperty("y", 333);
+        at.add("position", pos);
+        final JsonArray theirs = new JsonArray();
+        theirs.add(
+            LiveOp.patch("nodes", other.id.toString(), at, null)
+                .toJson());
+        live.others(ME + ":d1", theirs);
+        tickUntil("read in", () -> slot(p, ME + ":d1") != board);
+        assertEquals("Acid line", slot(p, ME + ":d1").getName());
+
+        // Renamed on the website, which renames the list alone: the board takes it, and nothing renames it back.
+        designs.put("d1", design("d1", "Web name"));
+        session.refreshList();
+        tickUntil("the board took the list's name", () -> "Web name".equals(slot(p, ME + ":d1").getName()));
+        live.others(ME + ":d1", theirs);
+        ticks(60);
+        assertEquals("Web name", slot(p, ME + ":d1").getName());
+        assertEquals(
+            "Web name",
+            designs.get("d1")
+                .get("name")
+                .getAsString(),
+            "the list is not renamed back");
+        tickUntil(
+            "the plan's own name follows",
+            () -> "Web name".equals(
+                live.plans.get(ME + ":d1")
+                    .get("name")
+                    .getAsString()));
+    }
+
+    @Test
     void othersEditsWaitWhileTheBoardIsBusy() {
         inAccount("d1", "glass");
         final Plan p = begin();
@@ -523,6 +583,22 @@ class CloudSessionTest {
         session.save(p);
         tickUntil("deleted in the account", () -> calls.contains("DELETE /api/library/designs/d1"));
         assertNull(session.doc(ME + ":d1"));
+
+        // The plans load again (signed in again) before the list is asked: the deleted plan stays gone, unannounced.
+        ticks(10);
+        session.stop();
+        session = null;
+        host.notices.clear();
+        final Plan again = begin();
+        assertNull(slot(again, ME + ":d1"));
+        assertNotNull(slot(again, made.getCloudKey()), "the plan made here is back");
+        for (final Graph g : again.getGraphs()) assertTrue(
+            g.getCloudKey() == null || g.getCloudKey()
+                .startsWith(ME + ":"),
+            "every plan under its owner's key: " + g.getCloudKey());
+        ticks(60);
+        assertNull(slot(again, ME + ":d1"));
+        assertTrue(host.notices.isEmpty(), "no word of a delete the player made: " + host.notices);
     }
 
     @Test
@@ -535,11 +611,27 @@ class CloudSessionTest {
             .add(mine);
         host.world = world;
         final Plan p = begin();
+        // The account has none yet: the planner opens on an empty stand-in until they come.
+        assertEquals(
+            1,
+            p.getGraphs()
+                .size());
+        final Graph standIn = p.getGraphs()
+            .get(0);
         tickUntil("brought over", () -> host.notices.contains("Your plans from this world are now in your account"));
         assertNotNull(mine.getCloudKey(), "the world's slot is keyed");
         assertSame(world, host.worldSaved, "and the world's save kept the key");
         final Graph arrived = slot(p, mine.getCloudKey());
         assertNotNull(arrived, "the plan is in the planner");
+        assertFalse(
+            p.getGraphs()
+                .contains(standIn),
+            "the empty stand-in gave way");
+        assertSame(
+            arrived,
+            p.getGraphs()
+                .get(p.getActiveIndex()),
+            "the world's plan is the open one");
         assertEquals(
             mine.getNodes()
                 .size(),
@@ -791,6 +883,19 @@ class CloudSessionTest {
         assertTrue(peers.quiet());
         assertTrue(
             peers.faces()
+                .isEmpty());
+        // Back, then the connection drops: who is there is no longer known, so no faces show.
+        live.send(
+            "{\"t\":\"present\",\"doc\":\"" + ME
+                + ":d1\",\"present\":[{\"id\":\"u2\",\"username\":\"bob\",\"color\":\"#0090ff\",\"client\":\"game\",\"conn\":\"c2\"}]}");
+        tickUntil(
+            "bob is back",
+            () -> peers.faces()
+                .size() == 1);
+        live.dropAll();
+        tickUntil(
+            "no faces once offline",
+            () -> peers.faces()
                 .isEmpty());
         peers.stop();
     }

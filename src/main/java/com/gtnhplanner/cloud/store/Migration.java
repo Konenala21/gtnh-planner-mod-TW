@@ -54,11 +54,14 @@ public final class Migration {
         }
     }
 
-    /** Whether a slot has anything worth keeping in the cloud: not empty, not one that failed to read. */
+    /**
+     * Whether a slot has anything worth keeping in the cloud: not empty (a task board's tasks count), not one that
+     * failed to read.
+     */
     public static boolean eligible(final Graph g) {
         if (g.getUnreadable() != null && g.nodes.isEmpty()) return false;
         return !g.nodes.isEmpty() || !g.getDrawers()
-            .isEmpty() || !g.notes.isEmpty();
+            .isEmpty() || !g.notes.isEmpty() || !g.tasks.isEmpty();
     }
 
     /** The plans that have never been sent: what to tell the player about before offering to. */

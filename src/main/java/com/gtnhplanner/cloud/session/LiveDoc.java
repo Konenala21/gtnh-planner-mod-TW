@@ -389,11 +389,36 @@ public final class LiveDoc {
         final CloudPlans.Read next = CloudPlans.read(state.view(), session.game(), read);
         next.graph()
             .takeDeviceStateOf(old);
+        // The name is read only when the plan's own name moved: the website renames a plan in the account's list and
+        // leaves the plan's name as it was, and the board's name (the list's) must not go back to that.
+        if (java.util.Objects.equals(planName(state.view()), planName(read.plan()))) next.graph()
+            .setName(old.getName());
         read = next;
         synced = next.graph()
             .version();
         behind = false;
         return next.graph();
+    }
+
+    @javax.annotation.Nullable
+    static String planName(final JsonObject plan) {
+        return plan.has("name") && plan.get("name")
+            .isJsonPrimitive() ? plan.get("name")
+                .getAsString() : null;
+    }
+
+    /**
+     * The plan was renamed in the account's list from elsewhere (the website renames the list, not the plan): the
+     * board takes the new name, unless the player's own rename is still on its way. Taking it is an edit, so the
+     * plan's name follows.
+     */
+    void listRenamed(final String listName) {
+        final Graph g = read.graph();
+        if (listName.isBlank() || g.getName()
+            .equals(listName)) return;
+        // A rename of the player's own still waiting to go: it wins, and the list hears it.
+        if (!java.util.Objects.equals(planName(state.view()), planName(state.confirmed()))) return;
+        g.setName(listName);
     }
 
     public boolean canUndo() {
@@ -470,9 +495,16 @@ public final class LiveDoc {
         inRoom = false;
     }
 
-    /** Out of the room on this connection (a drop, a leave): it joins again from a snapshot. */
+    /**
+     * Out of the room on this connection (a drop, a leave): it joins again from a snapshot. Who was in it is no longer
+     * known, so no faces show until the room says again.
+     */
     void leftRoom() {
         inRoom = false;
+        if (!present.isEmpty()) {
+            present = List.of();
+            peopleChanged();
+        }
     }
 
     /**

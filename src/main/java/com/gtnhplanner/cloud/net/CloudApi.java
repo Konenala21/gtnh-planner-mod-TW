@@ -97,6 +97,26 @@ public final class CloudApi {
             return ownerId + ":" + id;
         }
 
+        /** The same design known to be {@code owner}'s (a PUT's answer names no owner). */
+        public Design ownedBy(final String owner) {
+            return new Design(
+                owner,
+                ownerName,
+                id,
+                name,
+                icon,
+                folderId,
+                closed,
+                favorite,
+                order,
+                createdAt,
+                updatedAt,
+                planUpdatedAt,
+                deletedAt,
+                members,
+                shared);
+        }
+
         public boolean deleted() {
             return deletedAt != null;
         }

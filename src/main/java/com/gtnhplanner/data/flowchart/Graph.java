@@ -39,8 +39,8 @@ public class Graph {
      */
     public final SortedMap<UUID, Drawer> drawers = new TreeMap<>();
 
+    /** The plan's name; changing it is an edit ({@link #setName}). */
     @Getter
-    @Setter
     private String name;
 
     @Getter
@@ -101,7 +101,6 @@ public class Graph {
 
     /** Which view the plan opens on: {@link Tasks#PLAN}, {@link Tasks#TASKS} (a task board), or null for the board. */
     @Getter
-    @Setter
     @Nullable
     private String primaryView;
 
@@ -130,12 +129,10 @@ public class Graph {
 
     /** A line or two about the plan: its post's description. Saved with the slot. */
     @Getter
-    @Setter
     private String description = "";
 
     /** The plan's face: a resource key ({@code Resources}), shown on its tile and its post; null for none. */
     @Getter
-    @Setter
     @Nullable
     private String icon;
 
@@ -271,6 +268,33 @@ public class Graph {
      */
     public void touch() {
         bumpVersion();
+    }
+
+    // The plan's own fields are edits like any other (a cloud plan sends what changed): each moves the version, never
+    // the solve.
+
+    public void setName(final String name) {
+        if (java.util.Objects.equals(this.name, name)) return;
+        this.name = name;
+        touchLayout();
+    }
+
+    public void setDescription(final String description) {
+        if (java.util.Objects.equals(this.description, description)) return;
+        this.description = description;
+        touchLayout();
+    }
+
+    public void setIcon(@Nullable final String icon) {
+        if (java.util.Objects.equals(this.icon, icon)) return;
+        this.icon = icon;
+        touchLayout();
+    }
+
+    public void setPrimaryView(@Nullable final String primaryView) {
+        if (java.util.Objects.equals(this.primaryView, primaryView)) return;
+        this.primaryView = primaryView;
+        touchLayout();
     }
 
     /**

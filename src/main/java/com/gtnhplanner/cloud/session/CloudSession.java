@@ -357,9 +357,52 @@ public final class CloudSession {
                 .get(index)
                 .setOpen(true);
         }
+        // An account with no plans yet still opens on one, empty; the world's plans take its place when they arrive.
+        standIn = null;
+        if (p.getGraphs()
+            .isEmpty()) {
+            standIn = new Graph("Plan 1");
+            p.getGraphs()
+                .add(standIn);
+            p.setActiveIndex(0);
+        }
         deviceKept = deviceState(p);
         listAt = -LIST_EVERY_MS;
         return p;
+    }
+
+    /** The empty plan the planner opened on while the account had none, until the world's plans arrive. */
+    @Nullable
+    private Graph standIn;
+
+    /**
+     * The world's plans arrived: the empty stand-in goes (unless the player has put something on it, which makes it a
+     * plan of its own), and the plan the world had open opens in its place.
+     */
+    private void replaceStandIn(final Plan local, final List<Migration.Item> items) {
+        final Graph s = standIn;
+        standIn = null;
+        if (s == null || plan == null || s.getCloudKey() != null || Migration.eligible(s)) return;
+        final int at = plan.getGraphs()
+            .indexOf(s);
+        if (at < 0 || plan.getGraphs()
+            .size() < 2) return;
+        final int worldAt = local.getActiveIndex();
+        final Graph worldOpen = worldAt >= 0 && worldAt < local.getGraphs()
+            .size() ? local.getGraphs()
+                .get(worldAt) : null;
+        Graph open = null;
+        for (final Migration.Item item : items) {
+            final LiveDoc d = docs.get(item.key());
+            if (d == null) continue;
+            if (open == null || item.graph() == worldOpen) open = d.graph();
+        }
+        final boolean wasOpen = plan.getActiveIndex() == at;
+        plan.removeSlot(at);
+        final int next = open == null ? -1
+            : plan.getGraphs()
+                .indexOf(open);
+        if (wasOpen && next >= 0) plan.setActiveIndex(next);
     }
 
     /** A plan's doc from this device's copy, else known by name until its body comes. */
@@ -378,7 +421,9 @@ public final class CloudSession {
         }
         if (making && copy != null) d.markMaking();
         docs.put(key, d);
-        // The list's name; a plan the list does not have yet goes by its own until the list says otherwise.
+        // The list's name, which the board takes (the website renames the list alone, so the plan's own may be older);
+        // a plan the list does not have yet goes by its own until the list says otherwise.
+        if (design(key) != null) d.listRenamed(listedName(key));
         named.put(
             key,
             design(key) != null ? listedName(key)
@@ -462,8 +507,11 @@ public final class CloudSession {
         pinsKept.remove(d.key());
         if (!d.creating()) {
             letGo.add(d.key());
-            if (library != null)
+            if (library != null) {
                 library = new CloudApi.Library(without(library.own(), d.key()), without(library.shared(), d.key()));
+                // This device's copy of the list too: the next load must not bring it back for the list to drop again.
+                cache.saveList(library);
+            }
         }
         keepDevice();
     }
@@ -477,6 +525,13 @@ public final class CloudSession {
 
     /** Takes a plan off the planner that the account no longer has for this player (deleted, or unshared). */
     private void dropped(final LiveDoc d, final String why) {
+        GtnhPlanner.LOG.info(
+            "[cloud] {}: '{}' ({}) leaves the planner: {}",
+            accountId,
+            d.graph()
+                .getName(),
+            d.key(),
+            why);
         docs.remove(d.key());
         cache.forget(d.key());
         pinsKept.remove(d.key());
@@ -931,9 +986,10 @@ public final class CloudSession {
         refusedRooms.clear();
         cache.saveList(lib);
         if (plan == null) return;
-        // The list's names: a plan whose own name differs is renamed in the list.
-        for (final CloudApi.Design d : lib.own()) if (!d.deleted()) named.put(d.key(), d.name());
-        for (final CloudApi.Design d : lib.shared()) named.put(d.key(), d.name());
+        // The list's names: one renamed elsewhere since it was last heard is the board's now; a plan renamed here and
+        // not yet in the list is renamed in the list.
+        for (final CloudApi.Design d : lib.own()) if (!d.deleted()) listName(d.key(), d.name());
+        for (final CloudApi.Design d : lib.shared()) listName(d.key(), d.name());
         final List<String> arrived = new ArrayList<>();
         for (final CloudApi.Design d : lib.own()) if (!d.deleted()) arrived.add(d.key());
         for (final CloudApi.Design d : lib.shared()) arrived.add(d.key());
@@ -956,6 +1012,21 @@ public final class CloudSession {
                     .equals(accountId) ? "was deleted" : "is no longer shared with you");
         }
         keepDevice();
+    }
+
+    /**
+     * The list's name for a plan: when it moved since last heard and the board still has the old one, the board takes
+     * it (the website renames the list alone).
+     */
+    private void listName(final String key, final String listName) {
+        final String was = named.put(key, listName);
+        final LiveDoc d = docs.get(key);
+        if (d != null && was != null
+            && !was.equals(listName)
+            && d.graph()
+                .getName()
+                .equals(was))
+            d.listRenamed(listName);
     }
 
     /** Creates a plan made here in the account, with the body it started as; its edits since follow once joined. */
@@ -982,7 +1053,10 @@ public final class CloudSession {
             named.put(d.key(), body.name());
             if (put.design() != null && library != null) {
                 final List<CloudApi.Design> own = new ArrayList<>(library.own());
-                own.add(put.design());
+                // The answer names no owner: it is this account's, under the key the plan already has.
+                own.add(
+                    put.design()
+                        .ownedBy(accountId));
                 library = new CloudApi.Library(own, library.shared());
             }
             keepDevice();
@@ -1088,7 +1162,10 @@ public final class CloudSession {
             }
             for (final Migration.Failure f : result.failed())
                 GtnhPlanner.LOG.warn("'{}' did not go to the account yet: {}", f.name(), f.reason());
-            if (arrived > 0) host.notice("Your plans from this world are now in your account");
+            if (arrived > 0) {
+                replaceStandIn(local, items);
+                host.notice("Your plans from this world are now in your account");
+            }
             listAt = -LIST_EVERY_MS;
             keepDevice();
         }, e -> GtnhPlanner.LOG.warn("The world's plans did not go to the account yet", e));

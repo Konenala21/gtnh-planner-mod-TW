@@ -271,6 +271,25 @@ class MigrationTest {
     }
 
     @Test
+    void aTaskBoardWithOnlyTasksIsSent() {
+        final Graph board = new Graph("Task board");
+        board.tasks.add(
+            new com.gtnhplanner.data.flowchart.Tasks.Task(
+                "t1",
+                "Build it",
+                null,
+                com.gtnhplanner.data.flowchart.Tasks.Status.TODO,
+                "V",
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null));
+        assertTrue(Migration.eligible(board));
+        assertEquals(List.of(board), Migration.waiting(plansOf(board)));
+    }
+
+    @Test
     void aSlotThatCouldNotBeReadIsNotSent() {
         final Graph g = new Graph("Broken");
         g.setUnreadable("garbled");
