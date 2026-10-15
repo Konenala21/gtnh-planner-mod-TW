@@ -12,13 +12,11 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
-import com.gtnhplanner.data.Settings;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
-import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.importer.FfDrawers.Role;
 import com.gtnhplanner.importer.FfDrawers.Target;
 import com.gtnhplanner.importer.FfPlan.FfEdge;
@@ -31,7 +29,6 @@ import com.gtnhplanner.importer.FfPlan.FfStorage;
 import com.gtnhplanner.importer.FfPlan.FfTarget;
 import com.gtnhplanner.importer.ImportReport.Kind;
 import com.gtnhplanner.importer.NodeMaker.PortInfo;
-import com.gtnhplanner.importer.RecipeIndex.Lookup;
 
 /**
  * Turns an {@link FfPlan} into a GTNH Planner {@link Graph}, reporting whatever does not carry over as it was.
@@ -135,7 +132,9 @@ public final class FfConverter {
         final Set<String> cardIds = new HashSet<>();
         /** Drawers to be, by FF storage id, custom rate card id, or "hatch:<card>:<fluid>". */
         final Map<String, PendingDrawer> pending = new LinkedHashMap<>();
-        final Map<UUID, List<PortInfo>> inPorts = new HashMap<>(), outPorts = new HashMap<>();
+        /** What each placed node's ports hold. */
+        final FfCards.Ports ports;
+        final FfCards.Context ctx;
         final double minX, minY;
         int lostWires;
 
@@ -144,6 +143,8 @@ public final class FfConverter {
             this.index = index;
             this.maker = maker;
             this.graph = new Graph(plan.name());
+            this.ports = new FfCards.Ports(maker);
+            this.ctx = new FfCards.Context(index, maker, plan.solveMode(), report);
             this.recipes = plan.recipesById();
             for (final FfStorage s : plan.storages()) storages.put(s.id(), s);
             for (final FfNode n : plan.nodes()) cardIds.add(n.id());
@@ -240,184 +241,36 @@ public final class FfConverter {
          * card's pin (set on the first) the machine's count, which its recipes' machines then add up to.
          */
         void share(final List<Node> made) {
-            final com.gtnhplanner.data.flowchart.MachineGroup g = new com.gtnhplanner.data.flowchart.MachineGroup();
-            g.setHeader("Shared machine");
-            final Node host = made.getFirst();
-            if (host.isMachineCountFixed()) {
-                g.setMachineCapacity(host.machineConfig.getMachineCount());
-                g.setPinned(true);
-            }
-            for (final Node n : made) {
-                g.addSection(n.id);
-                n.setMachineCountFixed(false);
-                n.x = host.x;
-                n.y = host.y;
-            }
+            final com.gtnhplanner.data.flowchart.MachineGroup g = FfCards
+                .share(made, new com.gtnhplanner.data.flowchart.MachineGroup());
             graph.groups.put(g.getId(), g);
         }
 
         Node placeSection(final FfNode card, final FfRecipe recipe, final Map<Integer, FfSlot> overrides,
             final int section, final String name) {
-            final Lookup lookup = index.find(recipe);
-            // A crop is the crop it names, a bee the species: their rates are what the card's settings make of them,
-            // nothing to match by. A recipe found by its own id is the one.
-            final RecipeMatcher.Match match = recipe.isCrop() || recipe.isBee() || lookup.exact() ? lookup.candidates()
-                .isEmpty()
-                    ? new RecipeMatcher.Match(null, RecipeMatcher.Grade.NONE, "", 0)
-                    : new RecipeMatcher.Match(
-                        lookup.candidates()
-                            .getFirst(),
-                        RecipeMatcher.Grade.EXACT,
-                        "",
-                        1)
-                : RecipeMatcher.match(recipe, overrides, lookup.candidates());
-            if (!match.accepted()) {
-                String why = match.detail();
-                if (why.isEmpty()) why = lookup.note() != null ? lookup.note() : "no recipe like it in game";
-                report.add(Kind.UNMATCHED, name, why);
-                return null;
-            }
-            final RecipeIndex.GameRecipe game = match.recipe();
-            if (match.grade() == RecipeMatcher.Grade.SAME_RESOURCES)
-                report.add(Kind.FUZZY, name, "the in-game recipe differs: " + match.detail());
-            if (recipe.isPlannerTank())
-                report.add(Kind.CONVERTED, name, "the free, instant Tank is a Canner recipe in game");
-
-            final long eut = game.euPerTick() != null ? game.euPerTick() : Math.round(recipe.eut());
-            final FfSettings.Mapped mapped = FfSettings.map(card, recipe, eut, plan.solveMode(), section == 0);
-            final Node node = maker.make(game, mapped.machine());
-            if (node == null) {
-                report.add(Kind.UNMATCHED, name, "the game could not build a card for it");
-                return null;
-            }
-            node.x = px(card.x());
-            node.y = py(card.y());
-            maker.applySettings(node, mapped.settings());
-            // A single block's tier is its machine: where the game has none at the plan's tier, the card runs at the
-            // nearest it has.
-            final Object asked = mapped.settings()
-                .get(Settings.VOLTAGE.key()),
-                runs = node.machineConfig == null ? null : node.machineConfig.settings.get(Settings.VOLTAGE.key());
-            if (asked != null && runs != null && !asked.equals(runs)) report.add(
-                Kind.CONVERTED,
-                name,
-                "runs at " + runs + ", the nearest tier its machine comes in (the plan has " + asked + ")");
-            node.machineConfig.setMachineCount(mapped.machines());
-            node.setMachineCountFixed(mapped.pinned());
-            for (final String note : mapped.notes()) report.add(Kind.CONVERTED, name, note);
-            pickInputs(node, recipe, overrides, name);
+            final Node node = FfCards
+                .section(ctx, ports, card, recipe, overrides, section, name, px(card.x()), py(card.y()));
+            if (node == null) return null;
             graph.addNode(node);
             final Placed p = new Placed(node, card, recipe, overrides, section, name);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())
                 .put(section, p);
-
-            final FfTarget target = section == 0 ? card.targetOutput() : null;
-            if (target != null) {
-                final int out = findPort(node, true, target.kind(), List.of(target.resourceId()));
-                if (out >= 0) node.targetOutputRates.put(out, target.perSecond());
-                else report
-                    .add(Kind.WIRE, name, "its target rate names " + target.resourceId() + ", which it does not make");
-            }
             return node;
         }
 
-        /**
-         * The card's picks among the items a slot takes (FF's {@code recipeInputOverrides}, by its recipe's input
-         * index): each slot's port set to the picked item, when the game lists it for that slot. A pick of a whole ore
-         * dictionary group is no pick.
-         */
-        void pickInputs(final Node node, final FfRecipe recipe, final Map<Integer, FfSlot> overrides,
-            final String name) {
-            boolean picked = false;
-            for (final Map.Entry<Integer, FfSlot> o : overrides.entrySet()) {
-                final FfSlot chosen = o.getValue();
-                final int slot = o.getKey();
-                if (slot < 0 || slot >= recipe.inputs()
-                    .size()
-                    || chosen.id()
-                        .startsWith("oredict:"))
-                    continue;
-                final FfSlot own = recipe.inputs()
-                    .get(slot);
-                if (FfIds.same(own.id(), chosen.id())) continue;
-                final List<String> ids = new ArrayList<>(own.ids());
-                ids.add(chosen.id());
-                final int port = findPort(node, false, chosen.kind(), ids);
-                final Port<?> p = port < 0 ? null : node.inputs.get(port);
-                Object item = null;
-                if (p != null) for (final Object alt : p.getAlternatives()) {
-                    if (FfIds.same(
-                        maker.describe(p.withAlternative(alt))
-                            .ids()
-                            .getFirst(),
-                        chosen.id())) {
-                        item = alt;
-                        break;
-                    }
-                }
-                if (item == null) {
-                    report.add(
-                        Kind.CONVERTED,
-                        name,
-                        "takes " + chosen.displayName() + " in the plan, which its slot does not take in game");
-                    continue;
-                }
-                picked |= node.pickInput(port, p.keyOf(item));
-            }
-            // The ports' items changed: what they hold is read again.
-            if (picked) inPorts.remove(node.id);
-        }
-
-        /**
-         * A power card: the same generator at the same settings, which rebuilds its ports from the source as the site
-         * does on load. Its pin comes over as a pin in a Solve plan (an unpinned one's count as a starting count), its
-         * count pinned in a Build plan.
-         */
+        /** A power card (FfCards.power), placed. */
         void placePower(final FfNode card, final FfRecipe recipe) {
-            final Node node = maker.makePower(recipe.powerSource(), card.machineConfigTiers());
-            if (node == null) {
-                report.add(Kind.UNMATCHED, recipe.name(), "a generator GTNH Planner does not know");
-                return;
-            }
-            node.x = px(card.x());
-            node.y = py(card.y());
-            final Double pin = card.solvePin();
-            if (plan.solveMode() && pin != null && pin > 0) {
-                node.machineConfig.setMachineCount((int) Math.ceil(pin - 1e-9));
-                node.setMachineCountFixed(true);
-            } else {
-                node.machineConfig.setMachineCount((int) Math.max(1, Math.ceil(card.machineCount() - 1e-9)));
-                // Build runs every card at its count, generators too (as recipe cards come over: FfSettings).
-                if (!plan.solveMode()) node.setMachineCountFixed(true);
-            }
+            final Node node = FfCards.power(ctx, card, recipe, px(card.x()), py(card.y()));
+            if (node == null) return;
             graph.addNode(node);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())
                 .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));
         }
 
-        /**
-         * FF's Tank card (its free mirror of a fluid Canner recipe) as a fluid tank card: emptying when the recipe
-         * takes the cell (its fluid comes out), filling when it takes the fluid. Its count is FF's crafts a second (a
-         * Tank craft is a tick), pinned only where FF pinned it. False when the game builds no tank for it.
-         */
+        /** FF's Tank card as a fluid tank card (FfCards.tank), placed; false when the game builds no tank for it. */
         boolean placeTank(final FfNode card, final FfRecipe recipe) {
-            boolean takesFluid = false;
-            for (final FfSlot in : recipe.inputs()) takesFluid |= "fluid".equals(in.kind());
-            final List<FfSlot> side = takesFluid ? recipe.outputs() : recipe.inputs();
-            FfSlot cell = null;
-            for (final FfSlot s : side) if ("item".equals(s.kind()) && cell == null) cell = s;
-            if (cell == null) return false;
-            final Node node = maker.makeTank(!takesFluid, cell.id());
+            final Node node = FfCards.tank(ctx, card, recipe, px(card.x()), py(card.y()));
             if (node == null) return false;
-            node.x = px(card.x());
-            node.y = py(card.y());
-            final double perSecond = card.machineCount() * 20.0 / Math.max(1, recipe.durationTicks());
-            final Double pin = card.solvePin();
-            if (plan.solveMode() && pin != null && pin > 0) {
-                node.machineConfig.setMachineCount((int) Math.ceil(pin * 20.0 / Math.max(1, recipe.durationTicks())));
-                node.setMachineCountFixed(true);
-            } else node.machineConfig
-                .setMachineCount((int) Math.max(1, Math.min(Integer.MAX_VALUE, Math.ceil(perSecond))));
             graph.addNode(node);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())
                 .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));
@@ -644,47 +497,15 @@ public final class FfConverter {
          */
         int port(final Placed p, final boolean output, @Nullable final String handle, final FfEdge e,
             @Nullable final String extra) {
-            final FfHandle h = FfHandle.parse(handle);
-            final String kind = h != null ? h.kind() : e.resourceKind();
-            final List<String> want = new ArrayList<>();
-            if (h != null) want.add(h.resourceId());
-            want.add(e.resourceId());
-            if (extra != null) want.add(extra);
-            if (!output) {
-                final List<FfSlot> inputs = p.recipe()
-                    .inputs();
-                for (int i = 0; i < inputs.size(); i++) {
-                    final List<String> ids = new ArrayList<>(
-                        inputs.get(i)
-                            .ids());
-                    final FfSlot pick = p.overrides()
-                        .get(i);
-                    if (pick != null) ids.add(pick.id());
-                    if (FfIds.anySame(ids, want)) {
-                        want.addAll(ids);
-                        break;
-                    }
-                }
-            }
-            return findPort(p.node(), output, kind, want);
+            return FfCards.port(ports, p.node(), p.recipe(), p.overrides(), output, handle, e, extra);
         }
 
         int findPort(final Node node, final boolean output, final String kind, final List<String> ids) {
-            final List<PortInfo> infos = describe(node, output);
-            for (int i = 0; i < infos.size(); i++) {
-                final PortInfo info = infos.get(i);
-                if (info.kind()
-                    .equals(kind) && FfIds.anySame(info.ids(), ids)) return i;
-            }
-            return -1;
+            return ports.find(node, output, kind, ids);
         }
 
         List<PortInfo> describe(final Node node, final boolean output) {
-            return (output ? outPorts : inPorts).computeIfAbsent(node.id, k -> {
-                final List<PortInfo> infos = new ArrayList<>();
-                for (final Port<?> port : output ? node.outputs : node.inputs) infos.add(maker.describe(port));
-                return infos;
-            });
+            return ports.describe(node, output);
         }
 
         /** Pool plans: every maker of a resource wired to every user of it, drawers to every port of theirs. */
@@ -897,17 +718,8 @@ public final class FfConverter {
          */
         boolean makeCustomRate(final PendingDrawer d, final PortInfo held) {
             final Dial dial = d.dial;
-            final boolean eu = com.gtnhplanner.power.Energy.KEY.equals(held.key());
-            final Map<String, String> settings = new LinkedHashMap<>();
-            settings.put(
-                com.gtnhplanner.power.CustomRate.MODE,
-                dial.supply() ? com.gtnhplanner.power.CustomRate.SUPPLY : com.gtnhplanner.power.CustomRate.REQUEST);
-            // The dial is EU/t on a card holding EU, a second's worth of anything else.
-            settings.put(
-                com.gtnhplanner.power.CustomRate.RATE,
-                String.valueOf(eu ? dial.perSecond() / 20 : dial.perSecond()));
-            settings.put(com.gtnhplanner.power.CustomRate.RESOURCE, held.key());
-            final Node node = maker.makeCustomRate(settings);
+            final Node node = maker
+                .makeCustomRate(FfCards.customRateSettings(dial.supply(), dial.perSecond(), held.key()));
             if (node == null) return false;
             node.x = d.x;
             node.y = d.y;
@@ -941,15 +753,7 @@ public final class FfConverter {
          */
         void placeNotes() {
             for (final FfNote n : plan.textNotes()) {
-                final Note note = new Note();
-                note.setX(px(n.x()));
-                note.setY(py(n.y()));
-                note.setWidth(Math.max(Note.MIN_W, (int) Math.round(n.width() * SCALE_X)));
-                note.setHeight(Math.max(Note.MIN_H, (int) Math.round(n.height() * SCALE_Y)));
-                if (n.colorTag() != null && !n.colorTag()
-                    .isEmpty()) note.setColor(n.colorTag());
-                if (n.fontSize() != null) note.setFontSize(n.fontSize());
-                note.setJoined(n.text());
+                final Note note = note(n, UUID.randomUUID(), px(n.x()), py(n.y()));
                 graph.notes.put(note.getId(), note);
             }
         }
@@ -963,6 +767,23 @@ public final class FfConverter {
         int py(final double ffY) {
             return snap((ffY - minY) * SCALE_Y) + MARGIN;
         }
+    }
+
+    /**
+     * A text note as a board note at a place: sized at the cards' scale, never under a note's smallest size, with its
+     * colour, text size and text.
+     */
+    public static Note note(final FfNote n, final UUID id, final int x, final int y) {
+        final Note note = new Note(id);
+        note.setX(x);
+        note.setY(y);
+        note.setWidth(Math.max(Note.MIN_W, (int) Math.round(n.width() * SCALE_X)));
+        note.setHeight(Math.max(Note.MIN_H, (int) Math.round(n.height() * SCALE_Y)));
+        if (n.colorTag() != null && !n.colorTag()
+            .isEmpty()) note.setColor(n.colorTag());
+        if (n.fontSize() != null) note.setFontSize(n.fontSize());
+        note.setJoined(n.text());
+        return note;
     }
 
     private static int snap(final double v) {

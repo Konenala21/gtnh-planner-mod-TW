@@ -65,13 +65,7 @@ public final class FfPlanParser {
         final boolean pool = bool(root, "poolMode", false);
         final boolean solve = bool(root, "solveMode", false) || pool;
 
-        final Map<String, Board> boards = new HashMap<>();
-        for (final JsonObject p : objects(root, "pockets")) {
-            final String id = str(p, "id");
-            if (id == null) continue;
-            final double[] at = position(p);
-            boards.put(id, new Board(str(p, "parentPocketId"), at[0], at[1], p.has("size")));
-        }
+        final Map<String, Board> boards = boards(root);
         if (!boards.isEmpty())
             notes.add(boards.size() + " board" + (boards.size() == 1 ? "" : "s") + " flattened onto one board.");
 
@@ -124,6 +118,66 @@ public final class FfPlanParser {
             targetRate,
             notes);
         return migrateTrashCans(plan);
+    }
+
+    /**
+     * A plan read one thing at a time, for a reader that keeps each thing's own id (the cloud plans): its boards are
+     * known, so every position comes out flattened as {@link #parse} gives it. Nothing else of the load funnel runs:
+     * a legacy trash can stays a card.
+     */
+    public static final class Things {
+
+        private final Map<String, Board> boards;
+        public final boolean solveMode, poolMode;
+
+        public Things(final JsonObject root) {
+            this.boards = boards(root);
+            this.poolMode = bool(root, "poolMode", false);
+            this.solveMode = bool(root, "solveMode", false) || poolMode;
+        }
+
+        @Nullable
+        public FfRecipe recipe(final JsonObject r) {
+            return FfPlanParser.recipe(r);
+        }
+
+        @Nullable
+        public FfNode node(final JsonObject n) {
+            return FfPlanParser.node(n, boards);
+        }
+
+        @Nullable
+        public FfStorage storage(final JsonObject s) {
+            return FfPlanParser.storage(s, boards);
+        }
+
+        @Nullable
+        public FfEdge edge(final JsonObject e) {
+            return FfPlanParser.edge(e);
+        }
+
+        /** A text annotation as a note; any other annotation reads as null. */
+        @Nullable
+        public FfNote note(final JsonObject a) {
+            return "text".equals(str(a, "kind", "")) ? FfPlanParser.note(a, boards) : null;
+        }
+
+        /** Where a thing on a board is drawn from: what the board adds to its position (none off any board). */
+        public double[] offset(@Nullable final String boardId) {
+            return absolute(new double[] { 0, 0 }, boardId, boards);
+        }
+    }
+
+    /** The plan's boards (FF's pockets) by id. */
+    private static Map<String, Board> boards(final JsonObject root) {
+        final Map<String, Board> boards = new HashMap<>();
+        for (final JsonObject p : objects(root, "pockets")) {
+            final String id = str(p, "id");
+            if (id == null) continue;
+            final double[] at = position(p);
+            boards.put(id, new Board(str(p, "parentPocketId"), at[0], at[1], p.has("size")));
+        }
+        return boards;
     }
 
     // region Entries

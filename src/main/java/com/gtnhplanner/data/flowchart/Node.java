@@ -30,7 +30,11 @@ import lombok.Setter;
 
 public class Node {
 
-    public final UUID id;
+    /**
+     * Set only while the node is built, before any graph holds it: a reader that keeps a shared plan's ids
+     * (cloud/map) gives a card the importer made the id its plan knows it by.
+     */
+    public UUID id;
     public int x;
     public int y;
 

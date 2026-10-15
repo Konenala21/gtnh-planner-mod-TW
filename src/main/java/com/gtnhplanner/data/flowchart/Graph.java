@@ -90,6 +90,21 @@ public class Graph {
         touch();
     }
 
+    /**
+     * The plan's task board ({@link Tasks}): tasks, their checklist lines and comments, in no particular order (a task
+     * board sorts by each one's order key). Saved with the plan and carried by its plan code; change them with
+     * {@link #touchLayout()}, since they take no part in the solve.
+     */
+    public final List<Tasks.Task> tasks = new ArrayList<>();
+    public final List<Tasks.Item> taskItems = new ArrayList<>();
+    public final List<Tasks.Comment> taskComments = new ArrayList<>();
+
+    /** Which view the plan opens on: {@link Tasks#PLAN}, {@link Tasks#TASKS} (a task board), or null for the board. */
+    @Getter
+    @Setter
+    @Nullable
+    private String primaryView;
+
     /** Whether the plan has a tab. A closed plan is still kept, in the library's My plans. Saved with the slot. */
     @Getter
     @Setter

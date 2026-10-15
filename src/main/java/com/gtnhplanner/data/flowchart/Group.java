@@ -41,6 +41,11 @@ public class Group extends GraphData {
         super(UUID.randomUUID());
     }
 
+    /** A group with a known id (one a shared plan's card gives it). */
+    protected Group(final UUID id) {
+        super(id);
+    }
+
     @Override
     public String getType() {
         return "group";

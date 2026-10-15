@@ -42,6 +42,11 @@ public class Note extends GraphData {
         super(UUID.randomUUID());
     }
 
+    /** A note with a known id (one a shared plan knows it by). */
+    public Note(final UUID id) {
+        super(id);
+    }
+
     @Override
     public String getType() {
         return "note";
