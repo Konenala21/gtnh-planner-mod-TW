@@ -31,6 +31,13 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   slots, solve hookup, notices, totals), `canvas/` (board, wires, port drags, arrange), `card/` (recipe card),
   `drawer/`, `popup/` (menus, number and text boxes; recipes are looked up in NEI itself). Known gaps and next
   steps are at the top of `docs/design/build-prompt.md`.
+- Everything must fit GTNH's defaults (1080p, GUI scale 4, the pack's NEI panel): a planner 440 board px wide at the
+  gear's Normal Size and 330 at Large (`call 'window?w=1920&h=1080&scale=4&size=3'`; the dev game at scale 2 hides
+  it). The top bar gives way as the website's does (`ui/TopBar`): keys closer, the bolt and arrange's progress short,
+  faces folded to two and a count (`PlanTabs.end`), then the keys on rows under the tabs, the open tab and + always
+  kept. Popups open inside the planner's own panel, never under NEI's list (`Popup.room`, `openCentred`); a box taller
+  than it scrolls inside (`TaskPanel`'s page), the task board scrolls sideways past four 112 px columns, notices wrap.
+  Text gives way by shortening, never by cutting a word.
 - `docs/design/card-redesign.md` is the clean card now on the board, the minimap and the world (`CardLayout`,
   `CardPaint`, `CardChips`, `RecipeCard`, `CleanCardView`): what is settled, where every control and setting went,
   and what is left to design (`call cards` pages through a plan's cards).
