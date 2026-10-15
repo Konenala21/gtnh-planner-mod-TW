@@ -576,6 +576,9 @@ public final class BoardScreen extends ModularScreen {
             notices.setEnabled(!open);
             tasks.setEnabled(taskBoard);
             body.scheduleResize();
+            // The floating keys take their place from the overview's width, which only a plan has: lay them out again.
+            if (body.isValid()) body.getPanel()
+                .scheduleResize();
         }
     }
 
