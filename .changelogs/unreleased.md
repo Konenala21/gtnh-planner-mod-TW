@@ -21,3 +21,5 @@
 - Plans from links, codes and the library keep their layout. Cards no longer land on top of each other.
 
 ## Fixed
+
+- Plans from the library, links and codes keep each machine's options like pipe casings. Their numbers come out right now.
