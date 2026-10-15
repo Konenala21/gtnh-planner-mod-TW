@@ -40,11 +40,15 @@ public final class DevPeople {
 
     /** Whether any are wanted. */
     public static boolean wanted() {
-        return count > 0;
+        return count > 0 || DevScene.active();
     }
 
     /** Moves the stand-ins on, as the board draws: each heard at most ten times a second. */
     public static void drive(final Peers peers) {
+        if (DevScene.active()) {
+            DevScene.drive(peers);
+            return;
+        }
         peers.dropFakes(count);
         if (count == 0) return;
         final BoardSession board = BoardSession.current();

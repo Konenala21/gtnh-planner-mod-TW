@@ -373,6 +373,8 @@ public final class DevHarness {
                     final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
                     if (screen == null) return error("the planner is not open");
                     final com.gtnhplanner.ui.BoardSession session = screen.session();
+                    // demo=1: a team's board a few weeks into a build, made from the open plan (dev/DevTaskBoard).
+                    if (q.containsKey("demo")) DevTaskBoard.fill(session);
                     if (q.containsKey("newboard")) session.addTaskBoard(true)
                         .setName(q.get("newboard"));
                     final com.gtnhplanner.data.flowchart.Graph g = session.graph();
@@ -733,6 +735,11 @@ public final class DevHarness {
                 return onClient(() -> {
                     final Map<String, Object> r = new LinkedHashMap<>();
                     if (q.containsKey("fake")) DevPeople.set(intArg(q, "fake"));
+                    // scene=1: four stand-ins at work on the plan, for footage (dev/DevScene); scene=0 stops them.
+                    if (q.containsKey("scene")) {
+                        if (intArg(q, "scene") > 0) DevScene.start();
+                        else DevScene.stop();
+                    }
                     final com.gtnhplanner.ui.BoardSession board = com.gtnhplanner.ui.BoardSession.current();
                     if (board != null) {
                         final List<String> here = new ArrayList<>();

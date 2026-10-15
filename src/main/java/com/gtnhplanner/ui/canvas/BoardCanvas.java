@@ -3099,6 +3099,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     private java.util.Map<UUID, int[]> glideFrom, glideTo;
     private long glideStart = -1;
 
+    /** Puts one card, drawer or note at a board point, widget and wires too (dev/DevScene's stand-ins move things). */
+    public void placeAt(final UUID id, final int x, final int y) {
+        place(java.util.Map.of(id, new int[] { x, y }));
+    }
+
     /** Puts cards and drawers at the given places, widgets included. */
     private void place(final java.util.Map<UUID, int[]> at) {
         final Graph g = graph();
