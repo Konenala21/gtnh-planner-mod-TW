@@ -76,20 +76,32 @@ All signed-in, cookie auth, rate-limited like the existing library routes.
 - A design id is unique only per owner, so every design-scoped route below takes `?owner=<ownerId>` (absent: the
   caller's own design). `GET /api/library` lists tombstones (deleted designs) as it does today, so a client never
   reuses a deleted id.
-- `GET /api/library/designs/[id]?owner=<ownerId>`: an owner's or member's read of the plan.
-- `GET /api/library/designs/[id]/members`, `PUT /api/library/designs/[id]/members/[userId]` (owner only),
-  `DELETE /api/library/designs/[id]/members/[userId]` (owner, or the member leaving). Changes are pushed to the live
-  service (internal call, below) so open rooms update and a removed member is dropped.
-- `GET /api/accounts/search?q=<prefix>`: up to 10 `{ id, username }`, signed-in only, rate-limited.
+- `GET /api/library/designs/[id]?owner=<ownerId>`: an owner's or member's read of the plan: `{ design, plan, ownerId,
+  role, seq, live }`.
+- A member may PUT a shared plan's body and name only; folder, order and the rest stay the owner's. Deleting a
+  design is the owner's alone (403 for members).
+- `GET /api/library/designs/[id]/members` answers `{ ownerId, ownerName, role, members }`;
+  `PUT /api/library/designs/[id]/members/[userId]` (owner only), `DELETE /api/library/designs/[id]/members/[userId]`
+  (owner, or the member leaving). At most 20 members a plan. Changes are pushed to the live service (internal call,
+  below) so open rooms update and a removed member is dropped.
+- `GET /api/accounts/search?q=<prefix>`: `{ accounts: [{ id, username }] }`, up to 10, signed-in only, rate-limited.
 - Deleting a design also tells the live service (members are dropped from the room).
+- The new table has row level security on, like every other table (only the service role reads it).
 
 ## The live service
 
 A separate Node process beside Next.js (`next start` cannot hold WebSockets): the `ws` package, one process, rooms in
 memory. Production: systemd unit `gtnh-live` on 127.0.0.1:3001, Caddy routes `/live` to it (WebSocket upgrade), behind
 Cloudflare (pings every 25 s keep its 100 s idle limit away). Local: `ws://localhost:3001/live`. The website reads its
-URL from `NEXT_PUBLIC_LIVE_URL`; unset, the website has no live features and behaves as today (so merging to `main`
-before the service runs is safe).
+URL from `NEXT_PUBLIC_LIVE_URL`, best set to the path `/live` (resolved against the page's own host, so one build serves
+staging and, after the switch, the main domain); unset, the website has no live features and behaves as today (so
+merging to `main` before the service runs is safe). Exactly one live service runs per database: it takes leases
+without asking.
+
+- Limits: 200 frames/s, 30 batches/s, 10 joins/s per connection; 8 rooms a connection; 16 sockets an account; 5000
+  ops and 256 KB a batch. `GET /live/health`; `POST /internal/shutdown` (token) flushes and exits.
+- A `meta` op may only set plan fields the schema knows and may not delete required ones. The server fills a new
+  comment's `by`, `byName` and `at`; only its author may change it, anyone in the plan may delete it.
 
 - Room per doc key. Opening a room loads the plan from the database, takes the lease, and keeps it renewed (every
   30 s, 90 s ahead). The room flushes the plan, `seq`, `plan_updated_at` and `updated_at` at most every 8 s while
@@ -124,13 +136,13 @@ Server to client:
 | Frame | Meaning |
 |---|---|
 | `{ t:"welcome", v:1, you:{ id, username, color } }` | |
-| `{ t:"snapshot", doc, seq, plan, role:"owner"\|"editor", members:[{id,username}], present:[Person] }` | the whole plan |
-| `{ t:"ops", doc, seq, by, cid, ops }` | an accepted batch, to everyone in the room including its sender (the sender's ack is its own `cid`) |
-| `{ t:"presence", doc, who, cursor, sel, view? }` | |
-| `{ t:"present", doc, present:[Person] }` | someone joined or left; `Person = { id, username, color, client }` |
+| `{ t:"snapshot", doc, seq, plan, role:"owner"\|"editor", owner:{id,username}, members:[{id,username}], present:[Person] }` | the whole plan |
+| `{ t:"ops", doc, seq, by, cid, ops }` | an accepted batch, to everyone in the room including its sender (the sender's ack is its own `cid`); a batch sent again with a `cid` already applied is acked to its sender alone as `{ ops: [], seq: <original> }` |
+| `{ t:"presence", doc, who, conn, cursor, sel, view? }` | |
+| `{ t:"present", doc, present:[Person] }` | someone joined or left; `Person = { id, username, color, client, conn }` (one account can be in a room twice: `conn` tells them apart) |
 | `{ t:"members", doc, members }` | sharing changed |
 | `{ t:"kicked", doc, reason:"unshared"\|"deleted" }` | |
-| `{ t:"error", doc?, code:"auth"\|"forbidden"\|"not_found"\|"too_big"\|"rate"\|"bad_op"\|"version", msg }` | |
+| `{ t:"error", doc?, cid?, code:"auth"\|"forbidden"\|"not_found"\|"too_big"\|"rate"\|"bad_op"\|"version", msg }` | `cid` when it is about a batch |
 | `{ t:"pong" }` | |
 
 Colours: the server gives each account a colour from a fixed palette, stable per account (hash of id).
