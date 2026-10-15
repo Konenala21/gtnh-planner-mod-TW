@@ -8,7 +8,8 @@
 ## Better
 
 - Signed in, every plan is in your account from the start. Share is always there
-- The top bar keeps the account things. The board keys moved to a strip over the board
+- The top bar keeps the account things. The board keys moved to a strip over the board. Arrange is only as wide as its name, and the keys follow the overview folding away
+- Task boards have a faint violet tint and a small checklist icon on their tabs and in My plans
 - The task box has a new layout. Notes and things sit on the left and status and people on the right
 
 ## Fixed

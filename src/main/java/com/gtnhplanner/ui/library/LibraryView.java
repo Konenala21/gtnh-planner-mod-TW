@@ -657,7 +657,10 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         if (face instanceof final ItemStack item) Hyb.icon(item, null, x + 5, y + 5, 24, z);
         else if (face instanceof final FluidStack fluid) Hyb.icon(null, fluid, x + 5, y + 5, 24, z);
         else face(null, x + 5, y + 5, 24, z);
-        final int nameX = x + 34;
+        final boolean tasks = com.gtnhplanner.data.flowchart.Tasks.TASKS.equals(g.getPrimaryView());
+        if (tasks) Hyb.rect(x + 1, y + 1, w - 2, TILE_H - 2, com.gtnhplanner.ui.task.TaskLook.TINT_FAINT);
+        final int nameX = x + 34 + (tasks ? com.gtnhplanner.ui.task.TaskLook.ICON_W + 3 : 0);
+        if (tasks) com.gtnhplanner.ui.task.TaskLook.checklist(x + 34, y + 6, com.gtnhplanner.ui.task.TaskLook.TINT);
         int nameRight = x + w - 6;
         if (g.isOpen()) {
             final String chip = current ? "SHOWING" : "OPEN";
@@ -670,8 +673,10 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int cards = g.getNodes()
             .size(), drawers = g.getDrawers()
                 .size();
-        final String size = cards + (cards == 1 ? " card" : " cards") + " · " + drawers + (drawers == 1 ? " drawer" : " drawers");
-        Hyb.text(Hyb.fit(size, x + w - 6 - nameX), nameX, y + 17, 0xFF8A8C94);
+        final int count = g.tasks.size();
+        final String size = tasks ? count + (count == 1 ? " task" : " tasks")
+            : cards + (cards == 1 ? " card" : " cards") + " · " + drawers + (drawers == 1 ? " drawer" : " drawers");
+        Hyb.text(Hyb.fit(size, x + w - 6 - (x + 34)), x + 34, y + 17, 0xFF8A8C94);
         final String when = g.getLastOpen() > 0 ? "last open " + agoMs(g.getLastOpen()) : "not opened yet";
         Hyb.text(when, x + 6, y + TILE_H - 13, Hyb.MUTED);
         // A plan someone shared with the player says whose it is.

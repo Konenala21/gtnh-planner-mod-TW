@@ -51,6 +51,25 @@ public final class TaskLook {
         Hyb.roundRect(x, y, d, d, d / 2, colour);
     }
 
+    /** A task board's tab and tile wear this violet, a faint cast (about 9% of it) over the plain colour. */
+    public static final int TINT = 0xFFA78BFA, TINT_FAINT = 0x17A78BFA;
+
+    /** The checklist icon's width and height, one font line. */
+    public static final int ICON_W = 7, ICON_H = 8;
+
+    /**
+     * The checklist icon (a clipboard with two lines on it), 7 by 8 pixels, flat like the power bolt: runs of
+     * {x, y, width}.
+     */
+    private static final int[][] CHECKLIST = { { 2, 0, 3 }, { 0, 1, 7 }, { 0, 2, 1 }, { 6, 2, 1 }, { 0, 3, 1 },
+        { 2, 3, 3 }, { 6, 3, 1 }, { 0, 4, 1 }, { 6, 4, 1 }, { 0, 5, 1 }, { 2, 5, 3 }, { 6, 5, 1 }, { 0, 6, 1 },
+        { 6, 6, 1 }, { 0, 7, 7 } };
+
+    /** Draws the checklist icon with its top left at {@code x}, {@code y}. */
+    public static void checklist(final float x, final float y, final int colour) {
+        for (final int[] r : CHECKLIST) Hyb.rect(x + r[0], y + r[1], r[2], 1, colour);
+    }
+
     // region People
 
     /** What a signed-out player writes as, and is called. */

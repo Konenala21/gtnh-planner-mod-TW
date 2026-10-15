@@ -539,6 +539,10 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         } else {
             Hyb.rect(x, 1, w, h - 1, hot ? 0xFF2D2F35 : 0xFF1C1E22);
         }
+        final boolean tasks = !plus && com.gtnhplanner.data.flowchart.Tasks.TASKS.equals(
+            slots.get(slot)
+                .getPrimaryView());
+        if (tasks) Hyb.rect(x + 1, 1, w - 2, h - 1, com.gtnhplanner.ui.task.TaskLook.TINT_FAINT);
         if (plus) {
             Hyb.textCentered("+", x + w / 2f + 0.5f, (h - 8) / 2f, hot ? 0xFFFFFFFF : Hyb.MUTED);
             return;
@@ -547,7 +551,14 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final boolean closable = hot && canClose();
         final String name = slots.get(slot)
             .getName();
-        Hyb.text(Hyb.fit(name, w - 10 - (closable ? CLOSE : 0)), x + 5, (h - 8) / 2f, active ? 0xFFFFFFFF : Hyb.MUTED);
+        final int icon = tasks ? com.gtnhplanner.ui.task.TaskLook.ICON_W + 3 : 0;
+        if (tasks)
+            com.gtnhplanner.ui.task.TaskLook.checklist(x + 5, (h - 8) / 2f, com.gtnhplanner.ui.task.TaskLook.TINT);
+        Hyb.text(
+            Hyb.fit(name, w - 10 - icon - (closable ? CLOSE : 0)),
+            x + 5 + icon,
+            (h - 8) / 2f,
+            active ? 0xFFFFFFFF : Hyb.MUTED);
         if (closable) {
             final int cx = x + w - CLOSE - 2, cy = (h - CLOSE) / 2;
             final boolean onX = onClose(hover);

@@ -2,6 +2,7 @@ package com.gtnhplanner.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntSupplier;
 
 import com.cleanroommc.modularui.widget.ParentWidget;
 import com.cleanroommc.modularui.widget.Widget;
@@ -22,7 +23,7 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
     private static final int MARGIN = 4, RIGHT_FROM = 2, GAP = 3, GROUP_GAP = 9, TIGHT_GAP = 1, TIGHT_GROUP_GAP = 4;
 
     /** A key: its group, and its width with room to spare and when the strip is tight. */
-    private record Key(Widget<?> widget, int group, int roomy, int tight) {}
+    private record Key(Widget<?> widget, int group, IntSupplier roomy, IntSupplier tight) {}
 
     /** Where everything goes: the rows, and each key's place and width. */
     private record Layout(int rows, int[] x, int[] y, int[] w) {}
@@ -30,6 +31,7 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
     private final List<Key> keys = new ArrayList<>();
     private Layout laid;
     private int laidWidth = -1;
+    private int laidSizes;
 
     BoardToolbar() {
         height(() -> MARGIN + layout().rows() * TopBar.ROW_H, Unit.Measure.PIXEL);
@@ -40,6 +42,11 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
      * {@code roomy} wide with room and {@code tight} without.
      */
     <W extends Widget<?>> W key(final int group, final W widget, final int roomy, final int tight) {
+        return key(group, widget, () -> roomy, () -> tight);
+    }
+
+    /** As above, for a key whose width changes (the strip is laid out again then). */
+    <W extends Widget<?>> W key(final int group, final W widget, final IntSupplier roomy, final IntSupplier tight) {
         final int i = keys.size();
         keys.add(new Key(widget, group, roomy, tight));
         widget.left(() -> layout().x()[i], Unit.Measure.PIXEL)
@@ -61,19 +68,30 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
     }
 
     private Layout layout() {
-        final int width = barWidth();
-        if (laid == null || width != laidWidth) {
+        final int width = barWidth(), sizes = sizes();
+        if (laid == null || width != laidWidth || sizes != laidSizes) {
             laid = lay(width);
             laidWidth = width;
+            laidSizes = sizes;
         }
         return laid;
+    }
+
+    /** The keys' widths now, as one number: it changes when any of them does. */
+    private int sizes() {
+        int h = 17;
+        for (final Key k : keys) h = h * 31 + k.roomy()
+            .getAsInt() * 7
+            + k.tight()
+                .getAsInt();
+        return h;
     }
 
     /** The board was resized: lay the keys out again. */
     @Override
     public void onUpdate() {
         super.onUpdate();
-        if (barWidth() != laidWidth) {
+        if (barWidth() != laidWidth || sizes() != laidSizes) {
             layout();
             final com.cleanroommc.modularui.screen.ModularPanel panel = getPanel();
             if (panel != null) panel.scheduleResize();
@@ -131,7 +149,7 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
             final Key k = keys.get(i);
             if (i > from) w += k.group() != keys.get(i - 1)
                 .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
-            w += tight ? k.tight() : k.roomy();
+            w += (tight ? k.tight() : k.roomy()).getAsInt();
         }
         return w;
     }
@@ -145,7 +163,7 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
                 .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
             x[i] = at;
             y[i] = top;
-            w[i] = tight ? k.tight() : k.roomy();
+            w[i] = (tight ? k.tight() : k.roomy()).getAsInt();
             at += w[i];
         }
     }

@@ -149,10 +149,10 @@ public final class BoardScreen extends ModularScreen {
                     canvas::arrangeLabel,
                     () -> true,
                     "Auto-arrange the plan (press again to stop)",
-                    fit("Arrange", "Arranging 100%"),
+                    fit("Arrange"),
                     canvas::arrange)),
-            fit("Arrange", "Arranging 100%"),
-            tight("Arrange", "Stopping", "100%"));
+            () -> canvas.arranging() ? fit("Arranging 100%", "Stopping") : fit("Arrange"),
+            () -> canvas.arranging() ? tight("Stopping", "100%") : tight("Arrange"));
         toolbar.key(
             2,
             named(

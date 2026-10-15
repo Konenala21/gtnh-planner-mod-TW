@@ -169,6 +169,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         filterField.setEnabled(open);
         width(currentWidth());
         if (getParent() != null) getParent().scheduleResize();
+        // What sits over the board (the toolbar, the notices) takes its place from the rail's width too.
+        if (getPanel() != null) getPanel().scheduleResize();
         scheduleResize();
     }
 
