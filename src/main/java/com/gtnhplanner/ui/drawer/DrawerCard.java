@@ -478,11 +478,16 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                 if (mouseButton == 0) session.deleteDrawer(drawer);
             }
             case RULE -> {
-                if (mouseButton == 1 && hasRule()) stepRule(-1);
+                // The middle button unsets the drawer: back to Any, no rate.
+                if (mouseButton == 2) {
+                    if (hasRule()) session.setDrawerRule(drawer, Drawer.Rule.ANY);
+                } else if (mouseButton == 1 && hasRule()) stepRule(-1);
                 else openRules();
             }
             case RATE -> {
-                if (mouseButton == 0) {
+                if (mouseButton == 2) {
+                    if (hasRule()) session.setDrawerRule(drawer, Drawer.Rule.ANY);
+                } else if (mouseButton == 0) {
                     if (canvas() != null) canvas().editDrawerRate(model);
                     else openRate();
                 }

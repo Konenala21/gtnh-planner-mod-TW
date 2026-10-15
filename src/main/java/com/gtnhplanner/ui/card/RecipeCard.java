@@ -1912,6 +1912,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
             case MACHINES -> {
                 if (mouseButton == 0) openPin();
+                // The middle button unpins: the plan decides the count again.
+                else if (mouseButton == 2 && pinned()) session.pin(model.node, 0);
             }
             default -> {
                 // The body: a click selects it (Shift adds); the right button opens its actions, as the key does
