@@ -596,9 +596,12 @@ public final class DevHarness {
                 // The site the library reads and posts to: url=<base> (tools/dev/mock-library.mjs for a local
                 // stand-in).
                 if (q.containsKey("url")) com.gtnhplanner.library.CommunityApi.useSite(q.get("url"));
+                // live=<ws url> points the live service elsewhere; live= (empty) goes back to the site's.
+                if (q.containsKey("live")) com.gtnhplanner.cloud.net.CloudApi.useLive(q.get("live"));
                 return onClient(() -> {
                     final Map<String, Object> r = new LinkedHashMap<>();
                     r.put("site", com.gtnhplanner.library.CommunityApi.site());
+                    r.put("live", com.gtnhplanner.cloud.net.CloudApi.live());
                     r.put("signedInAs", com.gtnhplanner.library.Account.username());
                     return r;
                 });
@@ -1025,7 +1028,7 @@ public final class DevHarness {
                 "/recipeinfo?output[&handler][&input] - what NEI and GTNH Planner see in a recipe (stacks, ports), read-only",
                 "/nei?item[&uses=1][&planner=0][&tab] - open NEI's recipes for an item, over the planner or (planner=0) from the inventory",
                 "/sound[?volume=0..1] - the master volume, set or read",
-                "/library[?url=<base>] - the site the library uses (tools/dev/mock-library.mjs is a local stand-in)",
+                "/library[?url=<base>][&live=<ws url>] - the site the library uses (tools/dev/mock-library.mjs is a local stand-in) and its live service",
                 "/chat[?lines=N][&share=1] - the chat's newest lines and what clicking each part runs; share=1 shares the open plan there first",
                 "/gtmachines?q=turbine[&all=1][&art=1] - GregTech multiblocks (all=1: every machine) as the game names them; art=1 adds the bundled picture each resolves to",
                 "/machinedata?dir=<path> - writes the website's TGS, Bacterial Vat and radio hatch side files from this game (run in the full pack)",

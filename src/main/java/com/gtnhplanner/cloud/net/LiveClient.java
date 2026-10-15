@@ -1,0 +1,390 @@
+package com.gtnhplanner.cloud.net;
+
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
+
+import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.gtnhplanner.GtnhPlanner;
+
+/**
+ * The live service's protocol (version 1, {@code docs/design/cloud-live.md}) over {@link LiveSocket}: hello and
+ * welcome, joining and leaving rooms by doc key, ops batches and presence out, everything the service sends dispatched
+ * to listeners. It never reads an op: the sync engine does.
+ * <p>
+ * Everything runs on the thread that calls {@link #poll} each tick (the client thread): listeners are called from it,
+ * and the send calls are made from it. After a reconnect every joined doc is joined again once the service has said
+ * welcome; each answers with a snapshot, and the caller sends its pending batches again from that.
+ */
+public final class LiveClient {
+
+    public static final int PROTOCOL = 1;
+
+    /** An account in a room: {@code client} is "game" or "web". */
+    public record Person(String id, String username, String color, String client) {}
+
+    /** An account that may edit a plan. */
+    public record Member(String id, String username) {}
+
+    /** The whole plan as the service holds it at {@code seq}, and who is in it. */
+    public record Snapshot(String doc, long seq, JsonObject plan, String role, List<Member> members,
+        List<Person> present) {}
+
+    /** An accepted batch, to everyone in the room; {@code cid} is the sender's batch id (its ack, for the sender). */
+    public record OpsBatch(String doc, long seq, String by, String cid, JsonArray ops) {}
+
+    /** Where someone is looking; {@code cursor} null when off the board. */
+    public record Presence(String doc, String who, @Nullable JsonObject cursor, JsonArray sel,
+        @Nullable JsonObject view) {}
+
+    /** What the service sends, one method each. Called from {@link #poll}; override what is needed. */
+    public interface Listener {
+
+        default void onState(final LiveSocket.State state, final String reason) {}
+
+        /** Said hello back: this is who the service knows the session as. */
+        default void onWelcome(final Person you) {}
+
+        default void onSnapshot(final Snapshot snapshot) {}
+
+        default void onOps(final OpsBatch batch) {}
+
+        default void onPresence(final Presence presence) {}
+
+        default void onPresent(final String doc, final List<Person> present) {}
+
+        default void onMembers(final String doc, final List<Member> members) {}
+
+        /** Out of the room: {@code reason} is "unshared" or "deleted". */
+        default void onKicked(final String doc, final String reason) {}
+
+        /** {@code doc} is empty for an error about the connection. */
+        default void onError(final String doc, final String code, final String message) {}
+    }
+
+    /**
+     * What the hello tells the service. {@code serverHash} (a hash of the game server's address or the world) null for
+     * none.
+     */
+    public record Hello(String clientVersion, @Nullable String serverHash, @Nullable String mcName) {}
+
+    /** The hash the service groups "players near you" by: SHA-256, hex, of the address or world name. */
+    public static String serverHash(final String addressOrWorld) {
+        try {
+            final byte[] d = MessageDigest.getInstance("SHA-256")
+                .digest(addressOrWorld.getBytes(StandardCharsets.UTF_8));
+            final StringBuilder sb = new StringBuilder();
+            for (final byte b : d) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (final NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** At most this many presence frames a second per doc; the newest wins. */
+    private static final long PRESENCE_GAP_NANOS = 100_000_000L;
+
+    private final LiveSocket socket;
+    private final Hello hello;
+    private final List<Listener> listeners = new CopyOnWriteArrayList<>();
+    private final Set<String> joined = new LinkedHashSet<>();
+    private final Map<String, JsonObject> presenceWaiting = new HashMap<>();
+    private final Map<String, Long> presenceSentAt = new HashMap<>();
+    private boolean welcomed;
+    @Nullable
+    private Person you;
+
+    public LiveClient(final URI live, final Supplier<String> token, final Hello hello) {
+        this(new LiveSocket(live, token), hello);
+    }
+
+    public LiveClient(final URI live, final Supplier<String> token, final Hello hello, @Nullable final SSLContext ssl,
+        final LiveSocket.Options options) {
+        this(new LiveSocket(live, token, ssl, options), hello);
+    }
+
+    LiveClient(final LiveSocket socket, final Hello hello) {
+        this.socket = socket;
+        this.hello = hello;
+    }
+
+    public void addListener(final Listener l) {
+        listeners.add(l);
+    }
+
+    public void removeListener(final Listener l) {
+        listeners.remove(l);
+    }
+
+    /** Connects and keeps the connection until {@link #stop}. */
+    public void start() {
+        socket.start();
+    }
+
+    public void stop() {
+        socket.stop();
+    }
+
+    public LiveSocket.State state() {
+        return socket.state();
+    }
+
+    /** True once the service has said welcome on this connection: frames sent now are heard. */
+    public boolean ready() {
+        return welcomed;
+    }
+
+    /** Who the service knows this session as, from the last welcome; null before the first. */
+    @Nullable
+    public Person you() {
+        return you;
+    }
+
+    /** The docs joined (or to be joined once connected), oldest first. */
+    public Set<String> joined() {
+        return new LinkedHashSet<>(joined);
+    }
+
+    /** Joins a doc's room; its snapshot arrives as {@link Listener#onSnapshot}. Joined again after every reconnect. */
+    public void join(final String doc) {
+        if (!joined.add(doc)) return;
+        if (welcomed) socket.send(frame("join", doc).toString());
+    }
+
+    public void leave(final String doc) {
+        if (!joined.remove(doc)) return;
+        presenceWaiting.remove(doc);
+        presenceSentAt.remove(doc);
+        if (welcomed) socket.send(frame("leave", doc).toString());
+    }
+
+    /**
+     * Sends one local edit: {@code base} is the seq the client had, {@code cid} its batch id. False when not connected
+     * or the queue is full; the caller keeps the batch pending and sends it again from the next snapshot.
+     */
+    public boolean sendOps(final String doc, final long base, final String cid, final JsonArray ops) {
+        if (!welcomed) return false;
+        final JsonObject f = frame("ops", doc);
+        f.addProperty("base", base);
+        f.addProperty("cid", cid);
+        f.add("ops", ops);
+        return socket.send(f.toString());
+    }
+
+    /** A cursor position in the plan's own coordinates. */
+    public static JsonObject at(final double x, final double y) {
+        final JsonObject o = new JsonObject();
+        o.addProperty("x", x);
+        o.addProperty("y", y);
+        return o;
+    }
+
+    /**
+     * Says where this player is looking: {@code cursor} (null off the board), the selected ids, and the view when it
+     * is to be shared. Sent at once if the last one went more than 0.1 s ago, else when {@link #poll} finds it due;
+     * a newer one replaces one still waiting.
+     */
+    public void sendPresence(final String doc, @Nullable final JsonObject cursor, final List<String> selected,
+        @Nullable final JsonObject view) {
+        if (!joined.contains(doc)) return;
+        final JsonObject f = frame("presence", doc);
+        if (cursor == null) f.add("cursor", com.google.gson.JsonNull.INSTANCE);
+        else f.add("cursor", cursor);
+        final JsonArray sel = new JsonArray();
+        for (final String id : selected) sel.add(new com.google.gson.JsonPrimitive(id));
+        f.add("sel", sel);
+        if (view != null) f.add("view", view);
+        presenceWaiting.put(doc, f);
+        flushPresence();
+    }
+
+    /** Hands out what has arrived, then sends any presence that is due. Run it each tick on the client thread. */
+    public void poll() {
+        socket.poll(new LiveSocket.Sink() {
+
+            @Override
+            public void state(final LiveSocket.State s, final String reason) {
+                stateChanged(s, reason);
+            }
+
+            @Override
+            public void frame(final String text) {
+                received(text);
+            }
+        });
+        flushPresence();
+    }
+
+    private void flushPresence() {
+        if (!welcomed || presenceWaiting.isEmpty()) return;
+        final long now = System.nanoTime();
+        for (final String doc : new ArrayList<>(presenceWaiting.keySet())) {
+            final Long last = presenceSentAt.get(doc);
+            if (last != null && now - last < PRESENCE_GAP_NANOS) continue;
+            if (socket.send(
+                presenceWaiting.get(doc)
+                    .toString())) {
+                presenceSentAt.put(doc, now);
+                presenceWaiting.remove(doc);
+            }
+        }
+    }
+
+    private void stateChanged(final LiveSocket.State s, final String reason) {
+        if (s == LiveSocket.State.OPEN) {
+            final JsonObject h = new JsonObject();
+            h.addProperty("t", "hello");
+            h.addProperty("v", PROTOCOL);
+            h.addProperty("client", "game");
+            h.addProperty("clientVersion", hello.clientVersion());
+            if (hello.serverHash() != null) {
+                final JsonObject game = new JsonObject();
+                game.addProperty("server", hello.serverHash());
+                if (hello.mcName() != null) game.addProperty("mcName", hello.mcName());
+                h.add("game", game);
+            }
+            socket.send(h.toString());
+        } else {
+            welcomed = false;
+        }
+        for (final Listener l : listeners) l.onState(s, reason);
+    }
+
+    private void received(final String text) {
+        final JsonObject o;
+        try {
+            o = new JsonParser().parse(text)
+                .getAsJsonObject();
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.debug("Live: unreadable frame", e);
+            return;
+        }
+        final String t = str(o, "t");
+        final String doc = str(o, "doc");
+        try {
+            switch (t) {
+                case "welcome" -> {
+                    you = person(o.getAsJsonObject("you"));
+                    welcomed = true;
+                    for (final String d : joined) socket.send(frame("join", d).toString());
+                    for (final Listener l : listeners) l.onWelcome(you);
+                }
+                case "snapshot" -> {
+                    final Snapshot s = new Snapshot(
+                        doc,
+                        num(o, "seq"),
+                        o.getAsJsonObject("plan"),
+                        str(o, "role"),
+                        members(o.get("members")),
+                        people(o.get("present")));
+                    for (final Listener l : listeners) l.onSnapshot(s);
+                }
+                case "ops" -> {
+                    final OpsBatch b = new OpsBatch(doc, num(o, "seq"), str(o, "by"), str(o, "cid"), array(o, "ops"));
+                    for (final Listener l : listeners) l.onOps(b);
+                }
+                case "presence" -> {
+                    final JsonElement who = o.get("who");
+                    final Presence p = new Presence(
+                        doc,
+                        who != null && who.isJsonObject() ? str(who.getAsJsonObject(), "id")
+                            : who == null || who.isJsonNull() ? "" : who.getAsString(),
+                        object(o, "cursor"),
+                        array(o, "sel"),
+                        object(o, "view"));
+                    for (final Listener l : listeners) l.onPresence(p);
+                }
+                case "present" -> {
+                    final List<Person> p = people(o.get("present"));
+                    for (final Listener l : listeners) l.onPresent(doc, p);
+                }
+                case "members" -> {
+                    final List<Member> m = members(o.get("members"));
+                    for (final Listener l : listeners) l.onMembers(doc, m);
+                }
+                case "kicked" -> {
+                    joined.remove(doc);
+                    presenceWaiting.remove(doc);
+                    for (final Listener l : listeners) l.onKicked(doc, str(o, "reason"));
+                }
+                case "error" -> {
+                    for (final Listener l : listeners) l.onError(doc, str(o, "code"), str(o, "msg"));
+                }
+                default -> {
+                    // "pong", and anything a newer service adds.
+                }
+            }
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Live: a '{}' frame did not read", t, e);
+        }
+    }
+
+    private static JsonObject frame(final String type, final String doc) {
+        final JsonObject f = new JsonObject();
+        f.addProperty("t", type);
+        f.addProperty("doc", doc);
+        return f;
+    }
+
+    // region JSON
+
+    private static Person person(@Nullable final JsonObject o) {
+        if (o == null) return new Person("", "", "", "");
+        return new Person(str(o, "id"), str(o, "username"), str(o, "color"), str(o, "client"));
+    }
+
+    private static List<Person> people(@Nullable final JsonElement e) {
+        final List<Person> out = new ArrayList<>();
+        if (e != null && e.isJsonArray()) for (final JsonElement p : e.getAsJsonArray()) {
+            if (p.isJsonObject()) out.add(person(p.getAsJsonObject()));
+        }
+        return out;
+    }
+
+    private static List<Member> members(@Nullable final JsonElement e) {
+        final List<Member> out = new ArrayList<>();
+        if (e != null && e.isJsonArray()) for (final JsonElement m : e.getAsJsonArray()) {
+            if (m.isJsonObject())
+                out.add(new Member(str(m.getAsJsonObject(), "id"), str(m.getAsJsonObject(), "username")));
+        }
+        return out;
+    }
+
+    private static String str(final JsonObject o, final String key) {
+        final JsonElement e = o.get(key);
+        return e == null || e.isJsonNull() ? "" : e.getAsString();
+    }
+
+    private static long num(final JsonObject o, final String key) {
+        final JsonElement e = o.get(key);
+        return e == null || e.isJsonNull() ? 0 : e.getAsLong();
+    }
+
+    private static JsonArray array(final JsonObject o, final String key) {
+        final JsonElement e = o.get(key);
+        return e != null && e.isJsonArray() ? e.getAsJsonArray() : new JsonArray();
+    }
+
+    @Nullable
+    private static JsonObject object(final JsonObject o, final String key) {
+        final JsonElement e = o.get(key);
+        return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
+    }
+
+    // endregion
+}
