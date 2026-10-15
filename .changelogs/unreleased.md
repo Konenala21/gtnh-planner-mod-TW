@@ -1,8 +1,8 @@
 ## New
 
 - **Shared with me** in the library. When someone shares a plan with you the board tells you with an Open key, or the chat does if the planner is shut
-- Task boards are plans of their own. A card's pin key has Add to a task. Pick the board and the task or make a new one
-- A task holds machines, spots in your world and screenshots. Each has its own tick box. Show a spot and a beam marks it
+- Task boards are plans of their own. A card's pin button has Add to a task. Pick the board and the task or make a new one
+- A task holds machines, spots in your world and screenshots. Each has its own tick box. Show a spot and a beam marks it. The gear picks when spots show
 - An account key in the top bar. Sign in there and sign out from its menu
 
 ## Better

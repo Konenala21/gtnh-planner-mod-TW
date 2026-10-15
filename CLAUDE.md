@@ -148,7 +148,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   is a title, status, people, notes, a list of **things** (`taskItems`, each with its own checkbox, drag to reorder,
   right-click for its menu) and comments. Things (`TaskThings` shows them): a **machine** (`Tasks.MACHINE`, a `link`:
   icon, "4× Electric Blast Furnace (HV)", its plan, where it is placed in this world; a click shows it on its plan, its
-  pin key in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
+  pin button in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
   where I stand" adds the block under the player and asks for a name; its Show key closes the planner and stands a
   beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`) and a **screenshot**
   (`Tasks.Picture`, game only: "Add a screenshot" closes the planner, hides the GUI, reads the frame at a render tick's
@@ -159,7 +159,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   plan's id (`Graph.planId()`: its cloud doc key, else its saved local id; `isPlan` takes either) and the card's id as
   that plan spells it (`BoardSession.linkOf`, `PlanIds.uuid` back); older saves' `nodeIds`/`nodeId` read as links with
   no plan (the holder's own) and are written with its id. A click on one is `BoardSession.openLink`: opens that plan and
-  centres the card, or says "That plan is gone". "Add to a task" (a card's pin key, `RecipeCard.openPlaceMenu`, also on
+  centres the card, or says "That plan is gone". "Add to a task" (a card's pin button, `RecipeCard.openPlaceMenu`, also on
   the overview's machine lines; a card's actions; a right click on the board with cards selected) asks which task board,
   then which task with its status dot, or New task (`TaskActions.addMenu`), adds one machine thing per card with how
   many to build, and says so with an Open key (`BoardSession.openTask`, `TaskPanel.openWhenShown`). A card shows the dot
@@ -332,7 +332,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   from the world with sneak held (`PlacementKeys`: R turn, G pick up and move, Del remove, U Focus: cards only where you
   look, Y hides the whole overlay). World code never loads the plans (`Plan.loaded()`). The pin list (`PinList`, issue 5) lists
   the plan's pinned cards in a corner while playing (machine, tier tags, how many; clear of the minimap and the keys
-  strip): a card's pin key, or the one right of each overview machine line's EU/t, opens Place in the world / Pin to
+  strip): a card's pin button, or the one right of each overview machine line's EU/t, opens Place in the world / Pin to
   the screen (`RecipeCard.openPlaceMenu`); right-click unpins both (`clearPins`). Pins are `Graph.pinList` (card ids,
   saved with the plan); show and corner are in the gear's Pin list section, and a key (unbound) shows or hides it. The earlier lens of every machine's live
   state is shelved on `shelf/ar-machine-lens`. Settings are the top bar's gear (`PlannerSettings`).

@@ -750,7 +750,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             y += 4;
             int x = mainX;
             if (net.minecraft.client.Minecraft.getMinecraft().theWorld != null) {
-                x = addKey(x, y, "Add where I stand", Kind.ADD_HERE, hover, true);
+                x = addKey(x, y, "Add my location", Kind.ADD_HERE, hover, true);
                 if (x + 6 + keyW("Add a screenshot") > mainX + mainW) {
                     x = mainX;
                     y += KEY_H + 4;
@@ -758,7 +758,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 addKey(x, y, "Add a screenshot", Kind.ADD_SHOT, hover, false);
                 y += KEY_H + 6;
             }
-            final NoteText hint = NoteText.of("Add machines from a card's pin key.", mainW, Hyb::width);
+            final NoteText hint = NoteText.of("Add machines from a card's pin button.", mainW, Hyb::width);
             for (int i = 0; i < hint.lines()
                 .size(); i++) {
                 Hyb.text(hint.shown(i), mainX, y + 1, FAINT);

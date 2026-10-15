@@ -502,7 +502,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final int cx = x + columnW() / 2, width = columnW() - 12;
         float y = centred("No tasks yet.", cx, top + 14, width, Hyb.MUTED) + 4;
         y = centred("Press + to add one.", cx, y, width, 0xFF6A6C74);
-        centred("Or add a card from its pin key.", cx, y, width, 0xFF6A6C74);
+        centred("Or add a card from its pin button.", cx, y, width, 0xFF6A6C74);
     }
 
     /** Words centred on {@code cx}, wrapped to {@code width}; returns the y under them. */

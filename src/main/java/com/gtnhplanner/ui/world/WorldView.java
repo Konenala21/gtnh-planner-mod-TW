@@ -15,6 +15,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.theme.Hyb;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -94,22 +95,46 @@ public final class WorldView {
     /** A task's spot shown with "Show where it is", until when. */
     @Nullable
     private com.gtnhplanner.data.flowchart.Tasks.Place shownPlace;
-    private long shownPlaceUntil;
+
+    /** Every open task's unticked locations in this world and dimension, looked at again each second. */
+    private java.util.List<com.gtnhplanner.data.flowchart.Tasks.Place> taskPlaces = java.util.List.of();
+    private int taskScan;
 
     /**
      * Outlines a task's spot for a while, with a beam to find it by and its label and distance over it; the planner
      * closes. A spot in another dimension says so instead.
      */
     public static void show(final com.gtnhplanner.data.flowchart.Tasks.Place place) {
-        INSTANCE.shownPlace = place;
-        INSTANCE.shownPlaceUntil = System.currentTimeMillis() + SHOW_MILLIS;
+        // Pressing Show on the spot already shown puts it away again.
+        INSTANCE.shownPlace = place.equals(INSTANCE.shownPlace) ? null : place;
         INSTANCE.shownGraph = null;
         INSTANCE.closing = true;
     }
 
     @Nullable
     private com.gtnhplanner.data.flowchart.Tasks.Place shownPlace() {
-        return shownPlace == null || System.currentTimeMillis() > shownPlaceUntil ? null : shownPlace;
+        return shownPlace;
+    }
+
+    /** Looks through the loaded plans for the unticked locations of tasks not done, in this world and dimension. */
+    private static java.util.List<com.gtnhplanner.data.flowchart.Tasks.Place> scanPlaces(final int dim) {
+        final com.gtnhplanner.data.flowchart.Plan plan = com.gtnhplanner.data.flowchart.Plan.loaded();
+        if (plan == null) return java.util.List.of();
+        final java.util.List<com.gtnhplanner.data.flowchart.Tasks.Place> out = new java.util.ArrayList<>();
+        for (final Graph g : plan.getGraphs()) {
+            final java.util.Set<String> done = new java.util.HashSet<>();
+            for (final com.gtnhplanner.data.flowchart.Tasks.Task t : g.tasks)
+                if (t.status() == com.gtnhplanner.data.flowchart.Tasks.Status.DONE) done.add(t.id());
+            for (final com.gtnhplanner.data.flowchart.Tasks.Item i : g.taskItems) {
+                final com.gtnhplanner.data.flowchart.Tasks.Place p = i.place();
+                if (p == null || i.done()
+                    || done.contains(i.taskId())
+                    || p.dim() != dim
+                    || !com.gtnhplanner.ui.task.TaskThings.inThisWorld(p)) continue;
+                out.add(p);
+            }
+        }
+        return out;
     }
 
     @SubscribeEvent
@@ -118,8 +143,20 @@ public final class WorldView {
         final Minecraft mc = Minecraft.getMinecraft();
         if (mc.theWorld == null) {
             look = null;
+            shownPlace = null;
+            taskPlaces = java.util.List.of();
             return;
         }
+        if (taskScan-- <= 0) {
+            taskScan = 20;
+            taskPlaces = PlannerSettings.taskShow() == PlannerSettings.TASK_NEVER ? java.util.List.of()
+                : scanPlaces(mc.theWorld.provider.dimensionId);
+        }
+        // A spot shown with Show goes away once the player is there.
+        final com.gtnhplanner.data.flowchart.Tasks.Place there = shownPlace;
+        if (there != null && !closing
+            && there.dim() == mc.theWorld.provider.dimensionId
+            && WorldMarks.distance(there.x(), there.y(), there.z()) <= 4) shownPlace = null;
         if (closing) {
             closing = false;
             mc.displayGuiScreen(null);
@@ -167,7 +204,14 @@ public final class WorldView {
         final Node shown = shown();
         final com.gtnhplanner.data.flowchart.Tasks.Place place = shownPlace();
         final boolean placeHere = place != null && place.dim() == dim;
-        if (picking == null && shown == null && !placeHere) return;
+        final int mode = PlannerSettings.taskShow();
+        final java.util.List<com.gtnhplanner.data.flowchart.Tasks.Place> spots = new java.util.ArrayList<>();
+        if (mode == PlannerSettings.TASK_ALWAYS || mode == PlannerSettings.TASK_NEAR) {
+            final double near = mode == PlannerSettings.TASK_NEAR ? PlannerSettings.taskDistance() : Double.MAX_VALUE;
+            for (final com.gtnhplanner.data.flowchart.Tasks.Place t : taskPlaces)
+                if (!t.equals(place) && WorldMarks.distance(t.x(), t.y(), t.z()) <= near) spots.add(t);
+        }
+        if (picking == null && shown == null && !placeHere && spots.isEmpty()) return;
         WorldMarks.begin();
         if (picking != null) {
             // Where the card would go: the machine's ghost in front of the face looked at, a multiblock standing on it.
@@ -195,19 +239,25 @@ public final class WorldView {
             }
         }
         if (shown != null) labels(shown, dim);
-        if (placeHere) {
-            final double[] box = { place.x(), place.y(), place.z(), place.x() + 1, place.y() + 1, place.z() + 1 };
-            WorldMarks.outline(box, Hyb.SELECTION & 0xFFFFFF, 0.004f, 2f, 0.8f);
-            // No beam while standing in it: it would wash the whole view in its colour.
-            if (WorldMarks.distance(place.x(), place.y(), place.z()) > 4)
-                WorldMarks.beam(place.x(), place.y(), place.z(), Hyb.SELECTION & 0xFFFFFF);
-            label(
-                place.label() != null ? place.label() : place.x() + " " + place.y() + " " + place.z(),
-                place.x(),
-                place.y(),
-                place.z());
-        }
+        if (placeHere) spot(place, true);
+        for (final com.gtnhplanner.data.flowchart.Tasks.Place t : spots) spot(t, false);
         WorldMarks.end();
+    }
+
+    /**
+     * A task's location: outlined, with a beam and its name unless the settings turn them off (a shown one keeps both).
+     */
+    private static void spot(final com.gtnhplanner.data.flowchart.Tasks.Place place, final boolean shown) {
+        final double[] box = { place.x(), place.y(), place.z(), place.x() + 1, place.y() + 1, place.z() + 1 };
+        WorldMarks.outline(box, Hyb.SELECTION & 0xFFFFFF, 0.004f, 2f, 0.8f);
+        // No beam while standing in it: it would wash the whole view in its colour.
+        if ((shown || PlannerSettings.taskBeam()) && WorldMarks.distance(place.x(), place.y(), place.z()) > 4)
+            WorldMarks.beam(place.x(), place.y(), place.z(), Hyb.SELECTION & 0xFFFFFF);
+        if (shown || PlannerSettings.taskLabel()) label(
+            place.label() != null ? place.label() : place.x() + " " + place.y() + " " + place.z(),
+            place.x(),
+            place.y(),
+            place.z());
     }
 
     /** A name and its distance over a block, facing the camera. */
