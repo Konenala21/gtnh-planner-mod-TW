@@ -12,9 +12,11 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
+import com.gtnhplanner.data.flowchart.Groups;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.importer.FfDrawers.Role;
@@ -166,8 +168,27 @@ public final class FfConverter {
             minY = Double.isFinite(y) ? y : 0;
         }
 
+        /** What each node and drawer the import made came from, by FF id (a card, storage or custom rate card). */
+        final Map<UUID, String> origin = new HashMap<>();
+
+        /** Notes what was added to the graph since {@code before} (node and drawer ids) as made from {@code ffId}. */
+        private void madeFrom(final Set<UUID> before, final String ffId) {
+            for (final UUID id : graph.nodes.keySet()) if (!before.contains(id)) origin.putIfAbsent(id, ffId);
+            for (final UUID id : graph.drawers.keySet()) if (!before.contains(id)) origin.putIfAbsent(id, ffId);
+        }
+
+        private Set<UUID> ids() {
+            final Set<UUID> ids = new HashSet<>(graph.nodes.keySet());
+            ids.addAll(graph.drawers.keySet());
+            return ids;
+        }
+
         Result run() {
-            for (final FfNode card : plan.nodes()) placeCard(card);
+            for (final FfNode card : plan.nodes()) {
+                final Set<UUID> before = ids();
+                placeCard(card);
+                madeFrom(before, card.id());
+            }
             if (plan.poolMode()) wirePool();
             else for (final FfEdge e : expandBuffers()) wire(e);
             supplyHatches();
@@ -175,6 +196,7 @@ public final class FfConverter {
             makeDrawers();
             reportUnusedStorages();
             placeNotes();
+            placeBoards();
             if (lostWires > 0) report.add(
                 Kind.WIRE,
                 "Plan",
@@ -686,13 +708,34 @@ public final class FfConverter {
         }
 
         void makeDrawers() {
-            for (final PendingDrawer d : pending.values()) {
+            for (final Map.Entry<String, PendingDrawer> entry : pending.entrySet()) {
+                final PendingDrawer d = entry.getValue();
+                final Set<UUID> before = ids();
+                try {
+                    makeDrawer(d);
+                } finally {
+                    // A hatch's drawer is its card's (hatch:<card>:<fluid>).
+                    final String key = entry.getKey();
+                    madeFrom(before, hatchCard(key));
+                }
+            }
+        }
+
+        /** The card a hatch drawer's key names, or the key itself when it is no hatch's. */
+        private String hatchCard(final String key) {
+            if (key.startsWith("hatch:"))
+                for (final String card : cardIds) if (key.startsWith("hatch:" + card + ":")) return card;
+            return key;
+        }
+
+        void makeDrawer(final PendingDrawer d) {
+            {
                 if (d.links.isEmpty()) {
                     report.add(Kind.DROPPED, d.subject, "a drawer with no wires left in GTNH Planner; left out");
-                    continue;
+                    return;
                 }
                 final PortInfo first = d.infos.getFirst();
-                if (d.dial != null && makeCustomRate(d, first)) continue;
+                if (d.dial != null && makeCustomRate(d, first)) return;
                 final Drawer drawer = new Drawer(d.kind, first.key());
                 drawer.setLabel(d.label != null && !d.label.isEmpty() ? d.label : first.label());
                 drawer.setX(d.x);
@@ -755,7 +798,79 @@ public final class FfConverter {
             for (final FfNote n : plan.textNotes()) {
                 final Note note = note(n, UUID.randomUUID(), px(n.x()), py(n.y()));
                 graph.notes.put(note.getId(), note);
+                if (!n.id()
+                    .isEmpty()) noteOrigin.put(note.getId(), n.id());
             }
+        }
+
+        /** The notes the import made, by the FF id of the annotation each came from. */
+        final Map<UUID, String> noteOrigin = new HashMap<>();
+
+        /**
+         * FF's boards as the board's groups: each frame at the cards' scale, open or collapsed as it was, its paper and
+         * colour kept, and what was in it in it again (docs/design/groups.md). A frame grows to hold its members, here
+         * with a guess at their sizes and again once the board knows them.
+         */
+        void placeBoards() {
+            if (plan.boards()
+                .isEmpty()) return;
+            final Map<String, BoardGroup> byFf = new HashMap<>();
+            for (final FfPlan.FfBoard b : plan.boards()) {
+                final BoardGroup g = new BoardGroup();
+                g.setFfId(b.id());
+                g.setName(
+                    b.name() == null || b.name()
+                        .isEmpty() ? Groups.newName(graph) : b.name());
+                if (b.colorTag() != null && !b.colorTag()
+                    .isEmpty()) g.setColor(b.colorTag());
+                g.setTheme(b.theme());
+                g.setPattern(b.pattern());
+                g.setCollapsed(!b.expanded());
+                g.setX(px(b.x()));
+                g.setY(py(b.y()));
+                g.setWidth(
+                    b.width() == null ? BoardGroup.MIN_W
+                        : Math.max(BoardGroup.MIN_W, (int) Math.round(b.width() * SCALE_X)));
+                g.setHeight(
+                    b.height() == null ? BoardGroup.MIN_H
+                        : Math.max(BoardGroup.MIN_H, (int) Math.round(b.height() * SCALE_Y)));
+                graph.boardGroups.put(g.getId(), g);
+                byFf.put(b.id(), g);
+            }
+            for (final FfPlan.FfBoard b : plan.boards()) {
+                final BoardGroup parent = b.parent() == null ? null : byFf.get(b.parent());
+                if (parent != null) Groups.setGroupOf(
+                    graph,
+                    byFf.get(b.id())
+                        .getId(),
+                    parent.getId());
+            }
+            for (final Map.Entry<UUID, String> e : origin.entrySet()) {
+                final String in = plan.boardOf()
+                    .get(e.getValue());
+                final BoardGroup g = in == null ? null : byFf.get(in);
+                if (g == null) continue;
+                final Node n = graph.nodes.get(e.getKey());
+                if (n != null) n.group = g.getId();
+                final Drawer d = graph.drawers.get(e.getKey());
+                if (d != null) d.setGroup(g.getId());
+            }
+            for (final Map.Entry<UUID, String> e : noteOrigin.entrySet()) {
+                final String in = plan.boardOf()
+                    .get(e.getValue());
+                final BoardGroup g = in == null ? null : byFf.get(in);
+                if (g != null) graph.notes.get(e.getKey())
+                    .setGroup(g.getId());
+            }
+            Groups.sanitize(graph);
+            Groups.fit(graph, id -> {
+                final Node n = graph.nodes.get(id);
+                if (n != null) return new int[] { n.x, n.y, 320, 60 };
+                final Drawer d = graph.drawers.get(id);
+                if (d != null) return new int[] { d.getX(), d.getY(), 40, 40 };
+                final Note note = graph.notes.get(id);
+                return note == null ? null : new int[] { note.getX(), note.getY(), note.getWidth(), note.getHeight() };
+            });
         }
 
         // endregion
@@ -770,19 +885,45 @@ public final class FfConverter {
     }
 
     /**
-     * A text note as a board note at a place: sized at the cards' scale, never under a note's smallest size, with its
-     * colour, text size and text.
+     * An annotation as a board note at a place: sized at the cards' scale, never under a note's smallest size (a
+     * drawing's, which an arrow may go under on one axis to run level), with its colour, text size and text, and a
+     * drawing's kind and dress (docs/design/annotations.md).
      */
     public static Note note(final FfNote n, final UUID id, final int x, final int y) {
         final Note note = new Note(id);
         note.setX(x);
         note.setY(y);
-        note.setWidth(Math.max(Note.MIN_W, (int) Math.round(n.width() * SCALE_X)));
-        note.setHeight(Math.max(Note.MIN_H, (int) Math.round(n.height() * SCALE_Y)));
+        final FfPlan.FfDrawing d = n.drawing();
+        // An arrow may run level (an axis of 0); every other drawing is at least a cell.
+        final boolean arrow = d != null && Note.ARROW.equals(d.kind());
+        final int minW = d == null ? Note.MIN_W : arrow ? 0 : Note.DRAWING_MIN;
+        final int minH = d == null ? Note.MIN_H : arrow ? 0 : Note.DRAWING_MIN;
+        note.setWidth(Math.max(minW, (int) Math.round(n.width() * SCALE_X)));
+        note.setHeight(Math.max(minH, (int) Math.round(n.height() * SCALE_Y)));
         if (n.colorTag() != null && !n.colorTag()
             .isEmpty()) note.setColor(n.colorTag());
+        // A drawing with no tag keeps none (a picture is then framed in grey, not yellow).
+        else if (d != null) note.setColor("");
         if (n.fontSize() != null) note.setFontSize(n.fontSize());
         note.setJoined(n.text());
+        if (d != null) {
+            note.setKind(d.kind());
+            note.setArrowDirection(d.arrowDirection());
+            note.setArrowHeads(d.arrowHeads());
+            note.setArrowWidth(d.arrowWidth());
+            if (d.points() != null) {
+                final List<int[]> pts = new ArrayList<>();
+                for (final double[] p : d.points())
+                    pts.add(new int[] { (int) Math.round(p[0] * SCALE_X), (int) Math.round(p[1] * SCALE_Y) });
+                note.setPoints(pts);
+            }
+            note.setImageUrl(d.imageUrl());
+            note.setBorder(d.border());
+            note.setBorderColor(d.borderColor());
+            note.setFillColor(d.fillColor());
+            note.setFill(d.fill());
+            note.setMarks(d.marks());
+        }
         return note;
     }
 

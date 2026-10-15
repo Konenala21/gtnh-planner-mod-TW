@@ -133,6 +133,9 @@ public class Drawer extends GraphData {
     private String resourceKey = "";
     /** The resource's display name as last resolved by the client, for when it cannot resolve. */
     private String label = "";
+    /** The board group it is in ({@link BoardGroup}), or null. */
+    @org.jetbrains.annotations.Nullable
+    private UUID group;
 
     /** A product drawer with no resource, no links and no rule; also Gson's constructor. */
     public Drawer() {
@@ -239,6 +242,15 @@ public class Drawer extends GraphData {
 
     public void setResourceKey(final String resourceKey) {
         this.resourceKey = Objects.requireNonNull(resourceKey, "resourceKey");
+    }
+
+    @org.jetbrains.annotations.Nullable
+    public UUID getGroup() {
+        return group;
+    }
+
+    public void setGroup(@org.jetbrains.annotations.Nullable final UUID group) {
+        this.group = group;
     }
 
     public String getLabel() {

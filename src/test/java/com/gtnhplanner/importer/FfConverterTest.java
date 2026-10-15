@@ -1,5 +1,6 @@
 package com.gtnhplanner.importer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -558,8 +559,20 @@ class FfConverterTest {
             "position": {"x": 0, "y": 0}, "size": {"width": 240, "height": 80}, "fontSize": 20},
            {"id": "t2", "kind": "text", "text": "small", "position": {"x": 760, "y": 400},
             "size": {"width": 100, "height": 40}},
-           {"id": "b1", "kind": "box", "position": {"x": -400, "y": -400}, "size": {"width": 800, "height": 800}}]}
+           {"id": "b1", "kind": "box", "colorTag": "azure", "position": {"x": 200, "y": 100}, "size": {"width": 800, "height": 800},
+            "style": {"border": "dashed", "fill": "dots", "borderColor": "white"}},
+           {"id": "z1", "kind": "zone", "position": {"x": 100, "y": 100}, "size": {"width": 400, "height": 200},
+            "points": [{"x": 0, "y": 0}, {"x": 400, "y": 0}, {"x": 400, "y": 200}], "style": {"fill": "paper"}},
+           {"id": "a1", "kind": "arrow", "arrowDirection": "up-left", "colorTag": "scarlet", "position": {"x": 300, "y": 300},
+            "size": {"width": 200, "height": 100}},
+           {"id": "i1", "kind": "image", "text": "Hello", "imageUrl": "https://example.com/p.png",
+            "position": {"x": 500, "y": 300}, "size": {"width": 360, "height": 280}}]}
         """;
+
+    private static Note drawing(final Graph g, final String kind) {
+        for (final Note n : g.getNotes()) if (kind.equals(n.kind())) return n;
+        throw new AssertionError("no " + kind);
+    }
 
     private static Note note(final Graph g, final String firstLine) {
         for (final Note n : g.getNotes()) if (!n.getText()
@@ -574,7 +587,7 @@ class FfConverterTest {
     void textNotesBecomeBoardNotes() {
         final FfConverter.Result r = convert(NOTES, new FakeGame());
         final Graph g = r.graph();
-        assertEquals(2, g.notes.size());
+        assertEquals(6, g.notes.size());
 
         // The first note is the plan's top-left corner, so it sits at the margin and the mixer moves out from it.
         final Note big = note(g, "Mud line");
@@ -598,9 +611,36 @@ class FfConverterTest {
         assertEquals(Note.DEFAULT_COLOR, small.colorTag(), "no colour is FF's yellow");
         assertEquals(Note.DEFAULT_FONT, small.fontSizeOrDefault());
 
-        assertTrue(has(r.report(), Kind.NOTE, "1 box on the board left out"));
+        // The drawings come over as notes of a kind, placed and sized at the cards' scale.
+        final Note box = drawing(g, Note.BOX);
+        assertEquals(FfConverter.MARGIN + 170, box.getX(), "200 FF px at 320/380, snapped");
+        assertEquals(674, box.getWidth());
+        assertEquals(480, box.getHeight());
+        assertEquals("azure", box.colorTag());
+        assertEquals("dashed", box.borderStyle());
+        assertEquals("white", box.getBorderColor());
+        assertEquals("tint", box.fillStyle(), "a mark in the fill is a tint wearing it");
+        assertEquals("dots", box.marksStyle());
+        final Note zone = drawing(g, Note.ZONE);
+        assertEquals("solid", zone.fillStyle(), "paper is solid");
         assertEquals(
-            "1 card, 0 wires, 0 drawers, 2 notes",
+            3,
+            zone.getPoints()
+                .size());
+        assertArrayEquals(
+            new int[] { 337, 120 },
+            zone.getPoints()
+                .get(2));
+        assertEquals("", zone.getColor(), "no tag stays none");
+        final Note arrow = drawing(g, Note.ARROW);
+        assertEquals("up-left", arrow.getArrowDirection());
+        assertEquals("scarlet", arrow.colorTag());
+        final Note image = drawing(g, Note.IMAGE);
+        assertEquals("https://example.com/p.png", image.getImageUrl());
+        assertEquals(List.of("Hello"), image.getText());
+
+        assertEquals(
+            "1 card, 0 wires, 0 drawers, 6 notes",
             r.report()
                 .summary());
     }
@@ -642,8 +682,38 @@ class FfConverterTest {
             .toString();
         final Graph back = convert(posted, game).graph();
 
-        assertEquals(2, back.notes.size());
+        assertEquals(6, back.notes.size());
         for (final Note was : first.getNotes()) {
+            if (was.isDrawing()) {
+                final Note now = drawing(back, was.kind());
+                assertEquals(was.getX(), now.getX(), was.kind() + " comes back where it went");
+                assertEquals(was.getY(), now.getY());
+                assertEquals(was.getWidth(), now.getWidth());
+                assertEquals(was.getHeight(), now.getHeight());
+                assertEquals(was.getColor(), now.getColor());
+                assertEquals(was.getBorder(), now.getBorder());
+                assertEquals(was.getFill(), now.getFill());
+                assertEquals(was.getMarks(), now.getMarks());
+                assertEquals(was.getBorderColor(), now.getBorderColor());
+                assertEquals(was.getArrowDirection(), now.getArrowDirection());
+                assertEquals(was.getImageUrl(), now.getImageUrl());
+                assertEquals(was.getText(), now.getText());
+                if (was.getPoints() != null) {
+                    assertEquals(
+                        was.getPoints()
+                            .size(),
+                        now.getPoints()
+                            .size());
+                    for (int i = 0; i < was.getPoints()
+                        .size(); i++)
+                        assertArrayEquals(
+                            was.getPoints()
+                                .get(i),
+                            now.getPoints()
+                                .get(i));
+                }
+                continue;
+            }
             final Note now = note(
                 back,
                 was.getText()

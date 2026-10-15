@@ -267,7 +267,7 @@ class LibraryRoundTripTest {
      * card's recipe is on the website's map for its machine (machines/web/HandlerData, as WebCards builds it in game);
      * every card but a generator has NEI's id for its recipe; a crop card is the crop it makes.
      */
-    private static PlanExport.World world(final FakeGame game, final Graph g) {
+    static PlanExport.World world(final FakeGame game, final Graph g) {
         final Map<String, PlanExport.Res> byKey = new HashMap<>();
         for (final Node n : g.getNodes()) {
             final List<Port<?>> ports = new ArrayList<>(n.inputs);

@@ -1221,6 +1221,31 @@ public final class BoardSession {
         return note;
     }
 
+    /**
+     * Adds a box or an arrow (a {@code Note.BOX} or {@code Note.ARROW}) with its top left at a board point, as one
+     * undoable step, and selects it: a box 200 by 140, an arrow 160 long running level to the right, both blue.
+     */
+    public com.gtnhplanner.data.flowchart.Note addDrawing(final String kind, final int worldX, final int worldY) {
+        final com.gtnhplanner.data.flowchart.Note note = new com.gtnhplanner.data.flowchart.Note();
+        note.setKind(kind);
+        note.setColor("azure");
+        note.setX(snap(worldX));
+        note.setY(snap(worldY));
+        if (com.gtnhplanner.data.flowchart.Note.ARROW.equals(kind)) {
+            note.setWidth(160);
+            note.setHeight(0);
+            note.setArrowDirection("down-right");
+        } else {
+            note.setWidth(200);
+            note.setHeight(140);
+        }
+        editLayout(() -> graph.notes.put(note.getId(), note));
+        selection.clear();
+        selection.add(note.getId());
+        Sfx.NOTE_STICK.play();
+        return note;
+    }
+
     /** Deletes a sticky note, as one undoable step. */
     public void deleteNote(final UUID id) {
         selection.remove(id);
@@ -1334,6 +1359,11 @@ public final class BoardSession {
         return selection.contains(id);
     }
 
+    /** Lets go of one thing in the selection (gone out of sight, or off the plan). */
+    public void deselect(final UUID id) {
+        selection.remove(id);
+    }
+
     /**
      * Whether a card, drawer or note draws its selection outline: only when it is one of several selected, where the
      * outline says what a move or a delete takes. One thing alone is just the thing clicked.
@@ -1355,12 +1385,18 @@ public final class BoardSession {
         selection.clear();
     }
 
-    /** Every card, drawer and note on the board. */
+    /** Every card, drawer, note and group on the board (not what a collapsed group hides). */
     public void selectAll() {
         selection.clear();
-        selection.addAll(graph.nodes.keySet());
-        selection.addAll(graph.drawers.keySet());
-        selection.addAll(graph.notes.keySet());
+        for (final UUID id : graph.nodes.keySet())
+            if (!com.gtnhplanner.data.flowchart.Groups.hidden(graph, id)) selection.add(id);
+        for (final UUID id : graph.drawers.keySet())
+            if (!com.gtnhplanner.data.flowchart.Groups.hidden(graph, id)) selection.add(id);
+        for (final com.gtnhplanner.data.flowchart.Note n : graph.notes.values())
+            if (!n.isHidden() && !com.gtnhplanner.data.flowchart.Groups.hidden(graph, n.getId()))
+                selection.add(n.getId());
+        for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph.boardGroups.values())
+            if (com.gtnhplanner.data.flowchart.Groups.shows(graph, g)) selection.add(g.getId());
         Sfx.CLICK.play(0.6f, 1.15f);
     }
 
@@ -1370,16 +1406,14 @@ public final class BoardSession {
         // A shared machine goes whole: every recipe on its card.
         final List<UUID> ids = new ArrayList<>();
         for (final UUID id : selection) for (final UUID s : sectionsOf(id)) if (!ids.contains(s)) ids.add(s);
+        // A group goes with everything in it, as deleting a board always did.
+        for (final UUID id : new ArrayList<>(ids)) if (graph.boardGroups.containsKey(id))
+            for (final UUID inside : com.gtnhplanner.data.flowchart.Groups.descendants(graph, id))
+                if (!ids.contains(inside)) ids.add(inside);
         selection.clear();
         final boolean notesOnly = ids.stream()
             .allMatch(graph.notes::containsKey);
-        edit(() -> {
-            for (final UUID id : ids) {
-                if (graph.nodes.containsKey(id)) graph.removeNode(id);
-                else if (graph.drawers.containsKey(id)) graph.removeDrawer(id);
-                else graph.notes.remove(id);
-            }
-        });
+        edit(() -> com.gtnhplanner.ui.group.GroupEdits.removeAll(graph, ids));
         (notesOnly ? Sfx.NOTE_CRUMPLE : Sfx.REMOVE).play();
     }
 

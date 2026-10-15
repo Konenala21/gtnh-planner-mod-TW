@@ -901,7 +901,7 @@ final class Script {
             .wheel(empty, 3)
             .pause(150)
             .opensMenu(empty)
-            .click(Targets.popupRow("Add a sticky note"))
+            .click(Targets.popupRow("Add sticky note"))
             .until(() -> note.rect() != null, 2000)
             .until(Script::writingNote, 1500)
             .when(Script::writingNote, Steps.keys("Hydrogen comes from the electrolyzers by the door."))

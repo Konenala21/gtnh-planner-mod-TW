@@ -335,6 +335,13 @@ public final class Serializer {
         for (Group group : graph.getGroups()) groupsArray.add(GSON.toJsonTree(group));
         root.add("groups", groupsArray);
 
+        // Written only when there are: an older build reads the plan as it always did (its groups are lost there).
+        if (!graph.boardGroups.isEmpty()) {
+            final JsonArray boardGroups = new JsonArray();
+            for (final BoardGroup g : graph.boardGroups.values()) boardGroups.add(boardGroupToJson(g));
+            root.add("boardGroups", boardGroups);
+        }
+
         final JsonArray drawersArray = new JsonArray();
         for (final Drawer drawer : graph.getDrawers()) drawersArray.add(GSON.toJsonTree(drawer, Drawer.class));
         root.add("drawers", drawersArray);
@@ -416,7 +423,36 @@ public final class Serializer {
         // Absent from saves written before task boards existed; those load with none.
         Tasks.read(root, graph);
 
+        if (root.has("boardGroups") && root.get("boardGroups")
+            .isJsonArray()) {
+            for (final JsonElement elem : root.getAsJsonArray("boardGroups")) {
+                final BoardGroup g = readBoardGroup(elem);
+                if (g != null) graph.boardGroups.put(g.getId(), g);
+            }
+        }
+        Groups.sanitize(graph);
+
         return graph;
+    }
+
+    /** One board group as the save writes it (under {@code boardGroups}). */
+    @Nonnull
+    public static JsonObject boardGroupToJson(final BoardGroup group) {
+        return GSON.toJsonTree(group)
+            .getAsJsonObject();
+    }
+
+    /** One board group as the save wrote it ({@link #boardGroupToJson}), or null when it is malformed. */
+    @Nullable
+    public static BoardGroup readBoardGroup(@Nullable final JsonElement saved) {
+        if (saved == null || !saved.isJsonObject()) return null;
+        try {
+            final BoardGroup g = GSON.fromJson(saved, BoardGroup.class);
+            return g != null && g.getId() != null ? g : null;
+        } catch (final RuntimeException ignored) {
+            // A malformed group is left out; its members stay on the board.
+            return null;
+        }
     }
 
     /** One node as the save writes it: its id, place, recipe, settings, pins and world links. */
@@ -446,6 +482,7 @@ public final class Serializer {
         if (node.isMachineCountFixed()) {
             obj.addProperty("machineCountFixed", true);
         }
+        if (node.group != null) obj.addProperty("group", node.group.toString());
         if (!node.worldLinks.isEmpty()) {
             final JsonArray links = new JsonArray();
             for (final int[] l : node.worldLinks) {
@@ -546,6 +583,15 @@ public final class Serializer {
         node.setMachineCountFixed(
             obj.has("machineCountFixed") && obj.get("machineCountFixed")
                 .getAsBoolean());
+        if (obj.has("group")) {
+            try {
+                node.group = UUID.fromString(
+                    obj.get("group")
+                        .getAsString());
+            } catch (final RuntimeException ignored) {
+                // A malformed group leaves the card on the board.
+            }
+        }
         readWorldLinks(obj.get("worldLinks"), node);
         // Read independently of every other key.
         readRates(obj.get("inputTargets"), node.targetInputRates);
