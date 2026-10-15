@@ -105,6 +105,10 @@ public final class LiveClient {
     }
 
     /** At most this many presence frames a second per doc; the newest wins. */
+    /** A join the service called too fast is asked again after this long. */
+    static final long JOIN_RETRY_MS = 3_000;
+    /** JSON nested deeper than this is not read: the service refuses it too, and parsing it is recursion. */
+    public static final int MAX_DEPTH = 64;
     private static final long PRESENCE_GAP_NANOS = 100_000_000L;
 
     private final LiveSocket socket;
@@ -113,6 +117,12 @@ public final class LiveClient {
     private final Set<String> joined = new LinkedHashSet<>();
     private final Map<String, JsonObject> presenceWaiting = new HashMap<>();
     private final Map<String, Long> presenceSentAt = new HashMap<>();
+    /** Docs whose join the service refused as too fast, and when (nanoTime) to ask again. */
+    private final Map<String, Long> joinRetryAt = new HashMap<>();
+    private long joinRetryNanos = JOIN_RETRY_MS * 1_000_000L;
+    /** The last batch sent on this connection that has not come back: the one a too-big close is about. */
+    @Nullable
+    private String[] lastBatch;
     private boolean welcomed;
     @Nullable
     private Person you;
@@ -129,6 +139,11 @@ public final class LiveClient {
     LiveClient(final LiveSocket socket, final Hello hello) {
         this.socket = socket;
         this.hello = hello;
+    }
+
+    /** How long a join the service refused as too fast waits before it is asked again (tests shorten it). */
+    public void joinRetryAfterMs(final long ms) {
+        joinRetryNanos = ms * 1_000_000L;
     }
 
     public void addListener(final Listener l) {
@@ -171,6 +186,7 @@ public final class LiveClient {
     /** Joins a doc's room; its snapshot arrives as {@link Listener#onSnapshot}. Joined again after every reconnect. */
     public void join(final String doc) {
         if (!joined.add(doc)) return;
+        joinRetryAt.remove(doc);
         if (welcomed) socket.send(frame("join", doc).toString());
     }
 
@@ -178,6 +194,7 @@ public final class LiveClient {
         if (!joined.remove(doc)) return;
         presenceWaiting.remove(doc);
         presenceSentAt.remove(doc);
+        joinRetryAt.remove(doc);
         if (welcomed) socket.send(frame("leave", doc).toString());
     }
 
@@ -191,7 +208,9 @@ public final class LiveClient {
         f.addProperty("base", base);
         f.addProperty("cid", cid);
         f.add("ops", ops);
-        return socket.send(f.toString());
+        final boolean sent = socket.send(f.toString());
+        if (sent) lastBatch = new String[] { doc, cid };
+        return sent;
     }
 
     /** A cursor position in the plan's own coordinates. */
@@ -236,6 +255,17 @@ public final class LiveClient {
             }
         });
         flushPresence();
+        retryJoins();
+    }
+
+    private void retryJoins() {
+        if (!welcomed || joinRetryAt.isEmpty()) return;
+        final long now = System.nanoTime();
+        for (final Map.Entry<String, Long> e : new ArrayList<>(joinRetryAt.entrySet())) {
+            if (now - e.getValue() < 0) continue;
+            joinRetryAt.remove(e.getKey());
+            if (joined.contains(e.getKey())) socket.send(frame("join", e.getKey()).toString());
+        }
     }
 
     private void flushPresence() {
@@ -269,15 +299,33 @@ public final class LiveClient {
             socket.send(h.toString());
         } else {
             welcomed = false;
+            joinRetryAt.clear();
+            final String[] culprit = lastBatch;
+            lastBatch = null;
+            if (("close:" + LiveSocket.CLOSE_TOO_BIG).equals(reason) && culprit != null) {
+                // The service closed on a frame it found too big: that batch can never succeed, so it is refused here
+                // (and not sent again) rather than looping through reconnects.
+                GtnhPlanner.LOG
+                    .error("Live: the service closed on a frame too big (an edit to {}); dropping it", culprit[0]);
+                for (final Listener l : listeners)
+                    l.onRefused(culprit[0], culprit[1], "too_big", "the batch was too big for the service");
+            }
         }
         for (final Listener l : listeners) l.onState(s, reason);
     }
 
     private void received(final String text) {
+        if (tooDeep(text)) {
+            GtnhPlanner.LOG.warn("Live: dropped a frame nested more than {} deep", MAX_DEPTH);
+            return;
+        }
         final JsonObject o;
         try {
             o = new JsonParser().parse(text)
                 .getAsJsonObject();
+        } catch (final StackOverflowError e) {
+            GtnhPlanner.LOG.warn("Live: dropped a frame too deeply nested to read");
+            return;
         } catch (final RuntimeException e) {
             GtnhPlanner.LOG.debug("Live: unreadable frame", e);
             return;
@@ -302,10 +350,12 @@ public final class LiveClient {
                         owner == null ? null : new Member(str(owner, "id"), str(owner, "username")),
                         members(o.get("members")),
                         people(o.get("present")));
+                    joinRetryAt.remove(doc);
                     for (final Listener l : listeners) l.onSnapshot(s);
                 }
                 case "ops" -> {
                     final OpsBatch b = new OpsBatch(doc, num(o, "seq"), str(o, "by"), str(o, "cid"), array(o, "ops"));
+                    if (lastBatch != null && lastBatch[1].equals(b.cid())) lastBatch = null;
                     for (final Listener l : listeners) l.onOps(b);
                 }
                 case "presence" -> {
@@ -340,6 +390,8 @@ public final class LiveClient {
                     // reconnect.
                     final boolean refused = !doc.isEmpty() && cid.isEmpty()
                         && (code.equals("forbidden") || code.equals("not_found"));
+                    if (code.equals("rate") && !doc.isEmpty() && cid.isEmpty() && joined.contains(doc))
+                        joinRetryAt.put(doc, System.nanoTime() + joinRetryNanos);
                     if (refused) {
                         joined.remove(doc);
                         presenceWaiting.remove(doc);
@@ -353,9 +405,28 @@ public final class LiveClient {
                     // "pong", and anything a newer service adds.
                 }
             }
+        } catch (final StackOverflowError e) {
+            GtnhPlanner.LOG.warn("Live: dropped a '{}' frame too deeply nested to read", t);
         } catch (final RuntimeException e) {
             GtnhPlanner.LOG.warn("Live: a '{}' frame did not read", t, e);
         }
+    }
+
+    /** Whether the JSON text nests arrays or objects more than {@link #MAX_DEPTH} deep (strings skipped). */
+    public static boolean tooDeep(final String text) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0, n = text.length(); i < n; i++) {
+            final char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') i++;
+                else if (c == '"') inString = false;
+            } else if (c == '"') inString = true;
+            else if (c == '{' || c == '[') {
+                if (++depth > MAX_DEPTH) return true;
+            } else if (c == '}' || c == ']') depth--;
+        }
+        return false;
     }
 
     private static JsonObject frame(final String type, final String doc) {

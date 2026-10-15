@@ -86,6 +86,12 @@ public final class LiveSocket {
     /** The reason a state carries when the service refused the session: nothing retries until {@link #start} again. */
     public static final String AUTH = "auth";
 
+    /** Close codes the live service uses besides the normal ones (see the live service's wire protocol). */
+    public static final int CLOSE_TOO_BIG = 1009, CLOSE_RESTART = 1012, CLOSE_LATER = 1013;
+
+    private static final java.util.regex.Pattern BAD_CLOSE = java.util.regex.Pattern
+        .compile("Invalid close frame getStatus code: ([0-9]+)");
+
     private static final int INCOMING_MAX = 20_000;
     private static final String PING = "{\"t\":\"ping\"}";
 
@@ -131,6 +137,10 @@ public final class LiveSocket {
     private boolean wanted;
     private int generation, attempts;
     private long lastHeard;
+    /** The status of the last close frame the service sent on this connection, 0 for none. */
+    private int closeCode;
+    /** The least the next try waits, from an upgrade answered 429 with Retry-After (0 for none). */
+    private long retryAfterMs;
     @Nullable
     private ScheduledFuture<?> retry, pinger, giveUp;
 
@@ -217,6 +227,7 @@ public final class LiveSocket {
             return;
         }
         setState(State.CONNECTING, "");
+        closeCode = 0;
         final int gen = ++generation;
         final boolean secure = "wss".equalsIgnoreCase(uri.getScheme());
         final int port = uri.getPort() >= 0 ? uri.getPort() : secure ? 443 : 80;
@@ -335,13 +346,32 @@ public final class LiveSocket {
             if (state != State.CLOSED) setState(State.CLOSED, why);
             return;
         }
-        final long ceiling = Math.min(options.retryMaxMs(), (long) options.retryMinMs() << Math.min(attempts, 20));
-        attempts++;
-        final long wait = Math.max(
-            1,
-            ceiling / 2 + ThreadLocalRandom.current()
-                .nextLong(ceiling / 2 + 1));
-        setState(State.WAITING, why);
+        final int code = closeCode;
+        closeCode = 0;
+        final long minWait = retryAfterMs;
+        retryAfterMs = 0;
+        final long wait;
+        final String reason;
+        if (code == CLOSE_RESTART || code == CLOSE_TOO_BIG) {
+            // The service is restarting (or lost the room's lease): it is back in a moment, so no backoff, only a
+            // small jitter so a whole game's worth of clients do not arrive on the same tick. A frame it found too
+            // big was our fault, not its: also straight back.
+            attempts = 0;
+            wait = 50 + ThreadLocalRandom.current()
+                .nextLong(Math.max(2, options.retryMinMs() / 2));
+            reason = "close:" + code;
+        } else {
+            final long ceiling = Math.min(options.retryMaxMs(), (long) options.retryMinMs() << Math.min(attempts, 20));
+            attempts++;
+            wait = Math.max(
+                minWait,
+                Math.max(
+                    1,
+                    ceiling / 2 + ThreadLocalRandom.current()
+                        .nextLong(ceiling / 2 + 1)));
+            reason = code == CLOSE_LATER ? "close:" + code : why;
+        }
+        setState(State.WAITING, reason);
         retry = loop.schedule(() -> { if (wanted && state == State.WAITING) connect(); }, wait, TimeUnit.MILLISECONDS);
     }
 
@@ -405,6 +435,16 @@ public final class LiveSocket {
                     refused(gen);
                     return;
                 }
+                if (status == 429) {
+                    // Too many upgrades: not a sign-in problem. Back off, for as long as the service asks if it does.
+                    final String after = r.headers()
+                        .get("Retry-After");
+                    if (after != null) try {
+                        retryAfterMs = Math.min(60_000L, Long.parseLong(after.trim()) * 1000L);
+                    } catch (final NumberFormatException ignored) {}
+                    lost(gen, "busy: 429");
+                    return;
+                }
                 try {
                     handshaker.finishHandshake(ch, r);
                 } catch (final RuntimeException e) {
@@ -425,6 +465,7 @@ public final class LiveSocket {
             } else if (msg instanceof PongWebSocketFrame) {
                 lastHeard = System.nanoTime();
             } else if (msg instanceof CloseWebSocketFrame) {
+                closeCode = ((CloseWebSocketFrame) msg).statusCode();
                 ch.close();
             }
         }
@@ -436,7 +477,12 @@ public final class LiveSocket {
 
         @Override
         public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable cause) {
-            GtnhPlanner.LOG.debug("Live connection error", cause);
+            // Minecraft's netty (4.0.10) knows only the close codes of RFC 6455 and calls 1012 and 1013 a corrupt frame
+            // before this handler sees it, saying the code in its message: read it from there.
+            final java.util.regex.Matcher m = BAD_CLOSE.matcher(String.valueOf(cause.getMessage()));
+            if (cause instanceof io.netty.handler.codec.CorruptedFrameException && m.find())
+                closeCode = Integer.parseInt(m.group(1));
+            else GtnhPlanner.LOG.debug("Live connection error", cause);
             ctx.close();
         }
     }

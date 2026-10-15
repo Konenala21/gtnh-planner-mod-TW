@@ -70,6 +70,17 @@ final class LiveTestServer implements AutoCloseable {
     final Map<String, Long> applied = new ConcurrentHashMap<>();
     /** Every batch is refused with this code while set (rooms only). */
     volatile String refuse;
+    /** How many batches `refuse` still refuses before it lets them through (rooms only). */
+    final AtomicInteger refuseTimes = new AtomicInteger(Integer.MAX_VALUE);
+    /** The next this many joins are answered with a `rate` error instead of a snapshot (rooms only). */
+    final AtomicInteger rateJoins = new AtomicInteger();
+    /** Changes the ops of every accepted batch before they are applied and echoed, as the schema's output does. */
+    volatile java.util.function.UnaryOperator<JsonArray> correct;
+    /** Upgrades are answered with this HTTP status while it is set (not 0). */
+    volatile int upgradeStatus;
+    /** Upgrades refused with `upgradeStatus`. */
+    final AtomicInteger upgrades = new AtomicInteger();
+    volatile String retryAfter;
     private final Map<Channel, java.util.Set<String>> in = new ConcurrentHashMap<>();
     private final AtomicInteger others = new AtomicInteger();
 
@@ -108,6 +119,15 @@ final class LiveTestServer implements AutoCloseable {
             .getAsString() : "";
         switch (t) {
             case "join" -> {
+                if (rateJoins.getAndUpdate(n -> Math.max(0, n - 1)) > 0) {
+                    final JsonObject e = new JsonObject();
+                    e.addProperty("t", "error");
+                    e.addProperty("doc", doc);
+                    e.addProperty("code", "rate");
+                    e.addProperty("msg", "slow down");
+                    ctx.writeAndFlush(new TextWebSocketFrame(e.toString()));
+                    return;
+                }
                 in.computeIfAbsent(ctx.channel(), c -> java.util.concurrent.ConcurrentHashMap.newKeySet())
                     .add(doc);
                 final JsonObject s = new JsonObject();
@@ -131,7 +151,7 @@ final class LiveTestServer implements AutoCloseable {
             case "ops" -> {
                 final String cid = f.get("cid")
                     .getAsString();
-                if (refuse != null) {
+                if (refuse != null && refuseTimes.getAndDecrement() > 0) {
                     final JsonObject e = new JsonObject();
                     e.addProperty("t", "error");
                     e.addProperty("doc", doc);
@@ -153,7 +173,8 @@ final class LiveTestServer implements AutoCloseable {
                     ctx.writeAndFlush(new TextWebSocketFrame(o.toString()));
                     return;
                 }
-                apply(doc, cid, "u1", f.getAsJsonArray("ops"));
+                final java.util.function.UnaryOperator<JsonArray> fix = correct;
+                apply(doc, cid, "u1", fix == null ? f.getAsJsonArray("ops") : fix.apply(f.getAsJsonArray("ops")));
             }
             default -> {}
         }
@@ -196,6 +217,14 @@ final class LiveTestServer implements AutoCloseable {
             c.write(new TextWebSocketFrame(false, 0, first));
             c.writeAndFlush(new ContinuationWebSocketFrame(true, 0, second));
         }
+    }
+
+    /** Closes every client's connection with a WebSocket close frame carrying {@code code}. */
+    void closeAll(final int code) {
+        for (final Channel c : clients)
+            c.writeAndFlush(new io.netty.handler.codec.http.websocketx.CloseWebSocketFrame(code, ""))
+                .addListener(ChannelFutureListener.CLOSE);
+        clients.clear();
     }
 
     /** Closes every client's connection without a word, as a network that went away does. */
@@ -241,6 +270,17 @@ final class LiveTestServer implements AutoCloseable {
                 final String cookie = req.headers()
                     .get(HttpHeaders.Names.COOKIE);
                 cookies.add(cookie == null ? "" : cookie);
+                if (upgradeStatus != 0) {
+                    upgrades.incrementAndGet();
+                    final DefaultFullHttpResponse r = new DefaultFullHttpResponse(
+                        HttpVersion.HTTP_1_1,
+                        HttpResponseStatus.valueOf(upgradeStatus));
+                    if (retryAfter != null) r.headers()
+                        .set("Retry-After", retryAfter);
+                    ctx.writeAndFlush(r)
+                        .addListener(ChannelFutureListener.CLOSE);
+                    return;
+                }
                 if (refuseAuth || cookie == null || !cookie.startsWith("gtnh_session=")) {
                     ctx.writeAndFlush(
                         new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.UNAUTHORIZED))

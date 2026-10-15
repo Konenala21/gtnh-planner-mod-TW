@@ -37,10 +37,17 @@ class LiveClientTest {
         final List<LiveClient.OpsBatch> ops = new ArrayList<>();
         final List<LiveClient.Presence> presence = new ArrayList<>();
         LiveClient.Person you;
+        final List<String> reasons = new ArrayList<>();
 
         @Override
         public void onState(final LiveSocket.State state, final String reason) {
             events.add("state " + state);
+            reasons.add(state + " " + reason);
+        }
+
+        @Override
+        public void onRefused(final String doc, final String cid, final String code, final String message) {
+            events.add("refused " + doc + " " + cid + " " + code);
         }
 
         @Override
@@ -401,6 +408,102 @@ class LiveClientTest {
             1,
             server.framesOf("join")
                 .size());
+    }
+
+    @Test
+    void aRestartCloseReconnectsAtOnceAndJoinsAgain() throws Exception {
+        final Heard heard = connect();
+        client.join("a");
+        await(() -> heard.snapshots.size() == 1);
+        final long t0 = System.nanoTime();
+        server.closeAll(1012);
+        await(() -> heard.snapshots.size() == 2);
+        assertTrue(heard.reasons.contains("WAITING close:1012"), heard.reasons.toString());
+        assertEquals(2, server.connections.get());
+        assertTrue((System.nanoTime() - t0) < 2_000_000_000L, "straight back, no backoff");
+    }
+
+    @Test
+    void aTryLaterCloseBacksOffLikeAFailedConnect() throws Exception {
+        final Heard heard = connect();
+        client.join("a");
+        await(() -> heard.snapshots.size() == 1);
+        server.closeAll(1013);
+        await(() -> heard.snapshots.size() == 2);
+        assertTrue(heard.reasons.contains("WAITING close:1013"), heard.reasons.toString());
+        // Not an auth problem: it came back, and kept the session.
+        assertEquals(LiveSocket.State.OPEN, client.state());
+    }
+
+    @Test
+    void aTooBigCloseDropsTheBatchThatCausedItAndGoesOn() throws Exception {
+        final Heard heard = connect();
+        server.rooms = true;
+        server.refuse = "rate";
+        client.join("a");
+        await(() -> heard.snapshots.size() == 1);
+        assertTrue(client.sendOps("a", 0, "big1", ops()));
+        await(() -> heard.events.contains("refused a big1 rate"));
+        server.closeAll(1009);
+        await(() -> heard.events.contains("refused a big1 too_big"));
+        await(() -> heard.snapshots.size() == 2);
+    }
+
+    @Test
+    void anUpgradeAnswered429BacksOffAndIsNotAnAuthProblem() throws Exception {
+        server = new LiveTestServer(null);
+        server.upgradeStatus = 429;
+        server.retryAfter = "0";
+        client = new LiveClient(
+            URI.create("ws://127.0.0.1:" + server.port() + "/live"),
+            () -> "tok",
+            new LiveClient.Hello("0.2.0-test", null, null),
+            null,
+            LiveSocketTest.FAST);
+        final Heard heard = new Heard();
+        client.addListener(heard);
+        client.start();
+        await(() -> server.upgrades.get() >= 2);
+        assertFalse(heard.reasons.contains("CLOSED auth"));
+        server.upgradeStatus = 0;
+        await(() -> client.ready());
+    }
+
+    @Test
+    void aJoinTheServiceCallsTooFastIsAskedAgainLater() throws Exception {
+        final Heard heard = connect();
+        server.rooms = true;
+        server.rateJoins.set(1);
+        client.joinRetryAfterMs(100);
+        client.join("a");
+        await(() -> heard.events.contains("error a rate slow down"));
+        assertTrue(heard.snapshots.isEmpty());
+        await(() -> heard.snapshots.size() == 1);
+        assertEquals(
+            2,
+            server.framesOf("join")
+                .size());
+    }
+
+    @Test
+    void deeplyNestedFramesAreDroppedAndTheConnectionGoesOn() throws Exception {
+        final Heard heard = connect();
+        client.join("a");
+        await(() -> heard.snapshots.size() == 1);
+        server.send(
+            "{\"t\":\"ops\",\"doc\":\"a\",\"seq\":1,\"by\":\"u2\",\"cid\":\"x\",\"ops\":" + "[".repeat(65)
+                + "]".repeat(65)
+                + "}");
+        server.send(
+            "{\"t\":\"ops\",\"doc\":\"a\",\"seq\":1,\"by\":\"u2\",\"cid\":\"y\",\"ops\":" + "[".repeat(200_000)
+                + "]".repeat(200_000)
+                + "}");
+        server.send("{\"t\":\"ops\",\"doc\":\"a\",\"seq\":2,\"by\":\"u2\",\"cid\":\"z\",\"ops\":[]}");
+        await(() -> heard.events.contains("ops z"));
+        assertFalse(heard.events.contains("ops x"));
+        assertFalse(heard.events.contains("ops y"));
+        assertTrue(LiveClient.tooDeep("[".repeat(65)));
+        assertFalse(LiveClient.tooDeep("{\"a\":\"" + "[".repeat(100) + "\"}"));
     }
 
 }
