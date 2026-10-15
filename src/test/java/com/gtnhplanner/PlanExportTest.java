@@ -97,6 +97,8 @@ class PlanExportTest {
 
     @Test
     void aFluidTankPostsAsTheWebsitesTank() {
+        // Its card runs as a machine profile does, whichever test ran first.
+        GtnhFlowLoader.ensureDefaultMachineProfile();
         // Emptying oxygen cells: a cell in, its oxygen and the empty cell out, 40 cells a second.
         final Graph g = new Graph("Tank");
         final Node tank = new Node(java.util.UUID.randomUUID(), 0, 0);
@@ -618,25 +620,24 @@ class PlanExportTest {
             t.get("text")
                 .getAsString());
         assertEquals(
-            380,
+            320,
             t.getAsJsonObject("position")
                 .get("x")
                 .getAsInt(),
-            "placed as a card is: 320 at 380/320");
+            "placed as a card is: one to one");
         assertEquals(
-            100,
+            60,
             t.getAsJsonObject("position")
                 .get("y")
-                .getAsInt(),
-            "and 60 at 1/0.6");
+                .getAsInt());
         assertEquals(
-            240,
+            200,
             t.getAsJsonObject("size")
                 .get("width")
                 .getAsInt(),
-            "202 at 380/320, to whole 20 px cells");
+            "202 to whole 20 px cells");
         assertEquals(
-            80,
+            40,
             t.getAsJsonObject("size")
                 .get("height")
                 .getAsInt());
@@ -656,13 +657,13 @@ class PlanExportTest {
             u.get("fontSize")
                 .getAsInt());
         assertEquals(
-            220,
+            180,
             u.getAsJsonObject("size")
                 .get("width")
                 .getAsInt(),
             "a new note's 180 x 120");
         assertEquals(
-            200,
+            120,
             u.getAsJsonObject("size")
                 .get("height")
                 .getAsInt());
@@ -730,13 +731,13 @@ class PlanExportTest {
         assertFalse(b.has("fontSize"), "only a note has a text size");
         final JsonObject z = annotation(annotations, zone);
         assertEquals(
-            119,
+            100,
             z.getAsJsonArray("points")
                 .get(1)
                 .getAsJsonObject()
                 .get("x")
                 .getAsInt(),
-            "an outline scaled with the card layout");
+            "an outline placed as the card layout is");
         assertEquals(
             "up-left",
             annotation(annotations, arrow).get("arrowDirection")

@@ -110,8 +110,11 @@ public final class PlanExport {
     /** A CropsNH crop: its id ({@code cropsnh:sugarBeet}) and the facts the website models it from. */
     public record Crop(String id, com.gtnhplanner.machines.CropsNh.Stats stats) {}
 
-    /** Factory Flow's cards are 380 wide to our 320, and taller (as the importer scales them the other way). */
-    private static final double SCALE_X = 380.0 / 320.0, SCALE_Y = 1 / 0.6;
+    /**
+     * The site's board px for ours: one to one. Its cards are ours since its one-mode board (320 wide, rows of two
+     * cells, drawers 116 by 48), and it places every plan, old ones too, where its positions say.
+     */
+    private static final double SCALE_X = 1, SCALE_Y = 1;
     /** Factory Flow's board cell: it grows every drawing's size to whole cells when it loads a plan. */
     private static final int CELL = 20;
     /** The colour tags the site's schema takes (its factoryNodeColorTagSchema); a note in any other goes untagged. */
@@ -948,8 +951,8 @@ public final class PlanExport {
     }
 
     /**
-     * The board's x for the site's: the inverse of {@link #position}, exact for every board place (the site's scale is
-     * larger both ways, so rounding there and back lands on the same pixel).
+     * The board's x for the site's: the inverse of {@link #position}, exact for every board place; a site place between
+     * two of the board's pixels reads as the nearest.
      */
     public static int gameX(final double siteX) {
         return (int) Math.round(siteX / SCALE_X);

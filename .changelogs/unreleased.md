@@ -18,5 +18,6 @@
 - Share to library is now Publish to library. It posts a copy for everyone and never shares your plan itself.
 - Right-click a card or a drawer for its menu, the same one its key opens.
 - Share has Copy plan link and Export plan file. A plan you already posted gets Update in library and Publish as new post.
+- Plans from links, codes and the library keep their layout. Cards no longer land on top of each other.
 
 ## Fixed

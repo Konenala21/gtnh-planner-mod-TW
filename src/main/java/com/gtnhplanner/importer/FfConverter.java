@@ -53,12 +53,12 @@ import com.gtnhplanner.importer.NodeMaker.PortInfo;
  */
 public final class FfConverter {
 
-    /** FF's cards are 380 px wide, GTNH Planner's 320. */
-    static final double SCALE_X = 320.0 / 380.0;
     /**
-     * GTNH Planner's port rows are half FF's height; drawers and the gaps between cards are not, so a bit over half.
+     * FF's board px for ours: one to one. Its one-mode board draws our card (320 wide, rows of two cells) and our
+     * drawers, and places every plan, old ones too, where its positions say, so a plan reads here as it shows there.
      */
-    static final double SCALE_Y = 0.6;
+    static final double SCALE_X = 1;
+    static final double SCALE_Y = 1;
     static final int MARGIN = 40;
     /** Where a hatch's source drawer sits, left of its card, in GTNH Planner pixels. */
     static final int HATCH_DRAWER_DX = 180;

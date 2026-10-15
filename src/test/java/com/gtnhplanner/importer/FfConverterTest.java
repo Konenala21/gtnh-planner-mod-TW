@@ -107,11 +107,11 @@ class FfConverterTest {
         assertEquals(Drawer.Kind.PRODUCT, water.getKind());
         assertEquals(List.of(new Drawer.Link(lcr.id, game.port(lcr, true, "ic2distilledwater"))), water.getLinks());
 
-        // FF's layout, scaled: the hydrogen drawer is leftmost and topmost, the card 180 FF px right of it.
+        // FF's layout, one to one: the hydrogen drawer is leftmost and topmost, the card 180 FF px right of it.
         assertEquals(FfConverter.MARGIN, hydrogen.getX());
         assertEquals(FfConverter.MARGIN, hydrogen.getY());
-        assertEquals(FfConverter.MARGIN + 150, lcr.x);
-        assertEquals(FfConverter.MARGIN + 10, lcr.y);
+        assertEquals(FfConverter.MARGIN + 180, lcr.x);
+        assertEquals(FfConverter.MARGIN + 20, lcr.y);
 
         assertTrue(
             r.report()
@@ -611,28 +611,28 @@ class FfConverterTest {
         assertEquals(List.of("Mud line", "feeds the dryer"), big.getText());
         assertEquals(FfConverter.MARGIN, big.getX());
         assertEquals(FfConverter.MARGIN, big.getY());
-        assertEquals(202, big.getWidth(), "240 FF px at 320/380");
-        assertEquals(48, big.getHeight(), "80 FF px at 0.6");
+        assertEquals(240, big.getWidth(), "240 FF px, one to one");
+        assertEquals(80, big.getHeight());
         assertEquals("light_blue", big.getColor());
         assertEquals(20, big.getFontSize());
 
         final Node mixer = node(g, "Mixer");
-        assertEquals(FfConverter.MARGIN + 340, mixer.x);
-        assertEquals(FfConverter.MARGIN + 120, mixer.y);
+        assertEquals(FfConverter.MARGIN + 400, mixer.x);
+        assertEquals(FfConverter.MARGIN + 200, mixer.y);
 
         final Note small = note(g, "small");
-        assertEquals(FfConverter.MARGIN + 640, small.getX());
-        assertEquals(FfConverter.MARGIN + 240, small.getY());
+        assertEquals(FfConverter.MARGIN + 760, small.getX());
+        assertEquals(FfConverter.MARGIN + 400, small.getY());
         assertEquals(Note.MIN_W, small.getWidth(), "never smaller than a note gets");
         assertEquals(Note.MIN_H, small.getHeight());
         assertEquals(Note.DEFAULT_COLOR, small.colorTag(), "no colour is FF's yellow");
         assertEquals(Note.DEFAULT_FONT, small.fontSizeOrDefault());
 
-        // The drawings come over as notes of a kind, placed and sized at the cards' scale.
+        // The drawings come over as notes of a kind, placed and sized as on the website.
         final Note box = drawing(g, Note.BOX);
-        assertEquals(FfConverter.MARGIN + 170, box.getX(), "200 FF px at 320/380, snapped");
-        assertEquals(674, box.getWidth());
-        assertEquals(480, box.getHeight());
+        assertEquals(FfConverter.MARGIN + 200, box.getX());
+        assertEquals(800, box.getWidth());
+        assertEquals(800, box.getHeight());
         assertEquals("azure", box.colorTag());
         assertEquals("dashed", box.borderStyle());
         assertEquals("white", box.getBorderColor());
@@ -645,7 +645,7 @@ class FfConverterTest {
             zone.getPoints()
                 .size());
         assertArrayEquals(
-            new int[] { 337, 120 },
+            new int[] { 400, 200 },
             zone.getPoints()
                 .get(2));
         assertEquals("", zone.getColor(), "no tag stays none");
@@ -742,8 +742,8 @@ class FfConverterTest {
             assertEquals(was.getY(), now.getY());
         }
         final Note big = note(back, "Mud line");
-        assertEquals(202, big.getWidth(), "a size in whole FF cells comes back as it went");
-        assertEquals(48, big.getHeight());
+        assertEquals(240, big.getWidth(), "a size in whole FF cells comes back as it went");
+        assertEquals(80, big.getHeight());
         final Node mixer = node(back, "Mixer");
         assertEquals(node(first, "Mixer").x, mixer.x);
         assertEquals(node(first, "Mixer").y, mixer.y);
