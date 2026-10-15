@@ -81,8 +81,12 @@ public final class PickList extends Widget<PickList> implements Interactable {
                 .isEmpty() ? 0 : Hyb.width(e.detail()) + 12;
             width = Math.max(width, (e.icon() == null ? 6 : 26) + Hyb.width(e.label()) + detail + 18);
         }
-        width = Math.min(width, 360);
-        final PickList list = new PickList(entries, width - 8, maxRows);
+        // Inside the planner's room: narrower drops a row's detail rather than cut its label; shorter scrolls.
+        final int[] room = Popup.room(null);
+        width = Math.min(width, Math.min(360, room[2] - 4));
+        final int above = 8 + (title == null ? 0 : 14) + (filterable ? 18 : 0);
+        final int fits = Math.max(2, (room[3] - 4 - above) / ROW);
+        final PickList list = new PickList(entries, width - 8, Math.min(maxRows, fits));
         list.hover = onHover;
         int y = 4;
         final List<com.cleanroommc.modularui.api.widget.IWidget> top = new ArrayList<>();
@@ -178,9 +182,12 @@ public final class PickList extends Widget<PickList> implements Interactable {
                 Hyb.item(e.icon, x, y + 2, 16, z);
                 x += 20;
             }
-            final int detailW = e.detail.isEmpty() ? 0 : Hyb.width(e.detail) + 8;
-            Hyb.text(Hyb.fit(e.label, w - x - detailW - 4), x, y + 6, e.labelColor);
-            if (!e.detail.isEmpty()) Hyb.textRight(e.detail, w - 4, y + 6, Hyb.MUTED);
+            // The label says what the row does, so it is never cut for the detail: a detail with no room is left out.
+            final String label = Hyb.fit(e.label, w - x - 4);
+            final int room = w - 4 - (x + Hyb.width(label) + 8);
+            final String detail = e.detail.isEmpty() || room < 30 ? "" : Hyb.fit(e.detail, room);
+            Hyb.text(label, x, y + 6, e.labelColor);
+            if (!detail.isEmpty()) Hyb.textRight(detail, w - 4, y + 6, Hyb.MUTED);
         }
         if (shown.size() > rows) {
             final int barH = Math.max(8, rows * ROW * rows / shown.size());

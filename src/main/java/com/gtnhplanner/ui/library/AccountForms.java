@@ -25,7 +25,6 @@ import com.gtnhplanner.library.Account;
 import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.Posting;
 import com.gtnhplanner.ui.BoardSession;
-import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.Resources;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
@@ -176,9 +175,9 @@ public final class AccountForms {
             .trim();
     }
 
-    /** In the middle of the screen. */
+    /** In the middle of the planner, a little above it. */
     private static void open(final ModularPanel parent, final Popup popup, final int h) {
-        Popup.open(parent, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - h) / 2 - 20);
+        Popup.openCentred(parent, popup, 0.4f);
     }
 
     /** What both forms share: the title and subtitle, labels over fields, the error, the button and the link. */

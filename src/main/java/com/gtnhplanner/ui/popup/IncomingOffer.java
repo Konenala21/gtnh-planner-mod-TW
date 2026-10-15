@@ -6,7 +6,6 @@ import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.client.WebsiteInbox;
-import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -46,7 +45,7 @@ public final class IncomingOffer extends Widget<IncomingOffer> implements Intera
             }
         };
         popup.child(new IncomingOffer(pending).pos(0, 0));
-        Popup.open(board, popup, (PlannerScale.width() - W) / 2, (PlannerScale.height() - H) / 3);
+        Popup.openCentred(board, popup, 1 / 3f);
         return true;
     }
 
