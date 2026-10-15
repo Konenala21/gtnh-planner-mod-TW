@@ -171,9 +171,11 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         if (!mine && !feed.started()) feed.restart();
     }
 
-    /** Opens on My plans: every plan kept, open in a tab or not. */
+    /** Opens on My plans: every plan kept, open in a tab or not (signed in, the account's list is asked again). */
     public void showMine() {
         shelf(true);
+        final com.gtnhplanner.cloud.session.CloudSession cloud = com.gtnhplanner.cloud.session.CloudSession.current();
+        if (cloud != null) cloud.refreshList();
     }
 
     /** Opens on the public setups. */
@@ -652,7 +654,15 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         Hyb.text(Hyb.fit(size, x + w - 6 - nameX), nameX, y + 17, 0xFF8A8C94);
         final String when = g.getLastOpen() > 0 ? "last open " + agoMs(g.getLastOpen()) : "not opened yet";
         Hyb.text(when, x + 6, y + TILE_H - 13, Hyb.MUTED);
-        if (g.getPostId() != null) Hyb.textRight("posted", x + w - 6, y + TILE_H - 13, 0xFF9FD9E6);
+        // A plan someone shared with the player says whose it is.
+        final com.gtnhplanner.cloud.session.CloudSession cloud = com.gtnhplanner.cloud.session.CloudSession.current();
+        final String by = cloud == null ? null : cloud.sharedBy(g);
+        if (by != null) Hyb.textRight(
+            Hyb.fit("shared by " + by, w / 2),
+            x + w - 6,
+            y + TILE_H - 13,
+            0xFF9FD9E6);
+        else if (g.getPostId() != null) Hyb.textRight("posted", x + w - 6, y + TILE_H - 13, 0xFF9FD9E6);
         hits.add(new Hit(Kind.MY_TILE, x, y, x + w, y + TILE_H, slot));
     }
 
@@ -699,11 +709,15 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
+        rows.add(PickList.Entry.of("Make a copy", () -> {
+            session.copySlot(slot);
+            close.run();
+        }));
         rows.add(AccountForms.shareRow(getPanel(), session, g));
         rows.add(
             new PickList.Entry(
                 null,
-                "Delete plan",
+                session.shared(g) ? "Leave plan" : "Delete plan",
                 "",
                 Hyb.RED_INK,
                 false,

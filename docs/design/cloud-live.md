@@ -272,6 +272,39 @@ made (`cloud/map/CloudPlans`; the engine is `cloud/sync`).
 - Undo for a cloud plan applies recorded inverses (above) instead of restoring snapshots; local plans keep today's
   undo.
 
+## The game's session (as built)
+
+`cloud/session`: `CloudSession` (one per signed-in account) and `LiveDoc` (one per cloud plan); the game's side is
+`cloud/session/game/CloudHooks` (`Plan.setCloudSource`, the client tick, sign-in and sign-out, the exit flush).
+
+- Signed in, `Plan` is the account's cloud plans (`Plan.cloud`, `isCloud`): its list (`CloudApi.library`, kept as
+  `list.json`) and this device's copies, opened offline. Tabs, the open plan, the order and when each was open are this
+  device's (`device.json` beside the copies), as are pins. `PlanAPI.save` never writes the world's save then: it hands
+  every board to its plan. Signed out, nothing changes. Signing in or out reloads the plans (`Plan.reload`).
+- A board change is written against the plan the board stands for (not the live copy, which may hold others' edits the
+  board has not read yet), so a batch is only what the player did and never brings back what someone else deleted. Each
+  is cut below 200 KB and 5,000 ops (`LiveState.local(ops, maxBytes)`, undone as one), kept on disk, then sent. A batch
+  leaves the disk only once a kept copy of the confirmed plan holds it, so a crash leaves every edit in the copy or
+  waiting.
+- Others' batches land on the live copy at once and are read into the board once a tick, only when the board is at
+  rest (no wheel spin settling, nothing in hand), reading only what they touched (`CloudPlans.read(plan, game, previous)`).
+  Reading never sends anything and never runs the edit-time cleanups.
+- Rooms: the open plan's, and any plan with edits still to send (at most 8); others are left after 10 s. A refused
+  batch is dropped and the board goes back (`rate` is sent again from the next snapshot instead).
+- A plan new to the planner (made, pasted, imported, shared in chat, a library download, the tour's) becomes a new cloud
+  plan once it holds anything: an empty new plan stays a tab on this device until it does. It is created with REST
+  (retried until it goes), then joined. Renaming is an edit (`meta name`) and also renames the list entry (REST, the
+  owner's or, with `?owner=`, a member's). Deleting asks the account to delete (owner) or leave (member); a plan taken
+  off the planner any other way stays in the account. A plan deleted or unshared elsewhere leaves the planner with a
+  notice.
+- A world's own plans go up once (`Migration`), against a list fetched this session, after a backup; the world's save
+  keeps them and their keys. One notice when any arrived; a plan that failed goes next time.
+- The top bar's tab strip ends in the status while signed in: Live, Connecting, or Offline (with ": edits kept" while
+  edits wait).
+- Presence and sharing build on `BoardSession.live()` (the open plan's `LiveDoc`: `key`, `role`, `owner`, `members`,
+  `present`, presence and people listeners, `sendPresence`, `planId`, `at`/`onBoard` for coordinates) and
+  `CloudSession.client()`.
+
 ## Local development
 
 - Website: `npm run dev:local` runs Next.js and the live service against a local database: real Postgres in-process

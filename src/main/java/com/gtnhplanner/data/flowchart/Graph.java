@@ -228,6 +228,24 @@ public class Graph {
         return slot;
     }
 
+    /**
+     * This graph is a cloud plan read again (others' edits, an undo) in {@code old}'s place: it takes over what this
+     * device keeps of the slot and is never part of the plan (the slot, the camera, its tab, the pin list, its post).
+     */
+    public void takeDeviceStateOf(final Graph old) {
+        this.slot = old.slot;
+        this.zoom = old.zoom;
+        this.panX = old.panX;
+        this.panY = old.panY;
+        this.snapToGrid = old.snapToGrid;
+        this.lastOpen = old.lastOpen;
+        this.open = old.open;
+        this.postId = old.postId;
+        this.cloudKey = old.cloudKey;
+        pinList.clear();
+        pinList.addAll(old.pinList);
+    }
+
     /** This graph takes over {@code replaced}'s slot: it is that slot's state after an undo or redo. */
     void takeSlotOf(final Graph replaced) {
         this.slot = replaced.slot;

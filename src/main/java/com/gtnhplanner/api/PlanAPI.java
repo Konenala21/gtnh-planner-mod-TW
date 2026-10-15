@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 
 import com.gtnhplanner.GtnhPlanner;
+import com.gtnhplanner.cloud.session.CloudSession;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Serializer;
@@ -143,6 +144,13 @@ public final class PlanAPI {
     public static void save() {
         // The tour's own plans are never written.
         if (Plan.sandboxed()) return;
+        // An account's cloud plans: every change the boards made goes to the account, never into this world's save.
+        if (Plan.getInstance()
+            .isCloud()) {
+            final CloudSession cloud = CloudSession.current();
+            if (cloud != null) cloud.save(Plan.getInstance());
+            return;
+        }
         final Pending save = new Pending(
             getSaveFile(),
             Serializer.planTree(Plan.getInstance()),
@@ -158,11 +166,23 @@ public final class PlanAPI {
      */
     public static boolean saveNow() {
         if (Plan.sandboxed()) return true;
+        if (Plan.getInstance()
+            .isCloud()) {
+            save();
+            return true;
+        }
+        return saveLocal(Plan.getInstance());
+    }
+
+    /**
+     * Writes {@code plan} as this world's save now, on the calling thread (client thread), whatever plans are in hand:
+     * a world's own plans kept while an account's are open (their cloud keys, once sent). False when it failed.
+     */
+    public static boolean saveLocal(final Plan plan) {
         final Pending save = new Pending(
             getSaveFile(),
-            Serializer.planTree(Plan.getInstance()),
-            Plan.getInstance()
-                .getGraphs()
+            Serializer.planTree(plan),
+            plan.getGraphs()
                 .size());
         // Whatever was queued is older than this; the writer's queued task finds nothing left and ends.
         PENDING.set(save);
