@@ -73,6 +73,9 @@ All signed-in, cookie auth, rate-limited like the existing library routes.
 
 - `GET /api/library` adds `shared`: plans shared with me, `{ ownerId, ownerName, id, name, icon, updatedAt,
   planUpdatedAt, members }`, and each own design gains `members` (ids and usernames).
+- A design id is unique only per owner, so every design-scoped route below takes `?owner=<ownerId>` (absent: the
+  caller's own design). `GET /api/library` lists tombstones (deleted designs) as it does today, so a client never
+  reuses a deleted id.
 - `GET /api/library/designs/[id]?owner=<ownerId>`: an owner's or member's read of the plan.
 - `GET /api/library/designs/[id]/members`, `PUT /api/library/designs/[id]/members/[userId]` (owner only),
   `DELETE /api/library/designs/[id]/members/[userId]` (owner, or the member leaving). Changes are pushed to the live
