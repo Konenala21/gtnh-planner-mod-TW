@@ -362,6 +362,47 @@ public final class DevHarness {
                 });
             case "/board":
                 return onClient(DevBoard::board);
+            case "/totals":
+                // The open plan's overview as numbers, to compare a plan's solve with the website's: inputs and outputs
+                // a second, EU/t used and made, a line per card (machines, EU/t), and whether it is still solving.
+                return onClient(() -> {
+                    final com.gtnhplanner.ui.BoardScreen screen = DevBoard.screen();
+                    if (screen == null) return error("the planner is not open");
+                    final com.gtnhplanner.ui.BoardSession s = screen.session();
+                    final com.gtnhplanner.ui.BoardSession.Totals t = s.totals();
+                    final Map<String, Object> r = new LinkedHashMap<>();
+                    r.put(
+                        "plan",
+                        s.graph()
+                            .getName());
+                    r.put("solving", s.solving());
+                    r.put("cards", s.graph().nodes.size());
+                    r.put("euPerTick", t.euPerTick());
+                    r.put("euMade", t.euMade());
+                    final java.util.function.Function<List<com.gtnhplanner.ui.BoardSession.TotalLine>, List<Object>> lines = ls -> {
+                        final List<Object> out = new ArrayList<>();
+                        for (final com.gtnhplanner.ui.BoardSession.TotalLine l : ls)
+                            out.add(Map.of("key", l.key(), "name", l.label(), "perSecond", l.amount()));
+                        return out;
+                    };
+                    r.put("inputs", lines.apply(t.inputs()));
+                    r.put("outputs", lines.apply(t.outputs()));
+                    final List<Object> machines = new ArrayList<>();
+                    for (final com.gtnhplanner.ui.BoardSession.MachineLine m : t.machines()) machines.add(
+                        Map.of(
+                            "node",
+                            String.valueOf(m.nodeId()),
+                            "name",
+                            m.name(),
+                            "machines",
+                            m.machines(),
+                            "euPerTick",
+                            m.euPerTick(),
+                            "tier",
+                            String.valueOf(m.tier())));
+                    r.put("machines", machines);
+                    return r;
+                });
             case "/tasks":
                 // The task board: whether the open plan is one, each column's cards with their GUI rects, and the task
                 // box open; open=<task id> opens a task's box, scroll=<y> scrolls its page. For setting up a board to
