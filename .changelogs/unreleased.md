@@ -4,6 +4,7 @@
 - Task boards are plans of their own. A card's pin button has Add to a task. Pick the board and the task or make a new one
 - A task holds machines, spots in your world and screenshots. Each has its own tick box. Show a spot and a beam marks it. The gear picks when spots show
 - An account key in the top bar. Sign in there and sign out from its menu
+- Railcraft's Water Tank and boiler are in the non-recipe machines. The tank makes water from the sky and the boiler makes steam once hot
 
 ## Better
 

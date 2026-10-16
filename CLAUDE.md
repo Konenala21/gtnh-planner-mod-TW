@@ -74,7 +74,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - Saves are backed up to `backups/` beside the save (`gtnhplanner/plans.dat`), once per session and before any save
   that drops a plan.
 - Non-recipe machines (the top bar's Non-recipe key, `ui/power/PowerPicker`) are the website's power sources, ported
-  to `power/` from its `src/lib/power` (57 sources; the workbook tables, resource map and machine icons are copied
+  to `power/` from its `src/lib/power` (59 sources; the workbook tables, resource map and machine icons are copied
   JSON in `assets/gtnhplanner/power/`, never hand-edited; parity with the website is tested per source). A power card
   is a `Node` with `powerSource` and `powerSettings` instead of an NEI recipe: `power/game/PowerPorts` rebuilds its
   ports from the model at exact per-second rates (`Port.exactAmount`, a craft a second), EU first. EU is a resource
@@ -84,7 +84,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - The picker's first column, Other (`PowerGroup.OTHER`, `PowerRegistry.others()`, never in the generator catalog), holds
   the planning cards: the custom rate card and the fluid tank. Both are holders (`power/Holders`): empty, they show two
   sockets; a port dropped on one, or a socket dragged to a port, makes it take that resource (`BoardSession.holdAndWire`),
-  and every edit lets a holder with nothing wired go of it (`releaseHolders`).
+  and every edit lets a holder with nothing wired go of it (`releaseHolders`). After them comes the Railcraft Water Tank,
+  an ordinary source in group `other` (`power/sources/Railcraft`, the website's railcraft.ts, with the Railcraft Boiler
+  after GT's large boilers), both worked from Railcraft's own code at GTNH 2.9's version and pinned by `RailcraftTest`.
 - The custom rate card (`power/CustomRate`, the website's custom-rate.ts) is a power card with source `custom-rate`: a
   dial (Supply or Request, a rate a second, EU/t for EU) and one port. Pinned at one when placed, so the dial is the
   rate. The overview counts it as the plan's edge (what it supplies is an input), never a machine. It posts and imports
