@@ -47,6 +47,8 @@ website (`jackwrichards/gtnh-factory-flow`, branch `cloud-live`, worktree `C:\Us
     way it is from the player, or which dimension or world it is in;
   - a **screenshot** (`picture`; made in the game only: the planner steps aside, the world is shot without the GUI and
     the planner comes back with it attached): a thumbnail in the list, big on a click.
+  - a **quest** (`quest`; the game only, with its quest book: picked in the real book, it ticks itself when the player
+    has done it, a click opens it in the book): the website shows it as its words and keeps it as it came.
   Cards go into a task from a card's pin key (Place in the world, Pin to the screen, **Add to a task**) or a right
   click on selected cards ("Add to a task"): a menu of your task boards (and New task board), then of the board's tasks
   with their status dots (and New task); one machine thing per card, with how many to build from the solve. The task
@@ -252,12 +254,15 @@ The plan is the website's `FactoryProject`. Its arrays of things with an `id` ar
   plan spells it. The older `nodeIds` (task) and `nodeId` (item) named cards of the plan holding the task: still read
   (as links to the plan holding them), never written.
 - `taskItems?: PlanTaskItem[]`: a task's things, separate so two people can tick two at once: `{ id, taskId,
-  kind?: "machine"|"location"|"picture", text (1-200), done: boolean, order: string, link?: PlanLink,
-  place?: PlanPlace, picture?: PlanPicture }`. `text` is always written, the thing in words ("4× Electric Blast Furnace
+  kind?: "machine"|"location"|"picture"|"quest", text (1-200), done: boolean, order: string, link?: PlanLink,
+  place?: PlanPlace, picture?: PlanPicture, quest?: PlanQuest }`. `text` is always written, the thing in words ("4× Electric Blast Furnace
   (HV)", "Ore field at 120 64 -30 in Overworld", "Screenshot"), so a reader that knows only lines shows something
   true. An item with no `kind` is an older checklist line: a machine when it has a `link`, else plain words with its
   checkbox; it is written back without a kind. **The website's schema must accept `kind`, `place` and `picture`**
   (its Zod schemas strip unknown keys: undeclared, a game's spot or screenshot is lost on the first website edit).
+- `PlanQuest`: `{ id: string (BetterQuesting's quest UUID, the same in every world of a pack), name: string (≤200),
+  icon?: string (an item key, `item:<mod>:<name>:<meta>`), line?: string (its quest line's name) }`: the game's only;
+  the website accepts kind "quest" and keeps `quest` untouched (an unknown kind would refuse the whole live batch).
 - `PlanPlace`: `{ x, y, z: integer (the block), dim: integer, dimName: string (as the game names it: "Overworld",
   "Nether"), world: string (as placed machines key worlds: `server:<16 hex>` or `world:<uuid>`), label?: string
   (≤60) }`.

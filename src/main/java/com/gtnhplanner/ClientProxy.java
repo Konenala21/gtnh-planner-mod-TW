@@ -50,6 +50,9 @@ public class ClientProxy extends CommonProxy {
             .bus()
             .register(com.gtnhplanner.ui.task.TaskPictures.INSTANCE);
         MinecraftForge.EVENT_BUS.register(com.gtnhplanner.ui.task.TaskPictures.INSTANCE);
+        // A task's quests: the quest book opens to pick one, or on one. Only with the quest book in the game.
+        if (com.gtnhplanner.ui.task.TaskQuests.available())
+            MinecraftForge.EVENT_BUS.register(com.gtnhplanner.ui.quest.QuestBook.INSTANCE);
         // Plan cards placed on blocks: placing them, seeing them, and the plan overlaid on the world.
         for (final Object world : new Object[] { com.gtnhplanner.ui.world.LinkPicker.INSTANCE,
             com.gtnhplanner.ui.world.LinkTarget.INSTANCE, com.gtnhplanner.ui.world.WorldView.INSTANCE,

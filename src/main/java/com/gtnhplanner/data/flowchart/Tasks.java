@@ -125,17 +125,21 @@ public final class Tasks {
      */
     public record Link(String plan, String node) {}
 
-    /** A thing's kinds: a card on a plan, a spot in a world, a screenshot. An older save's lines have none. */
-    public static final String MACHINE = "machine", LOCATION = "location", PICTURE = "picture";
+    /**
+     * A thing's kinds: a card on a plan, a spot in a world, a screenshot, a quest in the quest book (game only, as
+     * the screenshot is). An older save's lines have none.
+     */
+    public static final String MACHINE = "machine", LOCATION = "location", PICTURE = "picture", QUEST = "quest";
 
     /**
      * One thing on a task, each with its own checkbox: a {@link #MACHINE} (a card on a plan, {@code link}), a
-     * {@link #LOCATION} (a spot in a world, {@code place}) or a {@link #PICTURE} (a screenshot's thumbnail). An older
-     * save's checklist line has no kind: its words, and a card when it pointed at one. {@code text} is always written,
-     * the thing in words (what a reader that knows only lines shows), so nothing is lost either way.
+     * {@link #LOCATION} (a spot in a world, {@code place}), a {@link #PICTURE} (a screenshot's thumbnail) or a
+     * {@link #QUEST} (a quest in the quest book, {@code quest}). An older save's checklist line has no kind: its
+     * words, and a card when it pointed at one. {@code text} is always written, the thing in words (what a reader that
+     * knows only lines shows), so nothing is lost either way.
      */
     public record Item(String id, String taskId, String kind, String text, boolean done, String order,
-        @Nullable Link link, @Nullable Place place, @Nullable Picture picture) {
+        @Nullable Link link, @Nullable Place place, @Nullable Picture picture, @Nullable Quest quest) {
 
         public Item {
             kind = kind == null ? "" : kind;
@@ -144,7 +148,7 @@ public final class Tasks {
         /** A line of words, as an older save spelled a checklist line. */
         public Item(final String id, final String taskId, final String text, final boolean done, final String order,
             @Nullable final Link link) {
-            this(id, taskId, "", text, done, order, link, null, null);
+            this(id, taskId, "", text, done, order, link, null, null, null);
         }
 
         /**
@@ -153,7 +157,8 @@ public final class Tasks {
          */
         public String shownKind() {
             if (MACHINE.equals(kind) && link != null || LOCATION.equals(kind) && place != null
-                || PICTURE.equals(kind) && picture != null) return kind;
+                || PICTURE.equals(kind) && picture != null
+                || QUEST.equals(kind) && quest != null) return kind;
             return link != null ? MACHINE : "";
         }
     }
@@ -170,6 +175,13 @@ public final class Tasks {
      * and the full shot's file name in the screenshots folder of the game that took it (only there).
      */
     public record Picture(String thumb, int w, int h, String takenAt, @Nullable String file) {}
+
+    /**
+     * A quest in the game's quest book: {@code id} the quest's id there (BetterQuesting's UUID, the same in every
+     * world of a pack), with what reads where the book is missing: its {@code name}, its {@code icon} (an item key,
+     * {@code item:<mod>:<name>:<meta>}) and the name of the quest {@code line} it is in.
+     */
+    public record Quest(String id, String name, @Nullable String icon, @Nullable String line) {}
 
     /** A comment on a task; {@code at} is the server's time stamp. */
     public record Comment(String id, String taskId, String by, String byName, String at, String text) {}
@@ -215,6 +227,7 @@ public final class Tasks {
         if (i.link() != null) o.add("link", toJson(i.link()));
         if (i.place() != null) o.add("place", toJson(i.place()));
         if (i.picture() != null) o.add("picture", toJson(i.picture()));
+        if (i.quest() != null) o.add("quest", toJson(i.quest()));
         return o;
     }
 
@@ -238,6 +251,23 @@ public final class Tasks {
         o.addProperty("takenAt", p.takenAt());
         if (p.file() != null) o.addProperty("file", p.file());
         return o;
+    }
+
+    public static JsonObject toJson(final Quest q) {
+        final JsonObject o = new JsonObject();
+        o.addProperty("id", q.id());
+        o.addProperty("name", q.name());
+        if (q.icon() != null) o.addProperty("icon", q.icon());
+        if (q.line() != null) o.addProperty("line", q.line());
+        return o;
+    }
+
+    /** A quest as a plan spells it; null when it has no id. */
+    @Nullable
+    public static Quest quest(final JsonObject o) {
+        final String id = str(o, "id");
+        if (id == null || id.isEmpty()) return null;
+        return new Quest(id, orEmpty(str(o, "name")), str(o, "icon"), str(o, "line"));
     }
 
     /** A spot as a plan spells it; null when it lacks its block or its dimension. */
@@ -313,7 +343,17 @@ public final class Tasks {
         final Picture p = i.picture();
         if (p == null || !p.thumb()
             .isEmpty()) return i;
-        return new Item(i.id(), i.taskId(), i.kind(), i.text(), i.done(), i.order(), i.link(), i.place(), null);
+        return new Item(
+            i.id(),
+            i.taskId(),
+            i.kind(),
+            i.text(),
+            i.done(),
+            i.order(),
+            i.link(),
+            i.place(),
+            null,
+            i.quest());
     }
 
     public static Item claimed(final Item i, final String plan) {
@@ -329,7 +369,8 @@ public final class Tasks {
             i.order(),
             new Link(plan, l.node()),
             i.place(),
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     public static JsonObject toJson(final Comment c) {
@@ -370,7 +411,7 @@ public final class Tasks {
         final String id = str(o, "id"), taskId = str(o, "taskId");
         if (id == null || taskId == null) return null;
         final JsonElement done = o.get("done");
-        final JsonElement place = o.get("place"), picture = o.get("picture");
+        final JsonElement place = o.get("place"), picture = o.get("picture"), quest = o.get("quest");
         return new Item(
             id,
             taskId,
@@ -383,7 +424,8 @@ public final class Tasks {
             orEmpty(str(o, "order")),
             itemLink(o),
             place != null && place.isJsonObject() ? place(place.getAsJsonObject()) : null,
-            picture != null && picture.isJsonObject() ? picture(picture.getAsJsonObject()) : null);
+            picture != null && picture.isJsonObject() ? picture(picture.getAsJsonObject()) : null,
+            quest != null && quest.isJsonObject() ? quest(quest.getAsJsonObject()) : null);
     }
 
     /** A task's links; the older {@code nodeIds} (cards of the plan holding the task) read as links with no plan. */
@@ -473,7 +515,8 @@ public final class Tasks {
             i.order(),
             i.link(),
             i.place(),
-            new Picture("", p.w(), p.h(), p.takenAt(), p.file()));
+            new Picture("", p.w(), p.h(), p.takenAt(), p.file()),
+            i.quest());
     }
 
     /** Reads a task board {@link #write} wrote (or a plan holds) onto the graph; what does not read is skipped. */

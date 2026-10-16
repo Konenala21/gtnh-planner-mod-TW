@@ -22,8 +22,9 @@ import codechicken.nei.NEIClientConfig;
 /**
  * A task's things as the task box shows them: a machine by its card (its icon, the plan it is on, and where it is
  * placed in this world), a location by its spot (how far and which way from the player, or the dimension or world it
- * is in), a screenshot by its thumbnail, and an older save's line by its words. A card an older task linked with no
- * thing of its own shows as a machine too (its id is {@code link:} and the card), so nothing it held is lost.
+ * is in), a screenshot by its thumbnail, a quest by its icon and name (and whether the player has done it), and an
+ * older save's line by its words. A card an older task linked with no thing of its own shows as a machine too (its id
+ * is {@code link:} and the card), so nothing it held is lost.
  */
 public final class TaskThings {
 
@@ -63,6 +64,7 @@ public final class TaskThings {
                 "",
                 l,
                 null,
+                null,
                 null);
             out.add(shown(session, holder, made));
         }
@@ -73,6 +75,7 @@ public final class TaskThings {
         return switch (i.shownKind()) {
             case Tasks.MACHINE -> machine(session, holder, i);
             case Tasks.LOCATION -> location(i);
+            case Tasks.QUEST -> quest(i);
             case Tasks.PICTURE -> new Shown(
                 i,
                 Tasks.PICTURE,
@@ -136,6 +139,26 @@ public final class TaskThings {
         }
         if (nearest == null) return "placed in another dimension";
         return "placed " + TaskEdits.howFar(nearest[1] + 0.5 - me.posX, nearest[3] + 0.5 - me.posZ);
+    }
+
+    /**
+     * A quest: its name and icon as the quest book has them (as the task kept them where the book is not), and under
+     * them its line and whether the player has done it.
+     */
+    private static Shown quest(final Tasks.Item i) {
+        final TaskQuests.Seen seen = TaskQuests.seen(i.quest());
+        final String words = !seen.name()
+            .isEmpty() ? seen.name() : i.text();
+        final String state = switch (seen.state()) {
+            case DONE -> "Done in your quest book";
+            case OPEN -> "Not done yet";
+            case GONE -> "Not in this quest book";
+            case NO_BOOK -> "No quest book in this game";
+        };
+        final String detail = seen.line() == null || seen.line()
+            .isEmpty() ? state : seen.line() + SEP + state;
+        final boolean gone = seen.state() == TaskQuests.State.GONE || seen.state() == TaskQuests.State.NO_BOOK;
+        return new Shown(i, Tasks.QUEST, words, detail, seen.icon(), gone, null, null);
     }
 
     /**

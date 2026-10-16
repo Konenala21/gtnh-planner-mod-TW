@@ -161,10 +161,16 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   icon, "4× Electric Blast Furnace (HV)", its plan, where it is placed in this world; a click shows it on its plan, its
   pin button in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
   where I stand" adds the block under the player and asks for a name; its Show key closes the planner and stands a
-  beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`) and a **screenshot**
+  beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`), a **screenshot**
   (`Tasks.Picture`, game only: "Add a screenshot" closes the planner, hides the GUI, reads the frame at a render tick's
   end, saves the full PNG in `screenshots/` and puts a 320 px JPEG data URL under 40 KB on the task, then reopens the
-  planner on the task, `TaskPictures`; a click shows it big, `PictureView`). Older checklist lines (no kind) show as
+  planner on the task, `TaskPictures`; a click shows it big, `PictureView`), and a **quest** (`Tasks.Quest`,
+  game only, with BetterQuesting loaded: "Add a quest" opens the real quest book in a pick mode, `ui/quest/QuestBook`, a
+  banner over it; the quest clicked, locked ones too, goes on the task and the box comes back; Esc goes back without one.
+  It keeps the quest's UUID, name, icon item key and line, `TaskQuests` reads the rest live; it ticks itself once the
+  player has done the quest, `TaskEdits.questsToTick`, unless they unticked it after; a click opens it in the book;
+  the website keeps it as it came, kind "quest"; `PLANNH_GTNH=1 PLANNH_QUESTS=1 tools/dev/mc.sh start` adds the book and
+  the pack's quests to the dev game). Older checklist lines (no kind) show as
   words, or as a machine when they point at a card, and a task's older `links` no thing names show as machines too.
   Every change is `BoardSession.editTasks` (undoable and saved, never solved). A link is `Tasks.Link {plan, node}`: the
   plan's id (`Graph.planId()`: its cloud doc key, else its saved local id; `isPlan` takes either) and the card's id as

@@ -253,6 +253,7 @@ public final class Boards {
                 "a1",
                 null,
                 new Tasks.Place(1, 64, -2, 0, "Overworld", "server:0123456789abcdef", "Ore field"),
+                null,
                 null));
         g.taskItems.add(
             new Tasks.Item(
@@ -264,7 +265,25 @@ public final class Boards {
                 "a2",
                 null,
                 null,
-                new Tasks.Picture("data:image/jpeg;base64,/9j/AA==", 1920, 1080, "2026-10-15T09:00:00.000Z", null)));
+                new Tasks.Picture("data:image/jpeg;base64,/9j/AA==", 1920, 1080, "2026-10-15T09:00:00.000Z", null),
+                null));
+        // A quest in the quest book: game only, carried under the thing so the website keeps it.
+        g.taskItems.add(
+            new Tasks.Item(
+                "i4",
+                "t1",
+                Tasks.QUEST,
+                "Steam Age",
+                false,
+                "a3",
+                null,
+                null,
+                null,
+                new Tasks.Quest(
+                    "0f2a43a5-6c1e-4d7a-9b3b-6a8f3b0e2c11",
+                    "Steam Age",
+                    "item:IC2:itemToolBronzePickaxe:0",
+                    "Tier 1 - Steam")));
         g.taskComments.add(
             new Tasks.Comment(
                 "c1",

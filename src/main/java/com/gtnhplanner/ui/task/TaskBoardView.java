@@ -270,6 +270,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         // A task asked for as the board came up (a screenshot taken for it, Open on a notice) opens now it is laid out.
         TaskPanel.openPending(session);
+        // Quests the player has done since it last looked tick themselves off.
+        TaskQuests.sync(session, false);
         hits.clear();
         final int w = getArea().width, h = getArea().height;
         Hyb.rect(0, 0, w, h, Hyb.CANVAS);

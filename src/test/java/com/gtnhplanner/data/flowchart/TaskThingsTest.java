@@ -29,6 +29,12 @@ class TaskThingsTest {
         AT,
         "task_2026-10-15_09.00.00.png");
 
+    private static final Tasks.Quest QUEST = new Tasks.Quest(
+        "0f2a43a5-6c1e-4d7a-9b3b-6a8f3b0e2c11",
+        "Steam Age",
+        "item:IC2:itemToolBronzePickaxe:0",
+        "Tier 1 - Steam");
+
     private static Graph board() {
         final Graph g = new Graph("Board");
         g.setPrimaryView(Tasks.TASKS);
@@ -44,6 +50,7 @@ class TaskThingsTest {
             null);
         TaskEdits.addThing(g, "l", "t", Tasks.LOCATION, TaskEdits.placeText(SPOT), null, SPOT, null);
         TaskEdits.addThing(g, "p", "t", Tasks.PICTURE, "Screenshot", null, null, SHOT);
+        TaskEdits.addQuest(g, "q", "t", QUEST);
         return g;
     }
 
@@ -80,7 +87,7 @@ class TaskThingsTest {
         final Graph back = Serializer.decode(Serializer.encode(g));
         assertEquals(g.taskItems, back.taskItems);
         assertEquals(
-            List.of(Tasks.MACHINE, Tasks.LOCATION, Tasks.PICTURE),
+            List.of(Tasks.MACHINE, Tasks.LOCATION, Tasks.PICTURE, Tasks.QUEST),
             TaskEdits.items(back, "t")
                 .stream()
                 .map(Tasks.Item::shownKind)
@@ -150,6 +157,7 @@ class TaskThingsTest {
             "a0",
             null,
             null,
+            null,
             null);
         assertEquals("", spotless.shownKind());
         final JsonObject bad = new JsonParser().parse("{\"x\":1.5,\"y\":64,\"z\":3,\"dim\":0}")
@@ -161,9 +169,9 @@ class TaskThingsTest {
     @Test
     void thingsCountTowardTheTaskAndTheCardsTheyName() {
         final Graph g = board();
-        assertArrayEquals(new int[] { 0, 3 }, TaskEdits.progress(g, "t"));
+        assertArrayEquals(new int[] { 0, 4 }, TaskEdits.progress(g, "t"));
         TaskEdits.putItem(g, TaskEdits.withDone(TaskEdits.item(g, "l"), true));
-        assertArrayEquals(new int[] { 1, 3 }, TaskEdits.progress(g, "t"));
+        assertArrayEquals(new int[] { 1, 4 }, TaskEdits.progress(g, "t"));
         assertEquals(
             "p",
             TaskEdits.firstPicture(g, "t")
@@ -222,5 +230,125 @@ class TaskThingsTest {
         assertEquals("40 m north-east", TaskEdits.howFar(28.3, -28.3));
         assertEquals("12 km south", TaskEdits.howFar(0, 12_345));
         assertEquals("here", TaskEdits.howFar(0, 0.4));
+    }
+
+    @Test
+    void aQuestIsWrittenUnderItsThingWithItsNameAsItsWords() {
+        final JsonObject root = new JsonObject();
+        Tasks.write(board(), root);
+        final JsonObject quest = root.getAsJsonArray("taskItems")
+            .get(3)
+            .getAsJsonObject();
+        assertEquals(
+            "quest",
+            quest.get("kind")
+                .getAsString());
+        assertEquals(
+            "Steam Age",
+            quest.get("text")
+                .getAsString());
+        assertEquals(
+            "{\"id\":\"0f2a43a5-6c1e-4d7a-9b3b-6a8f3b0e2c11\",\"name\":\"Steam Age\","
+                + "\"icon\":\"item:IC2:itemToolBronzePickaxe:0\",\"line\":\"Tier 1 - Steam\"}",
+            quest.getAsJsonObject("quest")
+                .toString());
+        // A plan code carries it whole too: it is a few words, not a picture.
+        final Graph shared = Serializer.decode(Serializer.encodeShared(board()));
+        assertEquals(
+            QUEST,
+            TaskEdits.questThing(shared, "t", QUEST.id())
+                .quest());
+    }
+
+    @Test
+    void aQuestGoesOnATaskOnce() {
+        final Graph g = board();
+        assertNull(TaskEdits.addQuest(g, "q2", "t", QUEST));
+        assertNull(TaskEdits.addQuest(g, "q3", "gone", QUEST));
+        assertEquals(
+            4,
+            TaskEdits.items(g, "t")
+                .size());
+        final Tasks.Quest unnamed = new Tasks.Quest("11111111-2222-4333-8444-555555555555", "", null, null);
+        assertEquals(
+            "A quest",
+            TaskEdits.addQuest(g, "q4", "t", unnamed)
+                .text());
+    }
+
+    @Test
+    void aQuestThingWithoutItsQuestShowsAsWords() {
+        final Graph g = new Graph("Old");
+        Tasks.read(
+            new JsonParser().parse(
+                "{\"tasks\":[{\"id\":\"a\",\"title\":\"A\",\"status\":\"todo\",\"order\":\"a0\"}],"
+                    + "\"taskItems\":[{\"id\":\"i\",\"taskId\":\"a\",\"kind\":\"quest\",\"text\":\"Steam Age\",\"done\":false,\"order\":\"a0\"},"
+                    + "{\"id\":\"j\",\"taskId\":\"a\",\"kind\":\"quest\",\"text\":\"No id\",\"done\":false,\"order\":\"a1\",\"quest\":{\"name\":\"x\"}}]}")
+                .getAsJsonObject(),
+            g);
+        assertEquals(
+            "",
+            TaskEdits.item(g, "i")
+                .shownKind());
+        assertEquals(
+            "",
+            TaskEdits.item(g, "j")
+                .shownKind());
+        // Written back with its kind, as it came.
+        final JsonObject root = new JsonObject();
+        Tasks.write(g, root);
+        assertEquals(
+            "quest",
+            root.getAsJsonArray("taskItems")
+                .get(0)
+                .getAsJsonObject()
+                .get("kind")
+                .getAsString());
+    }
+
+    @Test
+    void doneQuestsTickTheirThingsOnceAndLeaveWhatThePlayerSet() {
+        final Graph g = board();
+        final java.util.Set<String> left = new java.util.HashSet<>();
+        // Not done in the book: nothing to tick.
+        assertTrue(
+            TaskEdits.questsToTick(g, id -> false, left)
+                .isEmpty());
+        // Done: the quest thing alone is ticked, not the machine, the spot or the screenshot.
+        assertEquals(
+            List.of("q"),
+            TaskEdits.questsToTick(g, id -> id.equals(QUEST.id()), left)
+                .stream()
+                .map(Tasks.Item::id)
+                .toList());
+        // Unticked by hand after: left alone.
+        left.add("q");
+        assertTrue(
+            TaskEdits.questsToTick(g, id -> true, left)
+                .isEmpty());
+        // Already ticked: nothing to do.
+        left.clear();
+        TaskEdits.putItem(g, TaskEdits.withDone(TaskEdits.item(g, "q"), true));
+        assertTrue(
+            TaskEdits.questsToTick(g, id -> true, left)
+                .isEmpty());
+        // Every change to a thing keeps its quest.
+        final Tasks.Item q = TaskEdits.item(g, "q");
+        assertEquals(
+            QUEST,
+            TaskEdits.withDone(q, false)
+                .quest());
+        assertEquals(
+            QUEST,
+            TaskEdits.withText(q, "x")
+                .quest());
+        assertEquals(
+            QUEST,
+            Tasks.withoutThumb(q)
+                .quest());
+        assertEquals(
+            QUEST,
+            Tasks.claimed(q, "plan")
+                .quest());
     }
 }

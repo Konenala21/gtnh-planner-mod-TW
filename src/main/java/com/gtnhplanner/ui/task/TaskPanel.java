@@ -59,7 +59,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     private static final int LINE = 10, LABEL = 14, SECTION = 16, KEY_H = 16, ROW_PAD = 5;
     /** Colours: the wells written in, keys and rows lit, the side column's panel, the quieter words. */
     static final int WELL = 0xFF16171A, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE,
-        ROW_HOVER = 0xFF2A2C31, SIDE = 0xFF1D1F23, SIDE_EDGE = 0xFF2C2E34, DIM = 0xFF7E8089, FAINT = 0xFF6A6C74;
+        ROW_HOVER = 0xFF2A2C31, SIDE = 0xFF1D1F23, SIDE_EDGE = 0xFF2C2E34, DIM = 0xFF7E8089, FAINT = 0xFF6A6C74,
+        QUEST_INK = 0xFFF2C14E;
     private static final int DRAG_SLOP = 6;
     /** A row of the side column's lists of tasks. */
     private static final int LINK_H = 15;
@@ -97,6 +98,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         THING_DELETE,
         ADD_HERE,
         ADD_SHOT,
+        ADD_QUEST,
         COMMENT,
         COMMENT_DELETE,
         POST,
@@ -202,6 +204,15 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         popup.onCloseAction(panel::closing);
         showing = new WeakReference<>(panel);
         Popup.openCentred(session.panel(), popup, 0.5f);
+    }
+
+    /**
+     * The planner steps aside for another screen (the quest book) that will bring it back on the task: the box puts
+     * in what was written and counts as closed, so the task opens again when the board comes back.
+     */
+    static void stepAside() {
+        final TaskPanel p = showing.get();
+        if (p != null && !p.closed) p.closing();
     }
 
     /** A task to open once its board shows (after the planner comes back, or a tab switched to it). */
@@ -331,6 +342,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             Sfx.TOGGLE_ON.play();
             return;
         }
+        TaskQuests.byHand(item, !item.done());
         putItem(TaskEdits.withDone(item, !item.done()));
         (item.done() ? Sfx.TOGGLE_OFF : Sfx.TOGGLE_ON).play();
     }
@@ -371,8 +383,24 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 session,
                 s.item()
                     .picture());
+            case Tasks.QUEST -> openQuest(s);
             default -> rewrite(s.item());
         }
+    }
+
+    /** Opens a quest in the quest book; closing the book comes back here. */
+    private void openQuest(final TaskThings.Shown s) {
+        final Tasks.Quest q = s.item()
+            .quest();
+        if (q == null || !TaskQuests.open(graph(), taskId, q)) {
+            Sfx.DENY.play();
+            session.flash(
+                com.gtnhplanner.data.flowchart.balancer.Severity.WARN,
+                TaskQuests.available() ? "That quest is not in this quest book"
+                    : "There is no quest book in this game");
+            return;
+        }
+        Hyb.click();
     }
 
     /** Shows a spot in the world: the planner closes and a beam stands on it; a spot elsewhere says where it is. */
@@ -761,16 +789,22 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 Hyb.text("Nothing on it yet.", mainX + 2, y + 2, FAINT);
                 y += 14;
             }
-            // The keys that add things: where you stand and a screenshot, while in a world.
+            // The keys that add things: where you stand, a screenshot and a quest, while in a world.
             y += 4;
-            int x = mainX;
             if (net.minecraft.client.Minecraft.getMinecraft().theWorld != null) {
-                x = addKey(x, y, "Add my location", Kind.ADD_HERE, hover, true);
-                if (x + 6 + keyW("Add a screenshot") > mainX + mainW) {
-                    x = mainX;
-                    y += KEY_H + 4;
-                } else x += 6;
-                addKey(x, y, "Add a screenshot", Kind.ADD_SHOT, hover, false);
+                final List<AddKey> keys = new ArrayList<>();
+                keys.add(new AddKey("Add my location", Kind.ADD_HERE, Icons::pin));
+                keys.add(new AddKey("Add a screenshot", Kind.ADD_SHOT, Icons::camera));
+                if (TaskQuests.available()) keys.add(new AddKey("Add a quest", Kind.ADD_QUEST, Icons::book));
+                int x = mainX;
+                for (final AddKey k : keys) {
+                    final String label = k.label();
+                    if (x > mainX && x + 6 + keyW(label) > mainX + mainW) {
+                        x = mainX;
+                        y += KEY_H + 4;
+                    } else if (x > mainX) x += 6;
+                    x = addKey(x, y, label, k.kind(), hover, k.icon());
+                }
                 y += KEY_H + 6;
             }
             final NoteText hint = NoteText.of("Add machines from a card's pin button.", mainW, Hyb::width);
@@ -782,19 +816,21 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             return y;
         }
 
+        /** A key that adds a thing: its words, what it does, its picture. */
+        private record AddKey(String label, Kind kind, Picture icon) {}
+
         private int keyW(final String label) {
             return Hyb.width(label) + 12 + Icons.SIZE + 4;
         }
 
         /** A key with an icon before its words; returns its right edge. */
         private int addKey(final int x, final int y, final String label, final Kind kind, @Nullable final Hit hover,
-            final boolean pin) {
+            final Picture icon) {
             final int w = keyW(label);
             final boolean hot = is(hover, kind);
             Hyb.bevel(x, y, w, KEY_H, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
             final int ix = x + 6, iy = y + (KEY_H - 1 - Icons.SIZE) / 2;
-            if (pin) Icons.pin(ix, iy, CYAN);
-            else Icons.camera(ix, iy, CYAN);
+            icon.draw(ix, iy, kind == Kind.ADD_QUEST ? QUEST_INK : CYAN);
             Hyb.text(label, ix + Icons.SIZE + 4, y + 4, Hyb.INK);
             pageHits.add(new Hit(kind, x, y, x + w, y + KEY_H, null));
             return x + w;
@@ -803,7 +839,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         /** Where a thing's words start, after its checkbox and its picture. */
         private int textX(final TaskThings.Shown s) {
             return mainX + 17 + switch (s.kind()) {
-                case Tasks.MACHINE, Tasks.LOCATION -> 16 + 6;
+                case Tasks.MACHINE, Tasks.LOCATION, Tasks.QUEST -> 16 + 6;
                 case Tasks.PICTURE -> THUMB_W + 6;
                 default -> 0;
             };
@@ -828,7 +864,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             final int lines = words(s).lines()
                 .size() + detail(s).size();
             final int picture = switch (s.kind()) {
-                case Tasks.MACHINE, Tasks.LOCATION -> 16;
+                case Tasks.MACHINE, Tasks.LOCATION, Tasks.QUEST -> 16;
                 case Tasks.PICTURE -> THUMB_H;
                 default -> 0;
             };
@@ -876,6 +912,12 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     } else tile(px, y + (h - 16) / 2, Icons::card, s.gone() ? FAINT : Hyb.MUTED);
                 }
                 case Tasks.LOCATION -> tile(px, y + (h - 16) / 2, Icons::pin, CYAN);
+                case Tasks.QUEST -> {
+                    if (s.icon() != null) {
+                        Hyb.item(s.icon(), px, y + (h - 16) / 2f, 16, z);
+                        GL11.glDisable(GL11.GL_LIGHTING);
+                    } else tile(px, y + (h - 16) / 2, Icons::book, s.gone() ? FAINT : QUEST_INK);
+                }
                 case Tasks.PICTURE -> {
                     final int ty = y + (h - THUMB_H) / 2;
                     Hyb.rect(px - 1, ty - 1, THUMB_W + 2, THUMB_H + 2, CardPaint.EDGE);
@@ -1453,6 +1495,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     Hyb.click();
                     TaskPictures.take(graph(), taskId);
                 }
+                case ADD_QUEST -> {
+                    Hyb.click();
+                    TaskQuests.pick(session, graph(), taskId);
+                }
                 case COMMENT_DELETE -> {
                     edit(() -> TaskEdits.removeComment(session.graph(), (String) hit.data()));
                     Sfx.NOTE_CRUMPLE.play();
@@ -1548,6 +1594,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 rows.add(PickList.Entry.of("Name it", () -> rename(s.item())));
             }
             case Tasks.PICTURE -> rows.add(PickList.Entry.of("See it big", () -> act(s)));
+            case Tasks.QUEST -> rows.add(PickList.Entry.of("Open in the quest book", () -> act(s)));
             default -> rows.add(PickList.Entry.of("Change the words", () -> act(s)));
         }
         rows.add(
@@ -1785,6 +1832,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             case ADD_HERE -> Tip.of("Add the spot you stand on");
             case ADD_SHOT -> Tip.of("Add a screenshot of the world")
                 .sub("The planner steps aside for the shot and comes back");
+            case ADD_QUEST -> Tip.of("Add a quest from your quest book")
+                .sub("Click a quest in the book to add it");
             case COMMENT -> null;
             case COMMENT_DELETE -> Tip.of("Delete your comment");
             case POST -> Tip.of("Add your comment");
@@ -1809,6 +1858,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             }
             case Tasks.LOCATION -> tip.action(Tip.Input.LEFT, "Show where it is");
             case Tasks.PICTURE -> tip.action(Tip.Input.LEFT, "See it big");
+            case Tasks.QUEST -> tip.action(Tip.Input.LEFT, "Open it in the quest book");
             default -> tip.action(Tip.Input.LEFT, "Change the words");
         }
         if (!s.loose()) tip.action(Tip.Input.DRAG, "Move it");

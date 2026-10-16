@@ -510,6 +510,13 @@ public final class TaskEdits {
     public static Tasks.Item addThing(final Graph g, final String id, final String taskId, final String kind,
         final String text, @Nullable final Tasks.Link link, @Nullable final Tasks.Place place,
         @Nullable final Tasks.Picture picture) {
+        return addThing(g, id, taskId, kind, text, link, place, picture, null);
+    }
+
+    /** {@link #addThing}, with a quest for a {@link Tasks#QUEST} thing. */
+    public static Tasks.Item addThing(final Graph g, final String id, final String taskId, final String kind,
+        final String text, @Nullable final Tasks.Link link, @Nullable final Tasks.Place place,
+        @Nullable final Tasks.Picture picture, @Nullable final Tasks.Quest quest) {
         final List<Tasks.Item> list = items(g, taskId);
         String order;
         try {
@@ -532,10 +539,54 @@ public final class TaskEdits {
             order,
             link,
             place,
-            picture);
+            picture,
+            quest);
         g.taskItems.add(item);
         return item;
     }
+
+    // region Quests
+
+    /**
+     * Adds a quest to a task as a thing at the bottom, its words the quest's name; null (and nothing added) when the
+     * task already has that quest or is gone.
+     */
+    @Nullable
+    public static Tasks.Item addQuest(final Graph g, final String id, final String taskId, final Tasks.Quest quest) {
+        if (task(g, taskId) == null || questThing(g, taskId, quest.id()) != null) return null;
+        final String words = quest.name()
+            .isBlank() ? "A quest" : quest.name();
+        return addThing(g, id, taskId, Tasks.QUEST, words, null, null, null, quest);
+    }
+
+    /** The task's thing for the quest {@code questId}; null when it has none. */
+    @Nullable
+    public static Tasks.Item questThing(final Graph g, final String taskId, final String questId) {
+        for (final Tasks.Item i : items(g, taskId)) if (Tasks.QUEST.equals(i.shownKind()) && i.quest()
+            .id()
+            .equals(questId)) return i;
+        return null;
+    }
+
+    /**
+     * The quest things to tick because the player has done their quest: not ticked yet, their quest done
+     * ({@code done} says, by quest id), and not in {@code left} (things the player unticked by hand after their quest
+     * was done, or ticked once already, which are theirs to keep as they are).
+     */
+    public static List<Tasks.Item> questsToTick(final Graph g, final java.util.function.Predicate<String> done,
+        final Set<String> left) {
+        final List<Tasks.Item> out = new ArrayList<>();
+        for (final Tasks.Item i : g.taskItems) {
+            if (i.done() || !Tasks.QUEST.equals(i.shownKind()) || left.contains(i.id())) continue;
+            if (done.test(
+                i.quest()
+                    .id()))
+                out.add(i);
+        }
+        return out;
+    }
+
+    // endregion
 
     /** A task's things done and all of them: {done, total}. */
     public static int[] progress(final Graph g, final String taskId) {
@@ -599,7 +650,8 @@ public final class TaskEdits {
             i.order(),
             i.link(),
             i.place(),
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     public static Tasks.Item withText(final Tasks.Item i, final String text) {
@@ -612,7 +664,8 @@ public final class TaskEdits {
             i.order(),
             i.link(),
             i.place(),
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     public static Tasks.Item withLink(final Tasks.Item i, @Nullable final Tasks.Link link) {
@@ -625,7 +678,8 @@ public final class TaskEdits {
             i.order(),
             link,
             i.place(),
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     /**
@@ -645,7 +699,8 @@ public final class TaskEdits {
             i.order(),
             i.link(),
             next,
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     private static Tasks.Item withOrder(final Tasks.Item i, final String order) {
@@ -658,7 +713,8 @@ public final class TaskEdits {
             order,
             i.link(),
             i.place(),
-            i.picture());
+            i.picture(),
+            i.quest());
     }
 
     /** The most a location's label holds. */

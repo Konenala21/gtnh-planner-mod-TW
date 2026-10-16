@@ -66,6 +66,11 @@ public final class Icons {
         draw(CAMERA, x, y, c, false);
     }
 
+    /** An open book, for a quest. */
+    public static void book(final int x, final int y, final int c) {
+        draw(BOOK, x, y, c, false);
+    }
+
     /** A plus, for adding. */
     public static void plus(final int x, final int y, final int c) {
         draw(PLUS, x, y, c, false);
@@ -100,6 +105,8 @@ public final class Icons {
         "...###...", "...###...", "....#...." };
     private static final String[] CAMERA = { ".........", "...###...", "#########", "###...###", "##.....##",
         "###...###", "#########", ".........", "........." };
+    private static final String[] BOOK = { ".........", "##.....##", "####.####", "####.####", "####.####", "####.####",
+        "####.####", ".##...##.", "........." };
     private static final String[] PLUS = { ".........", "...##....", "...##....", ".######..", ".######..", "...##....",
         "...##....", ".........", "........." };
 
