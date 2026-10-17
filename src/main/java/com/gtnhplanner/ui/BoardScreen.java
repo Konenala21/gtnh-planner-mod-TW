@@ -193,20 +193,18 @@ public final class BoardScreen extends ModularScreen {
                     step -> session.togglePowerKey())),
             fit("EU/t", "Amps"),
             tight("EU/t", "Amps"));
+        // Peak or average power is the overview's own key, on its machines' heading. At the far right, a group of its
+        // own: the annotations key opens the empty board's menu under it (sticky note, box, arrow), what it adds
+        // landing
+        // in the middle of the view.
         toolbar.key(
-            3,
-            named(
-                parts,
-                "peak",
-                key(
-                    () -> session.peakPower() ? "Peak" : "Avg",
-                    () -> true,
-                    "Average or peak power use (peak: every machine running at once)",
-                    fit("Peak", "Avg"),
-                    session::togglePeakPower,
-                    step -> session.togglePeakPower())),
-            fit("Peak", "Avg"),
-            tight("Peak", "Avg"));
+            4,
+            named(parts, "annotate", iconKey(Picture.PENCIL, () -> true, "Add a sticky note, box or arrow", () -> {
+                final IWidget key = parts.get("annotate");
+                canvas.openBoardMenuAt(key.getArea().x, key.getArea().y + key.getArea().height + 2);
+            })),
+            18,
+            18);
         topBar.key(
             0,
             named(
@@ -777,10 +775,11 @@ public final class BoardScreen extends ModularScreen {
         REDO,
         FEEDBACK,
         GEAR,
-        HELP
+        HELP,
+        PENCIL
     }
 
-    /** A small key with a picture on it (the game's font has none): undo, redo, feedback, settings, help. */
+    /** A small key with a picture on it (the game's font has none): undo, redo, feedback, settings, help, notes. */
     private static ButtonWidget<?> iconKey(final Picture picture, final BooleanSupplier enabled, final String tooltip,
         final Runnable action) {
         final ButtonWidget<?> button = key(() -> "", enabled, tooltip, 18, action);
@@ -794,6 +793,7 @@ public final class BoardScreen extends ModularScreen {
                 case FEEDBACK -> Icons.bug(at[0], at[1], 0xFFE5484D);
                 case GEAR -> Icons.gear(at[0], at[1], c);
                 case HELP -> Icons.help(at[0], at[1], c);
+                case PENCIL -> Icons.pencil(at[0], at[1], c);
             }
         });
         return button;

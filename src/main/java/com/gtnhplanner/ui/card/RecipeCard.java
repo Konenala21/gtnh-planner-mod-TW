@@ -2391,6 +2391,62 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return pendingUnpin ? 0 : pendingCount > 0 ? pendingCount : -1;
     }
 
+    // region The overview's machine line wears this card's tier and amps chips (the website's TierChip and AmpsChip)
+
+    /** The tier the head's chip reads (a recipe's voltage, a generator's tier, a crop's harvester's); null for none. */
+    @Nullable
+    public Hyb.Tier headTier() {
+        if (model == null || !hasTier()) return null;
+        if (model.gregtech && !model.steam()) return Hyb.tier(model.tier);
+        if (powerTier() != null) return Hyb.tier(powerTier().value(model.node.powerSettings.get("tier")));
+        return Hyb.tier(com.gtnhplanner.machines.game.CropCards.tierName(model.node));
+    }
+
+    /** The amps the head's chip reads, a wheeled value first; 0 when it has none (only a GregTech multiblock does). */
+    public int headAmps() {
+        if (model == null || !model.gregtech || model.steam() || !model.multiblock) return 0;
+        return pendingAmps > 0 ? pendingAmps : model.amps;
+    }
+
+    /** A press on the line's tier or amps chip, as on the card's: the tier up or down (right), the amps one fewer. */
+    public void pressChip(final Part part, final int mouseButton) {
+        if (model == null) return;
+        if (part == Part.TIER) {
+            if (model.isPower()) stepPowerTier(mouseButton == 1 ? -1 : 1);
+            else stepTier(mouseButton == 1 ? -1 : 1);
+        } else if (part == Part.AMPS && mouseButton == 1)
+            session.setSetting(model.node, "amp", Math.max(1, model.amps - 1));
+    }
+
+    /** The wheel on the line's tier or amps chip, as on the card's. */
+    public void wheelChip(final Part part, final int step) {
+        if (model == null) return;
+        if (part == Part.TIER) {
+            if (model.isPower()) stepPowerTier(step);
+            else stepTier(step);
+        } else if (part == Part.AMPS && headAmps() > 0) {
+            com.gtnhplanner.ui.sound.Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
+            pendingAmps = stepAmps(pendingAmps > 0 ? pendingAmps : model.amps, step);
+            wheelAt = System.currentTimeMillis();
+            committedOver = null;
+            session.wheelSetting(model.node, "amp", pendingAmps);
+        }
+    }
+
+    /** Amps typed for the card: 1 to the most a hatch takes, as the amps box sets them. */
+    public void setAmps(final double amps) {
+        if (model != null)
+            session.setSetting(model.node, "amp", (int) Math.max(1, Math.min(PowerPanel.MAX_AMPS, Math.round(amps))));
+    }
+
+    /** The head's chip as the card draws it, for the line's: flat in the tier's colours, its label on whole pixels. */
+    public static void drawChip(final int x, final int y, final int w, final int h, final Hyb.Tier tier,
+        final String label, final boolean underline, final boolean hover) {
+        chip(x, y, w, h, tier, label, underline, hover, true);
+    }
+
+    // endregion
+
     /**
      * The wheel on the amps chip, as on the website: one at a time, ten with Ctrl, a thousand with Ctrl and Shift, and
      * Shift alone walks the powers of four (a hatch tier's worth at a time).

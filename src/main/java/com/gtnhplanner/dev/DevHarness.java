@@ -533,6 +533,10 @@ public final class DevHarness {
                 // The Up to rule set up to look at: a card's rule, a stand-in read-out on it, a drawer shortfall
                 // (DevBoard.upTo has the parameters); clear=1 takes the stand-ins away.
                 return onClient(() -> DevBoard.upTo(q));
+            case "/loops":
+                // Stand-in dead loops and clog locks over the board's cards (DevBoard.loops has the parameters), until
+                // the solver reads them out; clear=1 takes them away.
+                return onClient(() -> DevBoard.loops(q));
             case "/view":
                 return onClient(() -> {
                     DevBoard.view(

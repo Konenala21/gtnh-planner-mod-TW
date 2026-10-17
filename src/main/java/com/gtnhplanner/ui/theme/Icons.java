@@ -76,6 +76,11 @@ public final class Icons {
         draw(PLUS, x, y, c, false);
     }
 
+    /** A pencil, its point at the bottom left: the board's annotations (sticky notes, boxes, arrows). */
+    public static void pencil(final int x, final int y, final int c) {
+        draw(PENCIL, x, y, c, false);
+    }
+
     /**
      * Where an icon goes on a key {@code w} by {@code h}: the middle of its lit face (the dark edge right and below
      * melts into the bar), its rows level with a label's letters. Exact on a key of even width and height.
@@ -109,6 +114,8 @@ public final class Icons {
         "####.####", ".##...##.", "........." };
     private static final String[] PLUS = { ".........", "...##....", "...##....", ".######..", ".######..", "...##....",
         "...##....", ".........", "........." };
+    private static final String[] PENCIL = { "......##.", ".....###.", "....###..", "...###...", "..###....",
+        ".###.....", "####.....", "###......", "........." };
 
     private static void draw(final String[] rows, final int x, final int y, final int c, final boolean mirror) {
         final boolean own = !Hyb.batching();

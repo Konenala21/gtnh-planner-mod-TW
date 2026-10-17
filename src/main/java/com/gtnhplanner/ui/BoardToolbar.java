@@ -10,9 +10,10 @@ import com.cleanroommc.modularui.widget.sizer.Unit;
 
 /**
  * The keys that float over the top edge of the board, in the middle column between the overview and NEI, with no band
- * behind them and no room reserved: the non-recipe machines, undo and redo at the left; arrange and fit, the rate unit,
- * EU/t and average or peak at the right. They edit or view the board. The top bar above holds the account's things
- * only. A task board has none of these: it shows its own header instead ({@code ui/task/TaskBoardView}).
+ * behind them and no room reserved: the non-recipe machines, undo and redo at the left; arrange and fit, the rate unit
+ * and EU/t, then the annotations key at the right. They edit or view the board. Peak or average power is the
+ * overview's own key. The top bar above holds the account's things only. A task board has none of these: it shows its
+ * own header instead ({@code ui/task/TaskBoardView}).
  *
  * <p>
  * It gives way as the board narrows: the keys first sit closer (the non-recipe key keeps only its bolt, arrange's

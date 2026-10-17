@@ -93,6 +93,12 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         COUNT,
         /** A machine line's rule key: Any (the plan decides), ≤ (up to) or = (exactly); a click steps it. */
         MACHINE_RULE,
+        /**
+         * A machine line's tier chip, the card's own: a click steps it up, a right click down, the wheel either way.
+         */
+        TIER_CHIP,
+        /** A machine line's amps chip, the card's own: a click types them, a right click takes one off, the wheel. */
+        AMPS_CHIP,
         /** A machine's pin key: puts it on the pin list shown while playing, or takes it off. */
         PIN,
         /** The list's scroll bar: drag the thumb, or click the track to jump. */
@@ -499,13 +505,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     private int resources(final String title, final List<BoardSession.TotalLine> lines, int y, final int w,
         final float z, final int ink, final String sign, final String empty, final Hit hover, final Set<String> keys) {
         // What the plan's spares carry is theirs: a line left with nothing but that (and no drawer) is not listed here.
+        // A line at 0 (an unwired port's resource, or a drawer's) always is, so it can be set from here.
         final boolean internal = title.equals("INTERNAL"), sources = title.equals("INPUTS");
         final Map<String, Double> spared = internal ? Map.of() : spared(sources);
         final List<BoardSession.TotalLine> kept = new ArrayList<>();
         final Map<BoardSession.TotalLine, Double> amounts = new HashMap<>();
         for (final BoardSession.TotalLine line : lines) {
             final double left = Math.max(0, line.amount() - spared.getOrDefault(line.key(), 0.0));
-            if (!internal && left <= Math.max(1e-6, line.amount() * 1e-4)
+            if (!internal && line.amount() > RailTotals.EPS
+                && left <= Math.max(RailTotals.EPS, line.amount() * 1e-4)
                 && drawersFor(line, sources).isEmpty()
                 && pinsFor(line, sources).isEmpty()) continue;
             kept.add(line);
@@ -1043,9 +1051,13 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final boolean pinHot = hover != null && hover.kind() == Kind.PIN && hover.data() == m;
                 final boolean countHot = hover != null && hover.kind() == Kind.COUNT && hover.data() == m;
                 final boolean ruleHot = hover != null && hover.kind() == Kind.MACHINE_RULE && hover.data() == m;
+                final boolean tierHot = hover != null && hover.kind() == Kind.TIER_CHIP && hover.data() == m;
+                final boolean ampsHot = hover != null && hover.kind() == Kind.AMPS_CHIP && hover.data() == m;
                 final boolean hot = hover != null && hover.kind() == Kind.MACHINE && hover.data() == m || pinHot
                     || countHot
-                    || ruleHot;
+                    || ruleHot
+                    || tierHot
+                    || ampsHot;
                 if (hot) Hyb.rect(0, y, w - 1, ROW_H, HOVER);
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
                 // The pin key, under the machine's icon: gold while the card is placed or on the pin list, else on
@@ -1058,11 +1070,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                         .pinIcon(pinX + PIN_W / 2f, y + ROW_H / 2f, pinned ? Hyb.GOLD : pinHot ? Hyb.INK : Hyb.MUTED);
                 }
                 if (card != null) hits.add(new Hit(Kind.PIN, pinX, y, pinX + PIN_W, y + ROW_H, m));
-                int cx = NAME_X;
-                // A steam machine has no tier (CardModel.steam).
-                if (m.gregtech() && !m.tier()
-                    .isEmpty())
-                    cx += Hyb.tierTag(m.tier(), m.multiblock() && m.amps() > 1 ? m.amps() + "A" : null, cx, y + 2) + 4;
+                // The card's own amps and tier chips, as its head wears them (a steam machine has none): a click, the
+                // wheel or typed amps do here what they do there.
+                final int cx = chips(m, card, y, ampsHot, tierHot);
                 // How many it takes, then the count field: as the card's count, the wheel and a click set it here too;
                 // a count being wheeled shows in the field.
                 final long wheeled = card == null ? -1 : card.wheeledCount();
@@ -1070,15 +1080,16 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final PinRule shownRule = wheeled == 0 ? PinRule.ANY
                     : wheeled > 0 ? com.gtnhplanner.ui.card.CardFace.ruleForCount(m.rule(), false) : m.rule();
                 final boolean set = shownRule != PinRule.ANY;
-                // An Up to card says what runs of what is set ("×4.5 of" 6), tinted by why when it runs short.
-                final boolean of = shownRule == PinRule.UP_TO && !crop(m);
-                final String count = "×" + Fmt.machines(m.machines()) + (of ? " of" : "");
+                // What runs, then the set count in gold in the field ("×4.5" 6); an Up to card's tinted by why when it
+                // runs short.
+                final boolean upTo = shownRule == PinRule.UP_TO && !crop(m);
+                final String count = "×" + Fmt.machines(m.machines());
                 final int countW = Hyb.width(count);
                 Hyb.text(
                     count,
                     numberRight - countW,
                     y + 3,
-                    of && wheeled < 0 ? com.gtnhplanner.ui.card.CardFace.railColour(
+                    upTo && wheeled < 0 ? com.gtnhplanner.ui.card.CardFace.railColour(
                         m.upTo() == null ? null
                             : m.upTo()
                                 .reason(),
@@ -1114,15 +1125,55 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final String eu = m.tooLow() ? "TIER!"
                     : m.madeEuPerTick() > 0 ? "+" + Fmt.power(m.madeEuPerTick()) : Fmt.power(m.euPerTick());
                 final int euInk = m.tooLow() ? Hyb.RED_INK : m.madeEuPerTick() > 0 ? 0xFFE0B04A : Hyb.MUTED;
+                // Shortened to fit, never cut: the unit goes first, then the number.
                 final int room = numberRight - countW - 4 - cx;
                 final String euText = m.tooLow() || Hyb.width(eu + " EU/t") > room ? eu : eu + " EU/t";
-                Hyb.text(Hyb.fit(euText, room), cx, y + 3, euInk);
+                if (Hyb.width(euText) <= room) Hyb.text(euText, cx, y + 3, euInk);
                 hits.add(new Hit(Kind.MACHINE, 0, y, w - 1, y + ROW_H, m));
                 y += ROW_H;
             }
             y += 1;
         }
         return y + GAP;
+    }
+
+    /** The gap between a line's two chips, and after them. */
+    private static final int CHIP_GAP = 2, CHIPS_AFTER = 4;
+
+    /**
+     * A machine line's chips, the card's own amps and tier ({@code RecipeCard.headAmps}, {@code headTier}) from
+     * {@link #NAME_X}, at the size of the line's count field; returns where the line goes on after them. The amps chip
+     * being typed into is the line's box.
+     */
+    private int chips(final BoardSession.MachineLine m, final com.gtnhplanner.ui.card.RecipeCard card, final int y,
+        final boolean ampsHot, final boolean tierHot) {
+        final Hyb.Tier tier = card == null ? null : card.headTier();
+        if (tier == null) return NAME_X;
+        int x = NAME_X;
+        final int amps = card.headAmps();
+        if (amps > 0) {
+            final String label = Fmt.compact(amps) + "A";
+            final boolean typing = edit.editing(ampsEditKey(m));
+            // Typed into in place, the box the chip's size (with room for four figures).
+            final int cw = typing ? Math.max(chipWidth(label), chipWidth("0000")) : chipWidth(label);
+            if (typing) edit.drawBox(x, y + 1, cw, 11, y + 3);
+            else com.gtnhplanner.ui.card.RecipeCard.drawChip(x, y + 1, cw, 11, tier, label, false, ampsHot);
+            hits.add(new Hit(Kind.AMPS_CHIP, x, y, x + cw, y + ROW_H, m));
+            x += cw + CHIP_GAP;
+        }
+        final int tw = chipWidth(tier.name());
+        com.gtnhplanner.ui.card.RecipeCard.drawChip(x, y + 1, tw, 11, tier, tier.name(), tier.underline(), tierHot);
+        hits.add(new Hit(Kind.TIER_CHIP, x, y, x + tw, y + ROW_H, m));
+        return x + tw + CHIPS_AFTER;
+    }
+
+    /** A chip as wide as its label and a margin each side, as the small tier tags are. */
+    private static int chipWidth(final String label) {
+        return Hyb.width(label) + 6;
+    }
+
+    private static String ampsEditKey(final BoardSession.MachineLine m) {
+        return "amps:" + m.nodeId();
     }
 
     // endregion
@@ -1197,7 +1248,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         }
         if (hit.kind() == Kind.PORT_RULE || hit.kind() == Kind.PORT_RATE) {
             final PortPin p = (PortPin) hit.data();
-            if (mouseButton == 2 || mouseButton == 0 && hit.kind() == Kind.PORT_RULE) {
+            // The middle button clears it, with the unpin sound alone.
+            if (mouseButton == 2) session.setPortTarget(p.node(), p.output(), p.index(), 0);
+            else if (mouseButton == 0 && hit.kind() == Kind.PORT_RULE) {
                 Hyb.click();
                 session.setPortTarget(p.node(), p.output(), p.index(), 0);
             } else if (mouseButton == 0) {
@@ -1207,6 +1260,30 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     portEditKey(p),
                     p.rate() * unit.perSecond,
                     v -> session.setPortTarget(p.node(), p.output(), p.index(), v / unit.perSecond));
+                getContext().focus(this);
+            }
+            return Result.SUCCESS;
+        }
+        // The middle button on a machine's count or its rule key lets the plan decide again (Any): the unpin sound
+        // once, nothing when it already was.
+        if (mouseButton == 2 && (hit.kind() == Kind.COUNT || hit.kind() == Kind.MACHINE_RULE)) {
+            final com.gtnhplanner.ui.card.RecipeCard card = cardOf(((BoardSession.MachineLine) hit.data()).nodeId());
+            if (card != null && card.model() != null) session.pin(card.model().node, 0);
+            return Result.SUCCESS;
+        }
+        if (hit.kind() == Kind.TIER_CHIP || hit.kind() == Kind.AMPS_CHIP) {
+            final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
+            final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+            if (mouseButton == 2) {
+                if (focus(hit)) Hyb.click();
+            } else if (card != null && hit.kind() == Kind.TIER_CHIP)
+                card.pressChip(com.gtnhplanner.ui.card.RecipeCard.Part.TIER, mouseButton);
+            else if (card != null && mouseButton == 1)
+                card.pressChip(com.gtnhplanner.ui.card.RecipeCard.Part.AMPS, mouseButton);
+            else if (card != null && mouseButton == 0) {
+                // Typed in place, as on the card.
+                Hyb.click();
+                edit.start(ampsEditKey(m), card.headAmps(), card::setAmps);
                 getContext().focus(this);
             }
             return Result.SUCCESS;
@@ -1224,10 +1301,11 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 && bar.click(session, line, at)) Hyb.click();
             return Result.SUCCESS;
         }
-        // Middle-click on a rule or rate clears the drawer back to "Set rate", as on the website.
+        // Middle-click on a rule or rate clears the drawer back to "Set rate", as on the website: the unpin sound once,
+        // nothing when nothing was set.
         if (mouseButton == 2 && (hit.kind() == Kind.RULE || hit.kind() == Kind.RATE)) {
-            Hyb.click();
-            session.setDrawerRate(((DrawerModel) hit.data()).drawer, 0);
+            final DrawerModel d = (DrawerModel) hit.data();
+            if (d.rule != Drawer.Rule.ANY || d.target > 0) session.setDrawerRate(d.drawer, 0);
             return Result.SUCCESS;
         }
         if (mouseButton == 1 && hit.kind() == Kind.RESOURCE) {
@@ -1354,7 +1432,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 canvas.frame(List.of(card.nodeId));
                 return true;
             }
-            case MACHINE, COUNT, MACHINE_RULE, PIN -> {
+            case MACHINE, COUNT, MACHINE_RULE, PIN, TIER_CHIP, AMPS_CHIP -> {
                 canvas.frame(List.of(((BoardSession.MachineLine) hit.data()).nodeId()));
                 return true;
             }
@@ -1434,6 +1512,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             }
             if (hit != null && hit.kind() == Kind.MACHINE_RULE) {
                 stepRule((BoardSession.MachineLine) hit.data(), step);
+                return true;
+            }
+            if (hit != null && (hit.kind() == Kind.TIER_CHIP || hit.kind() == Kind.AMPS_CHIP)) {
+                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
+                    ((BoardSession.MachineLine) hit.data()).nodeId());
+                if (card != null) card.wheelChip(
+                    hit.kind() == Kind.TIER_CHIP ? com.gtnhplanner.ui.card.RecipeCard.Part.TIER
+                        : com.gtnhplanner.ui.card.RecipeCard.Part.AMPS,
+                    step);
                 return true;
             }
         }
@@ -1556,7 +1643,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     ? List.of(
                         "Set on the " + p.machine() + "'s " + side,
                         hint + "The machine runs so this " + side + (p.output() ? " gives" : " takes") + " exactly it",
-                        hint + "Click: let the plan decide")
+                        hint + "Click or middle click: let the plan decide")
                     : List.of(
                         "Rate set on the " + p.machine() + "'s " + side,
                         hint + "Click: type it (2.5k, 1M, 1/3)  Middle click: clear",
@@ -1576,13 +1663,34 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             case COUNT -> List.of(
                 crop((BoardSession.MachineLine) hit.data()) ? "Crops planted" : "Machine count",
                 hint + "Click: type a count",
-                hint + "Wheel: one more or fewer (below one lets the plan decide)");
+                hint + "Wheel: one more or fewer (below one lets the plan decide)",
+                hint + "Middle click: let the plan decide");
+            case TIER_CHIP -> {
+                final com.gtnhplanner.ui.card.CardModel card = session
+                    .model(((BoardSession.MachineLine) hit.data()).nodeId());
+                yield List.of(
+                    card != null && card.gregtech ? "Voltage tier" : "Tier",
+                    hint + "Click: up  Right-click: down",
+                    hint + "Wheel: up or down");
+            }
+            case AMPS_CHIP -> List.of(
+                "Energy hatch amps",
+                hint + "Click: type them  Right-click: one fewer",
+                hint + "Wheel: one more or fewer (Ctrl x10, Shift x4)");
             case MACHINE_RULE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final String set = com.gtnhplanner.ui.card.CardFace.setText(m.set()) + (crop(m) ? " crops" : "");
                 yield switch (m.rule()) {
-                    case UP_TO -> List.of("Up to", hint + "Never more than " + set, hint + "Click: make it exact");
-                    case EXACT -> List.of("Exactly", hint + "Exactly " + set, hint + "Click: let the plan decide");
+                    case UP_TO -> List.of(
+                        "Up to",
+                        hint + "Never more than " + set,
+                        hint + "Click: make it exact",
+                        hint + "Middle click: let the plan decide");
+                    case EXACT -> List.of(
+                        "Exactly",
+                        hint + "Exactly " + set,
+                        hint + "Click: let the plan decide",
+                        hint + "Middle click: let the plan decide");
                     case ANY -> List.of(
                         "Any",
                         hint + "The plan decides how many",

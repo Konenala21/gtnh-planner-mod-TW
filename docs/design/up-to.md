@@ -162,11 +162,22 @@ ported to `balancer/`, name for name where the Java already mirrored it:
 - Writes: `BoardSession.pin` keeps the rule (Any becomes Up to), `setRule` sets it at a count, `rule`/`setCount` read
   it (a shared machine's is its group's), all through `PinRule`. A set count never asks for one (`unsetParts` drops
   it), so an idle Up to card says UNUSED on its bar, not "(set count)".
-- The overview's machine lines: "×4.5 of" (tinted by the reason when not full), the rule key ≤ for Up to and = for
-  Exactly (a click steps Any, Up to, Exactly), the set count gold in the field; `MachineLine` carries `rule`, `set`,
-  `runs` and the read-out.
+- The overview's machine lines: "×4.5" then the set count gold in the field (tinted by the reason when not full), the
+  rule key ≤ for Up to, = for Exactly and ~ for Any (a click steps Any, Up to, Exactly), and the card's own amps and
+  tier chips (`RecipeCard.headAmps`, `headTier`, `pressChip`, `wheelChip`: a click, the wheel or typed amps do there
+  what they do on the card). Every machine is listed, at zero too, whatever its rule (a fluid tank is not; a shared
+  machine at zero is its first recipe's line), and every resource an unwired port takes or makes is listed on its
+  side at zero when nothing else lists it (`RailTotals`, the website's `rail-model.ts`). The middle button clears
+  what is set there: a count and its rule key to Any, a port's rate, a drawer's rule and rate, the unpin sound once
+  and nothing when nothing was set. `MachineLine` carries `rule`, `set`, `runs` and the read-out.
 - Notices: a drawer short of its rate says what it gets and what holds it back ("The Benzene drawer gets 1.2/s of 2/s.
   The Distillation Tower is full."), the limiting cards in its Show me.
+- Dead loops and clog locks (`SolutionView.upToLoops`, `BoardSession.upToLoops`, `ui/Loops`, the website's
+  `clean/loops.ts`): a notice per ring before the drawer shortfalls ("The Electrolyzer, Chemical Reactor and Mixer wait
+  on each other. Nothing feeds the loop." / "The Electrolyzer and Mixer are stuck on Hydrogen. A drawer for it frees
+  them."), Show me on its cards, and the wires joining its cards along its rows lit steady in its tone over their core
+  (`WireLayer.drawRings`: dead loop amber `#E0A63A`, clog lock purple `#B49CF0`). `BoardSession.loopTone(card)` gives a
+  card's ring for its outline. `call loops` puts stand-in rings on the board.
 - The tour pins the electrolyzer and the mixer Exactly (their rule word, then Exactly) before it shows forced flows;
   `starts.json` carries the electrolyzer's flag in every later start.
 - `BoardSession.upTo(id)` reads the solver's read-outs by every machine of a pool; `call upto` puts stand-ins in their

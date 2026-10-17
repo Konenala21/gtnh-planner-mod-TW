@@ -4,11 +4,14 @@
 
 ## Better
 
-- A recipe's circuit sits in the corner of its machine. The circuit setting is gone.
-- Middle click clears a count or rate you set.
+- The circuit now shows in the corner of the machine picture instead of as an input.
+- Middle click clears any count or rate you set, on the card or in the overview.
 - Tier and amps chips look like buttons again. Amps are typed right into the chip.
 - Zoomed out cards kick in sooner and show how hard each machine runs.
 - Deleting a drawer puts its rate back on the machine it hung off. Deleting a drawer between machines wires them straight together when there is only one way to.
+- The overview lists every machine and every open input and output even at zero. You can change tier and amps from there too.
+- Machines stuck waiting on each other get a notice and the wires between them light up.
+- A pencil key on the board's toolbar adds a sticky note, box or arrow. Peak and Avg live in the overview now.
 
 ## Fixed
 

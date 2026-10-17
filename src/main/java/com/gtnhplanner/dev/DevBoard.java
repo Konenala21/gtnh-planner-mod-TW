@@ -361,6 +361,44 @@ final class DevBoard {
         return Map.of("readouts", UP_TO.size(), "shortfalls", SHORT.size(), "loops", LOOPS.size());
     }
 
+    /**
+     * Stand-in dead loops and clog locks, to look at the notices and lit wires before the solver reads rings out:
+     * {@code kind=dead|clog}, {@code cards=N,M,K} (the report's order) and {@code ports=N:in0,M:out1} (a card's
+     * blaming ports on the ring) add a ring; {@code clear=1} takes every ring away. Returns what the notices bar says.
+     */
+    static Map<String, Object> loops(final Map<String, String> q) {
+        final BoardScreen screen = screen();
+        if (screen == null) throw new IllegalStateException("the planner is not open");
+        final com.gtnhplanner.ui.BoardSession session = screen.session();
+        if (q.containsKey("clear")) {
+            LOOPS.clear();
+            session.devLoops(null);
+            return Map.of("cleared", true);
+        }
+        if (q.containsKey("cards")) {
+            final List<java.util.UUID> nodes = new ArrayList<>();
+            for (final String s : q.get("cards")
+                .split(",")) if (!s.isBlank()) nodes.add(card(Integer.parseInt(s.trim())).node.id);
+            final List<com.gtnhplanner.data.flowchart.balancer.PortRef> ports = new ArrayList<>();
+            for (final String s : q.getOrDefault("ports", "")
+                .split(",")) {
+                if (s.isBlank()) continue;
+                final String[] at = s.trim()
+                    .split(":");
+                ports.add(port(card(Integer.parseInt(at[0])), at[1]));
+            }
+            LOOPS.add(
+                new com.gtnhplanner.data.flowchart.balancer.UpToLoop(
+                    "clog".equalsIgnoreCase(q.get("kind"))
+                        ? com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK
+                        : com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP,
+                    nodes,
+                    ports));
+        }
+        session.devLoops(LOOPS.isEmpty() ? null : LOOPS);
+        return Map.of("loops", LOOPS.size());
+    }
+
     /** A card's port as the solver names it: {@code in0}, {@code out1} (on the card's own recipe). */
     private static com.gtnhplanner.data.flowchart.balancer.PortRef port(final CardModel m, final String s) {
         final boolean input = s.startsWith("in");

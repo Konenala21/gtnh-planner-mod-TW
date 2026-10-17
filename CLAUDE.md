@@ -200,7 +200,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
   key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
   views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,
-  Arrange, Fit, the rate unit, EU/t, Avg; wraps like the top bar). Signed in, every plan is in the account from the
+  Arrange, Fit, the rate unit, EU/t, then the pencil key that opens the empty-board menu; wraps like the top bar; Peak
+  or Avg is the overview's own key). Signed in, every plan is in the account from the
   moment it exists (`CloudSession.makeable`); being added to a plan arrives as `shared` (a board notice with Open, or a
   chat line with a clickable [Open], `client/OpenPlanCommand`) and the Library's Shared with me shelf lists them.
 - Cloud plans and live co-editing (the owner, 2026-10-14; `docs/design/cloud-live.md` is the contract with the
