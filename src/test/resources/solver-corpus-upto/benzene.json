@@ -1,0 +1,194 @@
+{
+ "name": "benzene",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "f46529af-db4c-340d-8679-71c22e59a35d",
+    "name": "oven",
+    "durationTicks": 640,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 16,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "logs",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 20,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "wood tar",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "3ad3026a-8870-3560-b969-2fa8f2caab0e",
+    "name": "tower",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1.875,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "wood tar",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "benzene",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "297ffd09-52aa-3dcd-ac64-447c82f5b1bb",
+    "source": "f46529af-db4c-340d-8679-71c22e59a35d",
+    "sourceOutput": 0,
+    "target": "3ad3026a-8870-3560-b969-2fa8f2caab0e",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "f46529af-db4c-340d-8679-71c22e59a35d"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "3ad3026a-8870-3560-b969-2fa8f2caab0e"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "f46529af-db4c-340d-8679-71c22e59a35d": 0.0625,
+    "3ad3026a-8870-3560-b969-2fa8f2caab0e": 0.6666666666666666
+   },
+   "machineCounts": {
+    "f46529af-db4c-340d-8679-71c22e59a35d": 2,
+    "3ad3026a-8870-3560-b969-2fa8f2caab0e": 0.6666666666666666
+   },
+   "edgeFlowsPerSecond": {
+    "297ffd09-52aa-3dcd-ac64-447c82f5b1bb": 1.25
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "f46529af-db4c-340d-8679-71c22e59a35d",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "3ad3026a-8870-3560-b969-2fa8f2caab0e",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.6666666666666666
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 1.25,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "f46529af-db4c-340d-8679-71c22e59a35d",
+     "machines": [
+      "f46529af-db4c-340d-8679-71c22e59a35d"
+     ],
+     "capacity": 2,
+     "reached": 2,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 3,
+     "upstream": []
+    },
+    {
+     "node": "3ad3026a-8870-3560-b969-2fa8f2caab0e",
+     "machines": [
+      "3ad3026a-8870-3560-b969-2fa8f2caab0e"
+     ],
+     "capacity": 1,
+     "reached": 0.6666666666666666,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "3ad3026a-8870-3560-b969-2fa8f2caab0e",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "f46529af-db4c-340d-8679-71c22e59a35d"
+     ]
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

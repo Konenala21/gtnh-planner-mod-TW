@@ -18,6 +18,7 @@ import com.gtnhplanner.data.flowchart.Drawer.Link;
 import com.gtnhplanner.data.flowchart.Drawer.Rule;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.data.flowchart.balancer.BalanceResult;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
@@ -87,11 +88,10 @@ class DrawerRulesTest {
 
     @Test
     void productAtMostBelowAPinnedRateIsReportedUnmetAndThePlanStillSolves() {
-        // One chemical reactor pinned: 20/160 crafts/s x 12000 = 1500 light fuel/s, straight out
+        // One chemical reactor pinned Exactly: 20/160 crafts/s x 12000 = 1500 light fuel/s, straight out
         // of an unwired port, so no gate can take any of it away.
         final LoadedChart chart = unpinnedLightFuel();
-        chart.machine(0)
-            .setMachineCountFixed(true);
+        PinRule.set(chart.machine(0), PinRule.EXACT);
         final Drawer fuel = product(chart, Rule.AT_MOST, 1000, 0, 1);
 
         final SolutionView s = solved(chart.graph());
@@ -107,6 +107,30 @@ class DrawerRulesTest {
         assertEquals(List.of(chart.machine(0).id), shortfall.limitingNodes(), "the reactor's pin holds it");
         assertTrue(hasNote(s.notes, SolverMessage.DRAWER_UNMET), "the notice names the drawer: " + s.notes);
         assertTrue(hasNote(s.notes, SolverMessage.DRAWER_LIMITED_BY), "and the limit: " + s.notes);
+    }
+
+    @Test
+    void productAtMostBelowAnUpToCountSlowsTheMachine() {
+        // The same reactor Up to one machine (docs/design/up-to.md): it runs as hard as the plan lets it, so the
+        // product's at most 1000/s holds it at two thirds of a machine, and nothing is unmet.
+        final LoadedChart chart = unpinnedLightFuel();
+        PinRule.set(chart.machine(0), PinRule.UP_TO);
+        final Drawer fuel = product(chart, Rule.AT_MOST, 1000, 0, 1);
+
+        final SolutionView s = solved(chart.graph());
+
+        assertTrue(s.drawers.met(fuel.getId()));
+        assertEquals(1000, s.drawers.rate(fuel.getId()), 1e-3);
+        assertEquals(2 / 3.0, s.machineCounts.get(chart.machine(0).id), EPS);
+        assertEquals(
+            1,
+            s.upTo()
+                .size());
+        assertEquals(
+            com.gtnhplanner.data.flowchart.balancer.UpToReason.CLOGGED,
+            s.upTo()
+                .get(0)
+                .reason());
     }
 
     @Test

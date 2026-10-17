@@ -152,7 +152,9 @@ public final class GtnhFlowLoader {
             if (entry.containsKey("number")) {
                 final int count = (int) asDouble(entry.get("number"), 1.0);
                 node.machineConfig.setMachineCount(count);
+                // gtnh-flow's "number" is a demand: that many machines flat out, Exactly (docs/design/up-to.md).
                 node.setMachineCountFixed(true);
+                node.setMachineCountExact(true);
                 pins.add(new Pin("number", machineIndex, node.machineName, null, count, -1));
             }
             if (entry.get("target") instanceof final Map<?, ?> targets) {

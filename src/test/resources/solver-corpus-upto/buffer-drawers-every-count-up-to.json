@@ -1,0 +1,671 @@
+{
+ "name": "buffer-drawers, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "d24c3564-d71a-3acb-8014-063a62072b61",
+    "name": "Boiler",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Water",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Steam",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+    "name": "Pump",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Coolant",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "fdcb9341-649c-30c7-b794-8fa081054003",
+    "name": "Washer B",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "0182b10e-bed2-3a0f-b0da-1744743b1579",
+    "name": "Press",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Plate",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "0f17f33b-6c35-35f3-8453-868721d0e909",
+    "name": "Mixer",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Mix",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "128f4108-cc04-334d-b219-584351753e96",
+    "name": "Filler",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Coolant",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5",
+    "name": "Washer A",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "36d2f472-0d41-309b-b7c7-f61a541c5c8d",
+    "name": "Cooler",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Coolant",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Ice",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "6ca507a9-3620-3cbd-9988-d481b3049ca1",
+    "name": "Turbine",
+    "durationTicks": 20,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Steam",
+      "free": false
+     }
+    ],
+    "outputs": [],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "c5ca697d-e8b7-3f48-8d0c-3a87db090955",
+    "source": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+    "sourceOutput": 0,
+    "target": "128f4108-cc04-334d-b219-584351753e96",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "d24c3564-d71a-3acb-8014-063a62072b61"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "e2155a0c-11be-3383-b813-9cdbb421d8d6"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "0182b10e-bed2-3a0f-b0da-1744743b1579"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "128f4108-cc04-334d-b219-584351753e96"
+    ],
+    "capacity": 4,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "ad7bbb2a-cb05-3404-bc5a-a7baabbd2e1a",
+    "label": "Dust",
+    "kind": "BUFFER",
+    "rule": "EXACTLY",
+    "rate": 12,
+    "links": [
+     {
+      "node": "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5",
+      "port": 0
+     },
+     {
+      "node": "fdcb9341-649c-30c7-b794-8fa081054003",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "0f17f33b-6c35-35f3-8453-868721d0e909",
+      "port": 0
+     },
+     {
+      "node": "0182b10e-bed2-3a0f-b0da-1744743b1579",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "d2ee5fb6-ce5c-39c9-a554-e7255638f201",
+    "label": "Coolant",
+    "kind": "BUFFER",
+    "rule": "AT_MOST",
+    "rate": 3,
+    "links": [
+     {
+      "node": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "36d2f472-0d41-309b-b7c7-f61a541c5c8d",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "7685e52b-8546-32d8-8526-612429bd8e76",
+    "label": "Steam",
+    "kind": "BUFFER",
+    "rule": "AT_LEAST",
+    "rate": 20,
+    "links": [
+     {
+      "node": "d24c3564-d71a-3acb-8014-063a62072b61",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "6ca507a9-3620-3cbd-9988-d481b3049ca1",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "d24c3564-d71a-3acb-8014-063a62072b61": 1,
+    "e2155a0c-11be-3383-b813-9cdbb421d8d6": 0.7000000000000001,
+    "fdcb9341-649c-30c7-b794-8fa081054003": 5.5,
+    "0182b10e-bed2-3a0f-b0da-1744743b1579": 1,
+    "0f17f33b-6c35-35f3-8453-868721d0e909": 3.6666666666666665,
+    "128f4108-cc04-334d-b219-584351753e96": 4,
+    "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5": 1,
+    "36d2f472-0d41-309b-b7c7-f61a541c5c8d": 1.5000000000000002,
+    "6ca507a9-3620-3cbd-9988-d481b3049ca1": 2.5
+   },
+   "machineCounts": {
+    "d24c3564-d71a-3acb-8014-063a62072b61": 1,
+    "e2155a0c-11be-3383-b813-9cdbb421d8d6": 0.7000000000000001,
+    "fdcb9341-649c-30c7-b794-8fa081054003": 5.5,
+    "0182b10e-bed2-3a0f-b0da-1744743b1579": 1,
+    "0f17f33b-6c35-35f3-8453-868721d0e909": 3.6666666666666665,
+    "128f4108-cc04-334d-b219-584351753e96": 4,
+    "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5": 1,
+    "36d2f472-0d41-309b-b7c7-f61a541c5c8d": 1.5000000000000002,
+    "6ca507a9-3620-3cbd-9988-d481b3049ca1": 2.5
+   },
+   "edgeFlowsPerSecond": {
+    "c5ca697d-e8b7-3f48-8d0c-3a87db090955": 4
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "d24c3564-d71a-3acb-8014-063a62072b61",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "fdcb9341-649c-30c7-b794-8fa081054003",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 5.5
+    },
+    {
+     "port": {
+      "nodeId": "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "0182b10e-bed2-3a0f-b0da-1744743b1579",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "0f17f33b-6c35-35f3-8453-868721d0e909",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 3.6666666666666665
+    },
+    {
+     "port": {
+      "nodeId": "128f4108-cc04-334d-b219-584351753e96",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 4
+    },
+    {
+     "port": {
+      "nodeId": "36d2f472-0d41-309b-b7c7-f61a541c5c8d",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1.5000000000000002
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 29,
+   "notes": [
+    {
+     "message": "DRAWER_UNMET",
+     "args": [
+      "Steam",
+      {
+       "message": "RULE_AT_LEAST",
+       "args": []
+      },
+      20,
+      10
+     ]
+    },
+    {
+     "message": "DRAWER_LIMITED_BY",
+     "args": [
+      "Steam",
+      {
+       "message": "LIMIT_PIN",
+       "args": [
+        "Boiler",
+        {
+         "message": "PIN_UP_TO",
+         "args": []
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "ad7bbb2a-cb05-3404-bc5a-a7baabbd2e1a": 12,
+     "d2ee5fb6-ce5c-39c9-a554-e7255638f201": 3.0000000000000004,
+     "7685e52b-8546-32d8-8526-612429bd8e76": 10
+    },
+    "unmet": [
+     "7685e52b-8546-32d8-8526-612429bd8e76"
+    ],
+    "shortfalls": [
+     {
+      "drawer": "7685e52b-8546-32d8-8526-612429bd8e76",
+      "rule": "AT_LEAST",
+      "target": 20,
+      "reachable": 10,
+      "limitingNodes": [
+       "d24c3564-d71a-3acb-8014-063a62072b61"
+      ],
+      "limitingDrawers": [],
+      "limitingGroups": 0
+     }
+    ],
+    "ports": {
+     "ad7bbb2a-cb05-3404-bc5a-a7baabbd2e1a": [
+      {
+       "port": {
+        "nodeId": "2f0049d1-ee76-3a8f-9b75-b5ab553ee2d5",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 1
+      },
+      {
+       "port": {
+        "nodeId": "fdcb9341-649c-30c7-b794-8fa081054003",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 11
+      },
+      {
+       "port": {
+        "nodeId": "0f17f33b-6c35-35f3-8453-868721d0e909",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 11
+      },
+      {
+       "port": {
+        "nodeId": "0182b10e-bed2-3a0f-b0da-1744743b1579",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 1
+      }
+     ],
+     "d2ee5fb6-ce5c-39c9-a554-e7255638f201": [
+      {
+       "port": {
+        "nodeId": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 3.0000000000000004
+      },
+      {
+       "port": {
+        "nodeId": "36d2f472-0d41-309b-b7c7-f61a541c5c8d",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 3.0000000000000004
+      }
+     ],
+     "7685e52b-8546-32d8-8526-612429bd8e76": [
+      {
+       "port": {
+        "nodeId": "d24c3564-d71a-3acb-8014-063a62072b61",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 10
+      },
+      {
+       "port": {
+        "nodeId": "6ca507a9-3620-3cbd-9988-d481b3049ca1",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 10
+      }
+     ]
+    }
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "d24c3564-d71a-3acb-8014-063a62072b61",
+     "machines": [
+      "d24c3564-d71a-3acb-8014-063a62072b61"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 2,
+     "upstream": []
+    },
+    {
+     "node": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+     "machines": [
+      "e2155a0c-11be-3383-b813-9cdbb421d8d6"
+     ],
+     "capacity": 1,
+     "reached": 0.7000000000000001,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "e2155a0c-11be-3383-b813-9cdbb421d8d6",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "0182b10e-bed2-3a0f-b0da-1744743b1579",
+     "machines": [
+      "0182b10e-bed2-3a0f-b0da-1744743b1579"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "128f4108-cc04-334d-b219-584351753e96",
+     "machines": [
+      "128f4108-cc04-334d-b219-584351753e96"
+     ],
+     "capacity": 4,
+     "reached": 4,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

@@ -1,0 +1,199 @@
+{
+ "name": "two short inputs",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "6ee5fa81-4c65-3453-8f7d-c739e933659d",
+    "name": "e1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": true,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f83e13dd-746a-39a0-bdb5-db86c613fb1c",
+    "name": "e2",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "w",
+      "free": false
+     }
+    ],
+    "countFixed": true,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "name": "m",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "w",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "8bc59312-b08c-3569-b325-3f8837690776",
+    "source": "6ee5fa81-4c65-3453-8f7d-c739e933659d",
+    "sourceOutput": 0,
+    "target": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "targetInput": 0
+   },
+   {
+    "id": "6df4cec9-5e85-308e-8c4d-6b18f380e4be",
+    "source": "f83e13dd-746a-39a0-bdb5-db86c613fb1c",
+    "sourceOutput": 0,
+    "target": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "targetInput": 1
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "6ee5fa81-4c65-3453-8f7d-c739e933659d": 1,
+    "f83e13dd-746a-39a0-bdb5-db86c613fb1c": 1,
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1
+   },
+   "machineCounts": {
+    "6ee5fa81-4c65-3453-8f7d-c739e933659d": 1,
+    "f83e13dd-746a-39a0-bdb5-db86c613fb1c": 1,
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1
+   },
+   "edgeFlowsPerSecond": {
+    "8bc59312-b08c-3569-b325-3f8837690776": 1,
+    "6df4cec9-5e85-308e-8c4d-6b18f380e4be": 1
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 2,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+     "machines": [
+      "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+     ],
+     "capacity": 2,
+     "reached": 1,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [
+      {
+       "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+       "portIndex": 1,
+       "input": true
+      }
+     ],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

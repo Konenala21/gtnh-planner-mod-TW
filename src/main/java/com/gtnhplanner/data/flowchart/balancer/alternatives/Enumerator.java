@@ -23,6 +23,7 @@ import com.gtnhplanner.data.flowchart.balancer.SolveResult;
 import com.gtnhplanner.data.flowchart.balancer.Solver;
 import com.gtnhplanner.data.flowchart.balancer.SolverMessage;
 import com.gtnhplanner.data.flowchart.balancer.StageOutcome;
+import com.gtnhplanner.data.flowchart.balancer.UpTo;
 import com.gtnhplanner.data.flowchart.balancer.stages.TradeStage;
 
 /**
@@ -108,12 +109,18 @@ public final class Enumerator {
             return !Solver.fixedQuantity(ctx, without)
                 .isRejected();
         });
+        // With Up to pools (docs/design/up-to.md) a gate whose every port is a buffer's bank, or closed by the guard,
+        // can
+        // never open as a gate: never swapped into (it would only drop the gate it replaces).
+        final Set<Integer> shut = new HashSet<>(ctx.bankPorts.keySet());
+        final SolveContext.Guard guard = ctx.guard;
+        if (guard != null && guard.cap() <= 0) for (final int p : guard.ports()) shut.add(p);
         final List<int[]> swaps = new ArrayList<>();
         for (int i = 0; i < decisions.size(); i++) {
             final int out = decisions.get(i);
             if (!movable.get(i)) continue;
             for (int in = 0; in < ctx.model.gates.size(); in++) {
-                if (!open.contains(in)) swaps.add(new int[] { out, in });
+                if (!open.contains(in) && !noGate(ctx, shut, in)) swaps.add(new int[] { out, in });
             }
         }
         final int cap = (int) Math.min(swaps.size(), n.effort(n.maxAltSwaps));
@@ -187,8 +194,8 @@ public final class Enumerator {
         }
         if (target.equals(ctx.support())) return ctx.point();
 
-        final StageOutcome alt = evaluateSupport(ctx, target);
-        if (alt == null || alt.support.size() != ctx.support()
+        final Settled alt = evaluateSupportWith(ctx, target);
+        if (alt == null || alt.point().support.size() != ctx.support()
             .size()) {
             // Gate count is the one bar a choice may not fall below: it is a real optimum, where
             // everything after it is a preference the user is entitled to disagree with.
@@ -197,7 +204,9 @@ public final class Enumerator {
         }
         // Deliberately no note when the pick leans on the outside more than the default would have:
         // that is what choosing a listed alternative MEANS, and the row offering it already says so.
-        return alt;
+        // The Up to read-out probes what the chosen point was settled under.
+        ctx.committedTrades = alt.trades();
+        return alt.point();
     }
 
     /** Whether a stored {@link ChoiceKey} still names a support on this chart, or null when it does not. */
@@ -248,16 +257,45 @@ public final class Enumerator {
     }
 
     /**
-     * The canonical point with exactly {@code open}'s gates allowed, settled as AUTO settles a plan: its trading level by
+     * The canonical point with exactly {@code open}'s gates allowed, settled as AUTO settles a plan: its trading level
+     * by
      * level ({@link TradeStage#settle}), then least flow and the canonical tie-break. Null when they do not
      * balance. A property of the set, however the LPs reach it.
      */
     public static StageOutcome evaluateSupport(final SolveContext ctx, final Set<Integer> open) {
+        final Settled settled = evaluateSupportWith(ctx, open);
+        return settled == null ? null : settled.point();
+    }
+
+    /**
+     * A support settled: its canonical point, and the trading and Up to bands it was pushed under (what the read-out
+     * probes, {@link SolveContext#committedTrades}).
+     */
+    public record Settled(StageOutcome point, Solver.Trades trades) {}
+
+    /**
+     * {@link #evaluateSupport}, with what the point was settled under: trades level by level, the Up to push and the
+     * drawer stages (docs/design/up-to.md), then least flow and the canonical tie-break. Null when they do not balance.
+     * Commits nothing.
+     */
+    @Nullable
+    public static Settled evaluateSupportWith(final SolveContext ctx, final Set<Integer> open) {
+        UpTo.prepareGuard(ctx);
         if (!(TradeStage.settle(ctx, open) instanceof final Outcome.Continue<Solver.Trades> held))
             return null;
-        final SolveResult s3Result = Solver.leastFlowHolding(ctx, held.value());
+        final Solver.Trades trades = UpTo.push(ctx, held.value());
+        final Solver.Trades drawn = TradeStage.settleDrawers(ctx, trades);
+        final SolveResult s3Result = Solver.leastFlowHolding(ctx, drawn);
         if (s3Result.isRejected()) return null;
-        return Solver.canonicalHolding(ctx, held.value(), s3Result.point());
+        return new Settled(Solver.canonicalHolding(ctx, drawn, s3Result.point()), trades);
+    }
+
+    /** A gate whose every port is shut (a buffer's bank or closed by the guard): it never opens as a gate. */
+    private static boolean noGate(final SolveContext ctx, final Set<Integer> shut, final int gate) {
+        if (shut.isEmpty()) return false;
+        for (final int p : ctx.model.gates.get(gate)
+            .ports()) if (!shut.contains(p)) return false;
+        return true;
     }
 
     /** One answer packaged for the UI, carrying only the flows at the gate it opens. */

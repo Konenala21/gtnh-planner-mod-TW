@@ -1,0 +1,124 @@
+{
+ "name": "single-card-v2, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "24f5a8bf-a88d-468b-8037-6ec0476c1cfc",
+    "name": "Steam Turbine",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1540,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Steam",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 640,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "EU",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [],
+  "pools": [
+   {
+    "machines": [
+     "24f5a8bf-a88d-468b-8037-6ec0476c1cfc"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "24f5a8bf-a88d-468b-8037-6ec0476c1cfc": 1
+   },
+   "machineCounts": {
+    "24f5a8bf-a88d-468b-8037-6ec0476c1cfc": 1
+   },
+   "edgeFlowsPerSecond": {},
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "24f5a8bf-a88d-468b-8037-6ec0476c1cfc",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1540
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "24f5a8bf-a88d-468b-8037-6ec0476c1cfc",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 640
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "24f5a8bf-a88d-468b-8037-6ec0476c1cfc",
+     "machines": [
+      "24f5a8bf-a88d-468b-8037-6ec0476c1cfc"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

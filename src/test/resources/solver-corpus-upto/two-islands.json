@@ -1,0 +1,330 @@
+{
+ "name": "two islands",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+    "name": "a1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "a44cdc3a-9199-3212-962e-ab26dd6cde14",
+    "name": "a2",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f6d57ca0-5530-34fd-b626-a873b97414de",
+    "name": "b1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+    "name": "b2",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "6ee5fa81-4c65-3453-8f7d-c739e933659d",
+    "source": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+    "sourceOutput": 0,
+    "target": "f6d57ca0-5530-34fd-b626-a873b97414de",
+    "targetInput": 0
+   },
+   {
+    "id": "f83e13dd-746a-39a0-bdb5-db86c613fb1c",
+    "source": "a44cdc3a-9199-3212-962e-ab26dd6cde14",
+    "sourceOutput": 0,
+    "target": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "eac606f1-25cc-3f91-97ae-bd27f707adbd"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "a44cdc3a-9199-3212-962e-ab26dd6cde14"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "f6d57ca0-5530-34fd-b626-a873b97414de"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "0df6d903-e12a-347c-9b50-59ac5704f4ec"
+    ],
+    "capacity": 3,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "eac606f1-25cc-3f91-97ae-bd27f707adbd": 1,
+    "a44cdc3a-9199-3212-962e-ab26dd6cde14": 1,
+    "f6d57ca0-5530-34fd-b626-a873b97414de": 1,
+    "0df6d903-e12a-347c-9b50-59ac5704f4ec": 1
+   },
+   "machineCounts": {
+    "eac606f1-25cc-3f91-97ae-bd27f707adbd": 1,
+    "a44cdc3a-9199-3212-962e-ab26dd6cde14": 1,
+    "f6d57ca0-5530-34fd-b626-a873b97414de": 1,
+    "0df6d903-e12a-347c-9b50-59ac5704f4ec": 1
+   },
+   "edgeFlowsPerSecond": {
+    "6ee5fa81-4c65-3453-8f7d-c739e933659d": 1,
+    "f83e13dd-746a-39a0-bdb5-db86c613fb1c": 1
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "a44cdc3a-9199-3212-962e-ab26dd6cde14",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "f6d57ca0-5530-34fd-b626-a873b97414de",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 2,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "a44cdc3a-9199-3212-962e-ab26dd6cde14",
+     "machines": [
+      "a44cdc3a-9199-3212-962e-ab26dd6cde14"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 3,
+     "upstream": []
+    },
+    {
+     "node": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+     "machines": [
+      "eac606f1-25cc-3f91-97ae-bd27f707adbd"
+     ],
+     "capacity": 2,
+     "reached": 1,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "f6d57ca0-5530-34fd-b626-a873b97414de",
+     "machines": [
+      "f6d57ca0-5530-34fd-b626-a873b97414de"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+     "machines": [
+      "0df6d903-e12a-347c-9b50-59ac5704f4ec"
+     ],
+     "capacity": 3,
+     "reached": 1,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "a44cdc3a-9199-3212-962e-ab26dd6cde14"
+     ]
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

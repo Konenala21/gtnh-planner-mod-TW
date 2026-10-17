@@ -1,0 +1,808 @@
+{
+ "name": "hv-diesel, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+    "name": "item:gregtech:gt.blockmachines:1126",
+    "durationTicks": 32,
+    "energyPerTick": 1920,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oil",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 300,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Sulfuric Heavy Fuel",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Sulfuric Light Fuel",
+      "free": false
+     },
+     {
+      "amount": 400,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Sulfuric Naphtha",
+      "free": false
+     },
+     {
+      "amount": 50,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Naphthenic Acid",
+      "free": false
+     },
+     {
+      "amount": 1200,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Sulfuric Gas",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "9af84517-e69f-4aaa-b6c9-869176650845",
+    "name": "item:gregtech:gt.blockmachines:372",
+    "durationTicks": 72,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Hydrogen Sulfide",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Sulfur Dust",
+      "free": false
+     },
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "fae9d377-be9e-4682-b363-31e3f747dd95",
+    "name": "item:gregtech:gt.blockmachines:1169",
+    "durationTicks": 10,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 12000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Sulfuric Light Fuel",
+      "free": false
+     },
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 12000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Light Fuel",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Hydrogen Sulfide",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "024057c5-7d50-4b1e-9301-68543214a7a4",
+    "name": "item:gregtech:gt.blockmachines:1169",
+    "durationTicks": 10,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Sulfuric Heavy Fuel",
+      "free": false
+     },
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 10,
+      "name": "Heavy Fuel",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Hydrogen Sulfide",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+    "name": "item:gregtech:gt.blockmachines:1169",
+    "durationTicks": 100,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 20000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Light Fuel",
+      "free": false
+     },
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 10,
+      "name": "Heavy Fuel",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 24000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Diesel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+    "name": "Combustion Generator",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 25.294117647058822,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Diesel",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10240,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 12,
+      "name": "EU",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 118,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "915cf560-9467-493e-8bfb-c4c241e8b295",
+    "source": "9af84517-e69f-4aaa-b6c9-869176650845",
+    "sourceOutput": 1,
+    "target": "fae9d377-be9e-4682-b363-31e3f747dd95",
+    "targetInput": 1
+   },
+   {
+    "id": "a6b2185a-2e2c-47f9-ace5-7210b4eb8432",
+    "source": "fae9d377-be9e-4682-b363-31e3f747dd95",
+    "sourceOutput": 0,
+    "target": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+    "targetInput": 0
+   },
+   {
+    "id": "fd014994-0f36-4c51-9ac0-71e3b0d00f51",
+    "source": "024057c5-7d50-4b1e-9301-68543214a7a4",
+    "sourceOutput": 0,
+    "target": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+    "targetInput": 1
+   },
+   {
+    "id": "37c6e70b-45cb-4d0e-b8bb-6ba93d5ef110",
+    "source": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+    "sourceOutput": 1,
+    "target": "fae9d377-be9e-4682-b363-31e3f747dd95",
+    "targetInput": 0
+   },
+   {
+    "id": "4df6badb-7879-4bf5-9a69-726347d1f372",
+    "source": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+    "sourceOutput": 0,
+    "target": "024057c5-7d50-4b1e-9301-68543214a7a4",
+    "targetInput": 0
+   },
+   {
+    "id": "58e1f4bb-0cc4-42e2-a105-261d76af64bf",
+    "source": "9af84517-e69f-4aaa-b6c9-869176650845",
+    "sourceOutput": 1,
+    "target": "024057c5-7d50-4b1e-9301-68543214a7a4",
+    "targetInput": 1
+   },
+   {
+    "id": "62e59286-3292-4f40-91ac-c630f9415bf9",
+    "source": "024057c5-7d50-4b1e-9301-68543214a7a4",
+    "sourceOutput": 1,
+    "target": "9af84517-e69f-4aaa-b6c9-869176650845",
+    "targetInput": 0
+   },
+   {
+    "id": "7b609571-2601-489c-913b-adc471c43d31",
+    "source": "fae9d377-be9e-4682-b363-31e3f747dd95",
+    "sourceOutput": 1,
+    "target": "9af84517-e69f-4aaa-b6c9-869176650845",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "fae9d377-be9e-4682-b363-31e3f747dd95",
+     "024057c5-7d50-4b1e-9301-68543214a7a4",
+     "29c05102-a7e5-4736-99f3-d8fa505bf531"
+    ],
+    "capacity": 1,
+    "exact": true
+   },
+   {
+    "machines": [
+     "860692c4-ca29-45a7-b9b5-8e8714487b50"
+    ],
+    "capacity": 4,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "9af84517-e69f-4aaa-b6c9-869176650845"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "63af1774-294e-4b6f-bc25-a3908a5a0bd9"
+    ],
+    "capacity": 118,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "89900894-2d26-4cce-bf9c-5990a995078e",
+    "label": "Naphthenic Acid",
+    "kind": "TRASH",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "port": 3
+     }
+    ]
+   },
+   {
+    "id": "9275d439-13d9-4bda-8bea-2a7217b7b0c6",
+    "label": "Sulfur Dust",
+    "kind": "TRASH",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "9af84517-e69f-4aaa-b6c9-869176650845",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "99d5d115-b6e0-4ba6-b2c4-b0b4f0eeaa25",
+    "label": "Sulfuric Naphtha",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "port": 2
+     }
+    ]
+   },
+   {
+    "id": "bec295da-446c-4412-bafa-ffd302e2155f",
+    "label": "Sulfuric Gas",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "port": 4
+     }
+    ]
+   },
+   {
+    "id": "fdb3e9e7-8e31-4efd-808c-bb32fffb6ba8",
+    "label": "Fuel",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "2682c2ea-e240-43ab-8ef7-85ccb658f873",
+    "label": "Fuel",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "3a5cc1ca-1df5-4162-9218-658b75f47bf5",
+    "label": "EU",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "860692c4-ca29-45a7-b9b5-8e8714487b50": 2.298850574712644,
+    "9af84517-e69f-4aaa-b6c9-869176650845": 0.2777777777777778,
+    "fae9d377-be9e-4682-b363-31e3f747dd95": 0.19157088122605365,
+    "024057c5-7d50-4b1e-9301-68543214a7a4": 0.08620689655172416,
+    "29c05102-a7e5-4736-99f3-d8fa505bf531": 0.17222222222222222,
+    "63af1774-294e-4b6f-bc25-a3908a5a0bd9": 118
+   },
+   "machineCounts": {
+    "860692c4-ca29-45a7-b9b5-8e8714487b50": 3.6781609195402303,
+    "9af84517-e69f-4aaa-b6c9-869176650845": 1,
+    "fae9d377-be9e-4682-b363-31e3f747dd95": 0.09578544061302682,
+    "024057c5-7d50-4b1e-9301-68543214a7a4": 0.04310344827586208,
+    "29c05102-a7e5-4736-99f3-d8fa505bf531": 0.861111111111111,
+    "63af1774-294e-4b6f-bc25-a3908a5a0bd9": 118
+   },
+   "edgeFlowsPerSecond": {
+    "915cf560-9467-493e-8bfb-c4c241e8b295": 383.1417624521073,
+    "a6b2185a-2e2c-47f9-ace5-7210b4eb8432": 2298.8505747126437,
+    "fd014994-0f36-4c51-9ac0-71e3b0d00f51": 688.888888888889,
+    "37c6e70b-45cb-4d0e-b8bb-6ba93d5ef110": 2298.8505747126437,
+    "4df6badb-7879-4bf5-9a69-726347d1f372": 689.6551724137931,
+    "58e1f4bb-0cc4-42e2-a105-261d76af64bf": 172.4137931034483,
+    "62e59286-3292-4f40-91ac-c630f9415bf9": 86.20689655172416,
+    "7b609571-2601-489c-913b-adc471c43d31": 191.57088122605364
+   },
+   "gatedSources": [
+    {
+     "port": {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1145.5938697318004
+    }
+   ],
+   "gatedSinks": [
+    {
+     "port": {
+      "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.7662835249042654
+    }
+   ],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 2298.850574712644
+    },
+    {
+     "port": {
+      "nodeId": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 2984.705882352941
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "portIndex": 2,
+      "input": false
+     },
+     "ratePerSecond": 919.5402298850576
+    },
+    {
+     "port": {
+      "nodeId": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "portIndex": 3,
+      "input": false
+     },
+     "ratePerSecond": 114.9425287356322
+    },
+    {
+     "port": {
+      "nodeId": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "portIndex": 4,
+      "input": false
+     },
+     "ratePerSecond": 2758.6206896551726
+    },
+    {
+     "port": {
+      "nodeId": "9af84517-e69f-4aaa-b6c9-869176650845",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.2777777777777778
+    },
+    {
+     "port": {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 4133.333333333333
+    },
+    {
+     "port": {
+      "nodeId": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1208320
+    }
+   ],
+   "unneeded": [],
+   "openGates": 2,
+   "externalQuantity": 1146.3601532567047,
+   "totalInternalFlow": 6809.578544061303,
+   "notes": [],
+   "key": {
+    "gateAnchors": [
+     {
+      "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+      "portIndex": 0,
+      "input": false
+     },
+     {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": true
+     }
+    ]
+   },
+   "drawers": {
+    "rates": {
+     "89900894-2d26-4cce-bf9c-5990a995078e": 114.9425287356322,
+     "9275d439-13d9-4bda-8bea-2a7217b7b0c6": 0.2777777777777778,
+     "99d5d115-b6e0-4ba6-b2c4-b0b4f0eeaa25": 919.5402298850576,
+     "bec295da-446c-4412-bafa-ffd302e2155f": 2758.6206896551726,
+     "fdb3e9e7-8e31-4efd-808c-bb32fffb6ba8": 2984.705882352941,
+     "2682c2ea-e240-43ab-8ef7-85ccb658f873": 4133.333333333333,
+     "3a5cc1ca-1df5-4162-9218-658b75f47bf5": 1208320
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [
+    {
+     "key": "024057c5-7d50-4b1e-9301-68543214a7a4:o:0",
+     "importing": false,
+     "bearers": [
+      {
+       "anchor": {
+        "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+        "portIndex": 0,
+        "input": false
+       },
+       "flows": [
+        {
+         "port": {
+          "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+          "portIndex": 0,
+          "input": false
+         },
+         "ratePerSecond": 0.7662835249042654
+        }
+       ],
+       "max": 0.7662835249042654,
+       "share": 1,
+       "solverPick": true
+      }
+     ],
+     "custom": false
+    },
+    {
+     "key": "29c05102-a7e5-4736-99f3-d8fa505bf531:i:0",
+     "importing": true,
+     "bearers": [
+      {
+       "anchor": {
+        "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+        "portIndex": 0,
+        "input": true
+       },
+       "flows": [
+        {
+         "port": {
+          "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+          "portIndex": 0,
+          "input": true
+         },
+         "ratePerSecond": 1145.5938697318004
+        }
+       ],
+       "max": 1145.5938697318004,
+       "share": 1,
+       "solverPick": true
+      }
+     ],
+     "custom": false
+    }
+   ],
+   "upTo": [
+    {
+     "node": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+     "machines": [
+      "860692c4-ca29-45a7-b9b5-8e8714487b50"
+     ],
+     "capacity": 4,
+     "reached": 3.6781609195402303,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "860692c4-ca29-45a7-b9b5-8e8714487b50",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "9af84517-e69f-4aaa-b6c9-869176650845",
+     "machines": [
+      "9af84517-e69f-4aaa-b6c9-869176650845"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "63af1774-294e-4b6f-bc25-a3908a5a0bd9",
+     "machines": [
+      "63af1774-294e-4b6f-bc25-a3908a5a0bd9"
+     ],
+     "capacity": 118,
+     "reached": 118,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": [
+     {
+      "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+      "portIndex": 0,
+      "input": false
+     },
+     {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": true
+     }
+    ]
+   },
+   "options": [
+    {
+     "key": {
+      "gateAnchors": [
+       {
+        "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+        "portIndex": 0,
+        "input": false
+       },
+       {
+        "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+        "portIndex": 0,
+        "input": true
+       }
+      ]
+     },
+     "replaces": {
+      "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+      "portIndex": 0,
+      "input": false
+     },
+     "opens": {
+      "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+      "portIndex": 0,
+      "input": false
+     },
+     "externals": [
+      {
+       "port": {
+        "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0.7662835249042654
+      }
+     ],
+     "rank": "DEFAULT"
+    },
+    {
+     "key": {
+      "gateAnchors": [
+       {
+        "nodeId": "024057c5-7d50-4b1e-9301-68543214a7a4",
+        "portIndex": 0,
+        "input": false
+       },
+       {
+        "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+        "portIndex": 0,
+        "input": true
+       }
+      ]
+     },
+     "replaces": {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": true
+     },
+     "opens": {
+      "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+      "portIndex": 0,
+      "input": true
+     },
+     "externals": [
+      {
+       "port": {
+        "nodeId": "29c05102-a7e5-4736-99f3-d8fa505bf531",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 1145.5938697318004
+      }
+     ],
+     "rank": "DEFAULT"
+    }
+   ],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

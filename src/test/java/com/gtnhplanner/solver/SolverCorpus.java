@@ -24,6 +24,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
+import com.gtnhplanner.data.flowchart.balancer.DrawerReadout;
 import com.gtnhplanner.data.flowchart.balancer.Note;
 import com.gtnhplanner.data.flowchart.balancer.SolutionView;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput;
@@ -88,6 +89,71 @@ final class SolverCorpus {
             tiled.spares());
     }
 
+    /** A plan with every exact count turned into an Up to count (the website's {@code everyCountUpTo}). */
+    static SolveInput everyCountUpTo(final SolveInput in) {
+        final List<SolveInput.PoolIn> pools = new ArrayList<>(in.pools());
+        final List<SolveInput.Machine> machines = new ArrayList<>();
+        for (final SolveInput.Machine m : in.machines()) {
+            if (!m.countFixed() || !(m.machineCount() > 0)) {
+                machines.add(m);
+                continue;
+            }
+            pools.add(new SolveInput.PoolIn(List.of(m.id()), m.machineCount(), false, true));
+            machines.add(
+                new SolveInput.Machine(
+                    m.id(),
+                    m.name(),
+                    m.durationTicks(),
+                    m.energyPerTick(),
+                    m.throughputFactor(),
+                    m.inputs(),
+                    m.outputs(),
+                    false,
+                    m.machineCount(),
+                    m.targetOutputRates(),
+                    m.properties(),
+                    m.targetInputRates()));
+        }
+        return new SolveInput(
+            in.mode(),
+            in.choice(),
+            machines,
+            in.edges(),
+            pools,
+            in.drawers(),
+            in.extentPins(),
+            in.spares());
+    }
+
+    /**
+     * The Up to plans the website wrote for the parity check ({@code solver-corpus-upto/}, {@code UpToParityTest}): its
+     * hand-built Up to plans and every corpus plan with each exact count Up to.
+     */
+    static List<Case> upToCases() {
+        final java.nio.file.Path dir = java.nio.file.Path.of("src/test/resources/solver-corpus-upto");
+        final List<Case> out = new ArrayList<>();
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(dir)) {
+            for (final java.nio.file.Path f : files.filter(
+                p -> p.getFileName()
+                    .toString()
+                    .endsWith(".json"))
+                .sorted()
+                .toList()) {
+                final JsonObject plan = new JsonParser()
+                    .parse(java.nio.file.Files.readString(f, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+                out.add(
+                    new Case(
+                        "up to: " + plan.get("name")
+                            .getAsString(),
+                        SolveInputJson.read(plan.getAsJsonObject("input"))));
+            }
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return out;
+    }
+
     static SolveInput chart(final String name) {
         final com.gtnhplanner.data.flowchart.Graph graph = GtnhFlowLoader.load(name)
             .graph();
@@ -147,7 +213,8 @@ final class SolverCorpus {
                         .map(id)
                         .toList(),
                     p.capacity(),
-                    p.exact()));
+                    p.exact(),
+                    p.upTo()));
             for (final SolveInput.DrawerIn d : in.drawers()) drawers.add(
                 new SolveInput.DrawerIn(
                     id.apply(d.id()),
@@ -242,7 +309,10 @@ final class SolverCorpus {
             final JsonObject j = new JsonObject();
             for (final RecordComponent rc : o.getClass().getRecordComponents()) {
                 try {
-                    j.add(rc.getName(), of(rc.getAccessor().invoke(o), depth + 1));
+                    final Object value = rc.getAccessor().invoke(o);
+                    // What a buffer banks only when the plan banks (Up to plans): the goldens before it read the same.
+                    if (value == null && o instanceof DrawerReadout && rc.getName().equals("banked")) continue;
+                    j.add(rc.getName(), of(value, depth + 1));
                 } catch (final ReflectiveOperationException e) {
                     throw new IllegalStateException(e);
                 }
@@ -260,6 +330,8 @@ final class SolverCorpus {
                 }
             }
             j.add("spares", of(v.spares(), depth + 1));
+            // The Up to read-out only when the plan has Up to pools: the goldens before it read the same.
+            if (!v.upTo().isEmpty()) j.add("upTo", of(v.upTo(), depth + 1));
             return j;
         }
         // Anything else of ours (a record the build may have made a plain class): its fields.

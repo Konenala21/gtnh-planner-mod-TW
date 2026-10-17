@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import com.gtnhplanner.data.flowchart.balancer.Balancer;
 import com.gtnhplanner.data.flowchart.balancer.SolutionView;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput;
+import com.gtnhplanner.data.flowchart.balancer.UpToReadout;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 
 /**
@@ -58,6 +59,40 @@ class SolverIslandTest {
                     .options()
                     .size(),
                 plan + ": choices");
+        }
+    }
+
+    /**
+     * The same with every count Up to (docs/design/up-to.md): each island pushes and reads out its own Up to cards, so
+     * every copy reads as the plan alone.
+     */
+    @Test
+    void everyCopyOfAnUpToPlanAnswersAsThePlanAlone() {
+        for (final String plan : new String[] { "platline", "hv-diesel", "oxygen-silicon-loop" }) {
+            final SolveInput one = SolverCorpus.everyCountUpTo(SolverCorpus.plan(plan));
+            final SolutionView alone = solved(Balancer.solveWithAlternatives(one));
+            final int copies = 3;
+            final SolutionView tiled = solved(Balancer.solveWithAlternatives(SolverCorpus.tile(one, copies)));
+            for (int c = 0; c < copies; c++) same(plan, c, alone.machineCounts, tiled.machineCounts);
+            assertEquals(
+                copies * alone.upTo()
+                    .size(),
+                tiled.upTo()
+                    .size(),
+                plan + ": read-outs");
+            final Map<UUID, UpToReadout> byNode = new java.util.HashMap<>();
+            for (final UpToReadout r : tiled.upTo()) byNode.put(r.node(), r);
+            for (final UpToReadout r : alone.upTo()) {
+                for (int c = 0; c < copies; c++) {
+                    final UUID node = c == 0 ? r.node()
+                        : UUID.nameUUIDFromBytes((c + ":" + r.node()).getBytes(StandardCharsets.UTF_8));
+                    final UpToReadout copy = byNode.get(node);
+                    assertTrue(
+                        copy != null && copy.reason() == r.reason(),
+                        plan + " copy " + c + ": " + r + " / " + copy);
+                    assertEquals(r.reached(), copy.reached(), 1e-9 * Math.max(1, r.reached()), plan + " copy " + c);
+                }
+            }
         }
     }
 

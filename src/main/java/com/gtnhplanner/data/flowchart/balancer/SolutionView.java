@@ -75,11 +75,17 @@ public final class SolutionView {
         final ModelData model = ctx.model;
         final double tol = ctx.heuristics.numerics().dust
             * ctx.solutionScale(ctx.extents(), ctx.flows(), ctx.externals());
+        // An idle Up to machine is UNUSED in its read-out, never "(set count)" (docs/design/up-to.md, "Anchoring").
+        final Set<Integer> upToMachines = new HashSet<>();
+        for (final int p : ctx.upToPools) upToMachines.addAll(
+            model.pools.get(p)
+                .machines());
         for (int m = 0; m < model.machines.size(); m++) {
             final ModelData.Machine md = model.machines.get(m);
             extentsPerSecond.put(md.spec.id(), ctx.extents()[m]);
             machineCounts.put(md.spec.id(), ctx.extents()[m] * md.durTicks / (double) Numerics.TICKS_PER_SECOND);
-            if (Double.isNaN(ctx.pinnedExtent[m]) && ctx.extents()[m] <= tol) unneeded.add(md.spec.id());
+            if (Double.isNaN(ctx.pinnedExtent[m]) && !upToMachines.contains(m) && ctx.extents()[m] <= tol)
+                unneeded.add(md.spec.id());
         }
         // The plan's own wires only: a buffer's edges are the solver's, read out per port on the drawer.
         for (int e = 0; e < model.drawnEdges; e++) {
@@ -91,7 +97,8 @@ public final class SolutionView {
         double quantity = 0;
         for (int p = 0; p < ctx.externals().length; p++) {
             final double ext = ctx.externals()[p];
-            if (ext <= tol) continue;
+            // What a buffer banks is the buffer's (DrawerReadout.banked), not a forced flow.
+            if (ext <= tol || ctx.bankPorts.containsKey(p)) continue;
             final ModelData.ConnectedPort port = model.connectedPorts.get(p);
             final External external = new External(ctx.refOf(p), ext);
             (port.input() ? gatedSources : gatedSinks).add(external);

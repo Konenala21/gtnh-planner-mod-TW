@@ -1,0 +1,682 @@
+{
+ "name": "titanium-line-tour, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+    "name": "item:gregtech:gt.blockmachines:423",
+    "durationTicks": 400,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Rutile Dust",
+      "free": false
+     },
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Carbon Dust",
+      "free": false
+     },
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Chlorine",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Titaniumtetrachloride",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+    "name": "item:gregtech:gt.blockmachines:423",
+    "durationTicks": 400,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Sodium Dust",
+      "free": false
+     },
+     {
+      "amount": 6,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Magnesiumchloride Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Magnesium Dust",
+      "free": false
+     },
+     {
+      "amount": 8,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Salt",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+    "name": "item:gregtech:gt.blockmachines:371",
+    "durationTicks": 320,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Salt",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Sodium Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Chlorine",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+    "name": "item:gregtech:gt.blockmachines:1002",
+    "durationTicks": 144,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Hot Titanium Ingot",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Titanium Ingot",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+    "name": "item:gregtech:gt.blockmachines:1000",
+    "durationTicks": 800,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Magnesium Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Titaniumtetrachloride",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Hot Titanium Ingot",
+      "free": false
+     },
+     {
+      "amount": 6,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Magnesiumchloride Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+    "name": "item:gregtech:gt.blockmachines:1000",
+    "durationTicks": 3200,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 10,
+      "name": "Ilmenite Dust",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Carbon Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Cast Iron Ingot",
+      "free": false
+     },
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Rutile Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 12,
+      "name": "Carbon Monoxide",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "84059cd2-9174-4033-b8f9-5104a8087d8d",
+    "source": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+    "sourceOutput": 0,
+    "target": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+    "targetInput": 1
+   },
+   {
+    "id": "86754cdf-373b-4c9a-acfc-5df8995761a2",
+    "source": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+    "sourceOutput": 0,
+    "target": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+    "targetInput": 0
+   },
+   {
+    "id": "94028047-dfa7-4f4f-8d67-0f208957ced6",
+    "source": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+    "sourceOutput": 1,
+    "target": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+    "targetInput": 2
+   },
+   {
+    "id": "c74ce44e-8bb4-4381-a594-77ba3c67d77d",
+    "source": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+    "sourceOutput": 1,
+    "target": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+    "targetInput": 0
+   },
+   {
+    "id": "22c6227d-f383-4489-901c-c6bde49b1911",
+    "source": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+    "sourceOutput": 0,
+    "target": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+    "targetInput": 0
+   },
+   {
+    "id": "48194d3b-6283-4660-8ced-0811164336ff",
+    "source": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+    "sourceOutput": 1,
+    "target": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+    "targetInput": 1
+   },
+   {
+    "id": "644609ff-5a99-40c3-a17b-cb9afc750a89",
+    "source": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+    "sourceOutput": 1,
+    "target": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+    "targetInput": 0
+   },
+   {
+    "id": "7e2b158f-955a-4f57-932c-c1bb99a7828d",
+    "source": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+    "sourceOutput": 0,
+    "target": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "80dd9ac4-9630-4ca4-96d4-b74b875d06a0"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "8dff4411-e404-4416-8f3a-fb2ca62f1283"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "90505b31-e7a9-4eff-b958-e2975efbd4d2"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "fe1d8caf-9636-4ed6-8c40-987eebfea30b"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "9b75f607-6fe8-457f-84ee-72530d7fb501",
+    "label": "Titanium Ingot",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "b494388d-af25-48b0-8d03-0320d6c6fa7e",
+    "label": "Ilmenite Dust",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "4930d5bd-2dd1-4ccf-9313-86c0b1af1497",
+    "label": "Carbon Monoxide",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "port": 2
+     }
+    ]
+   },
+   {
+    "id": "5d9824c7-f5a2-4cb2-b31a-ae58d67d9942",
+    "label": "Cast Iron Ingot",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "7dbc6595-977e-4747-9c72-617c78307a9b",
+    "label": "Carbon Dust",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "port": 1
+     },
+     {
+      "node": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+      "port": 1
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e": 0.00625,
+    "80dd9ac4-9630-4ca4-96d4-b74b875d06a0": 0.00625,
+    "8dff4411-e404-4416-8f3a-fb2ca62f1283": 0.025,
+    "90505b31-e7a9-4eff-b958-e2975efbd4d2": 0.00625,
+    "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795": 0.00625,
+    "fe1d8caf-9636-4ed6-8c40-987eebfea30b": 0.00625
+   },
+   "machineCounts": {
+    "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e": 0.125,
+    "80dd9ac4-9630-4ca4-96d4-b74b875d06a0": 0.125,
+    "8dff4411-e404-4416-8f3a-fb2ca62f1283": 0.4,
+    "90505b31-e7a9-4eff-b958-e2975efbd4d2": 0.045,
+    "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795": 0.25,
+    "fe1d8caf-9636-4ed6-8c40-987eebfea30b": 1
+   },
+   "edgeFlowsPerSecond": {
+    "84059cd2-9174-4033-b8f9-5104a8087d8d": 6.25,
+    "86754cdf-373b-4c9a-acfc-5df8995761a2": 0.00625,
+    "94028047-dfa7-4f4f-8d67-0f208957ced6": 25,
+    "c74ce44e-8bb4-4381-a594-77ba3c67d77d": 0.018750000000000003,
+    "22c6227d-f383-4489-901c-c6bde49b1911": 0.025,
+    "48194d3b-6283-4660-8ced-0811164336ff": 0.037500000000000006,
+    "644609ff-5a99-40c3-a17b-cb9afc750a89": 0.05,
+    "7e2b158f-955a-4f57-932c-c1bb99a7828d": 0.0125
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 0.0125
+    },
+    {
+     "port": {
+      "nodeId": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 0.03125
+    },
+    {
+     "port": {
+      "nodeId": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 0.00625
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.00625
+    },
+    {
+     "port": {
+      "nodeId": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.00625
+    },
+    {
+     "port": {
+      "nodeId": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+      "portIndex": 2,
+      "input": false
+     },
+     "ratePerSecond": 6.25
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 31.400000000000002,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "9b75f607-6fe8-457f-84ee-72530d7fb501": 0.00625,
+     "b494388d-af25-48b0-8d03-0320d6c6fa7e": 0.03125,
+     "4930d5bd-2dd1-4ccf-9313-86c0b1af1497": 6.25,
+     "5d9824c7-f5a2-4cb2-b31a-ae58d67d9942": 0.00625,
+     "7dbc6595-977e-4747-9c72-617c78307a9b": 0.018750000000000003
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+     "machines": [
+      "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e"
+     ],
+     "capacity": 1,
+     "reached": 0.125,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "80747d2c-d8ee-4c1b-b6e5-e5c6ffe8e03e",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "fe1d8caf-9636-4ed6-8c40-987eebfea30b"
+     ]
+    },
+    {
+     "node": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+     "machines": [
+      "80dd9ac4-9630-4ca4-96d4-b74b875d06a0"
+     ],
+     "capacity": 1,
+     "reached": 0.125,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [
+      {
+       "nodeId": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
+       "portIndex": 1,
+       "input": true
+      }
+     ],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+     "machines": [
+      "8dff4411-e404-4416-8f3a-fb2ca62f1283"
+     ],
+     "capacity": 1,
+     "reached": 0.4,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+     "machines": [
+      "90505b31-e7a9-4eff-b958-e2975efbd4d2"
+     ],
+     "capacity": 1,
+     "reached": 0.045,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "90505b31-e7a9-4eff-b958-e2975efbd4d2",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+     "machines": [
+      "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795"
+     ],
+     "capacity": 1,
+     "reached": 0.25,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [
+      {
+       "nodeId": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
+       "portIndex": 1,
+       "input": true
+      }
+     ],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "fe1d8caf-9636-4ed6-8c40-987eebfea30b",
+     "machines": [
+      "fe1d8caf-9636-4ed6-8c40-987eebfea30b"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 2.5,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

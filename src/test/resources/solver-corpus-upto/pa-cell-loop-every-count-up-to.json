@@ -1,0 +1,706 @@
+{
+ "name": "pa-cell-loop, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+    "name": "item:gregtech:gt.blockmachines:231",
+    "durationTicks": 16,
+    "energyPerTick": 1,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+    "name": "item:gregtech:gt.blockmachines:422",
+    "durationTicks": 20,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Phosphorus Dust",
+      "free": false
+     },
+     {
+      "amount": 10000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 14,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Phosphorus Pentoxide Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+    "name": "item:gregtech:gt.blockmachines:231",
+    "durationTicks": 16,
+    "energyPerTick": 1,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Hydrogen Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f3e32214-4900-4708-be5e-592033f8deb0",
+    "name": "item:gregtech:gt.blockmachines:231",
+    "durationTicks": 16,
+    "energyPerTick": 1,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Phosphoric Acid",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Phosphoric Acid Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "161d4ebf-86b6-422a-a630-a88012f74f00",
+    "name": "item:gregtech:gt.blockmachines:421",
+    "durationTicks": 40,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 14,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Phosphorus Pentoxide Dust",
+      "free": false
+     },
+     {
+      "amount": 6000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Water",
+      "free": true
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Phosphoric Acid",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "name": "item:gregtech:gt.blockmachines:373",
+    "durationTicks": 270,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Phosphoric Acid Cell",
+      "free": false
+     },
+     {
+      "amount": 6,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Empty Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Hydrogen Cell",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Phosphorus Dust",
+      "free": false
+     },
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "889428e4-9772-41d3-986e-285f2bbc7d44",
+    "source": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+    "sourceOutput": 1,
+    "target": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+    "targetInput": 1
+   },
+   {
+    "id": "d78fa352-8470-45dc-8e1c-08219b372cc8",
+    "source": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+    "sourceOutput": 0,
+    "target": "161d4ebf-86b6-422a-a630-a88012f74f00",
+    "targetInput": 0
+   },
+   {
+    "id": "dd7a0e3f-ee7f-4342-8971-03e75944cd41",
+    "source": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "sourceOutput": 1,
+    "target": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+    "targetInput": 0
+   },
+   {
+    "id": "e5a28b8e-1684-4864-a63b-f80134906770",
+    "source": "f3e32214-4900-4708-be5e-592033f8deb0",
+    "sourceOutput": 0,
+    "target": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "targetInput": 0
+   },
+   {
+    "id": "04ee5ae2-2e49-4cfb-8dda-d75b67539bc1",
+    "source": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+    "sourceOutput": 0,
+    "target": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "targetInput": 1
+   },
+   {
+    "id": "1744b202-379d-4820-b1d0-02ab77204028",
+    "source": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+    "sourceOutput": 0,
+    "target": "f3e32214-4900-4708-be5e-592033f8deb0",
+    "targetInput": 0
+   },
+   {
+    "id": "34bdfd26-cc85-461b-965f-447431376552",
+    "source": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "sourceOutput": 0,
+    "target": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+    "targetInput": 0
+   },
+   {
+    "id": "45f8ec8e-ce7a-4e1d-bfd3-537f76e36627",
+    "source": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "sourceOutput": 2,
+    "target": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+    "targetInput": 0
+   },
+   {
+    "id": "5723bbf4-495a-4937-8cf3-597f188c3865",
+    "source": "161d4ebf-86b6-422a-a630-a88012f74f00",
+    "sourceOutput": 0,
+    "target": "f3e32214-4900-4708-be5e-592033f8deb0",
+    "targetInput": 1
+   },
+   {
+    "id": "5e7b183d-559b-4063-8f6b-d914a2fa7820",
+    "source": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+    "sourceOutput": 0,
+    "target": "354d09d7-85d4-440f-8d48-d991043313b0",
+    "targetInput": 1
+   },
+   {
+    "id": "68822ce4-aa01-4c3f-9f1f-c9d93b62708a",
+    "source": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+    "sourceOutput": 0,
+    "target": "f3e32214-4900-4708-be5e-592033f8deb0",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "b66a123d-5657-4e7c-9b6b-6030dc93eaf4"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "f3e32214-4900-4708-be5e-592033f8deb0"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "161d4ebf-86b6-422a-a630-a88012f74f00"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "354d09d7-85d4-440f-8d48-d991043313b0"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "bd55a2bb-1f63-480a-9bb2-b5fa431d2be2",
+    "label": "Hydrogen",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "f859865c-54af-4161-b7a8-5bece0aea6ac",
+    "label": "Oxygen",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "580b5ef3-a0cb-43e6-bb12-e9d5f55b6bdd",
+    "label": "Water",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "161d4ebf-86b6-422a-a630-a88012f74f00",
+      "port": 1
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4": 0.2962962962962963,
+    "b66a123d-5657-4e7c-9b6b-6030dc93eaf4": 0.018518518518518517,
+    "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca": 0.2222222222222222,
+    "f3e32214-4900-4708-be5e-592033f8deb0": 0.07407407407407407,
+    "161d4ebf-86b6-422a-a630-a88012f74f00": 0.018518518518518517,
+    "354d09d7-85d4-440f-8d48-d991043313b0": 0.07407407407407407
+   },
+   "machineCounts": {
+    "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4": 0.23703703703703702,
+    "b66a123d-5657-4e7c-9b6b-6030dc93eaf4": 0.018518518518518517,
+    "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca": 0.17777777777777776,
+    "f3e32214-4900-4708-be5e-592033f8deb0": 0.059259259259259255,
+    "161d4ebf-86b6-422a-a630-a88012f74f00": 0.037037037037037035,
+    "354d09d7-85d4-440f-8d48-d991043313b0": 1
+   },
+   "edgeFlowsPerSecond": {
+    "889428e4-9772-41d3-986e-285f2bbc7d44": 185.18518518518516,
+    "d78fa352-8470-45dc-8e1c-08219b372cc8": 0.25925925925925924,
+    "dd7a0e3f-ee7f-4342-8971-03e75944cd41": 0.07407407407407407,
+    "e5a28b8e-1684-4864-a63b-f80134906770": 0.07407407407407407,
+    "04ee5ae2-2e49-4cfb-8dda-d75b67539bc1": 0.2222222222222222,
+    "1744b202-379d-4820-b1d0-02ab77204028": 0.07407407407407407,
+    "34bdfd26-cc85-461b-965f-447431376552": 0.2222222222222222,
+    "45f8ec8e-ce7a-4e1d-bfd3-537f76e36627": 0.2962962962962963,
+    "5723bbf4-495a-4937-8cf3-597f188c3865": 74.07407407407406,
+    "5e7b183d-559b-4063-8f6b-d914a2fa7820": 0.2222222222222222,
+    "68822ce4-aa01-4c3f-9f1f-c9d93b62708a": 0
+   },
+   "gatedSources": [],
+   "gatedSinks": [
+    {
+     "port": {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 111.1111111111111
+    }
+   ],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "161d4ebf-86b6-422a-a630-a88012f74f00",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 111.1111111111111
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 222.2222222222222
+    }
+   ],
+   "unneeded": [],
+   "openGates": 1,
+   "externalQuantity": 111.1111111111111,
+   "totalInternalFlow": 260.7037037037037,
+   "notes": [],
+   "key": {
+    "gateAnchors": [
+     {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 1,
+      "input": false
+     }
+    ]
+   },
+   "drawers": {
+    "rates": {
+     "bd55a2bb-1f63-480a-9bb2-b5fa431d2be2": 222.2222222222222,
+     "f859865c-54af-4161-b7a8-5bece0aea6ac": 111.1111111111111,
+     "580b5ef3-a0cb-43e6-bb12-e9d5f55b6bdd": 111.1111111111111
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [
+    {
+     "key": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4:o:1",
+     "importing": false,
+     "bearers": [
+      {
+       "anchor": {
+        "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+        "portIndex": 1,
+        "input": false
+       },
+       "flows": [
+        {
+         "port": {
+          "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+          "portIndex": 1,
+          "input": false
+         },
+         "ratePerSecond": 111.1111111111111
+        }
+       ],
+       "max": 111.1111111111111,
+       "share": 1,
+       "solverPick": true
+      }
+     ],
+     "custom": false
+    }
+   ],
+   "upTo": [
+    {
+     "node": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+     "machines": [
+      "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4"
+     ],
+     "capacity": 1,
+     "reached": 0.23703703703703702,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "354d09d7-85d4-440f-8d48-d991043313b0"
+     ]
+    },
+    {
+     "node": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+     "machines": [
+      "b66a123d-5657-4e7c-9b6b-6030dc93eaf4"
+     ],
+     "capacity": 1,
+     "reached": 0.018518518518518517,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "b66a123d-5657-4e7c-9b6b-6030dc93eaf4",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "354d09d7-85d4-440f-8d48-d991043313b0"
+     ]
+    },
+    {
+     "node": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+     "machines": [
+      "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca"
+     ],
+     "capacity": 1,
+     "reached": 0.17777777777777776,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "c1e72b89-6af8-49ea-bc3f-b47f8f04b0ca",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "354d09d7-85d4-440f-8d48-d991043313b0"
+     ]
+    },
+    {
+     "node": "f3e32214-4900-4708-be5e-592033f8deb0",
+     "machines": [
+      "f3e32214-4900-4708-be5e-592033f8deb0"
+     ],
+     "capacity": 1,
+     "reached": 0.059259259259259255,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "f3e32214-4900-4708-be5e-592033f8deb0",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [
+      {
+       "nodeId": "f3e32214-4900-4708-be5e-592033f8deb0",
+       "portIndex": 1,
+       "input": true
+      }
+     ],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "161d4ebf-86b6-422a-a630-a88012f74f00",
+     "machines": [
+      "161d4ebf-86b6-422a-a630-a88012f74f00"
+     ],
+     "capacity": 1,
+     "reached": 0.037037037037037035,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "161d4ebf-86b6-422a-a630-a88012f74f00",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "354d09d7-85d4-440f-8d48-d991043313b0",
+     "machines": [
+      "354d09d7-85d4-440f-8d48-d991043313b0"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 4.21875,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": [
+     {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 1,
+      "input": false
+     }
+    ]
+   },
+   "options": [
+    {
+     "key": {
+      "gateAnchors": [
+       {
+        "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+        "portIndex": 1,
+        "input": false
+       }
+      ]
+     },
+     "replaces": {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 1,
+      "input": false
+     },
+     "opens": {
+      "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+      "portIndex": 1,
+      "input": false
+     },
+     "externals": [
+      {
+       "port": {
+        "nodeId": "b153f3d9-0da4-4335-adc0-f2f71bf1f8d4",
+        "portIndex": 1,
+        "input": false
+       },
+       "ratePerSecond": 111.1111111111111
+      }
+     ],
+     "rank": "DEFAULT"
+    }
+   ],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

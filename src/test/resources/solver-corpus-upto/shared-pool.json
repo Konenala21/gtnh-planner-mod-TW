@@ -1,0 +1,169 @@
+{
+ "name": "shared pool",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "6a98e549-9a91-3d1b-b52c-03fcc7664810",
+    "name": "assembler",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "gear",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "kit",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+    "name": "lathe",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "gear",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "d24966ba-c895-3251-8a82-fda896241f6c",
+    "source": "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+    "sourceOutput": 0,
+    "target": "6a98e549-9a91-3d1b-b52c-03fcc7664810",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+     "6a98e549-9a91-3d1b-b52c-03fcc7664810"
+    ],
+    "capacity": 4,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "6a98e549-9a91-3d1b-b52c-03fcc7664810": 2.6666666666666665,
+    "1c63531c-cf55-3f3f-a216-6d3f7736d535": 1.3333333333333333
+   },
+   "machineCounts": {
+    "6a98e549-9a91-3d1b-b52c-03fcc7664810": 2.6666666666666665,
+    "1c63531c-cf55-3f3f-a216-6d3f7736d535": 1.3333333333333333
+   },
+   "edgeFlowsPerSecond": {
+    "d24966ba-c895-3251-8a82-fda896241f6c": 2.6666666666666665
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1.3333333333333333
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "6a98e549-9a91-3d1b-b52c-03fcc7664810",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 2.6666666666666665
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 2.6666666666666665,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+     "machines": [
+      "1c63531c-cf55-3f3f-a216-6d3f7736d535",
+      "6a98e549-9a91-3d1b-b52c-03fcc7664810"
+     ],
+     "capacity": 4,
+     "reached": 4,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

@@ -157,7 +157,7 @@ public final class Boards {
                         + p.machines()
                             .getFirst()).getBytes(StandardCharsets.UTF_8)));
             for (final UUID member : p.machines()) group.addSection(member);
-            group.setMachineCapacity(p.capacity());
+            group.setMachineCapacity((int) p.capacity());
             group.setPinned(p.exact() || p.upTo());
             group.setExact(p.exact());
             g.groups.put(group.getId(), group);

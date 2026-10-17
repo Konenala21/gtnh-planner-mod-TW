@@ -135,12 +135,19 @@ final class DrawerRelaxation {
                 ctx.droppedPools.add(p);
                 try {
                     if (keptWithout(ctx, d)) {
-                        groups++;
-                        limits.add(
-                            new Note(
-                                SolverMessage.LIMIT_GROUP,
-                                ctx.model.pools.get(p)
-                                    .capacity()));
+                        final ModelData.Pool pool = ctx.model.pools.get(p);
+                        if (pool.upTo()) {
+                            // An Up to count is the card's pin: named by its card, not counted as a group.
+                            final ModelData.Machine md = ctx.model.machines.get(
+                                pool.machines()
+                                    .get(0));
+                            nodes.add(md.spec.id());
+                            limits.add(
+                                new Note(SolverMessage.LIMIT_PIN, md.spec.name(), SolverMessage.PIN_UP_TO.toNote()));
+                        } else {
+                            groups++;
+                            limits.add(new Note(SolverMessage.LIMIT_GROUP, machines(pool.capacity())));
+                        }
                     }
                 } finally {
                     ctx.droppedPools.remove(p);
@@ -179,7 +186,10 @@ final class DrawerRelaxation {
             .flows()
             .externals()
             .conservation()
-            .drawersRelaxed();
+            .drawersRelaxed()
+            // The Up to guard (docs/design/up-to.md): a rate the Up to machines cannot reach is a shortfall that names
+            // the Up to card, never a forced flow.
+            .guard();
         final Optimisation.Result result = builder.solve("drawer relaxation");
         if (!result.getState()
             .isFeasible()) return null;
@@ -195,6 +205,12 @@ final class DrawerRelaxation {
             total[d] = ctx.drawerTotal(d, extents, flows, externals);
         }
         return new Relaxed(slack, total);
+    }
+
+    /** A capacity as the note says it: whole machines as a whole number. */
+    private static Object machines(final double capacity) {
+        return capacity == Math.rint(capacity) && Math.abs(capacity) < Integer.MAX_VALUE ? (Object) (int) capacity
+            : (Object) capacity;
     }
 
     private static double[] values(final Variable[] vars) {

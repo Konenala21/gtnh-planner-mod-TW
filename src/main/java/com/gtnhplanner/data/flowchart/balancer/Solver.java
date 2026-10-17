@@ -81,19 +81,127 @@ public final class Solver {
         return new double[ctx.model.machines.size()];
     }
 
+    /** extents + pools + flows + externals + conservation + drawers + the Up to guard, every cost zero. */
+    public static Handles baseModel(final SolveContext ctx) {
+        return baseModel(ctx, true, true);
+    }
+
+    /**
+     * The AUTO base model, with or without the drawer rows and the context's Up to guard (the guard's own question
+     * leaves both out: {@link UpTo#prepareGuard}).
+     */
+    public static Handles baseModel(final SolveContext ctx, final boolean drawers, final boolean guard) {
+        final ModelBuilder b = ModelBuilder.over(ctx)
+            .extents(autoLower(ctx))
+            .pools()
+            .flows()
+            .externals()
+            .conservation();
+        if (drawers) b.drawers();
+        if (guard) b.guard();
+        return b.handles();
+    }
+
+    /**
+     * A free crossing at connected port {@code p}, outside every trade, guard and drawer row: supply at an input, a
+     * sink
+     * at an output (the Up to read-out's probes). Enters the port's conservation row as its external does; the
+     * independent check counts it as the port's external.
+     */
+    public static Variable feedPort(final SolveContext ctx, final Handles h, final int p) {
+        final double scale = 1.0 / Math.max(
+            1.0,
+            ctx.model.connectedPorts.get(p)
+                .qtyPerCraft());
+        final Variable v = h.model()
+            .addVariable("feed_" + p)
+            .lower(0);
+        h.conservation()[p].add(v, scale);
+        h.fed()
+            .add(new Handles.Fed(v, p));
+        return v;
+    }
+
+    /**
+     * Row terms over a model's variables: a pool's level, a drawer's total, an objective. Added, never overwritten, as
+     * the TypeScript port's rows add their columns.
+     */
+    public static final class Terms {
+
+        final List<Variable> vars = new ArrayList<>();
+        final List<Double> vals = new ArrayList<>();
+
+        public Terms add(final Variable v, final double val) {
+            vars.add(v);
+            vals.add(val);
+            return this;
+        }
+
+        public Terms addAll(final Terms other) {
+            vars.addAll(other.vars);
+            vals.addAll(other.vals);
+            return this;
+        }
+
+        public int size() {
+            return vars.size();
+        }
+
+        /** A row of these terms in {@code h}'s model, between {@code lo} and {@code hi} (NaN or infinite: none). */
+        public Expression row(final Handles h, final String name, final double lo, final double hi) {
+            // A model keeps its rows by name: each gets its own.
+            final Expression row = h.model()
+                .addExpression(
+                    name + "#"
+                        + h.model()
+                            .countExpressions());
+            for (int i = 0; i < vars.size(); i++) row.add(vars.get(i), vals.get(i));
+            if (Double.isFinite(lo)) row.lower(lo);
+            if (Double.isFinite(hi)) row.upper(hi);
+            return row;
+        }
+
+        /** Adds {@code weight} times these terms to the objective (minimised). */
+        public void price(final double weight) {
+            for (int i = 0; i < vars.size(); i++) {
+                final Variable v = vars.get(i);
+                final java.math.BigDecimal had = v.getContributionWeight();
+                v.weight((had == null ? 0 : had.doubleValue()) + weight * vals.get(i));
+            }
+        }
+
+        /** Their value at the model's solution. */
+        public double value() {
+            double total = 0;
+            for (int i = 0; i < vars.size(); i++) {
+                final Number x = vars.get(i)
+                    .getValue();
+                total += vals.get(i) * (x == null ? 0 : x.doubleValue());
+            }
+            return total;
+        }
+    }
+
+    /** A pool's level (machine time over capacity) as row terms over the extents. */
+    public static Terms levelTerms(final SolveContext ctx, final Handles h, final int pool) {
+        final ModelData.Pool data = ctx.model.pools.get(pool);
+        final Terms t = new Terms();
+        for (final int m : data.machines())
+            t.add(h.extentVars()[m], ctx.model.machines.get(m).durTicks / Numerics.TICKS_PER_SECOND / data.capacity());
+        return t;
+    }
+
+    /** Adds {@code weight} times a pool's level to the objective (minimised: a negative weight pushes it up). */
+    public static void priceLevel(final SolveContext ctx, final Handles h, final int pool, final double weight) {
+        levelTerms(ctx, h, pool).price(weight);
+    }
+
     /**
      * Stage 3 / zero-gate fast path: gates fixed to {@code open}, minimize total internal flow.
      * Empty support and a zero cap make this the fast path (0 gates, 0 externals is trivially optimal).
      */
     public static SolveResult flowMinimal(final SolveContext ctx, final Set<Integer> open, final double qtyCap) {
-        final Handles h = ModelBuilder.over(ctx)
-            .extents(autoLower(ctx))
-            .pools()
-            .flows()
-            .externals()
-            .conservation()
-            .drawers()
-            .handles();
+        final Handles h = baseModel(ctx);
         closeGatesOutside(ctx, h, open);
         if (!open.isEmpty()) holdQuantity(ctx, h, qtyCap);
         flowObjective(h);
@@ -134,7 +242,11 @@ public final class Solver {
     public static List<Level> levels(final SolveContext ctx) {
         // Keyed so that ascending order is the order above: buying (0) before selling (1), then steps descending.
         final java.util.TreeMap<Long, List<Integer>> byLevel = new java.util.TreeMap<>();
+        // With Up to pools a drawer's ports are no level: what crosses there is the player's own end, not a trade
+        // (docs/design/up-to.md, "Drawers and buffers").
+        final boolean drawerEnds = !ctx.upToPools.isEmpty();
         for (int p = 0; p < ctx.model.connectedPorts.size(); p++) {
+            if (drawerEnds && ctx.drawnPorts.contains(p)) continue;
             final boolean buying = ctx.model.connectedPorts.get(p)
                 .input();
             byLevel.computeIfAbsent(((buying ? 0L : 1L) << 32) - ctx.model.portSteps[p], k -> new ArrayList<>())
@@ -160,16 +272,21 @@ public final class Solver {
      * ports outright, so no later step can trade a sliver there to save a sliver of its own). {@code open}, when not
      * null, is the only gates the plan may trade at: a support the choices search tries.
      */
-    public record Trades(@Nullable Set<Integer> open, List<Level> levels, List<Double> caps) {
+    public record Trades(@Nullable Set<Integer> open, List<Level> levels, List<Double> caps, List<Band> floors) {
 
         public Trades {
             levels = List.copyOf(levels);
             caps = List.copyOf(caps);
+            floors = List.copyOf(floors);
+        }
+
+        public Trades(@Nullable final Set<Integer> open, final List<Level> levels, final List<Double> caps) {
+            this(open, levels, caps, List.of());
         }
 
         /** Only {@code open}'s gates (every gate when null), nothing held yet. */
         public static Trades within(@Nullable final Set<Integer> open) {
-            return new Trades(open, List.of(), List.of());
+            return new Trades(open, List.of(), List.of(), List.of());
         }
 
         public Trades holding(final Level level, final double cap) {
@@ -177,9 +294,20 @@ public final class Solver {
             final List<Double> c = new ArrayList<>(caps);
             l.add(level);
             c.add(cap);
-            return new Trades(open, l, c);
+            return new Trades(open, l, c, floors);
+        }
+
+        /** The same trading with the push's bands {@code floors} in place of its own. */
+        public Trades withFloors(final List<Band> floors) {
+            return new Trades(open, levels, caps, floors);
         }
     }
+
+    /**
+     * The push's band (docs/design/up-to.md, "Hold"): an Up to pool's level, its machine time over its capacity, held
+     * between {@code lo} and {@code hi}, both in 0..1.
+     */
+    public record Band(int pool, double lo, double hi) {}
 
     /**
      * Where a level is held once solved: exactly where it was reached, so no later level can buy or sell a sliver there
@@ -226,15 +354,9 @@ public final class Solver {
         return canonical.isRejected() ? s3 : canonical.point(); // the uncanonical point is still a correct answer
     }
 
-    private static Handles tradeModel(final SolveContext ctx, final Trades held) {
-        final Handles h = ModelBuilder.over(ctx)
-            .extents(autoLower(ctx))
-            .pools()
-            .flows()
-            .externals()
-            .conservation()
-            .drawers()
-            .handles();
+    /** The base model with the open gates, every held level and every push band applied. */
+    public static Handles tradeModel(final SolveContext ctx, final Trades held) {
+        final Handles h = baseModel(ctx);
         if (held.open() != null) closeGatesOutside(ctx, h, held.open());
         for (int i = 0; i < held.levels()
             .size(); i++) {
@@ -251,24 +373,24 @@ public final class Solver {
             for (final int p : level.ports()) hold.set(h.extVars()[p], ctx.externalWeight(p));
             hold.upper(cap);
         }
+        // The push's bands, as rows (the TypeScript port's columns must start at 0; the same values held either way).
+        for (int i = 0; i < held.floors()
+            .size(); i++) {
+            final Band band = held.floors()
+                .get(i);
+            levelTerms(ctx, h, band.pool()).row(h, "band_" + i, band.lo(), band.hi());
+        }
         return h;
     }
 
     /** LP over the whole gate structure, raw-quantity objective; seeds the deletion filter. */
     public static SolveResult externalsLp(final SolveContext ctx, final Set<Integer> open) {
-        final Handles h = ModelBuilder.over(ctx)
-            .extents(autoLower(ctx))
-            .pools()
-            .flows()
-            .externals()
-            .conservation()
-            .drawers()
-            .handles();
+        final Handles h = baseModel(ctx);
         for (int p = 0; p < ctx.model.connectedPorts.size(); p++) {
             // null open = the permissive probe (every gate open, every external free):
             // diagnosePins uses it to test whether the pins are the conflict, and it must not
             // clamp anything or it would report infeasible.
-            if (open != null && !open.contains(ctx.model.portGate[p])) {
+            if (open != null && !open.contains(ctx.model.portGate[p]) && !ctx.bankPorts.containsKey(p)) {
                 h.extVars()[p].upper(0);
             } else {
                 h.extVars()[p].weight(ctx.importTilt(ctx.model.portGate[p]));
@@ -279,16 +401,11 @@ public final class Solver {
 
     /** Least external quantity over a fixed support: no binaries, so a plain LP. */
     public static SolveResult fixedQuantity(final SolveContext ctx, final Set<Integer> open) {
-        final Handles h = ModelBuilder.over(ctx)
-            .extents(autoLower(ctx))
-            .pools()
-            .flows()
-            .externals()
-            .conservation()
-            .drawers()
-            .handles();
+        final Handles h = baseModel(ctx);
         closeGatesOutside(ctx, h, open);
         for (int p = 0; p < ctx.model.connectedPorts.size(); p++) {
+            // What a buffer banks is no gate and no trade (docs/design/up-to.md): never closed, never counted.
+            if (ctx.bankPorts.containsKey(p)) continue;
             h.extVars()[p].weight(ctx.externalWeight(p));
         }
         return run(ctx, h, "stage 2 fixed quantity");
@@ -299,14 +416,7 @@ public final class Solver {
 
     /** The one canonical point among a stage-3 optimum: redistributes within it, deterministically. */
     public static StageOutcome canonicalize(final SolveContext ctx, final Set<Integer> open, final StageOutcome s3) {
-        final Handles h = ModelBuilder.over(ctx)
-            .extents(autoLower(ctx))
-            .pools()
-            .flows()
-            .externals()
-            .conservation()
-            .drawers()
-            .handles();
+        final Handles h = baseModel(ctx);
         final Expression qty = open.isEmpty() ? null
             : h.model()
                 .addExpression("qty_cap");
@@ -349,9 +459,10 @@ public final class Solver {
         return 1.0 + (z >>> 11) * 0x1.0p-53;
     }
 
+    /** Closes every external outside {@code open}'s gates, except what a buffer banks (it is no gate: up-to.md). */
     public static void closeGatesOutside(final SolveContext ctx, final Handles h, final Set<Integer> open) {
         for (int p = 0; p < ctx.model.connectedPorts.size(); p++) {
-            if (!open.contains(ctx.model.portGate[p])) h.extVars()[p].upper(0);
+            if (!open.contains(ctx.model.portGate[p]) && !ctx.bankPorts.containsKey(p)) h.extVars()[p].upper(0);
         }
     }
 
@@ -389,6 +500,12 @@ public final class Solver {
         final double[] extents = values(h.extentVars());
         final double[] flows = values(h.flowVars());
         final double[] externals = values(h.extVars());
+        // A probe's free crossings cross the plan's edge at their port, as its external does.
+        for (final Handles.Fed fed : h.fed()) {
+            final Number v = fed.variable()
+                .getValue();
+            externals[fed.port()] += v == null ? 0 : v.doubleValue();
+        }
         final String residual = ctx.validate(extents, flows, externals);
         if (residual != null) {
             final Note note = new Note(SolverMessage.SOLVER_NOT_CONSERVING, residual);
@@ -396,6 +513,12 @@ public final class Solver {
             return SolveResult.rejected(note);
         }
         return SolveResult.solved(StageOutcome.of(ctx, extents, flows, externals, provenOptimal));
+    }
+
+    /** A variable's value at the model's solution (0 when it has none). */
+    public static double valueOf(final Variable v) {
+        final Number n = v.getValue();
+        return n == null ? 0 : n.doubleValue();
     }
 
     private static double[] values(final Variable[] vars) {

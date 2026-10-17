@@ -1,0 +1,281 @@
+{
+ "name": "gtnh-flow-excess_choice, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "9c5fb577-bf67-396a-a009-a394663bc96a",
+    "name": "multiblock centrifuge",
+    "durationTicks": 80,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 800,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "air",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 80,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "oxygen",
+      "free": false
+     },
+     {
+      "amount": 3120,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "nitrogen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "bb097e1d-843d-30ce-a36c-b1bad5073882",
+    "name": "coke oven",
+    "durationTicks": 100,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "oak wood",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "nitrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 20,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "charcoal",
+      "free": false
+     },
+     {
+      "amount": 1500,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "wood tar",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4",
+    "name": "second coke oven",
+    "durationTicks": 100,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 25,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "charcoal",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 800,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "coal tar",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "8393cdb7-cc16-39e8-b95b-839905380592",
+    "source": "bb097e1d-843d-30ce-a36c-b1bad5073882",
+    "sourceOutput": 0,
+    "target": "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4",
+    "targetInput": 0
+   },
+   {
+    "id": "da72d040-df10-3c59-952d-df0062696bfc",
+    "source": "9c5fb577-bf67-396a-a009-a394663bc96a",
+    "sourceOutput": 1,
+    "target": "bb097e1d-843d-30ce-a36c-b1bad5073882",
+    "targetInput": 1
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "9c5fb577-bf67-396a-a009-a394663bc96a"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "9c5fb577-bf67-396a-a009-a394663bc96a": 0.08012820512820513,
+    "bb097e1d-843d-30ce-a36c-b1bad5073882": 0.25,
+    "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4": 0.2
+   },
+   "machineCounts": {
+    "9c5fb577-bf67-396a-a009-a394663bc96a": 0.32051282051282054,
+    "bb097e1d-843d-30ce-a36c-b1bad5073882": 1.25,
+    "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4": 1
+   },
+   "edgeFlowsPerSecond": {
+    "8393cdb7-cc16-39e8-b95b-839905380592": 5,
+    "da72d040-df10-3c59-952d-df0062696bfc": 250
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "9c5fb577-bf67-396a-a009-a394663bc96a",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 64.1025641025641
+    },
+    {
+     "port": {
+      "nodeId": "bb097e1d-843d-30ce-a36c-b1bad5073882",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "9c5fb577-bf67-396a-a009-a394663bc96a",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 6.410256410256411
+    },
+    {
+     "port": {
+      "nodeId": "bb097e1d-843d-30ce-a36c-b1bad5073882",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 375
+    },
+    {
+     "port": {
+      "nodeId": "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 160
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 255,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "9c5fb577-bf67-396a-a009-a394663bc96a",
+     "machines": [
+      "9c5fb577-bf67-396a-a009-a394663bc96a"
+     ],
+     "capacity": 1,
+     "reached": 0.32051282051282054,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "9c5fb577-bf67-396a-a009-a394663bc96a",
+      "portIndex": 1,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4",
+     "machines": [
+      "e4dd2cd4-fa6d-37e3-8afd-7ba02f668ee4"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

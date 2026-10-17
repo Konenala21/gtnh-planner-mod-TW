@@ -112,8 +112,11 @@ public final class ModelData {
      * One machine-sharing group with a capacity: the machines that run on the same hardware and how
      * many machines that hardware is. Only groups the player capped are built - a sharing group
      * without a capacity constrains nothing, so it never reaches the model.
+     *
+     * @param upTo the Up to rule (docs/design/up-to.md): a cap the push runs the machines up against, never made up by
+     *             forced flow. Never with {@code exact}.
      */
-    public record Pool(List<Integer> machines, int capacity, boolean exact) {}
+    public record Pool(List<Integer> machines, double capacity, boolean exact, boolean upTo) {}
 
     /**
      * A drawer as the solver sees it: who it is, the rule it asks for, and the terms of the total
@@ -295,7 +298,7 @@ public final class ModelData {
                 if (m != null && !members.contains(m)) members.add(m);
             }
             if (members.isEmpty()) continue;
-            pools.add(new Pool(List.copyOf(members), pool.capacity(), pool.exact()));
+            pools.add(new Pool(List.copyOf(members), pool.capacity(), pool.exact(), !pool.exact() && pool.upTo()));
         }
     }
 

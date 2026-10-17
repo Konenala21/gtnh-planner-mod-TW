@@ -23,6 +23,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Group;
 import com.gtnhplanner.data.flowchart.MachineGroup;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.properties.RecipeProperty;
 
@@ -144,22 +145,24 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
      * machines); {@code exact}, the count is pinned and the recipes' machine time adds up to exactly that many, as a
      * pinned shared machine on Factory Flow's board.
      *
-     * @param upTo the Up to rule (docs/design/up-to.md), read only when {@code exact} is false: the machines run as
-     *             hard as the plan lets them, never above {@code capacity}, and no forced flow makes up what they
-     *             cannot do. Anchors its part of the plan. A one-card pool is how a single card's Up to count reaches
-     *             the solver. False: a plain cap.
+     * @param capacity how many machines: a whole number from the board, fractional only in a plan a test or the
+     *                 website wrote ({@code SolveInputJson} reads both).
+     * @param upTo     the Up to rule (docs/design/up-to.md), read only when {@code exact} is false: the machines run
+     *                 as hard as the plan lets them, never above {@code capacity}, and no forced flow makes up what
+     *                 they cannot do. Anchors its part of the plan. A one-card pool is how a single card's Up to count
+     *                 reaches the solver. False: a plain cap.
      */
-    public record PoolIn(List<UUID> machines, int capacity, boolean exact, boolean upTo) {
+    public record PoolIn(List<UUID> machines, double capacity, boolean exact, boolean upTo) {
 
         public PoolIn {
             machines = List.copyOf(machines);
         }
 
-        public PoolIn(final List<UUID> machines, final int capacity, final boolean exact) {
+        public PoolIn(final List<UUID> machines, final double capacity, final boolean exact) {
             this(machines, capacity, exact, false);
         }
 
-        public PoolIn(final List<UUID> machines, final int capacity) {
+        public PoolIn(final List<UUID> machines, final double capacity) {
             this(machines, capacity, false);
         }
     }
@@ -211,8 +214,20 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
         final Map<UUID, Double> extentPins) {
         final Ingredients ingredients = new Ingredients();
         final List<Machine> machines = new ArrayList<>(graph.nodes.size());
+        final List<PoolIn> pools = new ArrayList<>();
+        // The count rules are AUTO's; the older modes read every set count as a pin, as they always did.
+        final boolean auto = mode == BalanceMode.AUTO;
         for (final Node node : graph.getNodes()) {
-            machines.add(machineOf(node, ingredients));
+            if (!auto) {
+                machines.add(machineOf(node, ingredients, node.isMachineCountFixed()));
+                continue;
+            }
+            final PinRule rule = PinRule.of(node);
+            final int count = node.machineConfig.getMachineCount();
+            // An Up to count is a one-machine pool: the solver finds how many run, never above it (docs/design/up-to.md).
+            // Exactly is the fixed count it always was.
+            if (rule == PinRule.UP_TO && count > 0) pools.add(new PoolIn(List.of(node.id), count, false, true));
+            machines.add(machineOf(node, ingredients, rule == PinRule.EXACT));
         }
         final List<EdgeIn> edges = new ArrayList<>(graph.edges.size());
         for (final Edge edge : graph.getEdges()) {
@@ -224,15 +239,26 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
                     edge.targetNodeId,
                     edge.targetInputIndex));
         }
-        final List<PoolIn> pools = new ArrayList<>();
         for (final Group group : graph.getGroups()) {
-            if (group instanceof final MachineGroup machineGroup && machineGroup.getMachineCapacity() > 0) {
+            if (group instanceof final MachineGroup machineGroup && machineGroup.getMachineCapacity() > 0
+                && !group.getNodeIds()
+                    .isEmpty()) {
                 // Sorted: the group's id set is a HashSet, and the pool's member order should be the chart's.
                 final List<UUID> members = new ArrayList<>(group.getNodeIds());
                 members.sort(UUID::compareTo);
-                pools.add(new PoolIn(members, machineGroup.getMachineCapacity(), machineGroup.isPinned()));
+                // A set count is Up to or Exactly; a capacity nobody set stays the plain cap.
+                final PinRule rule = PinRule.of(machineGroup);
+                final boolean exact = auto ? rule == PinRule.EXACT : machineGroup.isPinned();
+                pools.add(new PoolIn(members, machineGroup.getMachineCapacity(), exact, auto && rule == PinRule.UP_TO));
             }
         }
+        // By first machine, as the website orders them: the same plan is the same input on both sides.
+        pools.sort(
+            (a, b) -> a.machines()
+                .get(0)
+                .compareTo(
+                    b.machines()
+                        .get(0)));
         final List<DrawerIn> drawers = new ArrayList<>(graph.drawers.size());
         for (final Drawer drawer : graph.getDrawers()) {
             drawers.add(
@@ -249,7 +275,7 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
         return new SolveInput(mode, choice, machines, edges, pools, drawers, extentPins, graph.spareShares);
     }
 
-    private static Machine machineOf(final Node node, final Ingredients ingredients) {
+    private static Machine machineOf(final Node node, final Ingredients ingredients, final boolean exact) {
         final MachineConfig cfg = node.machineConfig;
         final EffectResult effect = node.isPower() ? null : cfg.computeEffect(node.properties);
         final List<PortIn> inputs = new ArrayList<>(node.inputs.size());
@@ -288,7 +314,7 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
             power ? 1 : effect.throughputFactor(),
             inputs,
             outputs,
-            node.isMachineCountFixed(),
+            exact,
             cfg.getMachineCount(),
             targets,
             properties,
