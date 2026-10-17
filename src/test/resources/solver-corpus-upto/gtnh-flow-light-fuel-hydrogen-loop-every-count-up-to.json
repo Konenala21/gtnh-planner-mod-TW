@@ -1,0 +1,248 @@
+{
+ "name": "gtnh-flow-light_fuel_hydrogen_loop, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "81b1f67d-f7ad-3eea-a483-3b9d9bd80652",
+    "name": "chemical reactor",
+    "durationTicks": 160,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "hydrogen",
+      "free": false
+     },
+     {
+      "amount": 12000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "sulfuric light fuel",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "hydrogen sulfide",
+      "free": false
+     },
+     {
+      "amount": 12000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "light fuel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "003d7aca-e9e4-3ae5-b725-1611caa74493",
+    "name": "electrolyzer",
+    "durationTicks": 144,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "hydrogen sulfide",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "hydrogen",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "sulfur dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f",
+    "name": "distillery",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 25,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "oil",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 25,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "sulfuric light fuel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "8c0c5066-abac-37b3-b021-198749c10d85",
+    "source": "003d7aca-e9e4-3ae5-b725-1611caa74493",
+    "sourceOutput": 0,
+    "target": "81b1f67d-f7ad-3eea-a483-3b9d9bd80652",
+    "targetInput": 0
+   },
+   {
+    "id": "d80335a8-0d30-32a2-b5d3-5dc897509013",
+    "source": "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f",
+    "sourceOutput": 0,
+    "target": "81b1f67d-f7ad-3eea-a483-3b9d9bd80652",
+    "targetInput": 1
+   },
+   {
+    "id": "2520af6c-ce3c-33f5-8f45-cea784af0c0d",
+    "source": "81b1f67d-f7ad-3eea-a483-3b9d9bd80652",
+    "sourceOutput": 0,
+    "target": "003d7aca-e9e4-3ae5-b725-1611caa74493",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "81b1f67d-f7ad-3eea-a483-3b9d9bd80652": 0.0020833333333333333,
+    "003d7aca-e9e4-3ae5-b725-1611caa74493": 0.0020833333333333337,
+    "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f": 1
+   },
+   "machineCounts": {
+    "81b1f67d-f7ad-3eea-a483-3b9d9bd80652": 0.016666666666666666,
+    "003d7aca-e9e4-3ae5-b725-1611caa74493": 0.015000000000000003,
+    "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f": 1
+   },
+   "edgeFlowsPerSecond": {
+    "8c0c5066-abac-37b3-b021-198749c10d85": 4.166666666666667,
+    "d80335a8-0d30-32a2-b5d3-5dc897509013": 25,
+    "2520af6c-ce3c-33f5-8f45-cea784af0c0d": 2.0833333333333335
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 25
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "81b1f67d-f7ad-3eea-a483-3b9d9bd80652",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 25
+    },
+    {
+     "port": {
+      "nodeId": "003d7aca-e9e4-3ae5-b725-1611caa74493",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 0.0020833333333333337
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 31.25,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f",
+     "machines": [
+      "680a8ea4-e50f-3a34-bdfa-cd2b74d5dd3f"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

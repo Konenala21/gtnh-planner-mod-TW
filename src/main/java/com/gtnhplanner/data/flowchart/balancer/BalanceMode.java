@@ -8,6 +8,8 @@ import net.minecraft.util.StatCollector;
 import com.gtnhplanner.data.flowchart.balancer.stages.ExtentMinStage;
 import com.gtnhplanner.data.flowchart.balancer.stages.FastPathStage;
 import com.gtnhplanner.data.flowchart.balancer.stages.FlowMinStage;
+import com.gtnhplanner.data.flowchart.balancer.stages.GuardStage;
+import com.gtnhplanner.data.flowchart.balancer.stages.PushStage;
 import com.gtnhplanner.data.flowchart.balancer.stages.TradeStage;
 
 import lombok.Getter;
@@ -38,10 +40,13 @@ public enum BalanceMode {
     /**
      * Auto-balance: fractional machine counts; trades with the market bought as far upstream and sold as far
      * downstream as they can be ({@link com.gtnhplanner.data.flowchart.balancer.stages.TradeStage}), then the least
-     * internal flow; the zero-trade fast path first.
+     * internal flow; the zero-trade fast path first. With Up to pools the guard comes first and the push between the
+     * trades and least flow (docs/design/up-to.md).
      */
     AUTO(Chain.enter(new TradeStage())
+        .then(new PushStage())
         .then(new FlowMinStage())
+        .prelude(new GuardStage())
         .prelude(new FastPathStage())
         .withPinDiagnosis(), Heuristics.auto(), Set.of(Pin.FIXED_COUNT, Pin.TARGET_RATE, Pin.EXTENT), true);
 

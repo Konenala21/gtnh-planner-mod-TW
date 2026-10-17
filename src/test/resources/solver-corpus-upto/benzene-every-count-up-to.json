@@ -1,0 +1,184 @@
+{
+ "name": "benzene, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+    "name": "item:gregtech:gt.blockmachines:1169",
+    "durationTicks": 1,
+    "energyPerTick": 7864320,
+    "throughputFactor": 3277,
+    "inputs": [
+     {
+      "amount": 16000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Hydrogen",
+      "free": false
+     },
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Distilled Water",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [],
+  "pools": [
+   {
+    "machines": [
+     "6bcdde86-54bd-44b7-935c-d857ee18e9a5"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "df46d804-c0fa-4b59-bf6c-742fc0d53161",
+    "label": "Oxygen",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "2e50eeda-7d71-44da-adde-0aadaf2a69ec",
+    "label": "Distilled Water",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "781a9079-2392-4d4b-99d8-c00f100d928b",
+    "label": "Hydrogen",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "6bcdde86-54bd-44b7-935c-d857ee18e9a5": 20
+   },
+   "machineCounts": {
+    "6bcdde86-54bd-44b7-935c-d857ee18e9a5": 1
+   },
+   "edgeFlowsPerSecond": {},
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1048640000
+    },
+    {
+     "port": {
+      "nodeId": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 524320000
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 524320000
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "df46d804-c0fa-4b59-bf6c-742fc0d53161": 524320000,
+     "2e50eeda-7d71-44da-adde-0aadaf2a69ec": 524320000,
+     "781a9079-2392-4d4b-99d8-c00f100d928b": 1048640000
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "6bcdde86-54bd-44b7-935c-d857ee18e9a5",
+     "machines": [
+      "6bcdde86-54bd-44b7-935c-d857ee18e9a5"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

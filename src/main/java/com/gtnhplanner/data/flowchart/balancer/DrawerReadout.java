@@ -25,9 +25,12 @@ import com.gtnhplanner.data.flowchart.Drawer;
  *                   holds it back.
  * @param ports      per buffer id, each port linked to it and what it puts in (a maker's output) or takes out (a
  *                   user's input), makers first, in link order: what each of its wires carries.
+ * @param banked     Up to plans only (docs/design/up-to.md, "Buffers"): per BUFFER with rule ANY, what it banks in
+ *                   units per second, what its makers put into it beyond what its takers take (old Build's
+ *                   overflow); never a forced flow. Null when the plan has no Up to pool or no such buffer.
  */
 public record DrawerReadout(Map<UUID, Double> rates, Set<UUID> unmet, List<Shortfall> shortfalls,
-    Map<UUID, List<External>> ports) {
+    Map<UUID, List<External>> ports, @Nullable Map<UUID, Double> banked) {
 
     /** Nothing solved, nothing known. */
     public static final DrawerReadout NONE = new DrawerReadout(Map.of(), Set.of(), List.of(), Map.of());
@@ -40,6 +43,18 @@ public record DrawerReadout(Map<UUID, Double> rates, Set<UUID> unmet, List<Short
         for (final Map.Entry<UUID, List<External>> e : ports.entrySet())
             copy.put(e.getKey(), List.copyOf(e.getValue()));
         ports = Collections.unmodifiableMap(copy);
+        if (banked != null) banked = Collections.unmodifiableMap(new LinkedHashMap<>(banked));
+    }
+
+    /** A read-out that banks nothing (no Up to pool or no bank). */
+    public DrawerReadout(final Map<UUID, Double> rates, final Set<UUID> unmet, final List<Shortfall> shortfalls,
+        final Map<UUID, List<External>> ports) {
+        this(rates, unmet, shortfalls, ports, null);
+    }
+
+    /** What a buffer banks, units per second; 0 when it banks nothing. */
+    public double bankedRate(final UUID drawer) {
+        return banked == null ? 0 : banked.getOrDefault(drawer, 0.0);
     }
 
     /** What flows through one port of a buffer, in units per second; 0 when it is not one of its ports. */
@@ -102,7 +117,15 @@ public record DrawerReadout(Map<UUID, Double> rates, Set<UUID> unmet, List<Short
             if (row.kind() == com.gtnhplanner.data.flowchart.Drawer.Kind.BUFFER)
                 ports.put(id, bufferPorts(ctx, row, flows));
         }
-        return new DrawerReadout(rates, unmet, ctx.shortfalls, ports);
+        if (ctx.bankPorts.isEmpty()) return new DrawerReadout(rates, unmet, ctx.shortfalls, ports);
+        // With Up to pools a buffer of rule ANY banks what its takers do not take (docs/design/up-to.md, "Buffers").
+        final Map<UUID, Double> banked = new LinkedHashMap<>();
+        for (final Map.Entry<Integer, Integer> e : ctx.bankPorts.entrySet()) banked.merge(
+            ctx.model.drawers.get(e.getValue())
+                .id(),
+            externals[e.getKey()],
+            Double::sum);
+        return new DrawerReadout(rates, unmet, ctx.shortfalls, ports, banked);
     }
 
     /** Each port of a buffer and the flow on its edges at that port. */

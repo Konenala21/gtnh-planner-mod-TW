@@ -48,20 +48,55 @@ in saves and in plans from the website, reads as Up to, old website Build plans 
 - `dev/SolveInputJson` writes a pool's `upTo: true` only for an Up to pool, as the website's `__fixtures__/load.ts`
   reads it; older dumps read the same.
 
-## The solver contract (no behaviour yet)
+## The solver contract
 
 - `SolveInput.PoolIn.upTo`, read only when `exact` is false. The 2- and 3-argument constructors mean a plain cap.
+  `capacity` is a double: a website plan's count may be fractional; `SolveInputJson` writes a whole one as before.
 - `SolutionView.upTo()`: one `UpToReadout` per Up to pool, by its first machine; `UpToReason` is FULL, BOTTLENECK,
-  STARVED, CLOGGED, UNUSED or LIMITED. Empty until the solver fills it. Not in the corpus digest yet (it reads public
-  fields and `spares()`), so the goldens do not move until the solver port adds it on both sides.
-- `SolverMessage.PIN_UP_TO`: what holds a drawer back when its Up to machines cannot do more (`LIMIT_PIN`).
+  STARVED, CLOGGED, UNUSED or LIMITED. Empty when the plan has no Up to pool.
+- `DrawerReadout.banked`: per BUFFER of rule ANY, what it banks; null without Up to pools or such a buffer.
+- `SolverMessage.PIN_UP_TO`: what holds a drawer back when its Up to machines cannot do more (`LIMIT_PIN`, the card
+  among the shortfall's `limitingNodes`).
+
+## The solver
+
+The website's engine changes (`src/lib/solver/plan/` on `up-to-card`: `guard.ts`, `push.ts`, `readout.ts` and the rest)
+ported to `balancer/`, name for name where the Java already mirrored it:
+
+- `SolveInput.of` (AUTO only; the older modes read a set count as a pin, as before): a card's set count is Up to unless
+  `PinRule` says Exactly (a custom rate card always is); an Up to count is a one-machine pool `PoolIn([id], count,
+  false, true)` with no fixed count, Exactly the fixed count it always was. A set shared machine is a pool, `exact` for
+  Exactly and `upTo` otherwise; a capacity nobody set stays the plain cap. Fluid tanks never have a count. Pools are
+  sorted by first machine, as the website sorts them. A recipe on a shared machine keeps a count of its own if it has
+  one (the website's sections never have one).
+- `SolveContext`: `upToPools`, `drawnPorts`, `bankPorts`, the guard (`guard`, `guardReady`, `guardOff`) and
+  `committedTrades`; an Up to pool anchors; what a buffer banks opens no gate. `commit` and `validate` measure dust
+  against at least 1, so an all-but-zero point is noise, never a negative.
+- `UpTo`: the guard (`prepareGuard`, run by the `GuardStage` prelude, applied by `ModelBuilder.guard()` in every AUTO
+  model and the drawer relaxation, left out by `diagnosePins`) and the push (stage A, the max-min rounds with their
+  certificates and probes, `bandAt`). The bands ride on `Solver.Trades.floors` as rows (`Solver.Terms`), holding the
+  same values the website holds. `PushStage` runs between `TradeStage` and `FlowMinStage`, then
+  `TradeStage.settleDrawers`; `FastPathStage` with Up to pools closes only the forced crossings and pushes;
+  `Enumerator.evaluateSupportWith` pushes every support it settles, `applyChoice` keeps what the chosen point was
+  settled under, and the swaps skip a gate whose every port is a bank or guarded shut.
+- `UpToRead`: the read-out with the website's budget and reasons (`Solver.feedPort` gives a probe its free ends), merged
+  across islands by node in `Balancer`. `SolutionView.unneeded` leaves Up to machines out. `Unanchored` already counted
+  every set count, Up to or Exactly.
+
+## Checking it against the website
+
+- `UpToTest` is the website's `upto.test.ts` case for case, on the same plans (`UpToPlans`, ids hashed as the website's
+  export hashes them). `SolverPathTest` (reversed variables) and `SolverIslandTest` take Up to plans too.
+- `UpToParityTest` solves every plan under `src/test/resources/solver-corpus-upto/` and compares its whole answer with
+  the website's by the golden rules; `upTo` and `banked` are in the digest only when present, so the goldens did not
+  move. The website writes the folder: `UPTO_EXPORT_DIR=<this folder> npx vitest run up-to-export` on `up-to-card`
+  (`parity/up-to-export.test.ts`: every hand-built Up to plan, and every corpus plan with each exact count Up to). Three
+  plans answer alike only to the LP's tolerance (the website's committed point breaks one of its own rows by less than
+  HiGHS's tolerance, near a millionth of a unit a second); the test names them with why and compares their read-outs
+  and counts.
+- gtnh-flow's `number` pins read Exactly (`GtnhFlowLoader`): those charts state demands, and the goldens stand.
 
 ## Still to do
 
-- The solver (`balancer/`): `SolveInput.of` turning an Up to card into a one-machine pool and an Up to group into an Up
-  to pool (today every set count is still an exact pin, so the solve has not changed), `ModelBuilder` pools,
-  `SolveContext` anchoring and the guard, the push between `TradeStage` and `FlowMinStage` and inside `FastPathStage`,
-  the floors on the trades, `Enumerator.evaluateSupport`, `DrawerRelaxation` naming the card, `Unanchored`, the
-  read-out and its island merge. The corpus is re-dumped once both sides agree.
 - The board: the card's count and rule word, its bar and reason, the overview and the notices (the website's pass 3
   mockup, `mockups/up-to-card/`).

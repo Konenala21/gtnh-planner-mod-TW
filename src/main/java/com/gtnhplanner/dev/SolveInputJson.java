@@ -83,7 +83,11 @@ public final class SolveInputJson {
             final JsonArray members = new JsonArray();
             for (final UUID id : p.machines()) members.add(new JsonPrimitive(id.toString()));
             j.add("machines", members);
-            j.addProperty("capacity", p.capacity());
+            // Whole machines as a whole number, as every dump before fractional capacities wrote them.
+            final double capacity = p.capacity();
+            if (capacity == Math.rint(capacity) && Math.abs(capacity) < Integer.MAX_VALUE)
+                j.addProperty("capacity", (int) capacity);
+            else j.addProperty("capacity", capacity);
             j.addProperty("exact", p.exact());
             // Only an Up to pool says so, so every dump from before the rule reads the same.
             if (p.upTo()) j.addProperty("upTo", true);
@@ -199,7 +203,7 @@ public final class SolveInputJson {
                 new SolveInput.PoolIn(
                     members,
                     j.get("capacity")
-                        .getAsInt(),
+                        .getAsDouble(),
                     j.get("exact")
                         .getAsBoolean(),
                     j.has("upTo") && j.get("upTo")

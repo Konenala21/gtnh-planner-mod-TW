@@ -264,6 +264,7 @@ public final class Balancer {
         final List<Alternative> options = new ArrayList<>();
         final List<Note> choiceNotes = new ArrayList<>();
         final List<Spares.Leftover> spares = new ArrayList<>();
+        final List<UpToReadout> upTo = new ArrayList<>();
         boolean complete = true;
         for (final Piece p : pieces) {
             final SolveContext c = p.ctx();
@@ -314,6 +315,10 @@ public final class Balancer {
             spares.addAll(
                 solved.solution()
                     .spares());
+            // Each island's Up to read-out is its own (docs/design/up-to.md).
+            upTo.addAll(
+                solved.solution()
+                    .upTo());
         }
         whole.commit(StageOutcome.of(whole, extents, flows, externals, support, false));
         // Each option keeps its island's key: a stored choice applies to the islands its anchors sit on (Islands).
@@ -327,6 +332,8 @@ public final class Balancer {
         // In the plan's order of decisions, as one plan's leftovers come.
         spares.sort(Comparator.comparing(Balancer::decisionOf, PortRef.ORDER));
         view.spares(List.copyOf(spares));
+        upTo.sort(Comparator.comparing(UpToReadout::node));
+        view.upTo(upTo);
         return new Answer.Solved(
             view,
             new Alternatives(whole.keyOf(support), List.copyOf(planOptions), complete, List.copyOf(choiceNotes)));
@@ -468,6 +475,8 @@ public final class Balancer {
             view = SolutionView.of(ctx, System.currentTimeMillis() - start);
         }
         view.spares(spares);
+        // Why each Up to card runs where it does, at the point as it now stands (docs/design/up-to.md).
+        view.upTo(UpToRead.of(ctx));
         return new Piece(ctx, new Answer.Solved(view, alternatives));
     }
 

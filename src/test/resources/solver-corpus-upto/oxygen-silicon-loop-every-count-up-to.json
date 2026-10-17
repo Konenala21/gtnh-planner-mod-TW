@@ -1,0 +1,326 @@
+{
+ "name": "oxygen-silicon-loop, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+    "name": "item:gregtech:gt.blockmachines:371",
+    "durationTicks": 40,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Magnesia Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Magnesium Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "c0bfb968-e3be-43b7-8752-c281d70df75f",
+    "name": "item:gregtech:gt.blockmachines:371",
+    "durationTicks": 500,
+    "energyPerTick": 25,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 8,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Sand",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Silicon Dioxide Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 5,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "4e17273d-6559-45b0-a699-86d379645d12",
+    "name": "item:gregtech:gt.blockmachines:421",
+    "durationTicks": 100,
+    "energyPerTick": 7,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Silicon Dioxide Dust",
+      "free": false
+     },
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Magnesium Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Raw Silicon Dust",
+      "free": false
+     },
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Magnesia Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "be26aec8-e77d-421a-9980-40b5a8bcc3dd",
+    "source": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+    "sourceOutput": 0,
+    "target": "4e17273d-6559-45b0-a699-86d379645d12",
+    "targetInput": 1
+   },
+   {
+    "id": "46ebc23e-c447-4847-975c-43facbab7643",
+    "source": "c0bfb968-e3be-43b7-8752-c281d70df75f",
+    "sourceOutput": 0,
+    "target": "4e17273d-6559-45b0-a699-86d379645d12",
+    "targetInput": 0
+   },
+   {
+    "id": "56e6536c-2f43-4f63-bdf2-5d356ceab066",
+    "source": "4e17273d-6559-45b0-a699-86d379645d12",
+    "sourceOutput": 1,
+    "target": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "a74f222f-a3de-4750-b487-87dfd7f7c863"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "c0bfb968-e3be-43b7-8752-c281d70df75f"
+    ],
+    "capacity": 5,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "4e17273d-6559-45b0-a699-86d379645d12"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "a90fc2e0-d956-483e-a900-4dd62ab084f3",
+    "label": "Oxygen",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "b37c22b4-0e66-4841-9b3d-c952d0003ba7",
+    "label": "Raw Silicon Dust",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "4e17273d-6559-45b0-a699-86d379645d12",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "a74f222f-a3de-4750-b487-87dfd7f7c863": 0.4,
+    "c0bfb968-e3be-43b7-8752-c281d70df75f": 0.2,
+    "4e17273d-6559-45b0-a699-86d379645d12": 0.2
+   },
+   "machineCounts": {
+    "a74f222f-a3de-4750-b487-87dfd7f7c863": 0.8,
+    "c0bfb968-e3be-43b7-8752-c281d70df75f": 5,
+    "4e17273d-6559-45b0-a699-86d379645d12": 1
+   },
+   "edgeFlowsPerSecond": {
+    "be26aec8-e77d-421a-9980-40b5a8bcc3dd": 0.4,
+    "46ebc23e-c447-4847-975c-43facbab7643": 0.6000000000000001,
+    "56e6536c-2f43-4f63-bdf2-5d356ceab066": 0.8
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "c0bfb968-e3be-43b7-8752-c281d70df75f",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1.6
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 400
+    },
+    {
+     "port": {
+      "nodeId": "4e17273d-6559-45b0-a699-86d379645d12",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.2
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 1.8,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "a90fc2e0-d956-483e-a900-4dd62ab084f3": 400,
+     "b37c22b4-0e66-4841-9b3d-c952d0003ba7": 0.2
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+     "machines": [
+      "a74f222f-a3de-4750-b487-87dfd7f7c863"
+     ],
+     "capacity": 1,
+     "reached": 0.8,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "a74f222f-a3de-4750-b487-87dfd7f7c863",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "4e17273d-6559-45b0-a699-86d379645d12"
+     ]
+    },
+    {
+     "node": "c0bfb968-e3be-43b7-8752-c281d70df75f",
+     "machines": [
+      "c0bfb968-e3be-43b7-8752-c281d70df75f"
+     ],
+     "capacity": 5,
+     "reached": 5,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "4e17273d-6559-45b0-a699-86d379645d12",
+     "machines": [
+      "4e17273d-6559-45b0-a699-86d379645d12"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 1.25,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

@@ -34,6 +34,16 @@ public final class Numerics {
     /** Residual tolerance for the independent conservation check, scaled per row. */
     public final double validateTol = 1e-6;
 
+    /**
+     * The push (docs/design/up-to.md), in levels (a pool's machine time over its capacity, 0..1): how far past a
+     * round's level a pool must reach to count as rising, and the room under stage A's sum.
+     */
+    public final double pushTol = 1e-8;
+    /** A pool's level is held from the level itself to this far above it (wider than {@link #pushTol}). */
+    public final double bandAbove = 1e-7;
+    /** The Up to read-out, in levels: what a probe must add to count as raising a pool or using more. */
+    public final double readoutTol = 1e-6;
+
     /** The source tilt's denominator: a source costs this much more than a sink, plus one ({@link Heuristics#auto}). */
     public static final double GATE_WEIGHT_FLOOR = 1024.0;
 

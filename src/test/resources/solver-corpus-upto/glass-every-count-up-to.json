@@ -1,0 +1,820 @@
+{
+ "name": "glass, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "80489f5c-d860-4338-9d28-0fa08b0fa2dd",
+    "name": "item:gregtech:gt.blockmachines:612",
+    "durationTicks": 5,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Cobblestone",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Gravel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "9e5e7c3d-fa44-4e72-900e-289c131f9bcc",
+    "name": "item:gregtech:gt.blockmachines:612",
+    "durationTicks": 5,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Gravel",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Sand",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "a5f8ea31-969e-4e83-b21c-9e8c41a85597",
+    "name": "item:gregtech:gt.blockmachines:582",
+    "durationTicks": 400,
+    "energyPerTick": 28,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Flint Dust",
+      "free": false
+     },
+     {
+      "amount": 16,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Quartz Sand",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 16,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Glass Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 3,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "abaf3ea6-930c-4bf4-ace3-ad398e631b39",
+    "name": "item:gregtech:gt.blockmachines:612",
+    "durationTicks": 5,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Cobblestone",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Gravel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "b8267b55-c28e-4876-8954-acc200a99b66",
+    "name": "item:gregtech:gt.blockmachines:442",
+    "durationTicks": 8,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "IT'S FREE! Place Lava on Side",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Cobblestone",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "e243d8f8-7f28-44c2-b1c9-86975e49da66",
+    "name": "item:gregtech:gt.blockmachines:302",
+    "durationTicks": 100,
+    "energyPerTick": 28,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Sand",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 4,
+      "chance": 0.4000000059604645,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "Quartz Sand",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 8,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+    "name": "item:gregtech:gt.blockmachines:522",
+    "durationTicks": 6,
+    "energyPerTick": 16,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 144,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Molten Glass",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "Glass",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "6d61be59-3f8c-4389-a98b-373b3b221038",
+    "name": "item:gregtech:gt.blockmachines:442",
+    "durationTicks": 8,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "IT'S FREE! Place Lava on Side",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Cobblestone",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "74d7357f-2468-49f8-b8fc-1dea423bf194",
+    "name": "item:gregtech:gt.blockmachines:512",
+    "durationTicks": 24,
+    "energyPerTick": 54,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Glass Dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 144,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Molten Glass",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 3,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "7522fd7a-e6dc-4184-a0cc-44c1283faebb",
+    "name": "item:gregtech:gt.blockmachines:302",
+    "durationTicks": 100,
+    "energyPerTick": 8,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Flint",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Flint Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 2,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "75ed2c7e-1982-4a3d-a683-1d99108ff3c1",
+    "name": "item:gregtech:gt.blockmachines:642",
+    "durationTicks": 300,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Gravel",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 6,
+      "chance": 0.6466667056083679,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Flint",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 2,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "81e54bc7-f04f-42a7-b6c8-66c1a84e401f",
+    "source": "a5f8ea31-969e-4e83-b21c-9e8c41a85597",
+    "sourceOutput": 0,
+    "target": "74d7357f-2468-49f8-b8fc-1dea423bf194",
+    "targetInput": 0
+   },
+   {
+    "id": "9f503b4f-f893-42c5-a4e8-7047380c85a9",
+    "source": "7522fd7a-e6dc-4184-a0cc-44c1283faebb",
+    "sourceOutput": 0,
+    "target": "a5f8ea31-969e-4e83-b21c-9e8c41a85597",
+    "targetInput": 0
+   },
+   {
+    "id": "bec89c98-9529-43da-85be-b3e567fcffd6",
+    "source": "74d7357f-2468-49f8-b8fc-1dea423bf194",
+    "sourceOutput": 0,
+    "target": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+    "targetInput": 0
+   },
+   {
+    "id": "c4f2c365-c1fd-48b4-994a-22a33833b7e7",
+    "source": "80489f5c-d860-4338-9d28-0fa08b0fa2dd",
+    "sourceOutput": 0,
+    "target": "75ed2c7e-1982-4a3d-a683-1d99108ff3c1",
+    "targetInput": 0
+   },
+   {
+    "id": "d15ca3df-f7e7-4984-9b98-7753404d3b91",
+    "source": "abaf3ea6-930c-4bf4-ace3-ad398e631b39",
+    "sourceOutput": 0,
+    "target": "9e5e7c3d-fa44-4e72-900e-289c131f9bcc",
+    "targetInput": 0
+   },
+   {
+    "id": "ee2a6a79-ea5e-4378-a29f-9e7ca522164f",
+    "source": "9e5e7c3d-fa44-4e72-900e-289c131f9bcc",
+    "sourceOutput": 0,
+    "target": "e243d8f8-7f28-44c2-b1c9-86975e49da66",
+    "targetInput": 0
+   },
+   {
+    "id": "0e2a31aa-cb69-4d8d-a51d-9716f80f9293",
+    "source": "75ed2c7e-1982-4a3d-a683-1d99108ff3c1",
+    "sourceOutput": 0,
+    "target": "7522fd7a-e6dc-4184-a0cc-44c1283faebb",
+    "targetInput": 0
+   },
+   {
+    "id": "1a01af83-2546-4fab-9a96-44ffc37425ca",
+    "source": "b8267b55-c28e-4876-8954-acc200a99b66",
+    "sourceOutput": 0,
+    "target": "80489f5c-d860-4338-9d28-0fa08b0fa2dd",
+    "targetInput": 0
+   },
+   {
+    "id": "42149bb9-c4b4-46d3-8902-3c4c76217620",
+    "source": "6d61be59-3f8c-4389-a98b-373b3b221038",
+    "sourceOutput": 0,
+    "target": "abaf3ea6-930c-4bf4-ace3-ad398e631b39",
+    "targetInput": 0
+   },
+   {
+    "id": "52ee307e-aa26-4325-82b3-c0c7b30fc2b7",
+    "source": "e243d8f8-7f28-44c2-b1c9-86975e49da66",
+    "sourceOutput": 0,
+    "target": "a5f8ea31-969e-4e83-b21c-9e8c41a85597",
+    "targetInput": 1
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "80489f5c-d860-4338-9d28-0fa08b0fa2dd"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "9e5e7c3d-fa44-4e72-900e-289c131f9bcc"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "a5f8ea31-969e-4e83-b21c-9e8c41a85597"
+    ],
+    "capacity": 3,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "abaf3ea6-930c-4bf4-ace3-ad398e631b39"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "b8267b55-c28e-4876-8954-acc200a99b66"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "e243d8f8-7f28-44c2-b1c9-86975e49da66"
+    ],
+    "capacity": 8,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "6d61be59-3f8c-4389-a98b-373b3b221038"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "74d7357f-2468-49f8-b8fc-1dea423bf194"
+    ],
+    "capacity": 3,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "7522fd7a-e6dc-4184-a0cc-44c1283faebb"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "75ed2c7e-1982-4a3d-a683-1d99108ff3c1"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "e12a3f88-9e4c-46f1-a7cc-dc937d54ad27",
+    "label": "Glass",
+    "kind": "PRODUCT",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "80489f5c-d860-4338-9d28-0fa08b0fa2dd": 0.0773195829727483,
+    "9e5e7c3d-fa44-4e72-900e-289c131f9bcc": 1.4999999776482584,
+    "a5f8ea31-969e-4e83-b21c-9e8c41a85597": 0.15,
+    "abaf3ea6-930c-4bf4-ace3-ad398e631b39": 1.4999999776482584,
+    "b8267b55-c28e-4876-8954-acc200a99b66": 0.0773195829727483,
+    "e243d8f8-7f28-44c2-b1c9-86975e49da66": 1.4999999776482584,
+    "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac": 2.4,
+    "6d61be59-3f8c-4389-a98b-373b3b221038": 1.4999999776482584,
+    "74d7357f-2468-49f8-b8fc-1dea423bf194": 2.4,
+    "7522fd7a-e6dc-4184-a0cc-44c1283faebb": 0.15,
+    "75ed2c7e-1982-4a3d-a683-1d99108ff3c1": 0.0773195829727483
+   },
+   "machineCounts": {
+    "80489f5c-d860-4338-9d28-0fa08b0fa2dd": 0.019329895743187074,
+    "9e5e7c3d-fa44-4e72-900e-289c131f9bcc": 0.3749999944120646,
+    "a5f8ea31-969e-4e83-b21c-9e8c41a85597": 3,
+    "abaf3ea6-930c-4bf4-ace3-ad398e631b39": 0.3749999944120646,
+    "b8267b55-c28e-4876-8954-acc200a99b66": 0.030927833189099318,
+    "e243d8f8-7f28-44c2-b1c9-86975e49da66": 7.499999888241293,
+    "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac": 0.72,
+    "6d61be59-3f8c-4389-a98b-373b3b221038": 0.5999999910593034,
+    "74d7357f-2468-49f8-b8fc-1dea423bf194": 2.88,
+    "7522fd7a-e6dc-4184-a0cc-44c1283faebb": 0.75,
+    "75ed2c7e-1982-4a3d-a683-1d99108ff3c1": 1.1597937445912243
+   },
+   "edgeFlowsPerSecond": {
+    "81e54bc7-f04f-42a7-b6c8-66c1a84e401f": 2.4,
+    "9f503b4f-f893-42c5-a4e8-7047380c85a9": 0.15,
+    "bec89c98-9529-43da-85be-b3e567fcffd6": 345.6,
+    "c4f2c365-c1fd-48b4-994a-22a33833b7e7": 0.0773195829727483,
+    "d15ca3df-f7e7-4984-9b98-7753404d3b91": 1.4999999776482584,
+    "ee2a6a79-ea5e-4378-a29f-9e7ca522164f": 1.4999999776482584,
+    "0e2a31aa-cb69-4d8d-a51d-9716f80f9293": 0.3,
+    "1a01af83-2546-4fab-9a96-44ffc37425ca": 0.0773195829727483,
+    "42149bb9-c4b4-46d3-8902-3c4c76217620": 1.4999999776482584,
+    "52ee307e-aa26-4325-82b3-c0c7b30fc2b7": 2.4
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "b8267b55-c28e-4876-8954-acc200a99b66",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 0.0773195829727483
+    },
+    {
+     "port": {
+      "nodeId": "6d61be59-3f8c-4389-a98b-373b3b221038",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1.4999999776482584
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 2.4
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 355.50463909889027,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "e12a3f88-9e4c-46f1-a7cc-dc937d54ad27": 2.4
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "80489f5c-d860-4338-9d28-0fa08b0fa2dd",
+     "machines": [
+      "80489f5c-d860-4338-9d28-0fa08b0fa2dd"
+     ],
+     "capacity": 1,
+     "reached": 0.019329895743187074,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "80489f5c-d860-4338-9d28-0fa08b0fa2dd",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "9e5e7c3d-fa44-4e72-900e-289c131f9bcc",
+     "machines": [
+      "9e5e7c3d-fa44-4e72-900e-289c131f9bcc"
+     ],
+     "capacity": 1,
+     "reached": 0.3749999944120646,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "9e5e7c3d-fa44-4e72-900e-289c131f9bcc",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "a5f8ea31-969e-4e83-b21c-9e8c41a85597",
+     "machines": [
+      "a5f8ea31-969e-4e83-b21c-9e8c41a85597"
+     ],
+     "capacity": 3,
+     "reached": 3,
+     "reason": "BOTTLENECK",
+     "port": null,
+     "tied": [],
+     "wants": 3.125,
+     "upstream": []
+    },
+    {
+     "node": "abaf3ea6-930c-4bf4-ace3-ad398e631b39",
+     "machines": [
+      "abaf3ea6-930c-4bf4-ace3-ad398e631b39"
+     ],
+     "capacity": 1,
+     "reached": 0.3749999944120646,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "abaf3ea6-930c-4bf4-ace3-ad398e631b39",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "b8267b55-c28e-4876-8954-acc200a99b66",
+     "machines": [
+      "b8267b55-c28e-4876-8954-acc200a99b66"
+     ],
+     "capacity": 1,
+     "reached": 0.030927833189099318,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "b8267b55-c28e-4876-8954-acc200a99b66",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "e243d8f8-7f28-44c2-b1c9-86975e49da66",
+     "machines": [
+      "e243d8f8-7f28-44c2-b1c9-86975e49da66"
+     ],
+     "capacity": 8,
+     "reached": 7.499999888241293,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "e243d8f8-7f28-44c2-b1c9-86975e49da66",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+     "machines": [
+      "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac"
+     ],
+     "capacity": 1,
+     "reached": 0.72,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "2f139d94-18e6-4acb-b28e-c2fbcd0b9bac",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "6d61be59-3f8c-4389-a98b-373b3b221038",
+     "machines": [
+      "6d61be59-3f8c-4389-a98b-373b3b221038"
+     ],
+     "capacity": 1,
+     "reached": 0.5999999910593034,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "6d61be59-3f8c-4389-a98b-373b3b221038",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "74d7357f-2468-49f8-b8fc-1dea423bf194",
+     "machines": [
+      "74d7357f-2468-49f8-b8fc-1dea423bf194"
+     ],
+     "capacity": 3,
+     "reached": 2.88,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "74d7357f-2468-49f8-b8fc-1dea423bf194",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": [
+      "a5f8ea31-969e-4e83-b21c-9e8c41a85597"
+     ]
+    },
+    {
+     "node": "7522fd7a-e6dc-4184-a0cc-44c1283faebb",
+     "machines": [
+      "7522fd7a-e6dc-4184-a0cc-44c1283faebb"
+     ],
+     "capacity": 2,
+     "reached": 0.75,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "7522fd7a-e6dc-4184-a0cc-44c1283faebb",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "75ed2c7e-1982-4a3d-a683-1d99108ff3c1",
+     "machines": [
+      "75ed2c7e-1982-4a3d-a683-1d99108ff3c1"
+     ],
+     "capacity": 2,
+     "reached": 1.1597937445912243,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "75ed2c7e-1982-4a3d-a683-1d99108ff3c1",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

@@ -1,0 +1,232 @@
+{
+ "name": "capped drawers",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "name": "m",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "9639b468-5d44-36bf-b709-4baa5b17f648",
+    "name": "n",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "gear",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [],
+  "pools": [
+   {
+    "machines": [
+     "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "9639b468-5d44-36bf-b709-4baa5b17f648"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "325048ee-22be-3de9-9c8c-d32efa3a0581",
+    "label": "ore",
+    "kind": "SOURCE",
+    "rule": "AT_MOST",
+    "rate": 1,
+    "links": [
+     {
+      "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "d24966ba-c895-3251-8a82-fda896241f6c",
+    "label": "gear",
+    "kind": "PRODUCT",
+    "rule": "AT_MOST",
+    "rate": 1,
+    "links": [
+     {
+      "node": "9639b468-5d44-36bf-b709-4baa5b17f648",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1,
+    "9639b468-5d44-36bf-b709-4baa5b17f648": 1
+   },
+   "machineCounts": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1,
+    "9639b468-5d44-36bf-b709-4baa5b17f648": 1
+   },
+   "edgeFlowsPerSecond": {},
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "9639b468-5d44-36bf-b709-4baa5b17f648",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "9639b468-5d44-36bf-b709-4baa5b17f648",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "325048ee-22be-3de9-9c8c-d32efa3a0581": 1,
+     "d24966ba-c895-3251-8a82-fda896241f6c": 1
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "9639b468-5d44-36bf-b709-4baa5b17f648",
+     "machines": [
+      "9639b468-5d44-36bf-b709-4baa5b17f648"
+     ],
+     "capacity": 2,
+     "reached": 1,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "9639b468-5d44-36bf-b709-4baa5b17f648",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+     "machines": [
+      "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+     ],
+     "capacity": 2,
+     "reached": 1,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

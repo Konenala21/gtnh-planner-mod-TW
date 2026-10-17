@@ -1,0 +1,124 @@
+{
+ "name": "unwired",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "name": "m",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "gear",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [],
+  "pools": [
+   {
+    "machines": [
+     "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+    ],
+    "capacity": 3,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 3
+   },
+   "machineCounts": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 3
+   },
+   "edgeFlowsPerSecond": {},
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 3
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 3
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+     "machines": [
+      "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+     ],
+     "capacity": 3,
+     "reached": 3,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

@@ -54,6 +54,8 @@ public final class ModelBuilder {
     private Variable[] extentVars = new Variable[0];
     private Variable[] flowVars = new Variable[0];
     private Variable[] extVars = new Variable[0];
+    /** Per connected port, its conservation row ({@link #conservation()}); empty before it. */
+    private Expression[] conservationRows = new Expression[0];
     private boolean extents;
     private boolean flows;
     private boolean externals;
@@ -215,6 +217,7 @@ public final class ModelBuilder {
     public ModelBuilder conservation() {
         require(extents && flows && externals, "extents(), flows() and externals()");
         final ModelData model = ctx.model;
+        conservationRows = new Expression[model.connectedPorts.size()];
         for (int p = 0; p < model.connectedPorts.size(); p++) {
             final ModelData.ConnectedPort port = model.connectedPorts.get(p);
             final double scale = 1.0 / Math.max(1.0, port.qtyPerCraft());
@@ -225,8 +228,28 @@ public final class ModelBuilder {
             row.set(extVars[p], scale);
             row.set(extentVars[port.machine()], -port.qtyPerCraft() * scale * extentFactor(port.machine()));
             row.level(0);
+            conservationRows[p] = row;
         }
         conserved = true;
+        return this;
+    }
+
+    /**
+     * The Up to guard (docs/design/up-to.md, {@link UpTo#prepareGuard}): the guarded externals closed, or held together
+     * to the least they can be. Nothing when the context has none or has it switched off (the pin diagnosis). Requires
+     * {@link #externals()}.
+     */
+    public ModelBuilder guard() {
+        requireExternals();
+        final SolveContext.Guard guard = ctx.guard;
+        if (guard == null || ctx.guardOff) return this;
+        if (guard.cap() <= 0) {
+            for (final int p : guard.ports()) extVars[p].upper(0);
+            return this;
+        }
+        final Expression row = m.addExpression("guard");
+        for (final int p : guard.ports()) row.add(extVars[p], ctx.externalWeight(p));
+        row.upper(guard.cap());
         return this;
     }
 
@@ -384,7 +407,7 @@ public final class ModelBuilder {
 
     /** The variable arrays, for the readers and the caps that must be set between build and solve. */
     public Handles handles() {
-        return new Handles(m, extentVars, flowVars, extVars);
+        return new Handles(m, extentVars, flowVars, extVars, conservationRows);
     }
 
     /** Runs the model, reporting to the profiler with {@code label} when one is attached. */

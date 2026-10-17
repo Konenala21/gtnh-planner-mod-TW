@@ -57,8 +57,46 @@ public final class SolveContext {
     public final Set<UUID> unmetDrawers = new LinkedHashSet<>();
     /** What each unmet drawer can reach and what holds it back, as found by the relaxation. */
     public final List<DrawerReadout.Shortfall> shortfalls = new ArrayList<>();
-    /** Pool rows ({@link ModelData#pools}) left out of the models built now; the relaxation's probes only. */
+    /** Pool rows ({@link ModelData#pools}) left out of the models built now; the relaxation's and read-out's probes. */
     final Set<Integer> droppedPools = new HashSet<>();
+    /** The Up to pools' indices ({@link ModelData.Pool#upTo()}), in pool order (docs/design/up-to.md). */
+    public final List<Integer> upToPools;
+    /**
+     * Connected ports a drawer is linked to (every drawer's {@code externalPorts}, and with Up to pools the bank
+     * ports):
+     * the player's own supply or sink.
+     */
+    public final Set<Integer> drawnPorts;
+    /**
+     * With Up to pools only (docs/design/up-to.md, "Buffers"): each maker port of a BUFFER drawer with rule ANY, and
+     * that drawer. The buffer banks what its takers do not take: the port's external is the buffer's, never a forced
+     * flow and never a gate. Empty without Up to pools, where a buffer is wiring only. In drawer then link order.
+     */
+    public final Map<Integer, Integer> bankPorts;
+
+    /**
+     * The guard (docs/design/up-to.md, {@link UpTo#prepareGuard}): no forced flow makes up an Up to card's gap. The
+     * ports on its wire networks that no drawer is linked to, and the most their externals may trade together.
+     *
+     * @param ports connected-port indices, ascending
+     * @param cap   the most their externals (each times {@link #externalWeight}) come to together; 0 closes them all
+     */
+    public record Guard(int[] ports, double cap) {}
+
+    /** The guard every model this context builds applies; null when none applies ({@link UpTo#prepareGuard}). */
+    @Nullable
+    public volatile Guard guard;
+    /** The guard has been worked out (once per context, before the first pass). */
+    public volatile boolean guardReady;
+    /** Models built now leave the guard out (the pin diagnosis: a drawer shortfall is never a pin conflict). */
+    public boolean guardOff;
+    /**
+     * What the committed point was settled under, as the plan's own limits: the trade levels and the push's bands, not
+     * the drawer stages after them (those only pick among the pushed points, as least flow does). The Up to read-out
+     * probes it.
+     */
+    @Nullable
+    public Solver.Trades committedTrades;
     /** The instrumentation hook for this run; {@link Profiler#disabled()} unless a test attaches one. */
     public final Profiler profiler;
     /** Per-machine declared extent (crafts/s), NaN = free (a 0-count pin is a real pin). */
@@ -169,9 +207,33 @@ public final class SolveContext {
             }
             if (asksForFlow) anchor = true;
         }
-        // A pinned shared machine is a pin too: its recipes' machines add up to its count.
-        for (final ModelData.Pool pool : model.pools) anchor |= pool.exact() && pool.capacity() > 0;
+        // A pinned shared machine is a pin too: its recipes' machines add up to its count. An Up to pool sets its
+        // part's size as well (docs/design/up-to.md, "Anchoring").
+        for (final ModelData.Pool pool : model.pools) anchor |= (pool.exact() || pool.upTo()) && pool.capacity() > 0;
         this.anchored = any || anchor;
+        final List<Integer> upTo = new ArrayList<>();
+        for (int p = 0; p < model.pools.size(); p++) if (model.pools.get(p)
+            .upTo()) upTo.add(p);
+        this.upToPools = List.copyOf(upTo);
+        final Set<Integer> drawn = new HashSet<>();
+        for (final ModelData.DrawerRow row : model.drawers) for (final int p : row.externalPorts()) drawn.add(p);
+        final Map<Integer, Integer> bank = new java.util.LinkedHashMap<>();
+        if (!upToPools.isEmpty()) {
+            for (int i = 0; i < model.drawers.size(); i++) {
+                final ModelData.DrawerRow row = model.drawers.get(i);
+                if (row.kind() != Drawer.Kind.BUFFER || row.rule() != Drawer.Rule.ANY) continue;
+                for (final PortRef link : row.links()) {
+                    if (link.input()) continue;
+                    final Integer m = model.machineIndex.get(link.nodeId());
+                    final Integer p = m == null ? null
+                        : model.portLookup.get(ModelData.portKey(m, link.portIndex(), false));
+                    if (p != null) bank.putIfAbsent(p, i);
+                }
+            }
+            drawn.addAll(bank.keySet());
+        }
+        this.drawnPorts = Set.copyOf(drawn);
+        this.bankPorts = java.util.Collections.unmodifiableMap(bank);
         this.constructionNotes = notes.size();
     }
 
@@ -339,7 +401,8 @@ public final class SolveContext {
         final Set<Integer> carrying = new HashSet<>(fallback);
         final double dust = heuristics.numerics().dust * scaleOf(externals);
         for (int p = 0; p < externals.length; p++) {
-            if (externals[p] > dust) carrying.add(model.portGate[p]);
+            // What a buffer banks opens no gate (docs/design/up-to.md, "Buffers").
+            if (externals[p] > dust && !bankPorts.containsKey(p)) carrying.add(model.portGate[p]);
         }
         return carrying;
     }
@@ -348,7 +411,7 @@ public final class SolveContext {
     public Set<Integer> gateSupport(final double[] externals) {
         final double[] gateFlow = new double[model.gates.size()];
         for (int p = 0; p < externals.length; p++) {
-            gateFlow[model.portGate[p]] += externals[p];
+            if (!bankPorts.containsKey(p)) gateFlow[model.portGate[p]] += externals[p];
         }
         final double tol = zeroTolerance(gateFlow);
         final Set<Integer> support = new HashSet<>();
@@ -404,8 +467,10 @@ public final class SolveContext {
      * largest, {@link Numerics#dust}) set to exactly zero: a machine there is idle, not running at 0.000000000000001.
      */
     public void commit(final StageOutcome committed) {
+        // Dust of the point's scale, or of 1 when the point is smaller (as validate): a point that is all but zero
+        // (every Up to card idle) commits as zero.
         final double tol = heuristics.numerics().dust
-            * solutionScale(committed.extents, committed.flows, committed.externals);
+            * Math.max(1, solutionScale(committed.extents, committed.flows, committed.externals));
         final double[] extents = committed.extents.clone(), flows = committed.flows.clone(),
             externals = committed.externals.clone();
         boolean snapped = false;
@@ -433,7 +498,10 @@ public final class SolveContext {
 
     /** Independent conservation check; null when the point conserves, else the offending row. */
     public @Nullable String validate(final double[] extents, final double[] flows, final double[] externals) {
-        final double floor = -heuristics.numerics().dust * solutionScale(extents, flows, externals);
+        // A negative counts once it is past dust of the point's scale, or of 1 when the point is smaller: a point that
+        // is
+        // all but zero (every Up to card idle) is all noise, and its noise is no negative.
+        final double floor = -heuristics.numerics().dust * Math.max(1, solutionScale(extents, flows, externals));
         for (final double extent : extents) {
             if (extent < floor) return "negative extent " + extent;
         }
@@ -484,6 +552,9 @@ public final class SolveContext {
 
         final Map<Integer, Double> saved = new HashMap<>();
         final List<Note> dropped = new ArrayList<>();
+        // Without the guard (docs/design/up-to.md): a rate the Up to machines cannot reach is the drawer relaxation's
+        // to report, never a pin conflict.
+        guardOff = true;
         try {
             for (final int m : pinned) {
                 if (!Solver.externalsLp(this, null)
@@ -499,10 +570,24 @@ public final class SolveContext {
                         model.machines.get(m).spec.id()));
             }
         } finally {
+            guardOff = false;
             saved.forEach((m, value) -> pinnedExtent[m] = value);
         }
         if (dropped.isEmpty()) return null;
         return new Note(SolverMessage.PIN_CONFLICT, List.copyOf(dropped));
+    }
+
+    /** Machine count at an extent: extent * durTicks / 20. */
+    public double countOf(final int m, final double extent) {
+        return extent * model.machines.get(m).durTicks / Numerics.TICKS_PER_SECOND;
+    }
+
+    /** A pool's machine time at a point: the sum over its machines of extent * durTicks / 20. */
+    public double poolTime(final int pool, final double[] extents) {
+        double time = 0;
+        for (final int m : model.pools.get(pool)
+            .machines()) time += countOf(m, extents[m]);
+        return time;
     }
 
     private static int find(final int[] root, final int i) {

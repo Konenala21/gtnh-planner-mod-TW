@@ -1,0 +1,402 @@
+{
+ "name": "alternatives",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "name": "a",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+    "name": "b",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "z",
+      "free": false
+     }
+    ],
+    "countFixed": true,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+    "name": "e",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "seed",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": true,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "dfc25be1-233e-32ce-9158-931459327e10",
+    "name": "u",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 8,
+      "name": "seed",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "w",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "6ee5fa81-4c65-3453-8f7d-c739e933659d",
+    "source": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+    "sourceOutput": 0,
+    "target": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "targetInput": 0
+   },
+   {
+    "id": "f83e13dd-746a-39a0-bdb5-db86c613fb1c",
+    "source": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "sourceOutput": 0,
+    "target": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "dfc25be1-233e-32ce-9158-931459327e10"
+    ],
+    "capacity": 3,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "40c82357-da99-3c45-979d-6b4c06ba9c37",
+    "label": "seed",
+    "kind": "SOURCE",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+      "port": 0
+     },
+     {
+      "node": "dfc25be1-233e-32ce-9158-931459327e10",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "158d59fb-0a56-31bc-817f-df43109f9c46": 2,
+    "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783": 1,
+    "99d6ec62-8d75-3f75-8e1a-d814f1872251": 1,
+    "dfc25be1-233e-32ce-9158-931459327e10": 3
+   },
+   "machineCounts": {
+    "158d59fb-0a56-31bc-817f-df43109f9c46": 2,
+    "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783": 1,
+    "99d6ec62-8d75-3f75-8e1a-d814f1872251": 1,
+    "dfc25be1-233e-32ce-9158-931459327e10": 3
+   },
+   "edgeFlowsPerSecond": {
+    "6ee5fa81-4c65-3453-8f7d-c739e933659d": 2,
+    "f83e13dd-746a-39a0-bdb5-db86c613fb1c": 1
+   },
+   "gatedSources": [],
+   "gatedSinks": [
+    {
+     "port": {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "dfc25be1-233e-32ce-9158-931459327e10",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 3
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    },
+    {
+     "port": {
+      "nodeId": "dfc25be1-233e-32ce-9158-931459327e10",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 3
+    }
+   ],
+   "unneeded": [],
+   "openGates": 1,
+   "externalQuantity": 1,
+   "totalInternalFlow": 3,
+   "notes": [],
+   "key": {
+    "gateAnchors": [
+     {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     }
+    ]
+   },
+   "drawers": {
+    "rates": {
+     "40c82357-da99-3c45-979d-6b4c06ba9c37": 4
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [
+    {
+     "key": "158d59fb-0a56-31bc-817f-df43109f9c46:o:0|99d6ec62-8d75-3f75-8e1a-d814f1872251:o:0",
+     "importing": false,
+     "bearers": [
+      {
+       "anchor": {
+        "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+        "portIndex": 0,
+        "input": false
+       },
+       "flows": [
+        {
+         "port": {
+          "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+          "portIndex": 0,
+          "input": false
+         },
+         "ratePerSecond": 1
+        }
+       ],
+       "max": 1,
+       "share": 1,
+       "solverPick": true
+      },
+      {
+       "anchor": {
+        "nodeId": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+        "portIndex": 0,
+        "input": false
+       },
+       "flows": [],
+       "max": 1,
+       "share": 0,
+       "solverPick": false
+      }
+     ],
+     "custom": false
+    }
+   ],
+   "upTo": [
+    {
+     "node": "dfc25be1-233e-32ce-9158-931459327e10",
+     "machines": [
+      "dfc25be1-233e-32ce-9158-931459327e10"
+     ],
+     "capacity": 3,
+     "reached": 3,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": [
+     {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     }
+    ]
+   },
+   "options": [
+    {
+     "key": {
+      "gateAnchors": [
+       {
+        "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+        "portIndex": 0,
+        "input": false
+       }
+      ]
+     },
+     "replaces": {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     },
+     "opens": {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     },
+     "externals": [
+      {
+       "port": {
+        "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 1
+      }
+     ],
+     "rank": "DEFAULT"
+    },
+    {
+     "key": {
+      "gateAnchors": [
+       {
+        "nodeId": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+        "portIndex": 0,
+        "input": false
+       }
+      ]
+     },
+     "replaces": {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     },
+     "opens": {
+      "nodeId": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+      "portIndex": 0,
+      "input": false
+     },
+     "externals": [
+      {
+       "port": {
+        "nodeId": "99d6ec62-8d75-3f75-8e1a-d814f1872251",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 1
+      }
+     ],
+     "rank": "SELLS_MORE"
+    }
+   ],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

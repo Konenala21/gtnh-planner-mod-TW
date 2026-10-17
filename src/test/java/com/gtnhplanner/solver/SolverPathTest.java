@@ -19,7 +19,7 @@ import com.gtnhplanner.harness.GtnhFlowLoader;
  * The answer is the plan's, not the solve path's: every corpus plan answers the same when every model adds its
  * variables
  * in reverse order (a different path through the simplex to the same optima, often a different vertex among tied
- * ones), and when solved again later in the same game.
+ * ones), and when solved again later in the same game. The Up to plans of {@code UpToParityTest} are among them.
  */
 class SolverPathTest {
 
@@ -61,8 +61,11 @@ class SolverPathTest {
         ModelBuilder.reversed(reversed);
         try {
             final Map<String, JsonElement> out = new LinkedHashMap<>();
-            for (final SolverCorpus.Case c : SolverCorpus.cases()) {
-                out.put(c.name(), SolverCorpus.digest(Balancer.solveWithAlternatives(c.input())));
+            final java.util.List<SolverCorpus.Case> cases = new java.util.ArrayList<>(SolverCorpus.cases());
+            // The Up to plans (docs/design/up-to.md): the push's levels and the read-out are the plan's too.
+            cases.addAll(SolverCorpus.upToCases());
+            for (final SolverCorpus.Case c : cases) {
+                out.put(c.name(), UpToParityTest.digest(Balancer.solveWithAlternatives(c.input())));
             }
             return out;
         } finally {

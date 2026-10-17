@@ -1,0 +1,212 @@
+{
+ "name": "two-sided, output tighter",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "name": "m",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "de892c9f-0dd8-3353-8ad9-65fb635d614a",
+    "name": "s",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "8bc59312-b08c-3569-b325-3f8837690776",
+    "source": "de892c9f-0dd8-3353-8ad9-65fb635d614a",
+    "sourceOutput": 0,
+    "target": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "de892c9f-0dd8-3353-8ad9-65fb635d614a"
+    ],
+    "capacity": 1.5,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "77cc3f48-fc1b-3321-bf19-7e076b9349ca",
+    "label": "y",
+    "kind": "PRODUCT",
+    "rule": "AT_MOST",
+    "rate": 1,
+    "links": [
+     {
+      "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1,
+    "de892c9f-0dd8-3353-8ad9-65fb635d614a": 1
+   },
+   "machineCounts": {
+    "ae02b412-2e34-33f1-b5a0-3a401d23b5c6": 1,
+    "de892c9f-0dd8-3353-8ad9-65fb635d614a": 1
+   },
+   "edgeFlowsPerSecond": {
+    "8bc59312-b08c-3569-b325-3f8837690776": 1
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "de892c9f-0dd8-3353-8ad9-65fb635d614a",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 1,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "77cc3f48-fc1b-3321-bf19-7e076b9349ca": 1
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+     "machines": [
+      "ae02b412-2e34-33f1-b5a0-3a401d23b5c6"
+     ],
+     "capacity": 2,
+     "reached": 1,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "de892c9f-0dd8-3353-8ad9-65fb635d614a",
+     "machines": [
+      "de892c9f-0dd8-3353-8ad9-65fb635d614a"
+     ],
+     "capacity": 1.5,
+     "reached": 1,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "de892c9f-0dd8-3353-8ad9-65fb635d614a",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

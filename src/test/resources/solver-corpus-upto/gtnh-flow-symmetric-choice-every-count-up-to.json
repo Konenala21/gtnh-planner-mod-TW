@@ -1,0 +1,348 @@
+{
+ "name": "gtnh-flow-symmetric_choice, every count Up to",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "a034eec7-be3a-38f0-a383-701aef071b64",
+    "name": "final assembler",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 15,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "plate",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "machine casing",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f63bb967-9536-388c-8750-84e154bd28d1",
+    "name": "alpha bender",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "alpha ingot",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "plate",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "fd873f71-0560-35ec-a715-9b20ab23b34d",
+    "name": "beta bender",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "beta ingot",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "plate",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "12b90a39-00ce-3fae-9fea-989a69ae2978",
+    "name": "alpha blast furnace",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 4,
+      "name": "alpha dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "alpha ingot",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "3694eeed-afb4-38bb-b856-fb7f28bd589c",
+    "name": "beta blast furnace",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "beta dust",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "beta ingot",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "d530eea7-32d1-329d-85fc-7496960f847e",
+    "source": "3694eeed-afb4-38bb-b856-fb7f28bd589c",
+    "sourceOutput": 0,
+    "target": "fd873f71-0560-35ec-a715-9b20ab23b34d",
+    "targetInput": 0
+   },
+   {
+    "id": "eb52e6f1-5ccf-3c91-8fcb-2494fd528c76",
+    "source": "f63bb967-9536-388c-8750-84e154bd28d1",
+    "sourceOutput": 0,
+    "target": "a034eec7-be3a-38f0-a383-701aef071b64",
+    "targetInput": 0
+   },
+   {
+    "id": "206ccce6-7948-34be-b39b-0c151d398d26",
+    "source": "12b90a39-00ce-3fae-9fea-989a69ae2978",
+    "sourceOutput": 0,
+    "target": "f63bb967-9536-388c-8750-84e154bd28d1",
+    "targetInput": 0
+   },
+   {
+    "id": "5790500e-c80e-3efe-9ae9-f95bfa8d0ef7",
+    "source": "fd873f71-0560-35ec-a715-9b20ab23b34d",
+    "sourceOutput": 0,
+    "target": "a034eec7-be3a-38f0-a383-701aef071b64",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "a034eec7-be3a-38f0-a383-701aef071b64"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "12b90a39-00ce-3fae-9fea-989a69ae2978"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "3694eeed-afb4-38bb-b856-fb7f28bd589c"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "a034eec7-be3a-38f0-a383-701aef071b64": 1,
+    "f63bb967-9536-388c-8750-84e154bd28d1": 0.75,
+    "fd873f71-0560-35ec-a715-9b20ab23b34d": 0.75,
+    "12b90a39-00ce-3fae-9fea-989a69ae2978": 0.75,
+    "3694eeed-afb4-38bb-b856-fb7f28bd589c": 0.75
+   },
+   "machineCounts": {
+    "a034eec7-be3a-38f0-a383-701aef071b64": 1,
+    "f63bb967-9536-388c-8750-84e154bd28d1": 0.75,
+    "fd873f71-0560-35ec-a715-9b20ab23b34d": 0.75,
+    "12b90a39-00ce-3fae-9fea-989a69ae2978": 0.75,
+    "3694eeed-afb4-38bb-b856-fb7f28bd589c": 0.75
+   },
+   "edgeFlowsPerSecond": {
+    "d530eea7-32d1-329d-85fc-7496960f847e": 7.5,
+    "eb52e6f1-5ccf-3c91-8fcb-2494fd528c76": 7.5,
+    "206ccce6-7948-34be-b39b-0c151d398d26": 7.5,
+    "5790500e-c80e-3efe-9ae9-f95bfa8d0ef7": 7.5
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "12b90a39-00ce-3fae-9fea-989a69ae2978",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 7.5
+    },
+    {
+     "port": {
+      "nodeId": "3694eeed-afb4-38bb-b856-fb7f28bd589c",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 7.5
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "a034eec7-be3a-38f0-a383-701aef071b64",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 1
+    }
+   ],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 30,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "a034eec7-be3a-38f0-a383-701aef071b64",
+     "machines": [
+      "a034eec7-be3a-38f0-a383-701aef071b64"
+     ],
+     "capacity": 1,
+     "reached": 1,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "12b90a39-00ce-3fae-9fea-989a69ae2978",
+     "machines": [
+      "12b90a39-00ce-3fae-9fea-989a69ae2978"
+     ],
+     "capacity": 1,
+     "reached": 0.75,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "12b90a39-00ce-3fae-9fea-989a69ae2978",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "3694eeed-afb4-38bb-b856-fb7f28bd589c",
+     "machines": [
+      "3694eeed-afb4-38bb-b856-fb7f28bd589c"
+     ],
+     "capacity": 1,
+     "reached": 0.75,
+     "reason": "CLOGGED",
+     "port": {
+      "nodeId": "3694eeed-afb4-38bb-b856-fb7f28bd589c",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

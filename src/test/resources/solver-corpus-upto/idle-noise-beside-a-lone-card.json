@@ -1,0 +1,2503 @@
+{
+ "name": "idle noise beside a lone card",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "000a9131-0f1e-33d1-9b96-31aba5254253",
+    "name": "Electrolyzer: Potassium Dust",
+    "durationTicks": 100,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Saltpeter Dust",
+      "free": false
+     },
+     {
+      "amount": 3.0000000000000004,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Potassium Dust",
+      "free": false
+     },
+     {
+      "amount": 3.0000000000000004,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Nitrogen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "335c9c61-a766-34cf-a83d-b27256e114bc",
+    "name": "Electrolyzer: Carbon Dust",
+    "durationTicks": 448,
+    "energyPerTick": 60,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 32,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Sugar",
+      "free": false
+     },
+     {
+      "amount": 25,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 10,
+      "name": "Carbon Dust",
+      "free": false
+     },
+     {
+      "amount": 25,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     },
+     {
+      "amount": 5000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Water",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 12,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "d229d7ab-c63d-324b-9804-e1dbc2c70d8d",
+    "name": "Extractor: Sugar",
+    "durationTicks": 34,
+    "energyPerTick": 28,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 14,
+      "name": "Sugar Beet",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 8,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "Sugar",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "a47b9517-78c3-3203-9b2b-df44037ec929",
+    "name": "Chemical Reactor: Glycerol Cell",
+    "durationTicks": 2700,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 15,
+      "name": "Sodium Hydroxide Dust",
+      "free": false
+     },
+     {
+      "amount": 9,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 16,
+      "name": "Methanol Cell",
+      "free": false
+     },
+     {
+      "amount": 54000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 17,
+      "name": "Seed Oil",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 9,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 18,
+      "name": "Glycerol Cell",
+      "free": false
+     },
+     {
+      "amount": 54000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 19,
+      "name": "Bio Diesel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "5d60bda0-4ffe-3737-9cd0-83a3026f20c0",
+    "name": "Tank: Empty Cell",
+    "durationTicks": 1,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 20,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "617c61f0-588d-39dc-b8bb-f554c2a628df",
+    "name": "Large Chemical Reactor: Cetane-Boosted Diesel",
+    "durationTicks": 120,
+    "energyPerTick": 480,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 19,
+      "name": "Bio Diesel",
+      "free": false
+     },
+     {
+      "amount": 399.99999999999994,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 26,
+      "name": "Tetranitromethane",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 9000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 27,
+      "name": "Cetane-Boosted Diesel",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "fab49524-c5d5-3b1a-afd0-4a87935e3857",
+    "name": "Chemical Reactor: Empty Cell",
+    "durationTicks": 240,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 30,
+      "name": "Nitrogen Dioxide Cell",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Water",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 3,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 2000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 25,
+      "name": "Nitric Acid",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "ba6db840-5b9c-348c-8697-baada1c3d69b",
+    "name": "Distillery: Benzene",
+    "durationTicks": 8,
+    "energyPerTick": 64,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 100,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 23,
+      "name": "Wood Tar",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 40,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 31,
+      "name": "Benzene",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 8,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "name": "Chemical Reactor: Ashes",
+    "durationTicks": 360,
+    "energyPerTick": 28,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 9,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 21,
+      "name": "Charcoal",
+      "free": false
+     },
+     {
+      "amount": 9000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 20,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 22,
+      "name": "Ashes",
+      "free": false
+     },
+     {
+      "amount": 9000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 32,
+      "name": "Carbon Monoxide",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 8,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "4f786483-f4af-3089-a4c1-cee1ae3f43ff",
+    "name": "Gas Turbine",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 123.80952380952381,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 32,
+      "name": "Carbon Monoxide",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2560,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 29,
+      "name": "EU",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 12,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+    "name": "Centrifuge: Quicklime Dust",
+    "durationTicks": 3000,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 36,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 22,
+      "name": "Ashes",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 11.52,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 33,
+      "name": "Quicklime Dust",
+      "free": false
+     },
+     {
+      "amount": 5.3999999999999995,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 34,
+      "name": "Potash Dust",
+      "free": false
+     },
+     {
+      "amount": 0.44999999999999996,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 35,
+      "name": "Magnesia Dust",
+      "free": false
+     },
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 36,
+      "name": "Phosphorous Pentoxide Dust",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 37,
+      "name": "Soda Ash Dust",
+      "free": false
+     },
+     {
+      "amount": 4,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 38,
+      "name": "Banded Iron Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "name": "Canner: Oxygen Cell",
+    "durationTicks": 16,
+    "energyPerTick": 1,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 20,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "15223e67-7511-30f0-ae2b-b9d2fa38c46d",
+    "name": "Canner: Empty Cell",
+    "durationTicks": 16,
+    "energyPerTick": 1,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "Phenol Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 39,
+      "name": "Phenol",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "dda14bce-4d0a-3e38-a05c-a1a012652ed6",
+    "name": "Crop Farm: Sugar Beet",
+    "durationTicks": 1536,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 2.9567527,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 14,
+      "name": "Sugar Beet",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 674,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "031069ed-967c-3872-b2c1-584084d44243",
+    "name": "Chemical Reactor: Empty Cell",
+    "durationTicks": 320,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     },
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 40,
+      "name": "Ammonia",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 10,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 41,
+      "name": "Nitric Oxide",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc",
+    "name": "Canner: Empty Cell",
+    "durationTicks": 8,
+    "energyPerTick": 4,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 18,
+      "name": "Glycerol Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 42,
+      "name": "Glycerol",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "deb3827a-6ef7-38b6-8075-a0bda63e27ed",
+    "name": "Electrolyzer: Potassium Dust",
+    "durationTicks": 36,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 43,
+      "name": "Rock Salt",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 6,
+      "name": "Potassium Dust",
+      "free": false
+     },
+     {
+      "amount": 999.9999999999999,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 44,
+      "name": "Chlorine",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 4,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "7a73238d-e5e1-3b54-ae79-59fbe2957e1d",
+    "name": "Chemical Reactor: Empty Cell",
+    "durationTicks": 320,
+    "energyPerTick": 384,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 12,
+      "name": "Nitrogen Cell",
+      "free": false
+     },
+     {
+      "amount": 3000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 45,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 40,
+      "name": "Ammonia",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+    "name": "Electrolyzer: Sodium Dust",
+    "durationTicks": 160,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 46,
+      "name": "Salt",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 47,
+      "name": "Sodium Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 44,
+      "name": "Chlorine",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 24,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "cb104e21-c463-3e99-99b9-1ecb70724085",
+    "name": "Chemical Reactor: Nitrogen Dioxide Cell",
+    "durationTicks": 160,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 41,
+      "name": "Nitric Oxide",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 30,
+      "name": "Nitrogen Dioxide Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "94dfa8b5-b383-360f-9801-c7de8ef55250",
+    "name": "Chemical Reactor: Empty Cell",
+    "durationTicks": 1920,
+    "energyPerTick": 30,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 8,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 48,
+      "name": "Propene Cell",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 49,
+      "name": "Phosphoric Acid Cell",
+      "free": false
+     },
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 31,
+      "name": "Benzene",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 9,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 8000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "Isopropylbenzene",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+    "name": "Chemical Bath: Salt",
+    "durationTicks": 50,
+    "energyPerTick": 120,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 13,
+      "name": "Salty Root",
+      "free": false
+     },
+     {
+      "amount": 100,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Water",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 0.95,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 46,
+      "name": "Salt",
+      "free": false
+     },
+     {
+      "amount": 0.8000000000000002,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 43,
+      "name": "Rock Salt",
+      "free": false
+     },
+     {
+      "amount": 0.5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 5,
+      "name": "Saltpeter Dust",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 16,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae",
+    "name": "Gas Turbine",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 8.024691358024691,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 31,
+      "name": "Benzene",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2560,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 29,
+      "name": "EU",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 32,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "cf23ee1b-f47f-3857-9cdb-c72e7757acda",
+    "name": "Large Semifluid Burner",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 240,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 42,
+      "name": "Glycerol",
+      "free": false
+     },
+     {
+      "amount": 0.5588822355289421,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 28,
+      "name": "Lubricant",
+      "free": false
+     },
+     {
+      "amount": 80,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 20,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 122880,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 29,
+      "name": "EU",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+    "name": "Chemical Bath: Sodium Hydroxide Dust",
+    "durationTicks": 50,
+    "energyPerTick": 16,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 47,
+      "name": "Sodium Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 11,
+      "name": "Water",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 3.0000000000000004,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 15,
+      "name": "Sodium Hydroxide Dust",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 45,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 8,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "76e677f6-0229-3a61-905e-b7df9984cd2e",
+    "name": "Canner: Carbon Monoxide Cell",
+    "durationTicks": 8,
+    "energyPerTick": 4,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 32,
+      "name": "Carbon Monoxide",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 50,
+      "name": "Carbon Monoxide Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+    "name": "Fluid Extractor: Seed Oil",
+    "durationTicks": 16,
+    "energyPerTick": 8,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 51,
+      "name": "Canola Flower",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 125,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 17,
+      "name": "Seed Oil",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 10,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f52ea8f9-ca04-362c-8a22-5be26df712fe",
+    "name": "Crop Farm: Canola",
+    "durationTicks": 1536,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 2.9567527,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 51,
+      "name": "Canola Flower",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 674,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "3065a00c-6abc-35ba-be9f-83472ca47941",
+    "name": "Chemical Reactor: Methanol Cell",
+    "durationTicks": 120,
+    "energyPerTick": 96,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 50,
+      "name": "Carbon Monoxide Cell",
+      "free": false
+     },
+     {
+      "amount": 4000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 45,
+      "name": "Hydrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 16,
+      "name": "Methanol Cell",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 2,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "67072a11-5432-3e88-906c-e131ee757070",
+    "name": "Tank: Empty Cell",
+    "durationTicks": 1,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "Oxygen Cell",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 3,
+      "name": "Empty Cell",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 20,
+      "name": "Oxygen",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "792b4cb4-c597-380e-98f2-3167e326395a",
+    "name": "Crop Farm: Oak Bonsai",
+    "durationTicks": 2816,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [],
+    "outputs": [
+     {
+      "amount": 0.30305990000000005,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 52,
+      "name": "Apple",
+      "free": false
+     },
+     {
+      "amount": 16.177120300000002,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 53,
+      "name": "Oak Log",
+      "free": false
+     },
+     {
+      "amount": 1.034583,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 54,
+      "name": "Oak Sapling",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 674,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "352c98de-6eb6-3fae-9003-1745afd7b368",
+    "name": "Pyrolyse Oven: Charcoal",
+    "durationTicks": 320,
+    "energyPerTick": 96,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 16,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 53,
+      "name": "Oak Log",
+      "free": false
+     },
+     {
+      "amount": 1000,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 7,
+      "name": "Nitrogen",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 20,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 21,
+      "name": "Charcoal",
+      "free": false
+     },
+     {
+      "amount": 1500,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 23,
+      "name": "Wood Tar",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 10,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "0d5b4b37-fe6e-3f45-9ca5-05c345319864",
+    "name": "zz-lone",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "gear",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "556c3090-d9ea-345c-a8aa-bc4d2681840f",
+    "source": "031069ed-967c-3872-b2c1-584084d44243",
+    "sourceOutput": 0,
+    "target": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "targetInput": 0
+   },
+   {
+    "id": "3ce69f5d-1ee9-37ef-9072-ebc3e0009724",
+    "source": "352c98de-6eb6-3fae-9003-1745afd7b368",
+    "sourceOutput": 1,
+    "target": "ba6db840-5b9c-348c-8697-baada1c3d69b",
+    "targetInput": 0
+   },
+   {
+    "id": "101d9180-789a-38b8-9c3c-8129aefeedf0",
+    "source": "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc",
+    "sourceOutput": 0,
+    "target": "76e677f6-0229-3a61-905e-b7df9984cd2e",
+    "targetInput": 0
+   },
+   {
+    "id": "7fe120d4-cd53-3a6f-b235-6239970b3c90",
+    "source": "a47b9517-78c3-3203-9b2b-df44037ec929",
+    "sourceOutput": 0,
+    "target": "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc",
+    "targetInput": 0
+   },
+   {
+    "id": "c248546e-de4e-352a-9381-0aaac68cf26b",
+    "source": "5d60bda0-4ffe-3737-9cd0-83a3026f20c0",
+    "sourceOutput": 0,
+    "target": "000a9131-0f1e-33d1-9b96-31aba5254253",
+    "targetInput": 1
+   },
+   {
+    "id": "b026d09c-52e1-341c-8d79-b47092c6b4df",
+    "source": "cb104e21-c463-3e99-99b9-1ecb70724085",
+    "sourceOutput": 0,
+    "target": "fab49524-c5d5-3b1a-afd0-4a87935e3857",
+    "targetInput": 0
+   },
+   {
+    "id": "fe1a67f0-a59a-380d-8d71-a50429f7f7dc",
+    "source": "fab49524-c5d5-3b1a-afd0-4a87935e3857",
+    "sourceOutput": 0,
+    "target": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "targetInput": 0
+   },
+   {
+    "id": "7a782b01-c41b-34d6-8b74-fc368b44c04f",
+    "source": "67072a11-5432-3e88-906c-e131ee757070",
+    "sourceOutput": 1,
+    "target": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "targetInput": 1
+   },
+   {
+    "id": "45862a7a-7df3-395a-b9e1-0a1e4fbda5f0",
+    "source": "031069ed-967c-3872-b2c1-584084d44243",
+    "sourceOutput": 1,
+    "target": "cb104e21-c463-3e99-99b9-1ecb70724085",
+    "targetInput": 1
+   },
+   {
+    "id": "752e4fe7-9fbd-36b1-ba89-baee209c57fb",
+    "source": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "sourceOutput": 0,
+    "target": "cb104e21-c463-3e99-99b9-1ecb70724085",
+    "targetInput": 0
+   },
+   {
+    "id": "be0caf19-a768-3526-8612-37f36dd74c8b",
+    "source": "7a73238d-e5e1-3b54-ae79-59fbe2957e1d",
+    "sourceOutput": 1,
+    "target": "031069ed-967c-3872-b2c1-584084d44243",
+    "targetInput": 1
+   },
+   {
+    "id": "c6ab2bf4-368c-31a7-aafa-0310c9d8573e",
+    "source": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "sourceOutput": 0,
+    "target": "fab49524-c5d5-3b1a-afd0-4a87935e3857",
+    "targetInput": 1
+   },
+   {
+    "id": "f303c51d-9102-38d5-ac29-7819c0679263",
+    "source": "67072a11-5432-3e88-906c-e131ee757070",
+    "sourceOutput": 0,
+    "target": "335c9c61-a766-34cf-a83d-b27256e114bc",
+    "targetInput": 1
+   },
+   {
+    "id": "d45491ed-e085-3e4b-8f87-d5f53009a8db",
+    "source": "335c9c61-a766-34cf-a83d-b27256e114bc",
+    "sourceOutput": 1,
+    "target": "67072a11-5432-3e88-906c-e131ee757070",
+    "targetInput": 0
+   },
+   {
+    "id": "33f27e7a-192d-37e4-a6ea-a34d862b264a",
+    "source": "352c98de-6eb6-3fae-9003-1745afd7b368",
+    "sourceOutput": 0,
+    "target": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "targetInput": 0
+   },
+   {
+    "id": "9c2210cb-b386-32db-bd6f-c89c75875e49",
+    "source": "15223e67-7511-30f0-ae2b-b9d2fa38c46d",
+    "sourceOutput": 0,
+    "target": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "targetInput": 0
+   },
+   {
+    "id": "46b2d247-627b-3467-bb11-f06b319d5fa0",
+    "source": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "sourceOutput": 1,
+    "target": "76e677f6-0229-3a61-905e-b7df9984cd2e",
+    "targetInput": 1
+   },
+   {
+    "id": "21d16047-0285-39b6-b0aa-cd0dc1b1ae55",
+    "source": "a47b9517-78c3-3203-9b2b-df44037ec929",
+    "sourceOutput": 1,
+    "target": "617c61f0-588d-39dc-b8bb-f554c2a628df",
+    "targetInput": 0
+   },
+   {
+    "id": "387a72f4-44ce-3590-a3c4-66dc8cf554f8",
+    "source": "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc",
+    "sourceOutput": 1,
+    "target": "cf23ee1b-f47f-3857-9cdb-c72e7757acda",
+    "targetInput": 0
+   },
+   {
+    "id": "d3f194ad-1276-3daf-8e91-bec7367758a6",
+    "source": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "sourceOutput": 1,
+    "target": "4f786483-f4af-3089-a4c1-cee1ae3f43ff",
+    "targetInput": 0
+   },
+   {
+    "id": "f739d588-eb1b-37e6-83b8-2928eaea515e",
+    "source": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "sourceOutput": 0,
+    "target": "031069ed-967c-3872-b2c1-584084d44243",
+    "targetInput": 0
+   },
+   {
+    "id": "0e8fe447-4d1b-379b-a5e0-d9a30c268ac8",
+    "source": "1ffa0b32-282d-3639-8be7-217c2dbbab87",
+    "sourceOutput": 0,
+    "target": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+    "targetInput": 0
+   },
+   {
+    "id": "fb41aef5-2776-3155-a2c8-a40767385b8a",
+    "source": "000a9131-0f1e-33d1-9b96-31aba5254253",
+    "sourceOutput": 1,
+    "target": "5d60bda0-4ffe-3737-9cd0-83a3026f20c0",
+    "targetInput": 0
+   },
+   {
+    "id": "8a6608a8-55cd-3fb9-a56e-c61d375f6528",
+    "source": "d229d7ab-c63d-324b-9804-e1dbc2c70d8d",
+    "sourceOutput": 0,
+    "target": "335c9c61-a766-34cf-a83d-b27256e114bc",
+    "targetInput": 0
+   },
+   {
+    "id": "48b26d67-acc5-356c-994c-2cef8c667246",
+    "source": "dda14bce-4d0a-3e38-a05c-a1a012652ed6",
+    "sourceOutput": 0,
+    "target": "d229d7ab-c63d-324b-9804-e1dbc2c70d8d",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "4f786483-f4af-3089-a4c1-cee1ae3f43ff"
+    ],
+    "capacity": 12,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "0d5b4b37-fe6e-3f45-9ca5-05c345319864"
+    ],
+    "capacity": 2,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [
+   {
+    "id": "73d04c0c-77ad-3332-ba2e-26a4b775273b",
+    "label": "Hydrogen",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+      "port": 1
+     }
+    ],
+    "takers": [
+     {
+      "node": "7a73238d-e5e1-3b54-ae79-59fbe2957e1d",
+      "port": 1
+     },
+     {
+      "node": "3065a00c-6abc-35ba-be9f-83472ca47941",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "8ed4afff-da7c-384d-98eb-86182eacfd12",
+    "label": "Methanol Cell",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "3065a00c-6abc-35ba-be9f-83472ca47941",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "a47b9517-78c3-3203-9b2b-df44037ec929",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "7a7e90ca-0eed-3e84-946c-0da2b4b26cde",
+    "label": "Oak Log",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "792b4cb4-c597-380e-98f2-3167e326395a",
+      "port": 1
+     }
+    ],
+    "takers": [
+     {
+      "node": "352c98de-6eb6-3fae-9003-1745afd7b368",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "1f80298d-b638-3572-b102-074ef83c8a6c",
+    "label": "Rock Salt",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "port": 1
+     }
+    ],
+    "takers": [
+     {
+      "node": "deb3827a-6ef7-38b6-8075-a0bda63e27ed",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "c7079ea1-797d-3955-b3db-9cbf7ca42abf",
+    "label": "Sodium Dust",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "0bf20c56-f94b-37d6-91f5-de802dd49c74",
+    "label": "Nitrogen",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "000a9131-0f1e-33d1-9b96-31aba5254253",
+      "port": 2
+     }
+    ],
+    "takers": [
+     {
+      "node": "352c98de-6eb6-3fae-9003-1745afd7b368",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "93559441-e3a2-3a20-88a8-cd73a1bb433e",
+    "label": "Benzene",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "ba6db840-5b9c-348c-8697-baada1c3d69b",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "94dfa8b5-b383-360f-9801-c7de8ef55250",
+      "port": 2
+     },
+     {
+      "node": "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "30e436ab-4e3e-3006-99d4-b218988802ac",
+    "label": "Salt",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "ddaeb517-9297-3afe-972d-49348579312b",
+    "label": "Oxygen",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "67072a11-5432-3e88-906c-e131ee757070",
+      "port": 1
+     }
+    ],
+    "takers": [
+     {
+      "node": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+      "port": 1
+     }
+    ]
+   },
+   {
+    "id": "f95bb9d0-1598-3c33-bc2d-465f4891ea1a",
+    "label": "Seed Oil",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "a47b9517-78c3-3203-9b2b-df44037ec929",
+      "port": 2
+     }
+    ]
+   },
+   {
+    "id": "b69162a8-9a15-3e7e-9af8-88110005dfcb",
+    "label": "Canola Flower",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "f52ea8f9-ca04-362c-8a22-5be26df712fe",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "eae18bb8-d283-34e6-9ab5-ca77719ec8e1",
+    "label": "Sodium Hydroxide Dust",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+      "port": 0
+     }
+    ],
+    "takers": [
+     {
+      "node": "a47b9517-78c3-3203-9b2b-df44037ec929",
+      "port": 0
+     }
+    ]
+   },
+   {
+    "id": "34ffc629-725e-3e5c-a435-0c8b0e3d8ddb",
+    "label": "Saltpeter Dust",
+    "kind": "BUFFER",
+    "rule": "ANY",
+    "rate": 0,
+    "links": [
+     {
+      "node": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "port": 2
+     }
+    ],
+    "takers": [
+     {
+      "node": "000a9131-0f1e-33d1-9b96-31aba5254253",
+      "port": 0
+     }
+    ]
+   }
+  ],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "000a9131-0f1e-33d1-9b96-31aba5254253": 0.0742857142857143,
+    "335c9c61-a766-34cf-a83d-b27256e114bc": 0.059428571428571435,
+    "d229d7ab-c63d-324b-9804-e1dbc2c70d8d": 0.23771428571428574,
+    "a47b9517-78c3-3203-9b2b-df44037ec929": 0,
+    "5d60bda0-4ffe-3737-9cd0-83a3026f20c0": 0.22285714285714292,
+    "617c61f0-588d-39dc-b8bb-f554c2a628df": 0,
+    "fab49524-c5d5-3b1a-afd0-4a87935e3857": 0,
+    "ba6db840-5b9c-348c-8697-baada1c3d69b": 1.1142857142857145,
+    "1ffa0b32-282d-3639-8be7-217c2dbbab87": 0.1650793650793651,
+    "4f786483-f4af-3089-a4c1-cee1ae3f43ff": 12,
+    "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda": 0.004585537918871252,
+    "5d530b88-50f9-38b3-a57b-a327c961a1f9": 0,
+    "15223e67-7511-30f0-ae2b-b9d2fa38c46d": 0,
+    "dda14bce-4d0a-3e38-a05c-a1a012652ed6": 0.08039708079552468,
+    "031069ed-967c-3872-b2c1-584084d44243": 0,
+    "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc": 0,
+    "deb3827a-6ef7-38b6-8075-a0bda63e27ed": 0.29714285714285726,
+    "7a73238d-e5e1-3b54-ae79-59fbe2957e1d": 0,
+    "4f145308-37cc-3a97-a3cd-39fe1c9c03b3": 0.3528571428571429,
+    "cb104e21-c463-3e99-99b9-1ecb70724085": 0,
+    "94dfa8b5-b383-360f-9801-c7de8ef55250": 0,
+    "78034d21-1c7e-34cf-b66b-e04fd94b0752": 0.742857142857143,
+    "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae": 5.554285714285715,
+    "cf23ee1b-f47f-3857-9cdb-c72e7757acda": 0,
+    "6e62d534-8a34-3d90-8ae3-9d92402f7153": 6.417146158710586e-7,
+    "76e677f6-0229-3a61-905e-b7df9984cd2e": 0,
+    "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e": 0,
+    "f52ea8f9-ca04-362c-8a22-5be26df712fe": 0,
+    "3065a00c-6abc-35ba-be9f-83472ca47941": 1.6042865396776068e-7,
+    "67072a11-5432-3e88-906c-e131ee757070": 1.4857142857142858,
+    "792b4cb4-c597-380e-98f2-3167e326395a": 0.07347237373090616,
+    "352c98de-6eb6-3fae-9003-1745afd7b368": 0.0742857142857143,
+    "0d5b4b37-fe6e-3f45-9ca5-05c345319864": 2
+   },
+   "machineCounts": {
+    "000a9131-0f1e-33d1-9b96-31aba5254253": 0.37142857142857155,
+    "335c9c61-a766-34cf-a83d-b27256e114bc": 1.3312000000000002,
+    "d229d7ab-c63d-324b-9804-e1dbc2c70d8d": 0.40411428571428576,
+    "a47b9517-78c3-3203-9b2b-df44037ec929": 0,
+    "5d60bda0-4ffe-3737-9cd0-83a3026f20c0": 0.011142857142857145,
+    "617c61f0-588d-39dc-b8bb-f554c2a628df": 0,
+    "fab49524-c5d5-3b1a-afd0-4a87935e3857": 0,
+    "ba6db840-5b9c-348c-8697-baada1c3d69b": 0.44571428571428584,
+    "1ffa0b32-282d-3639-8be7-217c2dbbab87": 2.971428571428572,
+    "4f786483-f4af-3089-a4c1-cee1ae3f43ff": 12,
+    "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda": 0.6878306878306878,
+    "5d530b88-50f9-38b3-a57b-a327c961a1f9": 0,
+    "15223e67-7511-30f0-ae2b-b9d2fa38c46d": 0,
+    "dda14bce-4d0a-3e38-a05c-a1a012652ed6": 6.174495805096296,
+    "031069ed-967c-3872-b2c1-584084d44243": 0,
+    "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc": 0,
+    "deb3827a-6ef7-38b6-8075-a0bda63e27ed": 0.534857142857143,
+    "7a73238d-e5e1-3b54-ae79-59fbe2957e1d": 0,
+    "4f145308-37cc-3a97-a3cd-39fe1c9c03b3": 2.8228571428571434,
+    "cb104e21-c463-3e99-99b9-1ecb70724085": 0,
+    "94dfa8b5-b383-360f-9801-c7de8ef55250": 0,
+    "78034d21-1c7e-34cf-b66b-e04fd94b0752": 1.8571428571428577,
+    "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae": 5.554285714285715,
+    "cf23ee1b-f47f-3857-9cdb-c72e7757acda": 0,
+    "6e62d534-8a34-3d90-8ae3-9d92402f7153": 0.0000016042865396776467,
+    "76e677f6-0229-3a61-905e-b7df9984cd2e": 0,
+    "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e": 0,
+    "f52ea8f9-ca04-362c-8a22-5be26df712fe": 0,
+    "3065a00c-6abc-35ba-be9f-83472ca47941": 9.62571923806564e-7,
+    "67072a11-5432-3e88-906c-e131ee757070": 0.07428571428571429,
+    "792b4cb4-c597-380e-98f2-3167e326395a": 10.344910221311588,
+    "352c98de-6eb6-3fae-9003-1745afd7b368": 1.1885714285714288,
+    "0d5b4b37-fe6e-3f45-9ca5-05c345319864": 2
+   },
+   "edgeFlowsPerSecond": {
+    "556c3090-d9ea-345c-a8aa-bc4d2681840f": 0,
+    "3ce69f5d-1ee9-37ef-9072-ebc3e0009724": 111.42857142857146,
+    "101d9180-789a-38b8-9c3c-8129aefeedf0": 0,
+    "7fe120d4-cd53-3a6f-b235-6239970b3c90": 0,
+    "c248546e-de4e-352a-9381-0aaac68cf26b": 0.22285714285714292,
+    "b026d09c-52e1-341c-8d79-b47092c6b4df": 0,
+    "fe1a67f0-a59a-380d-8d71-a50429f7f7dc": 0,
+    "7a782b01-c41b-34d6-8b74-fc368b44c04f": 1485.7142857142858,
+    "45862a7a-7df3-395a-b9e1-0a1e4fbda5f0": 0,
+    "752e4fe7-9fbd-36b1-ba89-baee209c57fb": 0,
+    "be0caf19-a768-3526-8612-37f36dd74c8b": 0,
+    "c6ab2bf4-368c-31a7-aafa-0310c9d8573e": 0,
+    "f303c51d-9102-38d5-ac29-7819c0679263": 1.4857142857142858,
+    "d45491ed-e085-3e4b-8f87-d5f53009a8db": 1.4857142857142858,
+    "33f27e7a-192d-37e4-a6ea-a34d862b264a": 1.485714285714286,
+    "9c2210cb-b386-32db-bd6f-c89c75875e49": 0,
+    "46b2d247-627b-3467-bb11-f06b319d5fa0": 0,
+    "21d16047-0285-39b6-b0aa-cd0dc1b1ae55": 0,
+    "387a72f4-44ce-3590-a3c4-66dc8cf554f8": 0,
+    "d3f194ad-1276-3daf-8e91-bec7367758a6": 1485.7142857142858,
+    "f739d588-eb1b-37e6-83b8-2928eaea515e": 0,
+    "0e8fe447-4d1b-379b-a5e0-d9a30c268ac8": 0.1650793650793651,
+    "fb41aef5-2776-3155-a2c8-a40767385b8a": 0.22285714285714292,
+    "8a6608a8-55cd-3fb9-a56e-c61d375f6528": 1.901714285714286,
+    "48b26d67-acc5-356c-994c-2cef8c667246": 0.23771428571428574
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [
+    {
+     "port": {
+      "nodeId": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 0.742857142857143
+    },
+    {
+     "port": {
+      "nodeId": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 74.2857142857143
+    },
+    {
+     "port": {
+      "nodeId": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+      "portIndex": 1,
+      "input": true
+     },
+     "ratePerSecond": 0.0006417146158710586
+    },
+    {
+     "port": {
+      "nodeId": "0d5b4b37-fe6e-3f45-9ca5-05c345319864",
+      "portIndex": 0,
+      "input": true
+     },
+     "ratePerSecond": 2
+    }
+   ],
+   "terminalOutputs": [
+    {
+     "port": {
+      "nodeId": "000a9131-0f1e-33d1-9b96-31aba5254253",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.0742857142857143
+    },
+    {
+     "port": {
+      "nodeId": "335c9c61-a766-34cf-a83d-b27256e114bc",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.11885714285714287
+    },
+    {
+     "port": {
+      "nodeId": "335c9c61-a766-34cf-a83d-b27256e114bc",
+      "portIndex": 2,
+      "input": false
+     },
+     "ratePerSecond": 297.14285714285717
+    },
+    {
+     "port": {
+      "nodeId": "5d60bda0-4ffe-3737-9cd0-83a3026f20c0",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 222.85714285714292
+    },
+    {
+     "port": {
+      "nodeId": "4f786483-f4af-3089-a4c1-cee1ae3f43ff",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 30720
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.052825396825396824
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 0.02476190476190476
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 2,
+      "input": false
+     },
+     "ratePerSecond": 0.0020634920634920633
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 3,
+      "input": false
+     },
+     "ratePerSecond": 0.009171075837742505
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 4,
+      "input": false
+     },
+     "ratePerSecond": 0.004585537918871252
+    },
+    {
+     "port": {
+      "nodeId": "44ad5c3d-fca1-33cb-9d2c-56fb4fef9dda",
+      "portIndex": 5,
+      "input": false
+     },
+     "ratePerSecond": 0.01834215167548501
+    },
+    {
+     "port": {
+      "nodeId": "deb3827a-6ef7-38b6-8075-a0bda63e27ed",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.29714285714285726
+    },
+    {
+     "port": {
+      "nodeId": "deb3827a-6ef7-38b6-8075-a0bda63e27ed",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 297.1428571428572
+    },
+    {
+     "port": {
+      "nodeId": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+      "portIndex": 1,
+      "input": false
+     },
+     "ratePerSecond": 352.85714285714295
+    },
+    {
+     "port": {
+      "nodeId": "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 14218.97142857143
+    },
+    {
+     "port": {
+      "nodeId": "792b4cb4-c597-380e-98f2-3167e326395a",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 0.02226653023565105
+    },
+    {
+     "port": {
+      "nodeId": "792b4cb4-c597-380e-98f2-3167e326395a",
+      "portIndex": 2,
+      "input": false
+     },
+     "ratePerSecond": 0.0760132688316421
+    },
+    {
+     "port": {
+      "nodeId": "0d5b4b37-fe6e-3f45-9ca5-05c345319864",
+      "portIndex": 0,
+      "input": false
+     },
+     "ratePerSecond": 2
+    }
+   ],
+   "unneeded": [
+    "031069ed-967c-3872-b2c1-584084d44243",
+    "15223e67-7511-30f0-ae2b-b9d2fa38c46d",
+    "3065a00c-6abc-35ba-be9f-83472ca47941",
+    "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+    "617c61f0-588d-39dc-b8bb-f554c2a628df",
+    "76e677f6-0229-3a61-905e-b7df9984cd2e",
+    "7a73238d-e5e1-3b54-ae79-59fbe2957e1d",
+    "94dfa8b5-b383-360f-9801-c7de8ef55250",
+    "a47b9517-78c3-3203-9b2b-df44037ec929",
+    "bcf0c431-e66b-35a5-bdd6-1f50d8758cfc",
+    "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+    "cb104e21-c463-3e99-99b9-1ecb70724085",
+    "cf23ee1b-f47f-3857-9cdb-c72e7757acda",
+    "f52ea8f9-ca04-362c-8a22-5be26df712fe",
+    "fab49524-c5d5-3b1a-afd0-4a87935e3857"
+   ],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 3211.7822931499813,
+   "notes": [
+    {
+     "message": "WIRING_IMPORT",
+     "args": [
+      "Chemical Bath: Salt",
+      "Water",
+      "Electrolyzer: Carbon Dust",
+      "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+      "335c9c61-a766-34cf-a83d-b27256e114bc"
+     ]
+    },
+    {
+     "message": "WIRING_IMPORT",
+     "args": [
+      "Chemical Bath: Sodium Hydroxide Dust",
+      "Water",
+      "Electrolyzer: Carbon Dust",
+      "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+      "335c9c61-a766-34cf-a83d-b27256e114bc"
+     ]
+    },
+    {
+     "message": "WIRING_IMPORT",
+     "args": [
+      "zz-lone",
+      "ore",
+      "Chemical Reactor: Empty Cell",
+      "0d5b4b37-fe6e-3f45-9ca5-05c345319864",
+      "94dfa8b5-b383-360f-9801-c7de8ef55250"
+     ]
+    }
+   ],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {
+     "73d04c0c-77ad-3332-ba2e-26a4b775273b": 0.0006417146158710427,
+     "8ed4afff-da7c-384d-98eb-86182eacfd12": 0,
+     "7a7e90ca-0eed-3e84-946c-0da2b4b26cde": 1.1885714285714288,
+     "1f80298d-b638-3572-b102-074ef83c8a6c": 0.5942857142857145,
+     "c7079ea1-797d-3955-b3db-9cbf7ca42abf": 6.417146158710586e-7,
+     "0bf20c56-f94b-37d6-91f5-de802dd49c74": 74.2857142857143,
+     "93559441-e3a2-3a20-88a8-cd73a1bb433e": 44.57142857142858,
+     "30e436ab-4e3e-3006-99d4-b218988802ac": 0.7057142857142858,
+     "ddaeb517-9297-3afe-972d-49348579312b": 0,
+     "f95bb9d0-1598-3c33-bc2d-465f4891ea1a": 0,
+     "b69162a8-9a15-3e7e-9af8-88110005dfcb": 0,
+     "eae18bb8-d283-34e6-9ab5-ca77719ec8e1": 0,
+     "34ffc629-725e-3e5c-a435-0c8b0e3d8ddb": 0.3714285714285715
+    },
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {
+     "73d04c0c-77ad-3332-ba2e-26a4b775273b": [
+      {
+       "port": {
+        "nodeId": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+        "portIndex": 1,
+        "input": false
+       },
+       "ratePerSecond": 0.0006417146158710427
+      },
+      {
+       "port": {
+        "nodeId": "7a73238d-e5e1-3b54-ae79-59fbe2957e1d",
+        "portIndex": 1,
+        "input": true
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "3065a00c-6abc-35ba-be9f-83472ca47941",
+        "portIndex": 1,
+        "input": true
+       },
+       "ratePerSecond": 0.0006417146158710427
+      }
+     ],
+     "8ed4afff-da7c-384d-98eb-86182eacfd12": [
+      {
+       "port": {
+        "nodeId": "3065a00c-6abc-35ba-be9f-83472ca47941",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "a47b9517-78c3-3203-9b2b-df44037ec929",
+        "portIndex": 1,
+        "input": true
+       },
+       "ratePerSecond": 0
+      }
+     ],
+     "7a7e90ca-0eed-3e84-946c-0da2b4b26cde": [
+      {
+       "port": {
+        "nodeId": "792b4cb4-c597-380e-98f2-3167e326395a",
+        "portIndex": 1,
+        "input": false
+       },
+       "ratePerSecond": 1.1885714285714288
+      },
+      {
+       "port": {
+        "nodeId": "352c98de-6eb6-3fae-9003-1745afd7b368",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 1.1885714285714288
+      }
+     ],
+     "1f80298d-b638-3572-b102-074ef83c8a6c": [
+      {
+       "port": {
+        "nodeId": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+        "portIndex": 1,
+        "input": false
+       },
+       "ratePerSecond": 0.5942857142857145
+      },
+      {
+       "port": {
+        "nodeId": "deb3827a-6ef7-38b6-8075-a0bda63e27ed",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 0.5942857142857145
+      }
+     ],
+     "c7079ea1-797d-3955-b3db-9cbf7ca42abf": [
+      {
+       "port": {
+        "nodeId": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 6.417146158710586e-7
+      },
+      {
+       "port": {
+        "nodeId": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 6.417146158710586e-7
+      }
+     ],
+     "0bf20c56-f94b-37d6-91f5-de802dd49c74": [
+      {
+       "port": {
+        "nodeId": "000a9131-0f1e-33d1-9b96-31aba5254253",
+        "portIndex": 2,
+        "input": false
+       },
+       "ratePerSecond": 74.2857142857143
+      },
+      {
+       "port": {
+        "nodeId": "352c98de-6eb6-3fae-9003-1745afd7b368",
+        "portIndex": 1,
+        "input": true
+       },
+       "ratePerSecond": 74.2857142857143
+      }
+     ],
+     "93559441-e3a2-3a20-88a8-cd73a1bb433e": [
+      {
+       "port": {
+        "nodeId": "ba6db840-5b9c-348c-8697-baada1c3d69b",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 44.57142857142858
+      },
+      {
+       "port": {
+        "nodeId": "94dfa8b5-b383-360f-9801-c7de8ef55250",
+        "portIndex": 2,
+        "input": true
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "e4b73da5-85a5-33bd-8aeb-ee9ea44b2dae",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 44.57142857142858
+      }
+     ],
+     "30e436ab-4e3e-3006-99d4-b218988802ac": [
+      {
+       "port": {
+        "nodeId": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0.7057142857142858
+      },
+      {
+       "port": {
+        "nodeId": "4f145308-37cc-3a97-a3cd-39fe1c9c03b3",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 0.7057142857142858
+      }
+     ],
+     "ddaeb517-9297-3afe-972d-49348579312b": [
+      {
+       "port": {
+        "nodeId": "67072a11-5432-3e88-906c-e131ee757070",
+        "portIndex": 1,
+        "input": false
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "5d530b88-50f9-38b3-a57b-a327c961a1f9",
+        "portIndex": 1,
+        "input": true
+       },
+       "ratePerSecond": 0
+      }
+     ],
+     "f95bb9d0-1598-3c33-bc2d-465f4891ea1a": [
+      {
+       "port": {
+        "nodeId": "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "a47b9517-78c3-3203-9b2b-df44037ec929",
+        "portIndex": 2,
+        "input": true
+       },
+       "ratePerSecond": 0
+      }
+     ],
+     "b69162a8-9a15-3e7e-9af8-88110005dfcb": [
+      {
+       "port": {
+        "nodeId": "f52ea8f9-ca04-362c-8a22-5be26df712fe",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "be45a7d5-e8ae-3192-bb7e-a70c64d77d1e",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 0
+      }
+     ],
+     "eae18bb8-d283-34e6-9ab5-ca77719ec8e1": [
+      {
+       "port": {
+        "nodeId": "6e62d534-8a34-3d90-8ae3-9d92402f7153",
+        "portIndex": 0,
+        "input": false
+       },
+       "ratePerSecond": 0
+      },
+      {
+       "port": {
+        "nodeId": "a47b9517-78c3-3203-9b2b-df44037ec929",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 0
+      }
+     ],
+     "34ffc629-725e-3e5c-a435-0c8b0e3d8ddb": [
+      {
+       "port": {
+        "nodeId": "78034d21-1c7e-34cf-b66b-e04fd94b0752",
+        "portIndex": 2,
+        "input": false
+       },
+       "ratePerSecond": 0.3714285714285715
+      },
+      {
+       "port": {
+        "nodeId": "000a9131-0f1e-33d1-9b96-31aba5254253",
+        "portIndex": 0,
+        "input": true
+       },
+       "ratePerSecond": 0.3714285714285715
+      }
+     ]
+    },
+    "banked": {
+     "73d04c0c-77ad-3332-ba2e-26a4b775273b": 0,
+     "8ed4afff-da7c-384d-98eb-86182eacfd12": 0,
+     "7a7e90ca-0eed-3e84-946c-0da2b4b26cde": 0,
+     "1f80298d-b638-3572-b102-074ef83c8a6c": 0,
+     "c7079ea1-797d-3955-b3db-9cbf7ca42abf": 0.35285650114252703,
+     "0bf20c56-f94b-37d6-91f5-de802dd49c74": 0,
+     "93559441-e3a2-3a20-88a8-cd73a1bb433e": 0,
+     "30e436ab-4e3e-3006-99d4-b218988802ac": 0,
+     "ddaeb517-9297-3afe-972d-49348579312b": 0,
+     "f95bb9d0-1598-3c33-bc2d-465f4891ea1a": 0,
+     "b69162a8-9a15-3e7e-9af8-88110005dfcb": 0,
+     "eae18bb8-d283-34e6-9ab5-ca77719ec8e1": 0.000001925143847613176,
+     "34ffc629-725e-3e5c-a435-0c8b0e3d8ddb": 0
+    }
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "0d5b4b37-fe6e-3f45-9ca5-05c345319864",
+     "machines": [
+      "0d5b4b37-fe6e-3f45-9ca5-05c345319864"
+     ],
+     "capacity": 2,
+     "reached": 2,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "4f786483-f4af-3089-a4c1-cee1ae3f43ff",
+     "machines": [
+      "4f786483-f4af-3089-a4c1-cee1ae3f43ff"
+     ],
+     "capacity": 12,
+     "reached": 12,
+     "reason": "FULL",
+     "port": null,
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}
