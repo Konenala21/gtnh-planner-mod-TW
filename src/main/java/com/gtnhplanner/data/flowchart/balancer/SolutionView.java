@@ -60,6 +60,17 @@ public final class SolutionView {
         this.spares = spares;
     }
 
+    /** Why each Up to pool runs where it does, by {@link UpToReadout#node()}; empty when the plan has none. */
+    private List<UpToReadout> upTo = List.of();
+
+    public List<UpToReadout> upTo() {
+        return upTo;
+    }
+
+    void upTo(final List<UpToReadout> upTo) {
+        this.upTo = List.copyOf(upTo);
+    }
+
     private SolutionView(final SolveContext ctx, final long wallMillis) {
         final ModelData model = ctx.model;
         final double tol = ctx.heuristics.numerics().dust

@@ -53,16 +53,34 @@ public class Node {
     public final MachineConfig machineConfig;
     public final Map<RecipeProperty<?>, Object> properties = new HashMap<>();
 
-    @Setter
     private boolean machineCountFixed;
 
     /**
-     * Whether the machine count is pinned. Never for a fluid tank: it has no count to show or clear (it keeps up with
-     * the plan), so a pin on it, from a website Build plan or an older save, would force cells through the plan with
-     * nothing shown as set.
+     * Whether a set count is Exactly rather than Up to (docs/design/up-to.md); meaningless without
+     * {@link #machineCountFixed}. Read the rule with {@link PinRule#of(Node)}: a custom rate card's count is Exactly
+     * whatever this says.
+     */
+    @Setter
+    private boolean machineCountExact;
+
+    /**
+     * Whether a machine count is set (Up to or Exactly, {@link PinRule}). Never for a fluid tank: it has no count to
+     * show or clear (it keeps up with the plan), so a pin on it, from a website Build plan or an older save, would
+     * force cells through the plan with nothing shown as set.
      */
     public boolean isMachineCountFixed() {
         return machineCountFixed && !com.gtnhplanner.power.FluidTank.ID.equals(powerSource);
+    }
+
+    /** Sets whether a count is set. Unsetting it lets go of Exactly too: a count set again is Up to. */
+    public void setMachineCountFixed(final boolean fixed) {
+        machineCountFixed = fixed;
+        if (!fixed) machineCountExact = false;
+    }
+
+    /** Whether the set count is Exactly: only with a count set, so never for a fluid tank. */
+    public boolean isMachineCountExact() {
+        return machineCountExact && isMachineCountFixed();
     }
 
     /**

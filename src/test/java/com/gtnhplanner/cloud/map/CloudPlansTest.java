@@ -1,6 +1,7 @@
 package com.gtnhplanner.cloud.map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,6 +18,7 @@ import com.gtnhplanner.cloud.sync.LiveOp;
 import com.gtnhplanner.cloud.sync.LiveOps;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.library.PlanExport;
@@ -231,6 +233,96 @@ class CloudPlansTest {
                         .plan()),
                 name);
         }
+    }
+
+    /**
+     * The Up to rule (docs/design/up-to.md): an Exactly count goes out as {@code solvePinExact} and comes back, an Up
+     * to
+     * one never says so; the website's change of rule lands on the card, and the game's goes out as that field alone.
+     */
+    @Test
+    void exactlyMakesTheTripAndUpToNeverSaysSo() {
+        int tried = 0;
+        for (final Object[] b : boards()) {
+            final String name = (String) b[0];
+            final Graph g = (Graph) b[1];
+            final TestGame game = (TestGame) b[2];
+            final List<Node> cards = plainCards(g);
+            if (cards.size() < 2) continue;
+            tried++;
+            final Node exact = cards.get(0), upTo = cards.get(1);
+            PinRule.set(exact, PinRule.EXACT, 3);
+            PinRule.set(upTo, PinRule.UP_TO, 2);
+            final JsonObject plan = CloudPlans.write(g, game, null, null)
+                .plan();
+            assertTrue(
+                siteNode(plan, exact).get("solvePinExact")
+                    .getAsBoolean(),
+                name);
+            assertEquals(
+                3,
+                siteNode(plan, exact).get("solvePin")
+                    .getAsInt(),
+                name);
+            assertFalse(siteNode(plan, upTo).has("solvePinExact"), name + ": Up to is the website's default");
+            final CloudPlans.Read r = CloudPlans.read(plan, game);
+            assertEquals(PinRule.EXACT, PinRule.of(r.graph().nodes.get(exact.id)), name);
+            assertEquals(PinRule.UP_TO, PinRule.of(r.graph().nodes.get(upTo.id)), name);
+
+            // The website swaps the two rules: each card takes the one it was given.
+            final JsonObject on = new JsonObject();
+            on.addProperty("solvePinExact", true);
+            final JsonObject edited = LiveOps.apply(
+                plan,
+                List.of(
+                    LiveOp.patch("nodes", upTo.id.toString(), on, null),
+                    LiveOp.patch("nodes", exact.id.toString(), new JsonObject(), List.of("solvePinExact"))));
+            final CloudPlans.Read swapped = CloudPlans.read(edited, game);
+            assertEquals(PinRule.UP_TO, PinRule.of(swapped.graph().nodes.get(exact.id)), name);
+            assertEquals(PinRule.EXACT, PinRule.of(swapped.graph().nodes.get(upTo.id)), name);
+            assertEquals(
+                List.of(),
+                CloudPlans.diff(
+                    edited,
+                    CloudPlans.write(swapped.graph(), game, edited, swapped.basis())
+                        .plan()),
+                name + ": written back unchanged");
+
+            // The game sets the Exactly card Up to: the plan loses the field, and gains nothing the website keeps.
+            final Node back = r.graph().nodes.get(exact.id);
+            PinRule.set(back, PinRule.UP_TO);
+            final List<LiveOp> ops = CloudPlans.diff(
+                plan,
+                CloudPlans.write(r.graph(), game, plan, r.basis())
+                    .plan());
+            assertEquals(1, ops.size(), name + ": " + ops);
+            assertEquals(
+                List.of("solvePinExact"),
+                ops.getFirst()
+                    .d(),
+                name + ": " + ops);
+        }
+        assertTrue(tried > 10, "boards tried: " + tried);
+    }
+
+    /** The board's cards that hold their own count: no generators or tanks, no recipe of a shared machine. */
+    private static List<Node> plainCards(final Graph g) {
+        final java.util.Set<java.util.UUID> shared = new java.util.HashSet<>();
+        for (final com.gtnhplanner.data.flowchart.Group group : g.getGroups())
+            if (group instanceof final com.gtnhplanner.data.flowchart.MachineGroup m) shared.addAll(m.getNodeIds());
+        final List<Node> out = new ArrayList<>();
+        for (final Node n : g.getNodes()) if (!n.isPower() && !shared.contains(n.id)) out.add(n);
+        return out;
+    }
+
+    private static JsonObject siteNode(final JsonObject plan, final Node card) {
+        for (final JsonElement n : plan.getAsJsonArray("nodes")) if (card.id.toString()
+            .equals(
+                n.getAsJsonObject()
+                    .get("id")
+                    .getAsString()))
+            return n.getAsJsonObject();
+        throw new AssertionError("no plan node for card " + card.id);
     }
 
     /**

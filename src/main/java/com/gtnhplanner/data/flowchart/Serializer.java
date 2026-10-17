@@ -505,6 +505,8 @@ public final class Serializer {
         if (node.isMachineCountFixed()) {
             obj.addProperty("machineCountFixed", true);
         }
+        // Only for Exactly: a set count without it is Up to, as every save from before the rule reads.
+        if (node.isMachineCountExact()) obj.addProperty("machineCountExact", true);
         if (node.group != null) obj.addProperty("group", node.group.toString());
         if (!node.worldLinks.isEmpty()) {
             final JsonArray links = new JsonArray();
@@ -605,6 +607,9 @@ public final class Serializer {
         }
         node.setMachineCountFixed(
             obj.has("machineCountFixed") && obj.get("machineCountFixed")
+                .getAsBoolean());
+        node.setMachineCountExact(
+            obj.has("machineCountExact") && obj.get("machineCountExact")
                 .getAsBoolean());
         if (obj.has("group")) {
             try {

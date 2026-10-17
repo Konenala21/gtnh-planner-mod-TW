@@ -85,6 +85,8 @@ public final class SolveInputJson {
             j.add("machines", members);
             j.addProperty("capacity", p.capacity());
             j.addProperty("exact", p.exact());
+            // Only an Up to pool says so, so every dump from before the rule reads the same.
+            if (p.upTo()) j.addProperty("upTo", true);
             pools.add(j);
         }
         o.add("pools", pools);
@@ -199,6 +201,8 @@ public final class SolveInputJson {
                     j.get("capacity")
                         .getAsInt(),
                     j.get("exact")
+                        .getAsBoolean(),
+                    j.has("upTo") && j.get("upTo")
                         .getAsBoolean()));
         }
         final List<SolveInput.DrawerIn> drawers = new ArrayList<>();

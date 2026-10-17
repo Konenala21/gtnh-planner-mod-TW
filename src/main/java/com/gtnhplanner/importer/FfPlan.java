@@ -300,6 +300,8 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
      * @param overrides           FF's {@code recipeInputOverrides}: the slot index's chosen alternative
      * @param energyHatches       0 when FF gave none
      * @param customRatePerSecond custom rate cards only: the dial, when the card remembers one
+     * @param solvePinExact       FF's Exactly: {@code solvePin} is the count exactly (docs/design/up-to.md); false, a
+     *                            set count is Up to
      */
     public record FfNode(String id, String recipeId, double machineCount, int parallel, String overclockTier,
         int energyHatches, @Nullable String energyHatchType, @Nullable Double powerEuT,
@@ -307,9 +309,10 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
         @Nullable String machineHandlerId, @Nullable String coilTier, Map<String, String> machineConfigTiers,
         Map<Integer, FfSlot> overrides, List<FfSection> extraRecipes, @Nullable Double solvePin,
         @Nullable FfTarget targetOutput, boolean enabled, double x, double y, @Nullable Double customRatePerSecond,
-        @Nullable String customRateMode, List<String> hatchSupplies, Map<String, Double> portRates) {
+        @Nullable String customRateMode, List<String> hatchSupplies, Map<String, Double> portRates,
+        boolean solvePinExact) {
 
-        /** A card with no port rates. */
+        /** A card with no port rates, its count (if set) Up to. */
         public FfNode(final String id, final String recipeId, final double machineCount, final int parallel,
             final String overclockTier, final int energyHatches, @Nullable final String energyHatchType,
             @Nullable final Double powerEuT, @Nullable final String hatchVoltageTier, @Nullable final Double hatchAmps,
@@ -344,7 +347,8 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
                 customRatePerSecond,
                 customRateMode,
                 hatchSupplies,
-                Map.of());
+                Map.of(),
+                false);
         }
     }
 

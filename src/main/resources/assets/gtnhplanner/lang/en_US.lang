@@ -161,6 +161,7 @@ gtnhplanner.solver.rule_at_most=at most
 gtnhplanner.solver.pin_extent=extent pin
 gtnhplanner.solver.pin_target=target rate
 gtnhplanner.solver.pin_count=fixed machine count
+gtnhplanner.solver.pin_up_to=up to machine count
 gtnhplanner.solver.pref_least_buying=buy as far upstream as it can
 gtnhplanner.solver.pref_least_selling=sell as far downstream as it can
 gtnhplanner.solver.pref_least_flow=least internal flow

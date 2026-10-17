@@ -28,10 +28,33 @@ public class MachineGroup extends Group {
     private int machineCapacity;
 
     /**
-     * Whether {@link #machineCapacity} is the count rather than a cap: a shared machine whose count the player
-     * pinned runs exactly that many, its recipes' machine time adding up to it.
+     * Whether {@link #machineCapacity} is the count the player set rather than a plain cap: Up to that many, or
+     * Exactly with {@link #isExact()} ({@link PinRule#of(MachineGroup)}).
      */
     private boolean pinned;
+
+    /**
+     * Whether the set count is Exactly: its recipes' machine time adds up to it. Null, not false, when it is not, so a
+     * save without it reads the same as one written before it (Up to).
+     */
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    private Boolean exact;
+
+    /** Whether the set count is Exactly: only on a pinned group. */
+    public boolean isExact() {
+        return pinned && Boolean.TRUE.equals(exact);
+    }
+
+    public void setExact(final boolean exact) {
+        this.exact = exact ? Boolean.TRUE : null;
+    }
+
+    /** Sets whether a count is set. Unsetting it lets go of Exactly too: a count set again is Up to. */
+    public void setPinned(final boolean pinned) {
+        this.pinned = pinned;
+        if (!pinned) exact = null;
+    }
 
     /**
      * The recipes in the order the shared card shows them, top first: the first is the host, whose card it is. Kept

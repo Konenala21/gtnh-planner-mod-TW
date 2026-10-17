@@ -20,8 +20,10 @@ import com.google.gson.JsonObject;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
+import com.gtnhplanner.data.flowchart.MachineGroup;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.importer.ImportReport.Kind;
 import com.gtnhplanner.library.PlanExport;
@@ -354,6 +356,111 @@ class FfConverterTest {
         assertEquals(1000, drawer(g, "fluid:oxygen").getRate());
         assertEquals(Drawer.Rule.AT_LEAST, drawer(g, "fluid:ic2distilledwater").getRule());
         assertEquals(100, drawer(g, "fluid:ic2distilledwater").getRate());
+    }
+
+    /** The Up to rule (docs/design/up-to.md): a website pin is Up to unless it says Exactly. */
+    @Test
+    void aWebsitePinIsUpToUnlessItSaysExactly() {
+        final JsonObject plan = new Gson().fromJson(FakeGame.fixture("high-amperage-reactor.json"), JsonObject.class);
+        final JsonObject card = plan.getAsJsonArray("nodes")
+            .get(0)
+            .getAsJsonObject();
+        // An old Build plan: its counts are what was built, Up to, as the website opens one.
+        assertEquals(PinRule.UP_TO, PinRule.of(only(convert(plan.toString(), new FakeGame()).graph())));
+        card.addProperty("solvePin", 2);
+        card.addProperty("solvePinExact", true);
+        assertEquals(
+            PinRule.UP_TO,
+            PinRule.of(only(convert(plan.toString(), new FakeGame()).graph())),
+            "Build has no pins of its own: its count is the build");
+
+        plan.addProperty("solveMode", true);
+        card.remove("solvePinExact");
+        final Node upTo = only(convert(plan.toString(), new FakeGame()).graph());
+        assertEquals(PinRule.UP_TO, PinRule.of(upTo), "a pin from before the rule");
+        assertEquals(2, upTo.machineConfig.getMachineCount());
+        card.addProperty("solvePinExact", false);
+        assertEquals(PinRule.UP_TO, PinRule.of(only(convert(plan.toString(), new FakeGame()).graph())));
+        card.addProperty("solvePinExact", true);
+        final Node exact = only(convert(plan.toString(), new FakeGame()).graph());
+        assertEquals(PinRule.EXACT, PinRule.of(exact));
+        assertEquals(2, exact.machineConfig.getMachineCount());
+        card.remove("solvePin");
+        assertEquals(
+            PinRule.ANY,
+            PinRule.of(only(convert(plan.toString(), new FakeGame()).graph())),
+            "Exactly with no count is no count");
+    }
+
+    @Test
+    void aGeneratorsPinIsUpToUnlessItSaysExactly() {
+        final FakeGame game = new FakeGame();
+        game.generators = true;
+        assertEquals(
+            PinRule.UP_TO,
+            PinRule.of(power(convert(SMALL.formatted("", SMALL_WIRES), game).graph())),
+            "a Build plan's generator runs up to its count");
+        final String solve = SMALL.formatted("\"solveMode\": true,", SMALL_WIRES);
+        final String gen = "\"recipeId\": \"gen\", \"machineCount\": 1", pinned = gen + ", \"solvePin\": 3";
+        final Node upTo = power(convert(solve.replace(gen, pinned), game).graph());
+        assertEquals(PinRule.UP_TO, PinRule.of(upTo));
+        assertEquals(3, upTo.machineConfig.getMachineCount());
+        final Node exact = power(convert(solve.replace(gen, pinned + ", \"solvePinExact\": true"), game).graph());
+        assertEquals(PinRule.EXACT, PinRule.of(exact));
+    }
+
+    @Test
+    void aSharedMachinesCountIsItsCardsRule() {
+        for (final MachineGroup g : shared(fixture("alumina-line-shared-reactor.json").graph()))
+            assertEquals(PinRule.UP_TO, PinRule.of(g), "a Build plan's shared machine runs up to its count");
+
+        final JsonObject plan = new Gson()
+            .fromJson(FakeGame.fixture("alumina-line-shared-reactor.json"), JsonObject.class);
+        plan.addProperty("solveMode", true);
+        for (final var e : plan.getAsJsonArray("nodes")) {
+            final JsonObject n = e.getAsJsonObject();
+            final int extras = n.has("extraRecipes") ? n.getAsJsonArray("extraRecipes")
+                .size() : 0;
+            if (extras == 3) {
+                n.addProperty("solvePin", 2);
+                n.addProperty("solvePinExact", true);
+            } else if (extras == 1) n.addProperty("solvePin", 1);
+        }
+        final Graph g = convert(plan.toString(), new FakeGame()).graph();
+        final List<MachineGroup> solved = shared(g);
+        assertEquals(2, solved.size());
+        assertEquals(PinRule.UP_TO, PinRule.of(solved.get(0)), "the two-recipe machine: a pin from before the rule");
+        assertEquals(
+            1,
+            solved.get(0)
+                .getMachineCapacity());
+        assertEquals(PinRule.EXACT, PinRule.of(solved.get(1)), "the four-recipe machine says Exactly");
+        assertEquals(
+            2,
+            solved.get(1)
+                .getMachineCapacity());
+        for (final MachineGroup m : solved) for (final java.util.UUID id : m.getSections())
+            assertEquals(PinRule.ANY, PinRule.of(g.nodes.get(id)), "the count is the machine's, not a recipe's");
+    }
+
+    /** The plan's shared machines, fewest recipes first. */
+    private static List<MachineGroup> shared(final Graph g) {
+        return g.getGroups()
+            .stream()
+            .filter(x -> x instanceof MachineGroup)
+            .map(x -> (MachineGroup) x)
+            .sorted(
+                java.util.Comparator.comparingInt(
+                    x -> x.getSections()
+                        .size()))
+            .collect(Collectors.toList());
+    }
+
+    private static Node only(final Graph g) {
+        assertEquals(1, g.nodes.size());
+        return g.getNodes()
+            .iterator()
+            .next();
     }
 
     @Test

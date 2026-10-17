@@ -87,6 +87,8 @@ public enum SolverMessage {
     PIN_EXTENT(Severity.INFO, "gtnhplanner.solver.pin_extent"),
     PIN_TARGET(Severity.INFO, "gtnhplanner.solver.pin_target"),
     PIN_COUNT(Severity.INFO, "gtnhplanner.solver.pin_count"),
+    /** An Up to count: what holds a drawer back when its machines cannot do more (docs/design/up-to.md). */
+    PIN_UP_TO(Severity.INFO, "gtnhplanner.solver.pin_up_to"),
     PREF_LEAST_BUYING(Severity.INFO, "gtnhplanner.solver.pref_least_buying"),
     PREF_LEAST_SELLING(Severity.INFO, "gtnhplanner.solver.pref_least_selling"),
     PREF_LEAST_FLOW(Severity.INFO, "gtnhplanner.solver.pref_least_flow"),

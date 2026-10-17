@@ -1053,8 +1053,8 @@ public final class BoardSession {
 
     /** A copied card: its recipe and settings, and where it sat from the copy's top-left. */
     private record ClipNode(codechicken.nei.recipe.Recipe.RecipeId recipe, Map<String, Object> settings,
-        String machineName, boolean fixed, int dx, int dy, String powerSource, Map<String, String> powerSettings,
-        Map<Integer, String> picks) {}
+        String machineName, boolean fixed, boolean exact, int dx, int dy, String powerSource,
+        Map<String, String> powerSettings, Map<Integer, String> picks) {}
 
     /** A copied drawer, and the copied cards' ports it was linked to, as {card index in the copy, port}. */
     private record ClipDrawer(Drawer.Kind kind, String key, String label, Drawer.Rule rule, double rate, int dx, int dy,
@@ -1111,6 +1111,7 @@ public final class BoardSession {
                     new HashMap<>(n.machineConfig.settings),
                     n.machineName,
                     n.isMachineCountFixed(),
+                    n.isMachineCountExact(),
                     n.x - x0,
                     n.y - y0,
                     n.powerSource,
@@ -1175,6 +1176,7 @@ public final class BoardSession {
                 final Node n = Node
                     .power(c.powerSource(), c.powerSettings(), snap(worldX + c.dx()), snap(worldY + c.dy()));
                 n.setMachineCountFixed(c.fixed());
+                n.setMachineCountExact(c.exact());
                 made.add(n);
                 continue;
             }
@@ -1188,6 +1190,7 @@ public final class BoardSession {
             n.machineConfig.settings.putAll(c.settings());
             n.machineName = c.machineName();
             n.setMachineCountFixed(c.fixed());
+            n.setMachineCountExact(c.exact());
             n.inputPicks.putAll(c.picks());
             n.applyPicks();
             made.add(n);
@@ -2065,6 +2068,7 @@ public final class BoardSession {
             final int capacity = g != null ? g.getMachineCapacity()
                 : host.isMachineCountFixed() ? host.machineConfig.getMachineCount() : 0;
             final boolean pinned = g != null ? g.isPinned() : host.isMachineCountFixed();
+            final boolean exact = g != null ? g.isExact() : host.isMachineCountExact();
             for (final UUID card : cards) {
                 final com.gtnhplanner.data.flowchart.MachineGroup old = sharedOf(card);
                 if (old != null) graph.removeGroup(old.getId());
@@ -2074,6 +2078,7 @@ public final class BoardSession {
             for (final UUID s : sections) g.addSection(s);
             g.setMachineCapacity(capacity);
             g.setPinned(pinned && capacity > 0);
+            g.setExact(exact && g.isPinned());
             graph.groups.put(g.getId(), g);
             // The host's machine when every recipe runs on it, else the first that runs them all.
             final CardModel hostModel = models.get(hostId);
@@ -2398,6 +2403,7 @@ public final class BoardSession {
             for (final Node copy : copies) g.addSection(copy.id);
             g.setMachineCapacity(shared.getMachineCapacity());
             g.setPinned(shared.isPinned());
+            g.setExact(shared.isExact());
             graph.groups.put(g.getId(), g);
         });
         if (!copies.isEmpty()) {

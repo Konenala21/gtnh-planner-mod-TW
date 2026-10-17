@@ -143,11 +143,20 @@ public record SolveInput(BalanceMode mode, @Nullable ChoiceKey choice, List<Mach
      * A machine group: its member node ids and how many machines it is. A cap by default (the recipes fit in that many
      * machines); {@code exact}, the count is pinned and the recipes' machine time adds up to exactly that many, as a
      * pinned shared machine on Factory Flow's board.
+     *
+     * @param upTo the Up to rule (docs/design/up-to.md), read only when {@code exact} is false: the machines run as
+     *             hard as the plan lets them, never above {@code capacity}, and no forced flow makes up what they
+     *             cannot do. Anchors its part of the plan. A one-card pool is how a single card's Up to count reaches
+     *             the solver. False: a plain cap.
      */
-    public record PoolIn(List<UUID> machines, int capacity, boolean exact) {
+    public record PoolIn(List<UUID> machines, int capacity, boolean exact, boolean upTo) {
 
         public PoolIn {
             machines = List.copyOf(machines);
+        }
+
+        public PoolIn(final List<UUID> machines, final int capacity, final boolean exact) {
+            this(machines, capacity, exact, false);
         }
 
         public PoolIn(final List<UUID> machines, final int capacity) {

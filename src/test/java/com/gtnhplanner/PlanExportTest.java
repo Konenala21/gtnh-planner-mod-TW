@@ -22,6 +22,7 @@ import com.google.gson.JsonObject;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 import com.gtnhplanner.library.PlanExport;
@@ -433,6 +434,25 @@ class PlanExportTest {
         final Path out = Path.of("build", "tmp", "gtnhplanner-export-bees.json");
         Files.createDirectories(out.getParent());
         Files.writeString(out, p.toString(), StandardCharsets.UTF_8);
+    }
+
+    /** The Up to rule (docs/design/up-to.md): a set count posts as solvePin, Exactly with solvePinExact as well. */
+    @Test
+    void onlyAnExactlyCountSaysSo() {
+        final GtnhFlowLoader.LoadedChart chart = GtnhFlowLoader.load("light_fuel");
+        final Node upTo = chart.machine(0), exact = chart.machine(1), any = chart.machine(2);
+        PinRule.set(upTo, PinRule.UP_TO, 3);
+        PinRule.set(exact, PinRule.EXACT, 4);
+        PinRule.set(any, PinRule.ANY);
+        final JsonObject p = PlanExport.project(chart.graph(), "Test plan", WORLD);
+
+        assertTrue(nodeOf(p, upTo).has("solvePin"));
+        assertFalse(nodeOf(p, upTo).has("solvePinExact"), "Up to is the website's default");
+        assertTrue(
+            nodeOf(p, exact).get("solvePinExact")
+                .getAsBoolean());
+        assertFalse(nodeOf(p, any).has("solvePin"));
+        assertFalse(nodeOf(p, any).has("solvePinExact"));
     }
 
     /** A card's node in a posted plan (the plan keeps its cards in no set order). */

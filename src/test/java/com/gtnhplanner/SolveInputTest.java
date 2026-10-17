@@ -1,6 +1,7 @@
 package com.gtnhplanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,6 +14,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
@@ -23,7 +26,9 @@ import com.gtnhplanner.data.flowchart.balancer.SolveInput;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput.DrawerIn;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput.EdgeIn;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput.Machine;
+import com.gtnhplanner.data.flowchart.balancer.SolveInput.PoolIn;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput.PortIn;
+import com.gtnhplanner.dev.SolveInputJson;
 import com.gtnhplanner.harness.GtnhFlowLoader;
 import com.gtnhplanner.harness.GtnhFlowLoader.LoadedChart;
 
@@ -192,6 +197,50 @@ class SolveInputTest {
         final long before = b.version();
         a.addDrawer(new Drawer());
         assertTrue(a.version() > before, "one counter for every graph");
+    }
+
+    @Test
+    void anUpToPoolMakesTheTripThroughTheCorpusFormat() {
+        final LoadedChart chart = GtnhFlowLoader.load("light_fuel");
+        final SolveInput plain = SolveInput.of(chart.graph());
+        final List<PoolIn> pools = List.of(
+            new PoolIn(List.of(chart.machine(0).id), 2, false, true),
+            new PoolIn(List.of(chart.machine(1).id), 3, true),
+            new PoolIn(List.of(chart.machine(2).id), 4));
+        assertFalse(
+            pools.get(1)
+                .upTo(),
+            "the older constructors are no Up to");
+        final SolveInput in = new SolveInput(
+            plain.mode(),
+            plain.choice(),
+            plain.machines(),
+            plain.edges(),
+            pools,
+            plain.drawers(),
+            plain.extentPins(),
+            plain.spares());
+
+        final JsonObject json = SolveInputJson.write(in);
+        final JsonArray written = json.getAsJsonArray("pools");
+        assertTrue(
+            written.get(0)
+                .getAsJsonObject()
+                .get("upTo")
+                .getAsBoolean());
+        // Left out otherwise, so every dump from before the rule reads the same (and reads as no Up to).
+        assertFalse(
+            written.get(1)
+                .getAsJsonObject()
+                .has("upTo"));
+        assertFalse(
+            written.get(2)
+                .getAsJsonObject()
+                .has("upTo"));
+        assertEquals(
+            pools,
+            SolveInputJson.read(json)
+                .pools());
     }
 
     private static int indexOf(final SolveInput input, final UUID id) {

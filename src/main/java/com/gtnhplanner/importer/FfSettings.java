@@ -62,12 +62,13 @@ public final class FfSettings {
     /**
      * @param settings to put on the node
      * @param machines the machine count to put on the node (crops planted, on a crop card)
-     * @param pinned   whether that count is fixed (FF's Solve-mode pin)
+     * @param pinned   whether that count is set (FF's Solve-mode pin, or a Build plan's count)
+     * @param exact    whether the set count is Exactly rather than Up to (FF's {@code solvePinExact})
      * @param machine  the machine FF runs the recipe on, for picking it in game
      * @param notes    what did not carry over exactly
      */
-    public record Mapped(Map<String, Object> settings, int machines, boolean pinned, NodeMaker.Machine machine,
-        List<String> notes) {
+    public record Mapped(Map<String, Object> settings, int machines, boolean pinned, boolean exact,
+        NodeMaker.Machine machine, List<String> notes) {
 
         @Nullable
         public String machineLabel() {
@@ -165,12 +166,13 @@ public final class FfSettings {
 
         final int most = crop ? MAX_CROPS : MAX_MACHINES;
         int machines = 1;
-        boolean pinned = false;
+        boolean pinned = false, exact = false;
         if (solveMode) {
             final Double pin = pinnable ? node.solvePin() : null;
             if (pin != null && pin > 0) {
                 machines = (int) Math.max(1, Math.min(most, Math.round(pin)));
                 pinned = true;
+                exact = node.solvePinExact();
                 if (Math.abs(machines - pin) > 1e-6)
                     notes.add("pinned " + fmt(pin) + " machines, rounded to " + machines);
             } else if (pin != null) {
@@ -178,11 +180,12 @@ public final class FfSettings {
             }
         } else {
             // Build mode: the count is the build, and the plan's flows follow from it, so it comes over as a pin (left
-            // as is, a board that solves counts would have nothing to solve for and show every rate at 0).
+            // as is, a board that solves counts would have nothing to solve for and show every rate at 0). Up to, as
+            // the website opens an old Build plan: the machines you have, run as hard as the plan lets them.
             machines = (int) Math.max(1, Math.min(most, Math.ceil(node.machineCount() - 1e-9)));
             pinned = pinnable;
         }
-        return new Mapped(s, machines, pinned, machine, notes);
+        return new Mapped(s, machines, pinned, exact, machine, notes);
     }
 
     /**

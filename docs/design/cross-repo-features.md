@@ -40,6 +40,7 @@ website at `docs/cross-repo-features.md`; change both together.
 | Answer to the board | `ui/BoardSession` (`tickBoard`, `extraFlows`, `buildTotals`), `ui/drawer/DrawerModel` | `adapter/answer.ts` (`readAnswer`), `adapter/finalize.ts` |
 | Data model | `data/flowchart/Graph`, `Node`, `Drawer`, `Edge` | `lib/model/types.ts` (`FactoryProject`, `FactoryNode`, `FactoryStorage`, `FactoryEdge`) |
 | Saves | `data/flowchart/Serializer` (Gson over the classes; `sanitize()` repairs) | `lib/model/schemas.ts` (zod), `project-normalize.ts`, `store/` |
+| Count rule (Any, Up to, Exactly) | `data/flowchart/PinRule`, `Node.machineCountExact`, `MachineGroup.exact`; `docs/design/up-to.md` | `lib/model/pin-rule.ts`, `solvePinExact`; `docs/up-to.md` |
 | Old plans on open | (none: one mode always) | `lib/solver/plan/convert.ts` (`convertBuildToPlan`, `planClipboard`), `to-plan.ts` |
 | Plan JSON in | `importer/FfPlanParser` (JSON to `FfPlan`), `FfConverter`, `FfDrawers` | native |
 | Plan JSON out | `library/PlanExport` (checked by `PlanExportTest` against the website's schema) | native |

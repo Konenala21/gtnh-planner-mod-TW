@@ -29,6 +29,7 @@ import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.importer.ImportReport.Kind;
 import com.gtnhplanner.library.PlanExport;
@@ -161,7 +162,7 @@ class LibraryRoundTripTest {
 
     /**
      * Every kind of card, from a plan made on the website: singles, multiblocks, a coil, a modelled machine, a
-     * generator, a crop.
+     * generator, a crop. The multiblock and the generator are set Exactly, the crop Up to.
      */
     private static final String KINDS = """
         {"schemaVersion":1,"id":"kinds","name":"Every kind","solveMode":true,
@@ -203,7 +204,7 @@ class LibraryRoundTripTest {
            "machineHandlerId":"chemical-reactor","position":{"x":0,"y":0}},
           {"id":"n-lcr","recipeId":"lcr","machineCount":2,"parallel":1,"overclockTier":"EV","enabled":true,
            "hatchVoltageTier":"EV","hatchAmps":4,"powerInputMode":"amps","machineHandlerId":"large-chemical-reactor",
-           "solvePin":2,"position":{"x":500,"y":0}},
+           "solvePin":2,"solvePinExact":true,"position":{"x":500,"y":0}},
           {"id":"n-ebf","recipeId":"ebf","machineCount":1,"parallel":1,"overclockTier":"IV","enabled":true,
            "hatchVoltageTier":"IV","hatchAmps":2,"powerInputMode":"amps","machineHandlerId":"electric-blast-furnace",
            "coilTier":"kanthal","position":{"x":1000,"y":0}},
@@ -211,7 +212,7 @@ class LibraryRoundTripTest {
            "machineHandlerId":"tree-growth-simulator","machineConfigTiers":{"tgsLogTool":"log:chainsaw","tgsSaplings":"3"},
            "position":{"x":0,"y":600}},
           {"id":"n-turbine","recipeId":"turbine","machineCount":3,"parallel":1,"overclockTier":"LV","enabled":true,
-           "machineConfigTiers":{"tier":"LV","fuel":"Benzene"},"solvePin":3,"position":{"x":500,"y":600}},
+           "machineConfigTiers":{"tier":"LV","fuel":"Benzene"},"solvePin":3,"solvePinExact":true,"position":{"x":500,"y":600}},
           {"id":"n-beet","recipeId":"beet","machineCount":225,"parallel":1,"overclockTier":"NONE","enabled":true,
            "machineHandlerId":"crop-industrial-farm","machineConfigTiers":{"cropBiome":"humid","cropSeedBedTier":"4"},
            "solvePin":225,"position":{"x":1000,"y":600}}],
@@ -240,6 +241,9 @@ class LibraryRoundTripTest {
                 .entries(Kind.UNMATCHED));
         final Graph g = made.graph();
         assertEquals(6, g.nodes.size());
+        final Map<PinRule, Integer> rules = new TreeMap<>();
+        for (final Node n : g.getNodes()) rules.merge(PinRule.of(n), 1, Integer::sum);
+        assertEquals(Map.of(PinRule.ANY, 3, PinRule.UP_TO, 1, PinRule.EXACT, 2), rules);
         final JsonObject posted = PlanExport.project(g, g.getName(), world(first, g));
 
         final FakeGame same = game();
@@ -438,7 +442,7 @@ class LibraryRoundTripTest {
 
     // region Comparing boards
 
-    /** The same cards (ports, machine, settings, count, pin, place), wires and drawers, card ids aside. */
+    /** The same cards (ports, machine, settings, count, count rule, place), wires and drawers, card ids aside. */
     private static void assertSameBoard(final Graph a, final FakeGame ga, final Graph b, final FakeGame gb) {
         assertEquals(cards(a, ga), cards(b, gb));
         assertEquals(wires(a, ga), wires(b, gb));
@@ -479,7 +483,8 @@ class LibraryRoundTripTest {
                     + settings
                     + " count "
                     + n.machineConfig.getMachineCount()
-                    + (n.isMachineCountFixed() ? " pinned" : ""));
+                    + " "
+                    + PinRule.of(n));
         }
         return out;
     }

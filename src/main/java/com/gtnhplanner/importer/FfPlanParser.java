@@ -396,7 +396,9 @@ public final class FfPlanParser {
             custom == null ? null : num(custom, "perSecond"),
             custom == null ? null : str(custom, "mode"),
             supplies,
-            rates);
+            rates,
+            // Exactly only when it says so: every pin before the rule is Up to.
+            bool(n, "solvePinExact", false));
     }
 
     private static Map<Integer, FfSlot> overrides(final JsonObject holder) {

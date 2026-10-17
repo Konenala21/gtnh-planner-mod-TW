@@ -120,6 +120,7 @@ public final class FfCards {
             "runs at " + runs + ", the nearest tier its machine comes in (the plan has " + asked + ")");
         node.machineConfig.setMachineCount(mapped.machines());
         node.setMachineCountFixed(mapped.pinned());
+        node.setMachineCountExact(mapped.exact());
         for (final String note : mapped.notes()) report.add(Kind.CONVERTED, name, note);
         pickInputs(ctx, ports, node, recipe, overrides, name);
 
@@ -240,8 +241,8 @@ public final class FfCards {
 
     /**
      * A power card: the same generator at the same settings, which rebuilds its ports from the source as the site
-     * does on load. Its pin comes over as a pin in a Solve plan (an unpinned one's count as a starting count), its
-     * count pinned in a Build plan. Null, reported, for a generator the game does not know.
+     * does on load. Its pin comes over as a pin in a Solve plan (Exactly when it says so, an unpinned one's count as a
+     * starting count), its count set Up to in a Build plan. Null, reported, for a generator the game does not know.
      */
     @Nullable
     public static Node power(final Context ctx, final FfNode card, final FfRecipe recipe, final int x, final int y) {
@@ -258,6 +259,7 @@ public final class FfCards {
         if (ctx.solveMode() && pin != null && pin > 0) {
             node.machineConfig.setMachineCount((int) Math.ceil(pin - 1e-9));
             node.setMachineCountFixed(true);
+            node.setMachineCountExact(card.solvePinExact());
         } else {
             node.machineConfig.setMachineCount((int) Math.max(1, Math.ceil(card.machineCount() - 1e-9)));
             // Build runs every card at its count, generators too (as recipe cards come over: FfSettings).
@@ -292,7 +294,7 @@ public final class FfCards {
 
     /**
      * A shared machine's recipes on one machine again: one card, its recipes as sections at its place, the card's pin
-     * (set on the first) the machine's count, which its recipes' machines then add up to.
+     * (set on the first, Up to or Exactly) the machine's count, which its recipes' machines then add up to.
      */
     public static com.gtnhplanner.data.flowchart.MachineGroup share(final List<Node> made,
         final com.gtnhplanner.data.flowchart.MachineGroup g) {
@@ -301,6 +303,7 @@ public final class FfCards {
         if (host.isMachineCountFixed()) {
             g.setMachineCapacity(host.machineConfig.getMachineCount());
             g.setPinned(true);
+            g.setExact(host.isMachineCountExact());
         }
         for (final Node n : made) {
             g.addSection(n.id);

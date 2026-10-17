@@ -116,6 +116,8 @@ public final class Boards {
             n.properties.put(FakeGame.EU_PER_TICK, Math.round(m.energyPerTick()));
             n.machineConfig.setMachineCount(m.machineCount());
             n.setMachineCountFixed(m.countFixed());
+            // A corpus pin is the solver's exact count: Exactly on the board.
+            n.setMachineCountExact(m.countFixed());
             n.targetOutputRates.putAll(m.targetOutputRates());
             n.targetInputRates.putAll(m.targetInputRates());
             g.addNode(n);
@@ -156,7 +158,8 @@ public final class Boards {
                             .getFirst()).getBytes(StandardCharsets.UTF_8)));
             for (final UUID member : p.machines()) group.addSection(member);
             group.setMachineCapacity(p.capacity());
-            group.setPinned(p.exact());
+            group.setPinned(p.exact() || p.upTo());
+            group.setExact(p.exact());
             g.groups.put(group.getId(), group);
         }
         for (final Map.Entry<String, Map<String, Double>> s : in.spares()

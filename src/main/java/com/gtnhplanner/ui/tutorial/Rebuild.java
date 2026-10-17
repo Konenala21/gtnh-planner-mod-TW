@@ -270,6 +270,7 @@ final class Rebuild {
             n.machineConfig.copySettingsFrom(plan.machineConfig);
             n.machineConfig.setMachineCount(plan.machineConfig.getMachineCount());
             n.setMachineCountFixed(plan.isMachineCountFixed());
+            n.setMachineCountExact(plan.isMachineCountExact());
             n.targetOutputRates.clear();
             n.targetOutputRates.putAll(plan.targetOutputRates);
             if (!n.isPower()) n.machineName = plan.machineName;

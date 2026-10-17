@@ -801,6 +801,8 @@ public final class PlanExport {
                 .isEmpty()) o.add("machineConfigTiers", settings);
         }
         if (n.isMachineCountFixed()) o.addProperty("solvePin", count);
+        // Exactly only: a set count without it is Up to, the website's default.
+        if (n.isMachineCountExact()) o.addProperty("solvePinExact", true);
         o.add("position", position(n.x, n.y));
         return o;
     }
