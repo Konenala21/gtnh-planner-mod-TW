@@ -9,11 +9,10 @@ import com.gtnhplanner.ui.theme.Hyb;
  * Geometry of a card in GUI pixels, shared by drawing, the child widgets and wire anchors: the clean card
  * ({@code docs/design/card-redesign.md}) with the website's Up to look ({@code docs/design/up-to.md}): a header band
  * (keys, the machine's name, the amps and tier chips), inputs against the left edge and outputs against the right where
- * their wires meet the card, each port a tile of one shape, the machine in its own well in the middle with what runs
- * and
- * what is set under its picture, a strip along the bottom of the settings pinned to it, and under everything the bar
- * along the foot of an Up to card. A port row is its icon at the edge, how much in large type and its name small under
- * it. Power drawn, and the circuit when set so, are one more row after a recipe's inputs.
+ * their wires meet the card, each port a tile of one shape, the machine in its own well in the middle (the recipe's
+ * circuit in its top left corner) with what runs and what is set under its picture, a strip along the bottom of the
+ * settings pinned to it, and under everything the bar along the foot of an Up to card. A port row is its icon at the
+ * edge, how much in large type and its name small under it. Power drawn is one more row after a recipe's inputs.
  */
 public final class CardLayout {
 
@@ -68,6 +67,8 @@ public final class CardLayout {
         WELL_BLOCK = PICTURE + COUNT_GAP + COUNT_H;
     /** The bar along an Up to card's foot: its height, a pixel clear above it and three below. */
     public static final int FOOT_H = 16;
+    /** The recipe's circuit, a badge in the well's top left corner (the website's 24 px). */
+    public static final int CIRCUIT = 24;
 
     /** The settings strip: a chip's height, a row's, and the room inside a chip. */
     public static final int CHIP = 18, CHIP_ROW = 22, CHIP_PAD = 5;
@@ -88,10 +89,8 @@ public final class CardLayout {
     /** The top of the bar along the foot (an Up to card's reason, an Exactly card's FORCED IN); -1 for none. */
     public final int footY;
     public final int height;
-    /** The power row (what the machine draws) and the circuit's row among the inputs, card-local y; -1 for none. */
-    public final int powerRowY, circuitRowY;
-    /** Whether the circuit is a row of its own (the setting), so the layout is redone when it changes. */
-    public final boolean circuitAsInput;
+    /** The power row (what the machine draws) among the inputs, card-local y; -1 for none. */
+    public final int powerRowY;
 
     /** Each recipe on the card: one, or several on a shared machine. */
     private final int sections;
@@ -120,8 +119,6 @@ public final class CardLayout {
         sections = models.size();
         final boolean shared = sections > 1;
         final CardModel first = models.get(0);
-        circuitAsInput = com.gtnhplanner.ui.PlannerSettings.circuitAsInput();
-        final boolean circuitRow = !shared && !first.isPower() && first.circuit != null && circuitAsInput;
         // A steam machine's row bills its steam where an electric one's bills EU.
         final boolean powerRow = !first.isPower() && (first.euPerTick > 0 || first.steamPerTick > 0
             || com.gtnhplanner.machines.game.CropCards.isCrop(first.node));
@@ -133,7 +130,7 @@ public final class CardLayout {
         outSlot = new int[sections][];
         inExtra = new boolean[sections][];
         outExtra = new boolean[sections][];
-        int y = RAILS_Y, circuitY = -1, powerY = -1;
+        int y = RAILS_Y, powerY = -1;
         for (int s = 0; s < sections; s++) {
             final CardModel model = models.get(s);
             inExtra[s] = extras(model.inputs);
@@ -149,10 +146,7 @@ public final class CardLayout {
             }
             railsY[s] = y;
             int extra = 0;
-            if (!shared) {
-                if (circuitRow) circuitY = y + (inRows[s] + extra++) * ROW;
-                if (powerRow) powerY = y + (inRows[s] + extra++) * ROW;
-            }
+            if (!shared && powerRow) powerY = y + (inRows[s] + extra++) * ROW;
             y += Math.max(shared ? 1 : 0, Math.max(inRows[s] + extra, outRows[s])) * ROW;
         }
         if (shared && powerRow) {
@@ -160,7 +154,6 @@ public final class CardLayout {
             y += 4 + ROW;
         }
         railsEnd = y;
-        circuitRowY = circuitY;
         powerRowY = powerY;
         // At least the well; on a shared machine it stands beside the first recipe, under its rule row.
         railsH = Math.max(railsEnd - RAILS_Y, PICTURE_MIN + (shared ? SECTION_RULE : 0));
@@ -270,6 +263,11 @@ public final class CardLayout {
     public static int[] picture(final int[] well) {
         return new int[] { well[0] + (well[2] - PICTURE) / 2, well[1] + Math.max(0, (well[3] - WELL_BLOCK) / 2),
             PICTURE };
+    }
+
+    /** The circuit's badge in a well's top left corner, {x, y, w, h}. */
+    public static int[] circuit(final int[] well) {
+        return new int[] { well[0] + 3, well[1] + 3, CIRCUIT, CIRCUIT };
     }
 
     /** The top of the count under the picture: what runs, then the line under it. */

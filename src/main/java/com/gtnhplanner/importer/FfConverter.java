@@ -204,8 +204,9 @@ public final class FfConverter {
             if (plan.poolMode()) wirePool();
             else for (final FfEdge e : expandBuffers()) wire(e);
             supplyHatches();
-            planTarget();
             makeDrawers();
+            // After the drawers: a drawer's rule is one of the things that set the plan.
+            targets();
             reportUnusedStorages();
             placeNotes();
             placeBoards();
@@ -701,6 +702,39 @@ public final class FfConverter {
             final Drawer.Link link = new Drawer.Link(node.id, input);
             for (final PendingDrawer d : pending.values())
                 if (d.kind.linksInputs() && d.links.contains(link)) return true;
+            return false;
+        }
+
+        /**
+         * Card and plan targets (FF's targetOutput and targetRate) were display arithmetic in old Build and Solve,
+         * never rows (the website's convert.ts): made port rates they would pin their cards exactly, and an old Build
+         * plan would no longer read as it did. Only a classic Solve plan that nothing else sets (no count, port rate
+         * or drawer rule) takes them as port rates, as old Solve had no other answer there: each card's target on its
+         * output row, then the plan's on the first card making it.
+         */
+        void targets() {
+            if (plan.planMode() || !plan.solveMode() || anchored()) return;
+            for (final FfNode card : plan.nodes()) {
+                final FfTarget t = card.targetOutput();
+                final Map<Integer, Placed> sections = placed.get(card.id());
+                final Placed p = t == null || sections == null ? null : sections.get(0);
+                if (p == null) continue;
+                final int out = findPort(p.node(), true, t.kind(), List.of(t.resourceId()));
+                if (out >= 0) p.node().targetOutputRates.put(out, t.perSecond());
+                else report
+                    .add(Kind.WIRE, p.name(), "its target rate names " + t.resourceId() + ", which it does not make");
+            }
+            planTarget();
+        }
+
+        /** Whether anything in the imported plan sets a count or a rate: a set count, a port rate, a drawer's rule. */
+        boolean anchored() {
+            for (final Node n : graph.getNodes()) if (n.isMachineCountFixed() || !n.targetOutputRates.isEmpty()
+                || !n.targetInputRates.isEmpty()) return true;
+            for (final com.gtnhplanner.data.flowchart.Group g : graph.groups.values())
+                if (g instanceof final com.gtnhplanner.data.flowchart.MachineGroup m && m.isPinned()
+                    && m.getMachineCapacity() > 0) return true;
+            for (final Drawer d : graph.getDrawers()) if (d.getRule() != Drawer.Rule.ANY) return true;
             return false;
         }
 

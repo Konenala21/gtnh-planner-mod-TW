@@ -596,9 +596,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case RULE -> countless() ? null : CardPaint.countParts(face(), layout.picture())[1];
             case FOOT -> foot() == null ? null : layout.foot();
             case CIRCUIT -> model.circuit == null || shared() || model.isPower() ? null
-                : layout.circuitRowY >= 0
-                    ? new int[] { CardLayout.IN_RAIL_X, layout.circuitRowY, CardLayout.RAIL_W, CardLayout.ROW }
-                    : new int[] { layout.well()[0] + 3, layout.well()[1] + 3, 24, 24 };
+                : CardLayout.circuit(layout.well());
             case SECTION, CHIP -> null;
             case BODY -> new int[] { 0, 0, CardLayout.W, layout.height };
         };
@@ -668,7 +666,6 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             drawGlance(m, z);
             return;
         }
-        if (layout.circuitAsInput != com.gtnhplanner.ui.PlannerSettings.circuitAsInput()) refresh();
         final Part hover = isHovering() ? partAt(localX(), localY()) : null;
         final int w = CardLayout.W, h = layout.height;
         if (canvas() != null && canvas().isCarried(nodeId)) {
@@ -695,7 +692,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 1,
                 alpha(0x4ADE80, (there ? 0.28f : 0.18f * breath) * (5 - i) / 5f));
         }
-        CardPaint.surface(w, h);
+        // A card with a problem its bar shows (an Up to reason short of full, FORCED IN) wears its frame in the bar's
+        // colour; the selection and cannot-run rings stay outside it.
+        CardPaint.surface(w, h, CardFace.edge(foot()));
         if (accepts) Hyb.rect(1, 1, w - 2, h - 2, alpha(0x4ADE80, there ? 0.1f : 0.06f * breath));
         if (anyTierTooLow() || coilTooCold()) {
             // Can't run: the tier is below the recipe's (the power row says TIER!) or the coil is too cold (the gear
@@ -716,10 +715,6 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         }
         // After the rails: on a shared machine the well stands over the later recipes' rule lines.
         drawPicture(m, z, hover);
-        if (layout.circuitRowY >= 0) {
-            CardPaint.portTile(false, layout.circuitRowY, hover == Part.CIRCUIT);
-            CardPaint.circuitRow(m.circuit, layout.circuitRowY, z);
-        }
         if (layout.powerRowY >= 0) drawPowerRow(m, hover == Part.POWER);
         if (emptyHolder()) drawSockets();
         drawStrip(m, z, hover);
@@ -782,7 +777,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         // The clean card's surface, its edge holding two screen pixels however far out, and the machine large on it.
         Hyb.dropShadow(0, 0, w, h);
         final float rim = Math.max(2, 1 / zoom);
-        Hyb.rect(0, 0, w, h, CardPaint.EDGE);
+        final int edge = CardFace.edge(foot());
+        Hyb.rect(0, 0, w, h, edge != 0 ? edge : CardPaint.EDGE);
         Hyb.rect(rim, rim, w - 2 * rim, h - 2 * rim, CardPaint.SURFACE);
         if (m.tierTooLow()) Hyb.ring(-rim, -rim, w + 2 * rim, h + 2 * rim, rim, Hyb.RED_INK);
         if (session.showsSelected(nodeId))
@@ -1315,8 +1311,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
         } else drawMachineArt(m, box[0], box[1], box[2], box[2], CardLayout.ITEM, z, true);
-        if (m.circuit != null && !shared() && !m.isPower() && layout.circuitRowY < 0)
-            CardPaint.circuitBadge(m.circuit, well, z);
+        // The recipe's circuit, its own icon with its number, in the well's top left corner (a shared machine's
+        // recipes each show theirs on their rule row).
+        if (m.circuit != null && !shared() && !m.isPower()) CardPaint.circuitBadge(m.circuit, well, z);
         if (countless()) return;
         // Under the picture: what runs, and what is set (or, with nothing set, the prompt to set it).
         final CardFace.Count c = face();
@@ -1886,9 +1883,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case MACHINES -> countTip(m);
             case RULE -> ruleTip();
             case FOOT -> footTip();
-            case CIRCUIT -> Tip.of("Programmed circuit")
-                .row("Required setting", Integer.toString(m.circuit.getItemDamage()))
-                .muted("Not consumed.");
+            case CIRCUIT -> Tip.of("Circuit " + m.circuit.getItemDamage());
             default -> {
                 // Far out the card answers with its reveal panel; close in, the body says nothing.
                 yield null;
@@ -2211,7 +2206,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      */
     public void wheelCount(final int step) {
         if (model == null || countless()) return;
-        com.gtnhplanner.ui.sound.Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
+        // Each notch ticks for itself, a note up or down the scale (never a random take that lands the other way);
+        // the set count's own pin sound comes once the wheel is still (BoardSession.live).
+        com.gtnhplanner.ui.sound.Sfx.TICK.playDegree(1f, step > 0 ? 1 : -1);
         final CardFace.Count c = face();
         final Long next = CardFace.wheel(c.rule(), c.set(), c.value(), step);
         if (next == null) {

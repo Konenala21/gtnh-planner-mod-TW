@@ -209,11 +209,6 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         null,
                         PlannerSettings::zoomedOutNames,
                         PlannerSettings::setZoomedOutNames),
-                    toggle(
-                        "Circuit as an input",
-                        null,
-                        PlannerSettings::circuitAsInput,
-                        PlannerSettings::setCircuitAsInput),
                     new Row(
                         "See-through",
                         null,

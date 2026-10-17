@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.lwjgl.opengl.GL11;
 
-import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.theme.Hyb;
 import com.gtnhplanner.ui.world.PlanSnapshot;
@@ -14,9 +13,9 @@ import com.gtnhplanner.ui.world.PlanSnapshot;
  * A plan card drawn from a {@link PlanSnapshot} card, for the cards over the world and on the minimap: the board's
  * clean card ({@link CardLayout}, {@link CardPaint}) with nothing to press. The name large on the left of the header
  * with the amps and tier chips on the right; inputs against the left edge and outputs against the right, each a tile;
- * power one more row after the inputs, the circuit too when set so (else in the well's corner); the machine in its
- * well in the middle with what runs and what is set under it; the settings strip along the bottom, then the bar along
- * the foot of an Up to card. In card units, at the origin.
+ * power one more row after the inputs; the machine in its well in the middle (the circuit in its corner) with what runs
+ * and what is set under it; the settings strip along the bottom, then the bar along the foot of an Up to card, its
+ * frame in the bar's colour when the card has a problem. In card units, at the origin.
  */
 public final class CleanCardView {
 
@@ -25,17 +24,13 @@ public final class CleanCardView {
     private static final int W = CardLayout.W, ROW = CardLayout.ROW;
     private static final int CHIP_W = 48, SINGLE_TIER_W = 42;
 
-    /** A row of the input side: a flow, the circuit, or the power drawn. */
-    private record Row(PlanSnapshot.Flow flow, boolean circuit) {}
-
-    private static List<Row> inputs(final PlanSnapshot.Card c) {
-        final List<Row> rows = new ArrayList<>();
-        for (final PlanSnapshot.Flow f : c.inputs()) rows.add(new Row(f, false));
-        if (c.circuit() != null && PlannerSettings.circuitAsInput()) rows.add(new Row(null, true));
+    /** The input side's rows: the flows, then the power drawn. */
+    private static List<PlanSnapshot.Flow> inputs(final PlanSnapshot.Card c) {
+        final List<PlanSnapshot.Flow> rows = new ArrayList<>(c.inputs());
         boolean power = false;
         for (final PlanSnapshot.Flow f : c.inputs()) power |= f.power();
         if (!power && c.euPerTick() > 0)
-            rows.add(new Row(new PlanSnapshot.Flow("Power", null, null, true, c.euPerTick() * 20, "power:eu"), false));
+            rows.add(new PlanSnapshot.Flow("Power", null, null, true, c.euPerTick() * 20, "power:eu"));
         return rows;
     }
 
@@ -87,17 +82,15 @@ public final class CleanCardView {
         final int h = height(c);
         Hyb.dropShadow(0, 0, W, h);
         if (ringed) Hyb.ring(-2, -2, W + 4, h + 4, 2, 0xC0000000 | Hyb.LIT & 0xFFFFFF);
-        CardPaint.surface(W, h);
+        CardPaint.surface(W, h, CardFace.edge(c.foot()));
         head(c);
         CardPaint.hair(CardLayout.HEADER);
         final int top = CardLayout.RAILS_Y;
-        final List<Row> ins = inputs(c);
+        final List<PlanSnapshot.Flow> ins = inputs(c);
         for (int i = 0; i < ins.size(); i++) {
             final int y = top + i * ROW;
-            final Row r = ins.get(i);
             CardPaint.portTile(false, y, false);
-            if (r.circuit()) CardPaint.circuitRow(c.circuit(), y, 0);
-            else flow(r.flow(), false, y, unit);
+            flow(ins.get(i), false, y, unit);
         }
         for (int i = 0; i < c.outputs()
             .size(); i++) {
@@ -114,7 +107,7 @@ public final class CleanCardView {
         CardPaint.well(well);
         final int[] picture = CardLayout.picture(well);
         art(c, picture);
-        if (c.circuit() != null && !PlannerSettings.circuitAsInput()) CardPaint.circuitBadge(c.circuit(), well, 0);
+        if (c.circuit() != null) CardPaint.circuitBadge(c.circuit(), well, 0);
         // As the board's card: what runs, and under it what is set (a crop card's count is the crops planted, said
         // under
         // it, no ×); a fluid tank has none.

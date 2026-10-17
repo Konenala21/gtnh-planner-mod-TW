@@ -73,6 +73,18 @@ in saves and in plans from the website, reads as Up to, old website Build plans 
   read-out (fill reached / capacity, the reason's word in its colour, one line shortened to fit, the fraction; a
   bottleneck runs on striped to `wants`), an Exactly card with an input forced in at one of its rows (FORCED IN, from
   the card's extra rows). A shared machine's bar reads every recipe's rows.
+- A card whose bar shows a problem (BOTTLENECK, STARVED, CLOGGED, UNUSED, LIMITED, or FORCED IN) wears its 1 px frame in
+  the bar's tone (`CardFace.edge`): on the board, zoomed out, on the minimap and over the world. FULL, Any and no
+  read-out keep the plain edge; the selection and cannot-run rings stay outside it. The overview's reason colours are
+  the same tones.
+- The count's controls sound for themselves: a click opens the number box or the rule menu with the popup's sound, each
+  wheel step ticks (higher up, lower down), on the card and the overview line alike; the set count's own pin sound comes
+  once the wheel is still.
+- The recipe's circuit is a badge in the well's top left corner (its own icon, no words, its tip "Circuit 24"); the
+  "Circuit as an input" setting is gone.
+- Importing: an old Build plan's card and plan targets stay display only (made port rates they would pin their cards
+  exactly); only a classic Solve plan that nothing else sets takes them as port rates (`FfConverter.targets`, the
+  website's convert.ts 07a66852).
 - Writes: `BoardSession.pin` keeps the rule (Any becomes Up to), `setRule` sets it at a count, `rule`/`setCount` read
   it (a shared machine's is its group's), all through `PinRule`. A set count never asks for one (`unsetParts` drops
   it), so an idle Up to card says UNUSED on its bar, not "(set count)".

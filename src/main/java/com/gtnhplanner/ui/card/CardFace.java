@@ -267,6 +267,18 @@ public final class CardFace {
         return "";
     }
 
+    /**
+     * The colour of a card's frame (its 1 px edge) for a problem its bar shows: an Up to reason other than FULL, or
+     * FORCED IN; 0 for none (FULL, Any, no read-out keep the normal edge).
+     */
+    public static int edge(@Nullable final Foot foot) {
+        if (foot == null) return 0;
+        return switch (foot.tone()) {
+            case FULL, PLAIN -> 0;
+            default -> foot.tone().colour;
+        };
+    }
+
     /** The title of the bar's tip: how many run of how many. */
     public static String footTitle(final Facts f) {
         if (f.forced()) return "Exactly " + Fmt.machines(f.capacity()) + " running";
@@ -294,15 +306,12 @@ public final class CardFace {
                 .toLowerCase(Locale.ROOT);
     }
 
-    /** The overview's colour for a machine line's count: none (the plain ink) when full or not worked out. */
+    /**
+     * The overview's colour for a machine line's count: the card's foot bar tone (the website's up-to-reason.ts); none
+     * (the plain ink) when full or not worked out.
+     */
     public static int railColour(@Nullable final UpToReason reason, final int ink) {
-        if (reason == null) return ink;
-        return switch (reason) {
-            case FULL -> ink;
-            case BOTTLENECK -> 0xFFFFD257;
-            case STARVED, CLOGGED -> 0xFFE0A63A;
-            case UNUSED, LIMITED -> 0xFF9A9CA4;
-        };
+        return reason == null || reason == UpToReason.FULL ? ink : Tone.of(reason).colour;
     }
 
     /** A sentence for a tooltip about why an Up to card runs as it does. */

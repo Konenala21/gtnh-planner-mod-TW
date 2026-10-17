@@ -15,7 +15,6 @@ import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.importer.FfPlan.FfNode;
 import com.gtnhplanner.importer.FfPlan.FfRecipe;
 import com.gtnhplanner.importer.FfPlan.FfSlot;
-import com.gtnhplanner.importer.FfPlan.FfTarget;
 import com.gtnhplanner.importer.ImportReport.Kind;
 import com.gtnhplanner.importer.NodeMaker.PortInfo;
 import com.gtnhplanner.importer.RecipeIndex.Lookup;
@@ -123,14 +122,8 @@ public final class FfCards {
         node.setMachineCountExact(mapped.exact());
         for (final String note : mapped.notes()) report.add(Kind.CONVERTED, name, note);
         pickInputs(ctx, ports, node, recipe, overrides, name);
-
-        final FfTarget target = section == 0 ? card.targetOutput() : null;
-        if (target != null) {
-            final int out = ports.find(node, true, target.kind(), List.of(target.resourceId()));
-            if (out >= 0) node.targetOutputRates.put(out, target.perSecond());
-            else report
-                .add(Kind.WIRE, name, "its target rate names " + target.resourceId() + ", which it does not make");
-        }
+        // The card's target (FF's targetOutput) is no rate here: FfConverter seeds it only into a Solve plan nothing
+        // else sets.
         portRates(ports, node, recipe, overrides, card, section, name, report);
         return node;
     }
