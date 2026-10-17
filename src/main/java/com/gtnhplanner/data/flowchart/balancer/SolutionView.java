@@ -71,6 +71,17 @@ public final class SolutionView {
         this.upTo = List.copyOf(upTo);
     }
 
+    /** Dead loops and clog locks over the read-out, sorted by their first node; empty when there are none. */
+    private List<UpToLoop> upToLoops = List.of();
+
+    public List<UpToLoop> upToLoops() {
+        return upToLoops;
+    }
+
+    void upToLoops(final List<UpToLoop> upToLoops) {
+        this.upToLoops = List.copyOf(upToLoops);
+    }
+
     private SolutionView(final SolveContext ctx, final long wallMillis) {
         final ModelData model = ctx.model;
         final double tol = ctx.heuristics.numerics().dust
