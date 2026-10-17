@@ -3106,7 +3106,9 @@ public final class BoardSession {
         return wired;
     }
 
+    /** The lines along the top: on the task board only a flash, since the solver's notices are about the board. */
     public List<Notice> notices() {
+        final List<Notice> notices = showsTasks() ? List.of() : this.notices;
         if (flash == null) return notices;
         if (System.currentTimeMillis() > flashUntil) {
             flash = null;
