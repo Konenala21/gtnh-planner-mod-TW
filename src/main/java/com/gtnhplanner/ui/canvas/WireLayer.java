@@ -663,6 +663,25 @@ final class WireLayer {
         }
         com.cleanroommc.modularui.utils.Platform.setupDrawColor();
         org.lwjgl.opengl.GL11.glCallList(listId);
+        drawRings(wires, hopped);
+    }
+
+    /**
+     * The wires a dead loop or a clog lock runs along ({@link BoardSession#loopWires}): lit steady in its tone over the
+     * core, a little wider than it (the website's {@code cc-loop-wire}), the arrows on top again.
+     */
+    private void drawRings(final List<Wire> wires, final Map<Wire, WireHops.Hopped> hopped) {
+        final Map<UUID, com.gtnhplanner.ui.Loops.Tone> rings = session.loopWires();
+        if (rings.isEmpty()) return;
+        Hyb.beginBatch();
+        for (final Wire w : wires) {
+            final com.gtnhplanner.ui.Loops.Tone tone = w.edge() == null ? null : rings.get(w.edge().id);
+            if (tone == null) continue;
+            final WireHops.Hopped h = hopped.get(w);
+            drawHopped(h, atLeast(w.width()) + 4, 0xCC000000 | tone.colour & 0xFFFFFF, 0, 0);
+            if (w.perSecond() > 0 && shows(8)) arrows(w.path(), w.color(), w.width(), h.spans());
+        }
+        Hyb.endBatch();
     }
 
     /** The wires thickest first, and the wires they were sorted for. */

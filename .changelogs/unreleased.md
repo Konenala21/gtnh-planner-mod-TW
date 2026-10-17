@@ -6,6 +6,9 @@
 
 - A recipe's circuit sits in the corner of its machine with its number on it. The circuit setting is gone.
 - Deleting a drawer puts its rate back on the machine it hung off. Deleting a drawer between machines wires them straight together when there is only one way to.
+- The overview lists every machine and every open input and output even at zero. Machine lines there have the card's own tier and amps chips. Middle click clears anything set in it.
+- Machines stuck waiting on each other get a notice and the wires between them light up.
+- A pencil key on the board's toolbar adds a sticky note, box or arrow. Peak and Avg live in the overview now.
 
 ## Fixed
 

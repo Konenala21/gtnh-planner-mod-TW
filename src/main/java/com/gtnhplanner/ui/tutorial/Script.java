@@ -610,19 +610,15 @@ final class Script {
             .note(Targets.around(Targets.topKey("undo"), Targets.topKey("redo")), "*Undo* and *redo* are up here.");
 
         // Each key is turned all the way round, back to where it was.
-        final Target rate = Targets.topKey("rate"), power = Targets.topKey("power"), peak = Targets.topKey("peak");
+        final Target rate = Targets.topKey("rate"), power = Targets.topKey("power");
         final Beat units = beat(out);
         for (int i = 0; i < 4; i++) units.click(rate)
             .pause(120);
         units.click(power)
             .pause(250)
             .click(power)
-            .pause(120)
-            .click(peak)
-            .pause(250)
-            .click(peak)
             .rest()
-            .note(Targets.around(rate, power, peak), "These buttons change *the way numbers are shown*.");
+            .note(Targets.around(rate, power), "These buttons change *the way numbers are shown*.");
     }
 
     // endregion

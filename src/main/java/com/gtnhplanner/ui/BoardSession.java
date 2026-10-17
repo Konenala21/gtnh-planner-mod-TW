@@ -2410,6 +2410,47 @@ public final class BoardSession {
         return out;
     }
 
+    /** Rings the dev harness adds to the solver's; null for none. */
+    private List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> devLoops;
+    /** The wires along a ring's rows, by wire, in the ring's tone ({@link Loops#wires}); from the last refresh. */
+    private Map<UUID, Loops.Tone> loopWires = Map.of();
+    /**
+     * The ring each card is in, by its host card, in the ring's tone ({@link Loops#cardTones}); from the last refresh.
+     */
+    private Map<UUID, Loops.Tone> loopCards = Map.of();
+
+    /**
+     * Dead loops and clog locks over the last solve's read-out ({@code SolutionView.upToLoops}), and the dev harness's
+     * stand-ins after them; empty when there are none.
+     */
+    public List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> upToLoops() {
+        final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> solved = result instanceof final BalanceResult.Solved s
+            ? s.auto()
+                .upToLoops()
+            : List.of();
+        if (devLoops == null) return solved;
+        final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> out = new ArrayList<>(solved);
+        out.addAll(devLoops);
+        return out;
+    }
+
+    /** The ring a card is in (by any of its recipes), as its tone; null when it is in none. */
+    @Nullable
+    public Loops.Tone loopTone(final UUID card) {
+        return loopCards.get(hostOf(card));
+    }
+
+    /** The wires a ring runs along, by wire id, in its tone: lit steady on the board. */
+    public Map<UUID, Loops.Tone> loopWires() {
+        return loopWires;
+    }
+
+    /** Dev only: rings to add to the solver's until cleared with null; the board shows them on the next tick. */
+    public void devLoops(@Nullable final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> loops) {
+        devLoops = loops == null ? null : new ArrayList<>(loops);
+        seenVersion = Long.MIN_VALUE;
+    }
+
     // endregion
 
     /**
@@ -2626,6 +2667,9 @@ public final class BoardSession {
         models = next;
         drawerModels = nextDrawers;
         upTo = indexUpTo();
+        final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> loops = upToLoops();
+        loopWires = Loops.wires(graph.getEdges(), loops, this::hostOf);
+        loopCards = Loops.cardTones(loops, this::hostOf);
         notices = buildNotices(next);
         totals = buildTotals(next);
         spareLines = buildSpares(next);
@@ -2687,9 +2731,6 @@ public final class BoardSession {
     /** A resource's name and icon, from the first port or drawer that holds it. */
     private record Look(String label, ItemStack item, net.minecraftforge.fluids.FluidStack fluid) {}
 
-    /** Below this a rate (per second) is solver noise, not a flow worth a line. */
-    private static final double EPS = 1e-6;
-
     /**
      * Resource keys a wire joins to another: the key an input asks for, to the key of what is wired into it (a recipe
      * asking for any sand, fed the sand a card makes). From the last model; null before the first.
@@ -2726,82 +2767,88 @@ public final class BoardSession {
         sameKeys = same;
         final Map<String, double[]> flow = new LinkedHashMap<>();
         final Map<String, Look> looks = new HashMap<>();
+        // The resources an unwired port takes or makes: listed at 0 when nothing else lists them, so they can be set.
+        final Set<String> openIn = new java.util.LinkedHashSet<>(), openOut = new java.util.LinkedHashSet<>();
         double eu = 0, euMade = 0;
-        final List<MachineLine> machines = new ArrayList<>();
+        final List<CardModel> counted = new ArrayList<>();
         for (final CardModel card : cards.values()) {
             // A custom rate card is the plan's edge, as a drawer is: what it supplies comes in from outside (an input)
             // and what it drains leaves (an output). It is no machine to build.
             if (com.gtnhplanner.power.CustomRate.is(card.node)) continue;
+            counted.add(card);
             for (final CardModel.PortView p : card.outputs) {
                 final String key = canonicalKey(p.key());
                 flow.computeIfAbsent(key, k -> new double[2])[0] += p.perSecond();
                 looks.putIfAbsent(key, new Look(p.name(), p.item(), p.fluid()));
+                if (!p.wired()) openOut.add(key);
             }
             for (final CardModel.PortView p : card.inputs) {
                 final String key = canonicalKey(p.key());
                 flow.computeIfAbsent(key, k -> new double[2])[1] += p.perSecond();
                 // Named as what makes it, where something does.
                 if (key.equals(p.key())) looks.putIfAbsent(key, new Look(p.name(), p.item(), p.fluid()));
+                if (!p.wired()) openIn.add(key);
             }
-            final double power = power(card);
-            eu += power;
+            eu += power(card);
             euMade += card.madeEuPerTick();
-            // A fluid tank is free and instant: nothing to build.
+        }
+        // Every machine, at zero too, whatever its rule (a fluid tank is free and instant: nothing to build).
+        final List<MachineLine> machines = new ArrayList<>();
+        for (final CardModel card : RailTotals.machines(
+            counted,
+            c -> com.gtnhplanner.power.FluidTank.is(c.node),
+            c -> c.machines > 0,
+            c -> sharedOf(c.node.id),
+            c -> hostOf(c.node.id).equals(c.node.id))) {
             final PinRule rule = rule(card.node);
-            if ((card.machines > 0 || rule != PinRule.ANY) && !com.gtnhplanner.power.FluidTank.is(card.node)) {
-                // An Up to card lists what runs (its read-out, a lone card's own; a shared machine's recipe its share).
-                final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
-                final double runs = readout != null && sharedOf(card.node.id) == null ? Math.max(0, readout.reached())
-                    : card.machines;
-                machines.add(
-                    new MachineLine(
-                        card.node.id,
-                        card.machineName,
-                        card.machineStack,
-                        // A crop card counts crops; the plan builds its harvesters.
-                        com.gtnhplanner.machines.game.CropCards.builds(card.node, runs),
-                        rule != PinRule.ANY,
-                        card.tier,
-                        card.amps,
-                        card.multiblock,
-                        card.gregtech,
-                        power,
-                        card.tierTooLow(),
-                        card.madeEuPerTick(),
-                        rule,
-                        setCount(card.node),
-                        runs,
-                        readout));
-            }
+            // An Up to card lists what runs (its read-out, a lone card's own; a shared machine's recipe its share).
+            final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
+            final double runs = readout != null && sharedOf(card.node.id) == null ? Math.max(0, readout.reached())
+                : card.machines;
+            machines.add(
+                new MachineLine(
+                    card.node.id,
+                    card.machineName,
+                    card.machineStack,
+                    // A crop card counts crops; the plan builds its harvesters.
+                    com.gtnhplanner.machines.game.CropCards.builds(card.node, runs),
+                    rule != PinRule.ANY,
+                    card.tier,
+                    card.amps,
+                    card.multiblock,
+                    card.gregtech,
+                    power(card),
+                    card.tierTooLow(),
+                    card.madeEuPerTick(),
+                    rule,
+                    setCount(card.node),
+                    runs,
+                    readout));
         }
         // What trash voids leaves the plan without being an output of it.
         final Map<String, Double> trashed = new HashMap<>();
         for (final DrawerModel d : drawerModels.values()) if (d.kind == Drawer.Kind.TRASH)
             trashed.merge(canonicalKey(d.drawer.getResourceKey()), Math.max(0, d.rate), Double::sum);
-        final List<TotalLine> in = new ArrayList<>(), out = new ArrayList<>(), internal = new ArrayList<>();
-        for (final Map.Entry<String, double[]> e : flow.entrySet()) {
-            final double made = e.getValue()[0], used = e.getValue()[1];
-            final Look look = looks.get(e.getKey());
-            final double leaves = made - used - trashed.getOrDefault(e.getKey(), 0.0);
-            if (used - made > EPS) in.add(line(e.getKey(), look, used - made));
-            if (leaves > EPS) out.add(line(e.getKey(), look, leaves));
-            if (Math.min(made, used) > EPS) internal.add(line(e.getKey(), look, Math.min(made, used)));
-        }
-        sortByAmount(in);
-        sortByAmount(out);
-        sortByAmount(internal);
         // A resource with a drawer stays listed at 0, so its rule and rate can be set from here. A buffer is inside the
         // plan: its resource is no input or output of it.
+        final List<String> sources = new ArrayList<>(), products = new ArrayList<>();
         for (final DrawerModel d : drawerModels.values()) {
             if (d.kind == Drawer.Kind.TRASH || d.kind == Drawer.Kind.BUFFER) continue;
             final String key = canonicalKey(d.drawer.getResourceKey());
-            final List<TotalLine> side = d.kind == Drawer.Kind.SOURCE ? in : out;
-            if (side.stream()
-                .noneMatch(
-                    l -> l.key()
-                        .equals(key)))
-                side.add(new TotalLine(key, d.label, d.item, d.fluid, 0));
+            (d.kind == Drawer.Kind.SOURCE ? sources : products).add(key);
+            looks.putIfAbsent(key, new Look(d.label, d.item, d.fluid));
         }
+        final RailTotals.Lines<TotalLine> lines = RailTotals.lines(
+            flow,
+            trashed,
+            openIn,
+            openOut,
+            sources,
+            products,
+            (key, amount) -> line(key, looks.get(key), amount),
+            TotalLine::key,
+            TotalLine::amount);
+        final List<TotalLine> in = lines.inputs(), out = lines.outputs(), internal = lines.internal();
         machines.sort(
             java.util.Comparator.<MachineLine>comparingInt(m -> -CardDefaults.tierIndex(m.tier()))
                 .thenComparing(m -> -m.euPerTick())
@@ -2812,10 +2859,6 @@ public final class BoardSession {
     private static TotalLine line(final String key, final Look look, final double amount) {
         return look == null ? new TotalLine(key, Resources.name(key), Resources.item(key), Resources.fluid(key), amount)
             : new TotalLine(key, look.label(), look.item(), look.fluid(), amount);
-    }
-
-    private static void sortByAmount(final List<TotalLine> lines) {
-        lines.sort((a, b) -> Double.compare(b.amount(), a.amount()));
     }
 
     // endregion
@@ -3476,6 +3519,27 @@ public final class BoardSession {
                             "Nothing to calculate yet: set a rate on a drawer, or set a machine count",
                             List.of()));
                 }
+            }
+            // Old Build's rings: a dead loop's cards wait on each other, a clog lock's are stuck on a surplus. Show me
+            // frames the ring's cards.
+            for (final com.gtnhplanner.data.flowchart.balancer.UpToLoop loop : upToLoops()) {
+                final List<UUID> ring = Loops.cards(loop, this::hostOf);
+                ring.removeIf(id -> !cards.containsKey(id));
+                if (ring.isEmpty()) continue;
+                final List<String> names = new ArrayList<>(ring.size());
+                for (final UUID id : ring) names.add(cards.get(id).machineName);
+                final Map<String, String> named = new HashMap<>();
+                final List<String> what = Loops.resources(loop, p -> {
+                    final CardModel m = cards.get(p.nodeId());
+                    if (m == null) return null;
+                    for (final CardModel.PortView v : p.input() ? m.inputs : m.outputs)
+                        if (v.index() == p.portIndex()) {
+                            named.putIfAbsent(v.key(), v.name());
+                            return v.key();
+                        }
+                    return null;
+                }, named::get);
+                out.add(new Notice(Severity.WARN, Loops.sentence(loop.kind(), names, what), ring));
             }
             for (final DrawerReadout.Shortfall s : shortfalls()) {
                 final DrawerModel d = drawerModels.get(s.drawer());

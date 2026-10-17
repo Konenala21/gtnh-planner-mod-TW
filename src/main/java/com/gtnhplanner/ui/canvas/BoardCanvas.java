@@ -3329,7 +3329,20 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
      */
     public void openBoardMenu() {
         final int sx = getContext().getAbsMouseX(), sy = getContext().getAbsMouseY();
-        final int wx = Math.round(worldX(sx)), wy = Math.round(worldY(sy));
+        openBoardMenu(sx, sy, Math.round(worldX(sx)), Math.round(worldY(sy)));
+    }
+
+    /**
+     * The empty-board menu from the board toolbar's annotations key, at a screen point under it: what it adds lands in
+     * the middle of the view.
+     */
+    public void openBoardMenuAt(final int sx, final int sy) {
+        final com.cleanroommc.modularui.widget.sizer.Area a = getArea();
+        openBoardMenu(sx, sy, Math.round(worldX(a.x + a.width / 2)), Math.round(worldY(a.y + a.height / 2)));
+    }
+
+    /** The empty-board menu at a screen point, what it adds landing at a board point. */
+    private void openBoardMenu(final int sx, final int sy, final int wx, final int wy) {
         final List<PickList.Entry> rows = new ArrayList<>();
         // The cards selected, when there are: into a task, a machine thing each.
         final List<UUID> taskCards = session.cardsIn(session.selection());
