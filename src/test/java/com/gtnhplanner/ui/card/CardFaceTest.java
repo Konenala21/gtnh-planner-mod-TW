@@ -352,8 +352,13 @@ class CardFaceTest {
         assertEquals(0xFFE8E9EE, CardFace.railColour(UpToReason.FULL, 0xFFE8E9EE), "full is the quiet case");
         assertEquals(0xFFE8E9EE, CardFace.railColour(null, 0xFFE8E9EE));
         // The card's bar tones, as the website's up-to-reason.ts has them.
-        assertEquals(0xFF6FB2D6, CardFace.railColour(UpToReason.CLOGGED, 0xFFE8E9EE));
+        assertEquals(0xFFB49CF0, CardFace.railColour(UpToReason.CLOGGED, 0xFFE8E9EE), "clogged is purple");
+        assertEquals(0xFFF472B6, CardFace.railColour(UpToReason.LIMITED, 0xFFE8E9EE), "limited is pink");
         assertEquals(0xFFF06262, CardFace.railColour(UpToReason.BOTTLENECK, 0xFFE8E9EE));
+        assertEquals(0xFFE0A63A, CardFace.railColour(UpToReason.STARVED, 0xFFE8E9EE));
+        assertEquals(0xFF8A8E97, CardFace.railColour(UpToReason.UNUSED, 0xFFE8E9EE));
+        assertEquals(0xFF5EE9B5, CardFace.Tone.FULL.colour);
+        assertEquals(0xFF94C3F3, CardFace.Tone.FORCED.colour);
         assertEquals("The plan would use 31.", CardFace.sentence(readout(24, 24, UpToReason.BOTTLENECK, null, 31.0)));
         assertNull(CardFace.sentence(readout(24, 24, null, null, null)));
     }
@@ -377,6 +382,138 @@ class CardFaceTest {
             CardFace.edge(
                 CardFace
                     .foot(PinRule.EXACT, 4, null, List.of(new CardFace.Forced("Oxygen", "1/s")), PORTS, CARDS, SIX)));
+    }
+
+    @Test
+    void problemOutlinesOffKeepsThePlainEdge() {
+        final CardFace.Foot starved = upTo(readout(24, 18.2, UpToReason.STARVED, OXYGEN, null), SIX);
+        assertEquals(CardFace.Tone.STARVED.colour, CardFace.edge(starved, true));
+        assertEquals(0, CardFace.edge(starved, false));
+    }
+
+    // endregion
+
+    // region The row a reason names, the zoomed-out bar, the loops
+
+    @Test
+    void starvedLightsItsShortInputAndTheInputsTiedWithIt() {
+        final UpToReadout r = new UpToReadout(
+            CARD,
+            List.of(CARD),
+            24,
+            18.2,
+            UpToReason.STARVED,
+            OXYGEN,
+            List.of(WATER),
+            null,
+            List.of());
+        assertEquals(CardFace.Tone.STARVED, CardFace.why(PinRule.UP_TO, r, CARD, false, 1), "the short input");
+        assertEquals(CardFace.Tone.STARVED, CardFace.why(PinRule.UP_TO, r, CARD, false, 2), "a tied input");
+        assertNull(CardFace.why(PinRule.UP_TO, r, CARD, false, 0), "another input");
+        assertNull(CardFace.why(PinRule.UP_TO, r, CARD, true, 1), "the output at the same index");
+        assertNull(CardFace.why(PinRule.UP_TO, r, OTHER, false, 1), "another recipe's row");
+        assertNull(CardFace.why(PinRule.EXACT, r, CARD, false, 1), "only while the card is Up to");
+        assertNull(CardFace.why(PinRule.UP_TO, null, CARD, false, 1), "no read-out");
+    }
+
+    @Test
+    void cloggedAndUnusedLightTheirOutputAndTheOtherReasonsNothing() {
+        assertEquals(
+            CardFace.Tone.CLOGGED,
+            CardFace.why(PinRule.UP_TO, readout(24, 12, UpToReason.CLOGGED, ACID, null), CARD, true, 0));
+        assertEquals(
+            CardFace.Tone.UNUSED,
+            CardFace.why(PinRule.UP_TO, readout(3, 0, UpToReason.UNUSED, ACID, null), CARD, true, 0));
+        for (final UpToReason quiet : new UpToReason[] { UpToReason.FULL, UpToReason.BOTTLENECK, UpToReason.LIMITED })
+            assertNull(
+                CardFace.why(PinRule.UP_TO, readout(24, 24, quiet, ACID, 31.0), CARD, true, 0),
+                quiet + " lights nothing");
+        assertNull(CardFace.why(PinRule.UP_TO, readout(24, 12, null, ACID, null), CARD, true, 0), "not worked out");
+    }
+
+    @Test
+    void aSharedMachinesRowIsMatchedOnItsOwnRecipe() {
+        // The read-out names a port on the second recipe: only that recipe's row lights.
+        final UpToReadout r = new UpToReadout(
+            CARD,
+            List.of(CARD, OTHER),
+            4,
+            2,
+            UpToReason.CLOGGED,
+            new PortRef(OTHER, 0, false),
+            List.of(),
+            null,
+            List.of());
+        assertEquals(CardFace.Tone.CLOGGED, CardFace.why(PinRule.UP_TO, r, OTHER, true, 0));
+        assertNull(CardFace.why(PinRule.UP_TO, r, CARD, true, 0));
+    }
+
+    @Test
+    void aLitRowsStripesAreItsToneOverTheSurface() {
+        // The website's reasonStripes: mixHex(tone, #23252A, 0.07) and 0.13.
+        final int[] clogged = CardFace.stripes(CardFace.Tone.CLOGGED);
+        assertEquals(0xFF2D2D38, clogged[0]);
+        assertEquals(0xFF363444, clogged[1]);
+        final int[] starved = CardFace.stripes(CardFace.Tone.STARVED);
+        assertEquals(0xFF302E2B, starved[0]);
+        assertEquals(0xFF3C362C, starved[1]);
+    }
+
+    @Test
+    void theZoomedOutBarFillsAsTheCardsBarDoes() {
+        final CardFace.Glance full = CardFace.glance(upTo(readout(24, 24, UpToReason.FULL, null, null), SIX));
+        assertEquals(CardFace.Tone.FULL, full.tone());
+        assertEquals(1, full.fill(), 1e-9);
+        assertEquals("FULL", full.word());
+        final CardFace.Glance starved = CardFace.glance(upTo(readout(24, 18, UpToReason.STARVED, OXYGEN, null), SIX));
+        assertEquals(0.75, starved.fill(), 1e-9);
+        assertEquals("STARVED", starved.word());
+        // A bottleneck fills against what the line wants.
+        final CardFace.Glance neck = CardFace.glance(upTo(readout(24, 24, UpToReason.BOTTLENECK, null, 32.0), SIX));
+        assertEquals(0.75, neck.fill(), 1e-9);
+        // No reason worked out: the plain tone, no word.
+        final CardFace.Glance plain = CardFace.glance(upTo(readout(4, 1, null, null, null), SIX));
+        assertEquals(CardFace.Tone.PLAIN, plain.tone());
+        assertEquals("", plain.word());
+        assertEquals(0.25, plain.fill(), 1e-9);
+        // FORCED IN and no bar have none.
+        assertNull(CardFace.glance(null));
+        assertNull(
+            CardFace.glance(
+                CardFace
+                    .foot(PinRule.EXACT, 4, null, List.of(new CardFace.Forced("Oxygen", "1/s")), PORTS, CARDS, SIX)));
+    }
+
+    @Test
+    void aCardInARingPulsesInTheRingsTone() {
+        final UUID third = UUID.randomUUID();
+        final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> loops = List.of(
+            new com.gtnhplanner.data.flowchart.balancer.UpToLoop(
+                com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP,
+                List.of(CARD, OTHER),
+                List.of(OXYGEN)),
+            new com.gtnhplanner.data.flowchart.balancer.UpToLoop(
+                com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK,
+                List.of(OTHER, third),
+                List.of()));
+        assertEquals(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP, CardFace.loopOf(loops, CARD));
+        assertEquals(
+            com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP,
+            CardFace.loopOf(loops, OTHER),
+            "in two rings: the first");
+        assertEquals(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK, CardFace.loopOf(loops, third));
+        assertNull(CardFace.loopOf(loops, UUID.randomUUID()));
+        assertNull(CardFace.loopOf(List.of(), CARD));
+        // Dead loop amber, clog lock purple; dimmed to 30% over the card's edge in the clock's grey half.
+        assertEquals(
+            0xFFE0A63A,
+            CardFace.loopFrame(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP, true));
+        assertEquals(
+            0xFFB49CF0,
+            CardFace.loopFrame(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK, true));
+        assertEquals(
+            0xFF68583B,
+            CardFace.loopFrame(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP, false));
     }
 
     // endregion

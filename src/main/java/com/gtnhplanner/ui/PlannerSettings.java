@@ -93,6 +93,19 @@ public final class PlannerSettings {
         set("board.zoomedOutNames", on);
     }
 
+    /**
+     * "Problem outlines": a card whose bar shows a problem draws its edge in the bar's colour (on the board, zoomed
+     * out,
+     * on the minimap and over the world). On by default.
+     */
+    public static boolean problemOutlines() {
+        return bool("board.problemOutlines", true);
+    }
+
+    public static void setProblemOutlines(final boolean on) {
+        set("board.problemOutlines", on);
+    }
+
     public static boolean minimap() {
         return bool("minimap.on", false);
     }

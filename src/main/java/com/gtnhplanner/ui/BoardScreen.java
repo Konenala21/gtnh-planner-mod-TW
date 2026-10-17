@@ -1232,6 +1232,8 @@ public final class BoardScreen extends ModularScreen {
                     "Set it and the machine runs so this " + (view.output() ? "output gives" : "input takes")
                         + " exactly that.")
                 .action(Tip.Input.LEFT, set != null ? "Change its rate" : "Set its rate")
+                .action(Tip.Input.WHEEL, "+1, Ctrl 10, Shift 100")
+                .action(Tip.Input.MIDDLE, "Clear")
                 .action(Tip.Input.DRAG, "Connect");
         }
         // Unwired and running: a forced input or output, told as the overview's are.

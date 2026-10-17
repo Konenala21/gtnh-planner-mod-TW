@@ -452,17 +452,35 @@ public final class Minimap {
         }
     }
 
+    /** The board's zoomed-out Up to bar, in card pixels. */
+    private static final int GLANCE_BAR = 36;
+
     /** Cards as the board draws them zoomed out: the machine big on its tinted tile, the count in a dark pill. */
     private static void drawCards(final List<PlanSnapshot.Card> cards, final float ox, final float oy, final float z,
         @Nullable final PlanSnapshot.Card focused) {
+        final boolean outlines = com.gtnhplanner.ui.PlannerSettings.problemOutlines();
         for (final PlanSnapshot.Card c : cards) {
             final float x = ox + c.x() * z, y = oy + c.y() * z, w = c.w() * z, h = c.h() * z;
             final int tint = c.tint() < 0 ? 0x8A93A6 : c.tint();
             // A card with a problem its bar shows wears its frame in the bar's colour, as on the board.
-            final int edge = com.gtnhplanner.ui.card.CardFace.edge(c.foot());
+            final int edge = com.gtnhplanner.ui.card.CardFace.edge(c.foot(), outlines);
             Hyb.rect(x, y, w, h, edge != 0 ? edge : Hyb.mix(tint, 0x262B34, 0.55f));
             Hyb.rect(x + 1, y + 1, w - 2, h - 2, Hyb.mix(tint, 0x07090C, 0.26f));
-            final float side = Math.min(w, h) - 6;
+            // An Up to card's bar along its foot, as the board's zoomed-out card: the track and the fill in the
+            // reason's tone, the board's 36 card pixels tall; the machine and the count stand above it.
+            final com.gtnhplanner.ui.card.CardFace.Foot foot = c.foot();
+            final float bar = foot != null && !foot.facts()
+                .forced() && GLANCE_BAR * z >= 1 ? GLANCE_BAR * z : 0;
+            if (bar > 0) {
+                Hyb.rect(x, y + h - bar, w, bar, 0xFF17191D);
+                if (foot.share() > 0) Hyb.rect(
+                    x,
+                    y + h - bar,
+                    (float) (w * foot.share()),
+                    bar,
+                    Hyb.mix(foot.tone().colour, 0xFF17191D, 0.45f));
+            }
+            final float side = Math.min(w, h - bar) - 6;
             if (side >= 6 && inMap(x + w / 2f, y + h / 2f)) {
                 if (c.art() != null) {
                     final float s = Math.min(
@@ -478,12 +496,12 @@ public final class Minimap {
                         c.art()
                             .location(),
                         x + (w - pw) / 2f,
-                        y + (h - ph) / 2f,
+                        y + (h - bar - ph) / 2f,
                         pw,
                         ph);
                 } else if (c.machine() != null) {
                     final float s = Math.min(side, 32);
-                    Hyb.item(c.machine(), x + (w - s) / 2f, y + (h - s) / 2f, s, 0);
+                    Hyb.item(c.machine(), x + (w - s) / 2f, y + (h - bar - s) / 2f, s, 0);
                 }
             }
             if (!c.countless()) pill(
@@ -491,7 +509,7 @@ public final class Minimap {
                 x,
                 y,
                 w,
-                h,
+                h - bar,
                 // Gold for a count set exactly (what it shows is what you set); an Up to card shows what runs.
                 c.count() != null && c.count()
                     .rule() == com.gtnhplanner.data.flowchart.PinRule.EXACT ? Hyb.GOLD

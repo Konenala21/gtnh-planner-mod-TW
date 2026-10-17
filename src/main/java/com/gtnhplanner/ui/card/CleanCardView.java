@@ -82,27 +82,20 @@ public final class CleanCardView {
         final int h = height(c);
         Hyb.dropShadow(0, 0, W, h);
         if (ringed) Hyb.ring(-2, -2, W + 4, h + 4, 2, 0xC0000000 | Hyb.LIT & 0xFFFFFF);
-        CardPaint.surface(W, h, CardFace.edge(c.foot()));
+        CardPaint.surface(W, h, CardFace.edge(c.foot(), com.gtnhplanner.ui.PlannerSettings.problemOutlines()));
         head(c);
         CardPaint.hair(CardLayout.HEADER);
         final int top = CardLayout.RAILS_Y;
         final List<PlanSnapshot.Flow> ins = inputs(c);
-        for (int i = 0; i < ins.size(); i++) {
-            final int y = top + i * ROW;
-            CardPaint.portTile(false, y, false);
-            flow(ins.get(i), false, y, unit);
-        }
+        for (int i = 0; i < ins.size(); i++) flow(ins.get(i), false, top + i * ROW, unit);
         for (int i = 0; i < c.outputs()
-            .size(); i++) {
-            final int y = top + i * ROW;
-            CardPaint.portTile(true, y, false);
+            .size(); i++)
             flow(
                 c.outputs()
                     .get(i),
                 true,
-                y,
+                top + i * ROW,
                 unit);
-        }
         final int[] well = CardLayout.well(body(c));
         CardPaint.well(well);
         final int[] picture = CardLayout.picture(well);
@@ -133,9 +126,22 @@ public final class CleanCardView {
             .count(com.gtnhplanner.data.flowchart.PinRule.ANY, 0, c.machines(), null, false, c.crop(), false);
     }
 
+    /** A row's tile and words; the row an Up to card's reason names striped in its tone, its name in it. */
     private static void flow(final PlanSnapshot.Flow f, final boolean output, final int y, final Fmt.RateUnit unit) {
+        if (f.why() != null) CardPaint.whyTile(output, y, f.why());
+        else CardPaint.portTile(output, y, false);
         CardPaint.icon(f.item(), f.fluid(), f.power(), output, y, 0);
-        CardPaint.flowWords(f.perSecond(), f.power(), f.fluid() != null, f.name(), unit, output, y);
+        CardPaint.flowWords(
+            f.perSecond(),
+            f.power(),
+            f.fluid() != null,
+            f.name(),
+            unit,
+            output,
+            y,
+            false,
+            false,
+            f.why() != null ? f.why().colour : Hyb.MUTED);
     }
 
     /** The name large, left; the amps and tier chips, as the board's, right. */

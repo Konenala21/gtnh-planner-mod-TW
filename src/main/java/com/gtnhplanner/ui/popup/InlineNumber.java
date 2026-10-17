@@ -162,4 +162,27 @@ public final class InlineNumber {
             Hyb.rect(cx, y + 2, 1, h - 4, Hyb.INK);
         }
     }
+
+    /**
+     * What has been typed, in place of a label that keeps the size it had (a chip's): no box of its own, centred in
+     * {@code x, y, w, h} in {@code ink}, as large as the chip's label (1.5) where it fits, else plain, its tail kept
+     * when even that is too long; the selection behind it and the caret blinking.
+     */
+    public void drawText(final float x, final float w, final float y, final float h, final int ink) {
+        final float s = Hyb.width(draft) * 1.5f <= w ? 1.5f : 1f;
+        int from = 0;
+        while (from < draft.length() && Hyb.width(draft.substring(from)) * s > w) from++;
+        final String shown = draft.substring(from);
+        final float tw = Hyb.width(shown) * s, tx = x + (w - tw) / 2f, ty = y + (h - 7 * s) / 2f;
+        final int a = Math.max(0, Math.min(caret, anchor) - from), b = Math.max(0, Math.max(caret, anchor) - from);
+        if (a != b) {
+            final float sx = tx + Hyb.width(shown.substring(0, a)) * s, ex = tx + Hyb.width(shown.substring(0, b)) * s;
+            Hyb.rect(sx, y, ex - sx, h, 0x8035507A);
+        }
+        Hyb.text(shown, tx, ty, s, ink, false);
+        if ((System.currentTimeMillis() - since) % 1000 < 600) {
+            final float cx = tx + Hyb.width(shown.substring(0, Math.max(0, caret - from))) * s;
+            Hyb.rect(cx, y, 1, h, ink);
+        }
+    }
 }

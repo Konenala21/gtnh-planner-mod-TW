@@ -2716,7 +2716,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         session.select(id, false);
         float readable = ZOOMS[ZOOMS.length - 1];
         for (final float z : ZOOMS) {
-            if (z > RecipeCard.GLANCE_ZOOM * 1.4f) {
+            // The first step out of the glance view (0.66), as the old threshold times 1.4 gave.
+            if (z > RecipeCard.GLANCE_ZOOM) {
                 readable = z;
                 break;
             }
@@ -3531,14 +3532,16 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     }
 
     /**
-     * A middle-click that did not pan: on a drawer's rule or rate it clears the drawer back to "rate?", on a card's
-     * count or its rule word it goes back to Any, as on the website.
+     * A middle-click that did not pan clears what is set where it lands, as on the website: on a drawer's rule or rate
+     * the drawer goes back to "rate?", on a card's count or its rule word back to Any, on a port's rule key or rate box
+     * its rate goes. Each clear plays the unpin sound once; nothing sounds when nothing was set.
      */
     private void middleClick() {
         for (final DrawerCard d : drawers.values()) {
             final DrawerCard.Part part = d.partUnderMouse();
             if ((part == DrawerCard.Part.RULE || part == DrawerCard.Part.RATE) && d.model() != null) {
-                session.setDrawerRate(d.model().drawer, 0);
+                if (edit.editing(drawerEditKey(d.model().drawer.getId()))) edit.cancel();
+                if (d.model().rule != Drawer.Rule.ANY) session.setDrawerRate(d.model().drawer, 0);
                 return;
             }
         }

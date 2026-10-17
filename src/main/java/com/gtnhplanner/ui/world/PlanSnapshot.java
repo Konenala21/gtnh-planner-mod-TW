@@ -39,9 +39,18 @@ public record PlanSnapshot(Graph graph, String planName, long graphVersion, List
      */
     public record GroupBox(UUID id, float x, float y, float w, float h, int color, boolean collapsed) {}
 
-    /** What flows through a port or drawer, per second. */
+    /**
+     * What flows through a port or drawer, per second; {@code why}, the tone the row is lit in when an Up to card's
+     * reason names it (null for none).
+     */
     public record Flow(String name, @Nullable ItemStack item, @Nullable FluidStack fluid, boolean power,
-        double perSecond, String key) {}
+        double perSecond, String key, @Nullable com.gtnhplanner.ui.card.CardFace.Tone why) {
+
+        public Flow(final String name, @Nullable final ItemStack item, @Nullable final FluidStack fluid,
+            final boolean power, final double perSecond, final String key) {
+            this(name, item, fluid, power, perSecond, key, null);
+        }
+    }
 
     /**
      * A card (a shared machine is one, its recipes' flows together), at its place on the board.

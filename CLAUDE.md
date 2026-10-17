@@ -49,9 +49,12 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `setRule`, `pin`). The card's words are `ui/card/CardFace` (pure, tested): what runs big under the machine in its
   well, the rule word (its menu) and the set number in gold under it; every port a tile of one shape; along an Up to
   card's foot a bar with the solver's reason (`SolutionView.upTo`, read by `BoardSession.upTo`), an Exactly card's
-  FORCED IN, and a card with a problem there wears its frame in the bar's colour (`CardFace.edge`). The recipe's
-  circuit is a badge in the well's top left corner. `call upto` puts stand-in read-outs and drawer shortfalls on the
-  board.
+  FORCED IN, and a card with a problem there wears its frame in the bar's colour (`CardFace.edge`, the gear's Problem
+  outlines); the row its reason names is striped in the reason's tone (`CardFace.why`); a card in a dead loop or clog
+  lock (`SolutionView.upToLoops`, `BoardSession.loopOf`) wears a 2 px outline pulsing on the prompt clock; zoomed out
+  (from 0.65, `RecipeCard.GLANCE_ZOOM`) the face shows the bar along its foot (`CardFace.glance`). The recipe's
+  circuit is a badge in the well's top left corner. A middle click clears what is set under it (count, port rate,
+  drawer rate). `call upto` puts stand-in read-outs, drawer shortfalls and loops on the board.
 - AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
   machines running, never buying more to sell more), sell as far downstream as it can (spare goes on to every machine
   that takes it and is sold at the brick wall), then the least internal flow; machine steps in `ModelData.portSteps`,
@@ -236,9 +239,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   other places glow), and letting go there puts it back; no tips show while something is in hand (a port has one
   drawer at most: "Drawer already exists"). Every tooltip (board, overview, tabs, top bar, Library, the non-recipe
   picker) waits until the mouse has rested on its thing for 0.8 s (`Tip.Wait`); moving about on it keeps the wait,
-  leaving resets it. Tier chips everywhere (the card's header, the overview's machine lines, the non-recipe picker,
-  the Library, the power panel) are flat in the tier's colours with a black or white label and no shadow
-  (`RecipeCard.chip`, `Hyb.tierTag`); the card's label is sized to whole screen pixels at any zoom. The overview's
+  leaving resets it. Tier chips (the overview's machine lines, the non-recipe picker, the Library, the power panel)
+  are flat in the tier's colours with a black or white label and no shadow (`Hyb.tierTag`); the card's own tier and
+  amps chips are buttons in those colours (`RecipeCard.chip`: a 2 px raised bevel, turned over while held; amps are
+  typed into their chip); the card's label is sized to whole screen pixels at any zoom. The overview's
   machine lines take the wheel and a click on their count as the card's count does; trash leaves its outputs. A
   port set to a rate on its card with nothing wired to it is listed under its resource there, as a drawer is
   (`OverviewRail.PortPin`); a line nothing sets has a "~ Set" whose rate goes to its one open port, or to a drawer

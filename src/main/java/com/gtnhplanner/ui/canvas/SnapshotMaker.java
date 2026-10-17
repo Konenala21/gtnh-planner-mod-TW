@@ -43,8 +43,8 @@ final class SnapshotMaker {
                 builds += com.gtnhplanner.machines.game.CropCards.builds(s.node, s.machines);
                 eu += session.power(s);
                 made += s.madeEuPerTick();
-                for (final CardModel.PortView p : s.inputs) ins.add(flow(p));
-                for (final CardModel.PortView p : s.outputs) outs.add(flow(p));
+                for (final CardModel.PortView p : s.inputs) ins.add(flow(p, card.why(id, false, p.index())));
+                for (final CardModel.PortView p : s.outputs) outs.add(flow(p, card.why(id, true, p.index())));
             }
             final Node n = m.node;
             final StructureArt.Art art = StructureArt.forMachine(m.isPower() ? n.powerSource : m.machineName);
@@ -136,8 +136,9 @@ final class SnapshotMaker {
             groups);
     }
 
-    private static PlanSnapshot.Flow flow(final CardModel.PortView p) {
-        return new PlanSnapshot.Flow(p.name(), p.item(), p.fluid(), p.isPower(), p.perSecond(), p.key());
+    private static PlanSnapshot.Flow flow(final CardModel.PortView p,
+        @javax.annotation.Nullable final com.gtnhplanner.ui.card.CardFace.Tone why) {
+        return new PlanSnapshot.Flow(p.name(), p.item(), p.fluid(), p.isPower(), p.perSecond(), p.key(), why);
     }
 
     private static List<int[]> copyLinks(final List<int[]> links) {

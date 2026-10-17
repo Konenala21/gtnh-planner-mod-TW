@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 
 import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.balancer.PortRef;
+import com.gtnhplanner.data.flowchart.balancer.UpToLoop;
 import com.gtnhplanner.data.flowchart.balancer.UpToReadout;
 import com.gtnhplanner.data.flowchart.balancer.UpToReason;
 import com.gtnhplanner.ui.theme.Fmt;
@@ -111,9 +112,9 @@ public final class CardFace {
         FULL(0xFF5EE9B5),
         BOTTLENECK(0xFFF06262),
         STARVED(0xFFE0A63A),
-        CLOGGED(0xFF6FB2D6),
+        CLOGGED(0xFFB49CF0),
         UNUSED(0xFF8A8E97),
-        LIMITED(0xFFB49CF0),
+        LIMITED(0xFFF472B6),
         FORCED(0xFF94C3F3),
         PLAIN(0xFF9A9CA4);
 
@@ -141,10 +142,11 @@ public final class CardFace {
     /**
      * The bar along the foot: its tone, one word ("BOTTLENECK"; empty when the reason was not worked out), one plain
      * line shortened to fit beside them, the fraction the bar shows ("18.2 / 24"; empty for FORCED IN), the fill's
-     * width in the track, and a bottleneck's striped run-on ({@code ghostWidth} 0 for none).
+     * width in the track and its share of the bar (0 to 1), and a bottleneck's striped run-on ({@code ghostWidth} 0
+     * for none).
      */
-    public record Foot(Tone tone, String word, String say, String frac, int fill, int ghostLeft, int ghostWidth,
-        Facts facts) {
+    public record Foot(Tone tone, String word, String say, String frac, int fill, double share, int ghostLeft,
+        int ghostWidth, Facts facts) {
 
         public boolean ghost() {
             return ghostWidth > 0;
@@ -182,7 +184,8 @@ public final class CardFace {
             : null;
         // The bar ends at the count, or at what the line wants when that is more.
         final double end = wants != null ? wants : capacity;
-        final int fill = (int) Math.round(FOOT_TRACK * share(reached, end));
+        final double share = share(reached, end);
+        final int fill = (int) Math.round(FOOT_TRACK * share);
         final int ghostLeft = (int) Math.round(FOOT_TRACK * share(capacity, end));
         final int ghostWidth = wants != null ? FOOT_TRACK - ghostLeft : 0;
         final String frac = Fmt.machines(reached) + " / " + Fmt.machines(end);
@@ -222,6 +225,7 @@ public final class CardFace {
             fitLine(lines, room, width),
             frac,
             fill,
+            share,
             ghostLeft,
             ghostWidth,
             new Facts(reason, false, reached, capacity, wants, resource, tied, upstream, List.of()));
@@ -246,6 +250,7 @@ public final class CardFace {
             word,
             fitLine(lines, room, width),
             "",
+            0,
             0,
             0,
             0,
@@ -277,6 +282,91 @@ public final class CardFace {
             case FULL, PLAIN -> 0;
             default -> foot.tone().colour;
         };
+    }
+
+    /**
+     * As {@link #edge(Foot)}, with the gear's Problem outlines switch: off, every card keeps the normal edge (its bar,
+     * its lit row and a loop's outline still show).
+     */
+    public static int edge(@Nullable final Foot foot, final boolean outlines) {
+        return outlines ? edge(foot) : 0;
+    }
+
+    /**
+     * The tone a row is lit in when an Up to card's reason names it (the website's withReasonPorts): STARVED's short
+     * input, CLOGGED's or UNUSED's output, and the rows tied with it; null for every other row, and on a card that is
+     * not Up to or whose reason is FULL, BOTTLENECK or LIMITED. {@code node} is the row's recipe (a shared machine's
+     * section), {@code index} its port on that recipe.
+     */
+    @Nullable
+    public static Tone why(final PinRule rule, @Nullable final UpToReadout upTo, final UUID node, final boolean output,
+        final int index) {
+        if (rule != PinRule.UP_TO || upTo == null) return null;
+        final UpToReason reason = upTo.reason();
+        if (reason != UpToReason.STARVED && reason != UpToReason.CLOGGED && reason != UpToReason.UNUSED) return null;
+        if (names(upTo.port(), node, output, index)) return Tone.of(reason);
+        for (final PortRef p : upTo.tied()) if (names(p, node, output, index)) return Tone.of(reason);
+        return null;
+    }
+
+    private static boolean names(@Nullable final PortRef p, final UUID node, final boolean output, final int index) {
+        return p != null && p.input() != output
+            && p.portIndex() == index
+            && p.nodeId()
+                .equals(node);
+    }
+
+    /**
+     * A lit row's stripes, {body, stripe}: its tone mixed into the card's surface as a free end mixes its own (the
+     * website's reasonStripes: 7% and 13%), so each reason has its own.
+     */
+    public static int[] stripes(final Tone tone) {
+        return new int[] { mix(tone.colour, CardPaint.SURFACE, 0.07f), mix(tone.colour, CardPaint.SURFACE, 0.13f) };
+    }
+
+    /**
+     * The bar a zoomed-out card draws along its foot (the website's glance.ts): its tone, how full (0 to 1: what runs
+     * of the count, a bottleneck's of what the line wants, as the card's own bar) and the reason's word (empty when it
+     * was not worked out).
+     */
+    public record Glance(Tone tone, double fill, String word) {}
+
+    /** The zoomed-out bar of a card's foot bar; null without an Up to bar (Any, Exactly, FORCED IN). */
+    @Nullable
+    public static Glance glance(@Nullable final Foot foot) {
+        if (foot == null || foot.facts()
+            .forced()) return null;
+        return new Glance(foot.tone(), foot.share(), foot.word());
+    }
+
+    /** A dead loop wears STARVED's amber, a clog lock CLOGGED's purple. */
+    public static int loopTone(final UpToLoop.Kind kind) {
+        return kind == UpToLoop.Kind.DEAD_LOOP ? Tone.STARVED.colour : Tone.CLOGGED.colour;
+    }
+
+    /**
+     * The outline of a card in a ring: its tone in the bright half of the board's prompt clock, dimmed to 30% of it
+     * over the card's edge in the other.
+     */
+    public static int loopFrame(final UpToLoop.Kind kind, final boolean bright) {
+        return bright ? loopTone(kind) : mix(loopTone(kind), CardPaint.EDGE, 0.30f);
+    }
+
+    /** The ring a card is in (the first when it is in several), by its id; null for none. */
+    @Nullable
+    public static UpToLoop.Kind loopOf(final List<UpToLoop> loops, final UUID card) {
+        for (final UpToLoop loop : loops) if (loop.nodes()
+            .contains(card)) return loop.kind();
+        return null;
+    }
+
+    /** {@code a} at {@code share} over {@code b}, opaque: {@code Hyb.mix}, kept here so this class stays pure. */
+    static int mix(final int a, final int b, final float share) {
+        final float s = Math.max(0, Math.min(1, share));
+        final int r = Math.round((a >> 16 & 0xFF) * s + (b >> 16 & 0xFF) * (1 - s));
+        final int g = Math.round((a >> 8 & 0xFF) * s + (b >> 8 & 0xFF) * (1 - s));
+        final int bl = Math.round((a & 0xFF) * s + (b & 0xFF) * (1 - s));
+        return 0xFF000000 | r << 16 | g << 8 | bl;
     }
 
     /** The title of the bar's tip: how many run of how many. */

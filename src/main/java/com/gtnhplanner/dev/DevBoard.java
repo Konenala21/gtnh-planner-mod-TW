@@ -81,6 +81,22 @@ final class DevBoard {
                     face.run() + (face.pinned() ? " " + face.ruleWord() + " " + face.setText() : " " + face.note()));
                 final com.gtnhplanner.ui.card.CardFace.Foot foot = card.foot();
                 c.put("foot", foot == null ? null : foot.word() + " | " + foot.say() + " | " + foot.frac());
+                // The rows its reason lights, its ring, and the frame it wears.
+                final List<String> lit = new ArrayList<>();
+                for (final boolean output : new boolean[] { false, true })
+                    for (final CardModel.PortView p : output ? model.outputs : model.inputs) {
+                        final com.gtnhplanner.ui.card.CardFace.Tone why = card.why(model.node.id, output, p.index());
+                        if (why != null) lit.add((output ? "out" : "in") + p.index() + ":" + why.name());
+                    }
+                c.put("lit", lit);
+                final com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind loop = screen.session()
+                    .loopOf(card.nodeId);
+                c.put("loop", loop == null ? null : loop.name());
+                c.put(
+                    "edge",
+                    Integer.toHexString(
+                        com.gtnhplanner.ui.card.CardFace
+                            .edge(foot, com.gtnhplanner.ui.PlannerSettings.problemOutlines())));
             }
             // Where it is placed in the world: {dim, x, y, z}, then a facing and a structure size when set.
             c.put(
@@ -235,6 +251,7 @@ final class DevBoard {
     /** The stand-in read-outs and shortfalls {@link #upTo} has put on the board, kept so calls add up. */
     private static final Map<java.util.UUID, com.gtnhplanner.data.flowchart.balancer.UpToReadout> UP_TO = new LinkedHashMap<>();
     private static final List<com.gtnhplanner.data.flowchart.balancer.DrawerReadout.Shortfall> SHORT = new ArrayList<>();
+    private static final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> LOOPS = new ArrayList<>();
 
     /**
      * The Up to rule set up to look at before the solver reads cards out (docs/design/up-to.md): {@code card=N} (the
@@ -243,7 +260,8 @@ final class DevBoard {
      * {@code port=in0|out1}, {@code tied=in1,out0}, {@code wants=W} and {@code upstream=M,K} (cards) it shows that
      * read-out on the card in place of the solver's. {@code shortfall=D} (a drawer, the report's order) with
      * {@code target}, {@code reach}, {@code limit=N,M} (cards) and {@code limitDrawer=K} adds a drawer shortfall.
-     * {@code clear=1} takes every stand-in away.
+     * {@code loop=dead|clog} with {@code cards=N,M,K} and {@code ports=N:in0,M:out1} (each card's blaming ports) adds
+     * a dead loop or a clog lock in place of the solver's. {@code clear=1} takes every stand-in away.
      */
     static Map<String, Object> upTo(final Map<String, String> q) {
         final BoardScreen screen = screen();
@@ -252,8 +270,32 @@ final class DevBoard {
         if (q.containsKey("clear")) {
             UP_TO.clear();
             SHORT.clear();
+            LOOPS.clear();
             session.devUpTo(null, null);
+            session.devLoops(null);
             return Map.of("cleared", true);
+        }
+        if (q.containsKey("loop")) {
+            final List<java.util.UUID> members = new ArrayList<>();
+            for (final String s : q.getOrDefault("cards", "")
+                .split(",")) if (!s.isBlank()) members.add(card(Integer.parseInt(s.trim())).node.id);
+            final List<com.gtnhplanner.data.flowchart.balancer.PortRef> ports = new ArrayList<>();
+            for (final String s : q.getOrDefault("ports", "")
+                .split(",")) {
+                if (s.isBlank()) continue;
+                final String[] at = s.trim()
+                    .split(":");
+                ports.add(port(card(Integer.parseInt(at[0])), at[1]));
+            }
+            LOOPS.add(
+                new com.gtnhplanner.data.flowchart.balancer.UpToLoop(
+                    q.get("loop")
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .startsWith("dead") ? com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP
+                            : com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK,
+                    members,
+                    ports));
+            session.devLoops(LOOPS);
         }
         if (q.containsKey("combine")) {
             // Cards N,M on one machine, as the selection bar's Combine key does.
@@ -316,7 +358,7 @@ final class DevBoard {
                     0));
         }
         session.devUpTo(UP_TO.isEmpty() ? null : UP_TO, SHORT.isEmpty() ? null : SHORT);
-        return Map.of("readouts", UP_TO.size(), "shortfalls", SHORT.size());
+        return Map.of("readouts", UP_TO.size(), "shortfalls", SHORT.size(), "loops", LOOPS.size());
     }
 
     /** A card's port as the solver names it: {@code in0}, {@code out1} (on the card's own recipe). */

@@ -209,6 +209,11 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         null,
                         PlannerSettings::zoomedOutNames,
                         PlannerSettings::setZoomedOutNames),
+                    toggle(
+                        "Problem outlines",
+                        null,
+                        PlannerSettings::problemOutlines,
+                        PlannerSettings::setProblemOutlines).about("Draws a card's edge in its bar's colour."),
                     new Row(
                         "See-through",
                         null,
