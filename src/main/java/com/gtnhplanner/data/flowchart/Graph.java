@@ -405,6 +405,63 @@ public class Graph {
     }
 
     /**
+     * Takes a drawer off the plan as the board's delete does (the website's removeStorageAndHeal). A buffer with one
+     * maker or one user leaves its makers wired straight to its users; several of each, all from one card to one card,
+     * pair off in order; any other junction is a choice and heals nothing. A source or product on one port gives the
+     * rate it asked for (at least or exactly: at most is a cap) back to that port, on a card with no pin or rate of its
+     * own, so the card runs to it again.
+     */
+    public void removeDrawerAndHeal(final UUID id) {
+        final Drawer drawer = drawers.get(id);
+        if (drawer == null) return;
+        final List<Drawer.Held> held = drawer.held();
+        final List<Drawer.Link> makers = new ArrayList<>(), users = new ArrayList<>();
+        for (final Drawer.Held h : held) (h.input() ? users : makers).add(h.link());
+        removeDrawer(id);
+        if (!makers.isEmpty() && !users.isEmpty()) {
+            final List<Drawer.Link[]> pairs = new ArrayList<>();
+            if (makers.size() == 1 || users.size() == 1) {
+                for (final Drawer.Link m : makers)
+                    for (final Drawer.Link u : users) pairs.add(new Drawer.Link[] { m, u });
+            } else if (oneCard(makers) && oneCard(users)) {
+                for (int i = 0; i < Math.min(makers.size(), users.size()); i++)
+                    pairs.add(new Drawer.Link[] { makers.get(i), users.get(i) });
+            }
+            for (final Drawer.Link[] p : pairs) {
+                final UUID from = p[0].nodeId(), to = p[1].nodeId();
+                if (nodes.containsKey(from) && nodes.containsKey(to) && !from.equals(to))
+                    addEdge(new Edge(UUID.randomUUID(), from, to, p[0].portIndex(), p[1].portIndex()));
+            }
+            return;
+        }
+        final Drawer.Rule rule = drawer.effectiveRule();
+        if (held.size() != 1 || drawer.getKind() == Drawer.Kind.BUFFER
+            || (rule != Drawer.Rule.AT_LEAST && rule != Drawer.Rule.EXACTLY)
+            || !(drawer.getRate() > 0)) return;
+        final Drawer.Held port = held.get(0);
+        final Node node = nodes.get(
+            port.link()
+                .nodeId());
+        if (node == null || node.isMachineCountFixed()
+            || !node.targetOutputRates.isEmpty()
+            || !node.targetInputRates.isEmpty()) return;
+        (port.input() ? node.targetInputRates : node.targetOutputRates).put(
+            port.link()
+                .portIndex(),
+            drawer.getRate());
+        bumpVersion();
+    }
+
+    private static boolean oneCard(final List<Drawer.Link> links) {
+        for (final Drawer.Link l : links) if (!l.nodeId()
+            .equals(
+                links.get(0)
+                    .nodeId()))
+            return false;
+        return true;
+    }
+
+    /**
      * Attaches a node port to a drawer: an input port for a source, an output port otherwise. A port
      * belongs to at most one drawer per direction, so any other drawer holding it lets go. Returns
      * false (and changes nothing) when there is no such drawer.

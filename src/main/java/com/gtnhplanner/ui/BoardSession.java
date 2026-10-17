@@ -948,8 +948,9 @@ public final class BoardSession {
         Sfx.cut(drawer.getResourceKey());
     }
 
+    /** Deletes a drawer, healing its wires or giving its rate back to its port ({@link Graph#removeDrawerAndHeal}). */
     public void deleteDrawer(final Drawer drawer) {
-        edit(() -> graph.removeDrawer(drawer.getId()));
+        edit(() -> graph.removeDrawerAndHeal(drawer.getId()));
         Sfx.REMOVE.play();
     }
 

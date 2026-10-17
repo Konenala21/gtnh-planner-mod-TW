@@ -108,4 +108,90 @@ class BufferDrawerModelTest {
         assertEquals(Rule.AT_MOST, again.getRule());
         assertEquals(3, again.getRate(), 1e-9);
     }
+
+    /** Cards for the delete tests, with the ids above. */
+    private static Graph cards(final UUID... ids) {
+        com.gtnhplanner.harness.GtnhFlowLoader.ensureDefaultMachineProfile();
+        final Graph g = new Graph("t");
+        for (final UUID id : ids) g.addNode(new com.gtnhplanner.data.flowchart.Node(id, 0, 0));
+        return g;
+    }
+
+    private static List<String> wires(final Graph g) {
+        final List<String> out = new java.util.ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.Edge e : g.getEdges()) out.add(
+            (e.sourceNodeId.equals(MAKER) ? "maker" : "?") + ":"
+                + e.sourceOutputIndex
+                + ">"
+                + (e.targetNodeId.equals(USER) ? "user" : e.targetNodeId.equals(OTHER) ? "other" : "?")
+                + ":"
+                + e.targetInputIndex);
+        java.util.Collections.sort(out);
+        return out;
+    }
+
+    @Test
+    void aDeletedBufferWiresItsOneMakerToEachUser() {
+        final Graph g = cards(MAKER, USER, OTHER);
+        final Drawer d = new Drawer(Kind.PRODUCT, "item:dust");
+        g.addDrawer(d);
+        g.linkDrawerPort(d.getId(), new Link(MAKER, 0), false);
+        g.linkDrawerPort(d.getId(), new Link(USER, 1), true);
+        g.linkDrawerPort(d.getId(), new Link(OTHER, 0), true);
+        g.removeDrawerAndHeal(d.getId());
+        assertTrue(
+            g.getDrawers()
+                .isEmpty());
+        assertEquals(List.of("maker:0>other:0", "maker:0>user:1"), wires(g));
+    }
+
+    @Test
+    void aDeletedJunctionIsAChoiceAndHealsNothing() {
+        final UUID maker2 = UUID.nameUUIDFromBytes("maker2".getBytes());
+        final Graph g = cards(MAKER, maker2, USER, OTHER);
+        final Drawer d = new Drawer(Kind.PRODUCT, "item:dust");
+        g.addDrawer(d);
+        g.linkDrawerPort(d.getId(), new Link(MAKER, 0), false);
+        g.linkDrawerPort(d.getId(), new Link(maker2, 0), false);
+        g.linkDrawerPort(d.getId(), new Link(USER, 0), true);
+        g.linkDrawerPort(d.getId(), new Link(OTHER, 0), true);
+        g.removeDrawerAndHeal(d.getId());
+        assertTrue(
+            g.getEdges()
+                .isEmpty());
+    }
+
+    @Test
+    void aDeletedDrawerGivesTheRateItAskedForBackToItsPort() {
+        final Graph g = cards(MAKER, USER);
+        final Drawer product = new Drawer(Kind.PRODUCT, "item:dust"), source = new Drawer(Kind.SOURCE, "item:ore");
+        product.setTarget(Rule.EXACTLY, 5000);
+        source.setTarget(Rule.AT_LEAST, 3);
+        g.addDrawer(product);
+        g.addDrawer(source);
+        g.linkDrawerPort(product.getId(), new Link(MAKER, 0), false);
+        g.linkDrawerPort(source.getId(), new Link(USER, 1), true);
+        g.removeDrawerAndHeal(product.getId());
+        g.removeDrawerAndHeal(source.getId());
+        assertEquals(java.util.Map.of(0, 5000.0), g.nodes.get(MAKER).targetOutputRates);
+        assertEquals(java.util.Map.of(1, 3.0), g.nodes.get(USER).targetInputRates);
+    }
+
+    @Test
+    void aCapOrAPinnedCardTakesNothingBack() {
+        final Graph g = cards(MAKER, USER);
+        final Drawer cap = new Drawer(Kind.PRODUCT, "item:dust"), set = new Drawer(Kind.PRODUCT, "item:dust");
+        cap.setTarget(Rule.AT_MOST, 4);
+        set.setTarget(Rule.EXACTLY, 4);
+        g.addDrawer(cap);
+        g.addDrawer(set);
+        g.linkDrawerPort(cap.getId(), new Link(MAKER, 0), false);
+        g.linkDrawerPort(set.getId(), new Link(USER, 0), false);
+        g.nodes.get(USER)
+            .setMachineCountFixed(true);
+        g.removeDrawerAndHeal(cap.getId());
+        g.removeDrawerAndHeal(set.getId());
+        assertTrue(g.nodes.get(MAKER).targetOutputRates.isEmpty());
+        assertTrue(g.nodes.get(USER).targetOutputRates.isEmpty());
+    }
 }

@@ -176,11 +176,15 @@ public final class GroupEdits {
         Sfx.REMOVE.play();
     }
 
-    /** Takes cards, drawers, notes and groups off the plan (a group's contents are the caller's to list). */
+    /**
+     * Takes cards, drawers, notes and groups off the plan (a group's contents are the caller's to list). Drawers go
+     * first, each healing as its own delete does ({@link Graph#removeDrawerAndHeal}): a wire healed onto a card that is
+     * also going goes with it.
+     */
     public static void removeAll(final Graph g, final Collection<UUID> ids) {
+        for (final UUID id : ids) if (g.drawers.containsKey(id)) g.removeDrawerAndHeal(id);
         for (final UUID id : ids) {
             if (g.nodes.containsKey(id)) g.removeNode(id);
-            else if (g.drawers.containsKey(id)) g.removeDrawer(id);
             else if (g.notes.containsKey(id)) g.notes.remove(id);
             else g.boardGroups.remove(id);
         }
