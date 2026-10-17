@@ -529,6 +529,10 @@ public final class DevHarness {
                     DevBoard.pin(Integer.parseInt(q.get("card")), Double.parseDouble(q.getOrDefault("count", "0")));
                     return ok();
                 });
+            case "/upto":
+                // The Up to rule set up to look at: a card's rule, a stand-in read-out on it, a drawer shortfall
+                // (DevBoard.upTo has the parameters); clear=1 takes the stand-ins away.
+                return onClient(() -> DevBoard.upTo(q));
             case "/view":
                 return onClient(() -> {
                     DevBoard.view(

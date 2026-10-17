@@ -50,6 +50,15 @@ final class SnapshotMaker {
             final StructureArt.Art art = StructureArt.forMachine(m.isPower() ? n.powerSource : m.machineName);
             final int tint = art != null ? art.tint()
                 : m.machineStack != null ? com.gtnhplanner.client.IngredientColors.itemColor(m.machineStack) : -1;
+            // What runs and what is set, as the board's card says them (an Up to card builds what runs).
+            final com.gtnhplanner.ui.card.CardFace.Count count = com.gtnhplanner.power.FluidTank.is(n) ? null
+                : card.face();
+            final boolean upTo = count != null && count.rule() == com.gtnhplanner.data.flowchart.PinRule.UP_TO
+                && session.upTo(card.nodeId) != null;
+            if (upTo) {
+                machines = count.value();
+                builds = card.builds();
+            }
             outCards.add(
                 new PlanSnapshot.Card(
                     card.nodeId,
@@ -63,7 +72,7 @@ final class SnapshotMaker {
                     art,
                     tint,
                     machines,
-                    m.pinned,
+                    session.rule(n) != com.gtnhplanner.data.flowchart.PinRule.ANY,
                     ins,
                     outs,
                     eu,
@@ -76,7 +85,9 @@ final class SnapshotMaker {
                     CardModel.structureNeeds(models),
                     builds,
                     com.gtnhplanner.machines.game.CropCards.isCrop(n),
-                    com.gtnhplanner.power.FluidTank.is(n)));
+                    com.gtnhplanner.power.FluidTank.is(n),
+                    count,
+                    card.foot()));
         }
         final List<PlanSnapshot.Box> boxes = new ArrayList<>();
         for (final Drawer d : graph.getDrawers()) {

@@ -490,7 +490,10 @@ public final class Minimap {
                 y,
                 w,
                 h,
-                c.pinned() ? Hyb.GOLD : c.machines() <= 0 ? Hyb.MUTED : Hyb.INK);
+                // Gold for a count set exactly (what it shows is what you set); an Up to card shows what runs.
+                c.count() != null && c.count()
+                    .rule() == com.gtnhplanner.data.flowchart.PinRule.EXACT ? Hyb.GOLD
+                        : c.machines() <= 0 ? Hyb.MUTED : Hyb.INK);
             if (c == focused) Hyb.ring(x - 1, y - 1, w + 2, h + 2, 1, 0xC0000000 | Hyb.LIT & 0xFFFFFF);
             LABELS.card(c.name(), c.x(), c.y(), c.w(), c.h());
         }

@@ -120,7 +120,9 @@ class CropMachineCountTest {
             StructureGhosts.Needs.NONE,
             builds,
             crop,
-            false);
+            false,
+            null,
+            null);
     }
 
     @Test

@@ -321,6 +321,20 @@ final class Script {
     }
 
     /**
+     * A card's set count made Exactly (docs/design/up-to.md): its rule word under the machine, then Exactly in the
+     * word's menu. An Up to count makes no forced flow, and the steps after this show forced flows.
+     */
+    private static Beat exactly(final Beat b, final Predicate<Node> which) {
+        // Only on a count that was set: with none there is no rule word to click.
+        return b.when(
+            () -> model(which) != null && model(which).pinned,
+            Steps.seq(
+                Steps.clickOpens(card(which, RecipeCard.Part.RULE), 0),
+                Steps.click(Targets.popupRow("Exactly")),
+                Steps.until(() -> model(which) != null && model(which).node.isMachineCountExact(), 3000)));
+    }
+
+    /**
      * Looks a thing up in NEI from the board (searched, hovered, R), turns to a recipe of it and adds that to the plan
      * open now with its plan button, through the plan menu and, when it asks, the machine menu.
      */
@@ -666,20 +680,22 @@ final class Script {
                 card(ELECTROLYZER, RecipeCard.Part.BODY),
                 "Click an input to find *what makes it*. A recipe added from there comes in *already wired*.");
 
-        // One electrolyzer pinned: it cannot keep up with the acid set, so the rest of the oxygen has to come in.
-        setNumber(beat(out), card(ELECTROLYZER, RecipeCard.Part.MACHINES), "1")
-            .until(() -> model(ELECTROLYZER) != null && model(ELECTROLYZER).pinned, 3000)
-            .until(Script::solved, 3000)
-            .until(
-                () -> Targets.forcedRow(ACID, false, "Oxygen")
-                    .rect() != null,
-                4000)
-            // The reactor whole on the board, its Forced row in sight.
-            .until(() -> card(ACID, RecipeCard.Part.BODY).rect() != null, 2000)
-            .rest()
-            .note(
-                Targets.forcedRow(ACID, false, "Oxygen"),
-                "The acid is set and one electrolyzer is pinned, but it can't keep up. The plan has to bring in the rest of the oxygen anyway: a *forced input*.");
+        // One electrolyzer pinned exactly: it cannot keep up with the acid set, so the rest of the oxygen has to come
+        // in (an Up to count would slow the reactor instead).
+        exactly(
+            setNumber(beat(out), card(ELECTROLYZER, RecipeCard.Part.MACHINES), "1")
+                .until(() -> model(ELECTROLYZER) != null && model(ELECTROLYZER).pinned, 3000),
+            ELECTROLYZER).until(Script::solved, 3000)
+                .until(
+                    () -> Targets.forcedRow(ACID, false, "Oxygen")
+                        .rect() != null,
+                    4000)
+                // The reactor whole on the board, its Forced row in sight.
+                .until(() -> card(ACID, RecipeCard.Part.BODY).rect() != null, 2000)
+                .rest()
+                .note(
+                    Targets.forcedRow(ACID, false, "Oxygen"),
+                    "The acid is set and one electrolyzer is pinned *exactly*, but it can't keep up. The plan has to bring in the rest of the oxygen anyway: a *forced input*.");
 
         // Right-click an output: NEI's page of what uses it, and the recipe added from there lands wired in. The mixer
         // takes the acid, so the reactor runs free between a pinned electrolyzer and a pinned mixer.
@@ -703,16 +719,19 @@ final class Script {
         // The mixer pinned low and the electrolyzer high: the oxygen is more than the mixer's acid needs, so something
         // has to leave, as oxygen at the electrolyzer or as acid at the reactor. The slider shares it between them.
         final Beat split = beat(out);
-        setNumber(split, card(MIXER, RecipeCard.Part.MACHINES), "1").until(Script::solved, 3000)
-            // The cards show the new answer a frame or two after it comes: the reactor's oxygen is read from them.
-            .pause(600);
+        exactly(
+            setNumber(split, card(MIXER, RecipeCard.Part.MACHINES), "1")
+                .until(() -> model(MIXER) != null && model(MIXER).pinned, 3000),
+            MIXER).until(Script::solved, 3000)
+                // The cards show the new answer a frame or two after it comes: the reactor's oxygen is read from them.
+                .pause(600);
         setNumber(split, card(ELECTROLYZER, RecipeCard.Part.MACHINES), Script::tooManyElectrolyzers)
             .until(() -> rail("spare:Oxygen").rect() != null, 4000)
             .until(Script::solved, 3000)
             .rest()
             .note(
                 rail("spare:Oxygen"),
-                "Electrolyzer pinned high, mixer pinned low: more oxygen is made than used. The excess leaves the plan as a *forced output*.");
+                "Electrolyzer pinned *exactly* high, mixer pinned *exactly* low: more oxygen is made than used. The excess leaves the plan as a *forced output*.");
 
         // The slider, slowly to each end and back to the middle: all of the excess leaving as oxygen, then all of it
         // as acid (the reactor running harder), then half and half.

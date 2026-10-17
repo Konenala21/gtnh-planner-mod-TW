@@ -68,6 +68,20 @@ final class DevBoard {
             c.put("recipeHeat", model.recipeHeat);
             c.put("machines", model.machines);
             c.put("pinned", model.pinned);
+            c.put(
+                "rule",
+                screen.session()
+                    .rule(model.node)
+                    .name());
+            if (card != null && card.model() != null) {
+                // What the card says under its machine and along its foot (docs/design/up-to.md).
+                final com.gtnhplanner.ui.card.CardFace.Count face = card.face();
+                c.put(
+                    "count",
+                    face.run() + (face.pinned() ? " " + face.ruleWord() + " " + face.setText() : " " + face.note()));
+                final com.gtnhplanner.ui.card.CardFace.Foot foot = card.foot();
+                c.put("foot", foot == null ? null : foot.word() + " | " + foot.say() + " | " + foot.frac());
+            }
             // Where it is placed in the world: {dim, x, y, z}, then a facing and a structure size when set.
             c.put(
                 "worldLinks",
@@ -203,18 +217,115 @@ final class DevBoard {
 
     /** Pins card {@code index} (in the report's order) at {@code count} machines, or unpins it at 0. */
     static void pin(final int index, final double count) {
+        screen().session()
+            .pin(card(index).node, count);
+    }
+
+    /** Card {@code index} in the report's order. */
+    private static CardModel card(final int index) {
         final BoardScreen screen = screen();
         if (screen == null) throw new IllegalStateException("the planner is not open");
         int i = 0;
         for (final CardModel model : screen.session()
             .models()
-            .values()) {
-            if (i++ != index) continue;
-            screen.session()
-                .pin(model.node, count);
-            return;
-        }
+            .values()) if (i++ == index) return model;
         throw new IllegalArgumentException("no card " + index);
+    }
+
+    /** The stand-in read-outs and shortfalls {@link #upTo} has put on the board, kept so calls add up. */
+    private static final Map<java.util.UUID, com.gtnhplanner.data.flowchart.balancer.UpToReadout> UP_TO = new LinkedHashMap<>();
+    private static final List<com.gtnhplanner.data.flowchart.balancer.DrawerReadout.Shortfall> SHORT = new ArrayList<>();
+
+    /**
+     * The Up to rule set up to look at before the solver reads cards out (docs/design/up-to.md): {@code card=N} (the
+     * report's order) with {@code rule=any|upto|exact} and {@code count=C} sets its rule through the board; with
+     * {@code reason=FULL|BOTTLENECK|STARVED|CLOGGED|UNUSED|LIMITED|none}, {@code reached=R}, {@code capacity=C},
+     * {@code port=in0|out1}, {@code tied=in1,out0}, {@code wants=W} and {@code upstream=M,K} (cards) it shows that
+     * read-out on the card in place of the solver's. {@code shortfall=D} (a drawer, the report's order) with
+     * {@code target}, {@code reach}, {@code limit=N,M} (cards) and {@code limitDrawer=K} adds a drawer shortfall.
+     * {@code clear=1} takes every stand-in away.
+     */
+    static Map<String, Object> upTo(final Map<String, String> q) {
+        final BoardScreen screen = screen();
+        if (screen == null) throw new IllegalStateException("the planner is not open");
+        final com.gtnhplanner.ui.BoardSession session = screen.session();
+        if (q.containsKey("clear")) {
+            UP_TO.clear();
+            SHORT.clear();
+            session.devUpTo(null, null);
+            return Map.of("cleared", true);
+        }
+        if (q.containsKey("combine")) {
+            // Cards N,M on one machine, as the selection bar's Combine key does.
+            final List<java.util.UUID> ids = new ArrayList<>();
+            for (final String s : q.get("combine")
+                .split(",")) ids.add(card(Integer.parseInt(s.trim())).node.id);
+            session.combine(ids);
+        }
+        if (q.containsKey("card") && q.containsKey("rule")) {
+            final CardModel m = card(Integer.parseInt(q.get("card")));
+            final com.gtnhplanner.data.flowchart.PinRule rule = switch (q.get("rule")
+                .toLowerCase(java.util.Locale.ROOT)) {
+                case "exact", "exactly" -> com.gtnhplanner.data.flowchart.PinRule.EXACT;
+                case "upto", "up_to" -> com.gtnhplanner.data.flowchart.PinRule.UP_TO;
+                default -> com.gtnhplanner.data.flowchart.PinRule.ANY;
+            };
+            session.setRule(m.node, rule, Double.parseDouble(q.getOrDefault("count", "1")));
+        }
+        if (q.containsKey("card") && q.containsKey("reason")) {
+            final CardModel m = card(Integer.parseInt(q.get("card")));
+            final List<java.util.UUID> machines = session.sectionsOf(m.node.id);
+            final String why = q.get("reason")
+                .toUpperCase(java.util.Locale.ROOT);
+            final List<java.util.UUID> upstream = new ArrayList<>();
+            for (final String s : q.getOrDefault("upstream", "")
+                .split(",")) if (!s.isBlank()) upstream.add(card(Integer.parseInt(s.trim())).node.id);
+            final List<com.gtnhplanner.data.flowchart.balancer.PortRef> tied = new ArrayList<>();
+            for (final String s : q.getOrDefault("tied", "")
+                .split(",")) if (!s.isBlank()) tied.add(port(m, s.trim()));
+            final com.gtnhplanner.data.flowchart.balancer.UpToReadout r = new com.gtnhplanner.data.flowchart.balancer.UpToReadout(
+                machines.get(0),
+                machines,
+                Double.parseDouble(q.getOrDefault("capacity", String.valueOf(session.setCount(m.node)))),
+                Double.parseDouble(q.getOrDefault("reached", "0")),
+                "NONE".equals(why) ? null : com.gtnhplanner.data.flowchart.balancer.UpToReason.valueOf(why),
+                q.containsKey("port") ? port(m, q.get("port")) : null,
+                tied,
+                q.containsKey("wants") ? Double.valueOf(q.get("wants")) : null,
+                upstream);
+            for (final java.util.UUID id : machines) UP_TO.put(id, r);
+        }
+        if (q.containsKey("shortfall")) {
+            final List<DrawerModel> drawers = new ArrayList<>(
+                session.drawerModels()
+                    .values());
+            final DrawerModel d = drawers.get(Integer.parseInt(q.get("shortfall")));
+            final List<java.util.UUID> limits = new ArrayList<>(), limitDrawers = new ArrayList<>();
+            for (final String s : q.getOrDefault("limit", "")
+                .split(",")) if (!s.isBlank()) limits.add(card(Integer.parseInt(s.trim())).node.id);
+            for (final String s : q.getOrDefault("limitDrawer", "")
+                .split(",")) if (!s.isBlank()) limitDrawers.add(drawers.get(Integer.parseInt(s.trim())).drawer.getId());
+            SHORT.add(
+                new com.gtnhplanner.data.flowchart.balancer.DrawerReadout.Shortfall(
+                    d.drawer.getId(),
+                    d.rule,
+                    Double.parseDouble(q.getOrDefault("target", "2")),
+                    Double.parseDouble(q.getOrDefault("reach", "1")),
+                    limits,
+                    limitDrawers,
+                    0));
+        }
+        session.devUpTo(UP_TO.isEmpty() ? null : UP_TO, SHORT.isEmpty() ? null : SHORT);
+        return Map.of("readouts", UP_TO.size(), "shortfalls", SHORT.size());
+    }
+
+    /** A card's port as the solver names it: {@code in0}, {@code out1} (on the card's own recipe). */
+    private static com.gtnhplanner.data.flowchart.balancer.PortRef port(final CardModel m, final String s) {
+        final boolean input = s.startsWith("in");
+        return new com.gtnhplanner.data.flowchart.balancer.PortRef(
+            m.node.id,
+            Integer.parseInt(s.substring(input ? 2 : 3)),
+            input);
     }
 
     /**

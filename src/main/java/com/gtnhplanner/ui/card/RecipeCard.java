@@ -48,6 +48,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         TIER,
         /** The gear key, which opens the card's settings. */
         SETTINGS,
+        /** The count's rule word under the machine ("up to", "exactly"): a click opens Any, Up to, Exactly. */
+        RULE,
+        /** The bar along the foot: an Up to card's reason, an Exactly card's FORCED IN. */
+        FOOT,
+        /** The count under the machine: what runs and what is set. */
         MACHINES,
         POWER,
         CIRCUIT,
@@ -174,7 +179,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         sections = ids;
         models = next;
         model = next.get(0);
-        final CardLayout nextLayout = new CardLayout(next, session.graph());
+        foot = buildFoot(session.rateUnit());
+        footUnit = session.rateUnit();
+        final CardLayout nextLayout = new CardLayout(next, session.graph(), foot != null);
         if (layout == null || layout.height != nextLayout.height || !nextLayout.sameRows(layout)) {
             layout = nextLayout;
             size(CardLayout.W, layout.height);
@@ -248,11 +255,234 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return total;
     }
 
-    /** Whether the machine count is pinned: the node's, or a shared machine's own. */
+    /** Whether a machine count is set (Up to or Exactly): the node's, or a shared machine's own. */
     private boolean pinned() {
-        final com.gtnhplanner.data.flowchart.MachineGroup g = session.sharedOf(nodeId);
-        return g != null ? g.isPinned() : model.pinned;
+        return session.rule(model.node) != com.gtnhplanner.data.flowchart.PinRule.ANY;
     }
+
+    // region The count's rule and the bar along the foot (docs/design/up-to.md)
+
+    /** The bar along the foot as last built, and the rate unit its words were built in. */
+    private CardFace.Foot foot;
+    private Fmt.RateUnit footUnit;
+
+    /** A custom rate card: its count is always Exactly (its dial), so its rule word has no menu. */
+    private boolean ruleFixed() {
+        return model != null && com.gtnhplanner.power.CustomRate.is(model.node);
+    }
+
+    /**
+     * The count under the machine: what runs (an Up to card's read-out, else the solved count) and what is set; a
+     * count being wheeled shows at once, before the solve catches up.
+     */
+    public CardFace.Count face() {
+        final com.gtnhplanner.data.flowchart.balancer.UpToReadout readout = session.upTo(nodeId);
+        final boolean unset = session.unset(nodeId);
+        // Asked every frame it is drawn: kept until the model, the wheel, the read-out or the prompt changes.
+        if (face != null && faceFor == model
+            && facePending == (pendingUnpin ? -1 : pendingCount)
+            && faceReadout == readout
+            && faceUnset == unset) return face;
+        com.gtnhplanner.data.flowchart.PinRule rule = session.rule(model.node);
+        double set = session.setCount(model.node);
+        if (pendingUnpin) {
+            rule = com.gtnhplanner.data.flowchart.PinRule.ANY;
+            set = 0;
+        } else if (pendingCount > 0) {
+            rule = CardFace.ruleForCount(rule, ruleFixed());
+            set = pendingCount;
+        }
+        face = CardFace.count(rule, set, machinesTotal(), readout, unset, crop(), ruleFixed());
+        faceFor = model;
+        facePending = pendingUnpin ? -1 : pendingCount;
+        faceReadout = readout;
+        faceUnset = unset;
+        return face;
+    }
+
+    /** The count as last worked out, and what it was worked out from. */
+    private CardFace.Count face;
+    private CardModel faceFor;
+    private long facePending;
+    private com.gtnhplanner.data.flowchart.balancer.UpToReadout faceReadout;
+    private boolean faceUnset;
+
+    /** The bar along the foot, in the board's rate unit; null when the card has nothing to say there. */
+    public CardFace.Foot foot() {
+        if (model == null) return null;
+        if (footUnit != session.rateUnit()) {
+            foot = buildFoot(session.rateUnit());
+            footUnit = session.rateUnit();
+        }
+        return foot;
+    }
+
+    /**
+     * An Up to card's bar from its read-out, or an Exactly card's FORCED IN from the inputs the plan forces in at its
+     * rows (every recipe's on a shared machine).
+     */
+    private CardFace.Foot buildFoot(final Fmt.RateUnit unit) {
+        if (model == null || countless()) return null;
+        final List<CardFace.Forced> forced = new ArrayList<>();
+        for (final CardModel m : models) for (final CardModel.PortView p : m.inputs) if (p.hasExtra() && !p.isPower())
+            forced.add(new CardFace.Forced(p.name(), Fmt.rate(p.extra(), unit, p.isFluid())));
+        return CardFace.foot(
+            session.rule(model.node),
+            session.setCount(model.node),
+            session.upTo(nodeId),
+            forced,
+            this::portName,
+            id -> {
+                final CardModel m = session.model(id);
+                return m == null ? null : m.machineName;
+            },
+            Hyb::width);
+    }
+
+    /** The name of one of the card's rows, by the solver's port. */
+    private String portName(final com.gtnhplanner.data.flowchart.balancer.PortRef ref) {
+        for (final CardModel m : models) {
+            if (!m.node.id.equals(ref.nodeId())) continue;
+            for (final CardModel.PortView p : ref.input() ? m.inputs : m.outputs)
+                if (p.index() == ref.portIndex()) return p.name();
+        }
+        return null;
+    }
+
+    /**
+     * What the card's machines build: what runs (an Up to card's read-out) or the solved count; a crop's harvesters.
+     */
+    public double builds() {
+        final com.gtnhplanner.data.flowchart.balancer.UpToReadout r = session.upTo(nodeId);
+        if (r != null && !shared() && session.rule(model.node) == com.gtnhplanner.data.flowchart.PinRule.UP_TO)
+            return com.gtnhplanner.machines.game.CropCards.builds(model.node, Math.max(0, r.reached()));
+        return buildsTotal();
+    }
+
+    /**
+     * A middle-click that did not pan the board (the board hands it on, as the screen takes the middle press for its
+     * pan): on the count or its rule word, back to Any. False when it was not on either.
+     */
+    public boolean middleClick() {
+        final Part part = partUnderMouse();
+        if (part != Part.MACHINES && part != Part.RULE) return false;
+        if (pinned()) session.pin(model.node, 0);
+        return true;
+    }
+
+    /** The rule word's menu: Any, Up to, Exactly, the one in use ticked (the website's CountRuleMenu). */
+    private void openRule() {
+        final CardFace.Count c = face();
+        if (c.ruleFixed()) return;
+        final int[] r = partRect(Part.RULE);
+        if (r == null) return;
+        final Node node = model.node;
+        final List<PickList.Entry> rows = new ArrayList<>();
+        for (final com.gtnhplanner.data.flowchart.PinRule rule : com.gtnhplanner.data.flowchart.PinRule.values())
+            rows.add(new PickList.Entry(null, rule.label, switch (rule) {
+            case ANY -> "the plan picks";
+            case UP_TO -> "what you have";
+            case EXACT -> "no matter what";
+            },
+                Hyb.INK,
+                rule == c.rule(),
+                () -> { if (rule != c.rule()) session.setRule(node, rule, CardFace.ruleCount(c.set(), c.value())); }));
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_count_rule", "MACHINE COUNT", rows, false, 160),
+            screenX(r[0]),
+            screenY(r[1] + r[3] + 2));
+    }
+
+    /** The count's tip: what runs against what is set, or what the plan needs and how busy its machines are. */
+    private Tip countTip(final CardModel m) {
+        final CardFace.Count c = face();
+        final Tip tip;
+        final String times = (crop() ? "" : "×");
+        if (c.pinned()) {
+            tip = Tip.of(c.rule().label + " " + c.setText())
+                .row("Running", c.run())
+                .row(c.rule().label, times + c.setText());
+            if (c.rule() == com.gtnhplanner.data.flowchart.PinRule.UP_TO && c.set() > 0)
+                tip.row("Usage", CardFace.usage(c.value(), c.set()));
+        } else {
+            tip = Tip.of(crop() ? "Crops planted" : "Required machines")
+                .row("Calculated", c.run());
+            final double whole = Math.ceil(c.value() - 1e-9);
+            if (!crop() && c.value() > 0 && whole != c.value()) tip.row("Whole machines", "×" + (long) whole)
+                .row("Average utilization", Fmt.compact(100 * c.value() / whole) + "%");
+        }
+        if (crop()) tip.row(
+            com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Industrial Farms" : "Crop Managers",
+            "×" + Fmt.machines(builds()));
+        if (c.pinned()) tip.muted(c.title());
+        else if (c.value() <= 0) tip.muted(
+            m.isPower() ? "Not sized yet: set a machine count, or set a rate on its EU drawer."
+                : crop() ? "No rate or set count in the plan needs this crop yet."
+                    : "No rate or set count in the plan needs this machine yet.");
+        if (shared()) tip.muted("The total for all its recipes, which share the machines.");
+        tip.action(Tip.Input.LEFT, c.pinned() ? "Type a count" : "Set a count")
+            .action(Tip.Input.WHEEL, c.pinned() ? "+1 / -1" : "Up to what runs");
+        if (c.pinned()) tip.action(Tip.Input.MIDDLE, "Let the plan decide");
+        return tip;
+    }
+
+    /** The rule word's tip: what the rule does, and that a click changes it. */
+    private Tip ruleTip() {
+        final CardFace.Count c = face();
+        final Tip tip = Tip.of(c.rule().label)
+            .muted(
+                c.rule() == com.gtnhplanner.data.flowchart.PinRule.EXACT
+                    ? c.ruleFixed() ? "A custom rate always runs at its dial."
+                        : "Always this many. A gap comes in or goes out forced."
+                    : "As many as the plan lets it run. Never more.");
+        if (!c.ruleFixed()) tip.action(Tip.Input.LEFT, "Any, Up to, Exactly");
+        return tip.action(Tip.Input.MIDDLE, "Let the plan decide");
+    }
+
+    /** The bar's tip: how much runs, the reason in full, and where to act. */
+    private Tip footTip() {
+        final CardFace.Foot f = foot();
+        if (f == null) return null;
+        final CardFace.Facts facts = f.facts();
+        final Tip tip = Tip.of(CardFace.footTitle(facts));
+        if (facts.forced()) {
+            for (final String line : facts.forcedIn()) tip.row("Forced in", line, Hyb.AMBER_INK);
+            return tip.muted("Set it to Up to and it runs what its inputs allow.");
+        }
+        tip.row("Usage", CardFace.usage(facts.running(), facts.capacity()));
+        if (facts.reason() == null) return tip.muted("Why it runs less was not worked out in time.");
+        switch (facts.reason()) {
+            case FULL -> tip.muted("Nothing around it would use more.");
+            case BOTTLENECK -> {
+                if (facts.wants() != null) tip.row("Wants", "×" + Fmt.machines(facts.wants()), Hyb.RED_INK)
+                    .note(
+                        Fmt.machines(facts.wants() - facts.capacity()) + " more here would let the line run faster.",
+                        Hyb.RED_INK);
+            }
+            case STARVED -> {
+                if (facts.resource() != null) tip.row("Short of", facts.resource(), Hyb.AMBER_INK);
+                for (final String n : facts.tied()) tip.row("Also short of", n, Hyb.AMBER_INK);
+                for (final String n : facts.upstream()) tip.row("Full upstream", n);
+                tip.muted(
+                    facts.upstream()
+                        .isEmpty() ? "More of this input would let it run faster." : "Build more upstream first.");
+            }
+            case CLOGGED -> {
+                if (facts.resource() != null) tip.row("Backs up", facts.resource(), Hyb.AMBER_INK);
+                for (final String n : facts.tied()) tip.row("Also backs up", n, Hyb.AMBER_INK);
+                tip.muted("What takes it is full. Add machines after it or a drawer.");
+            }
+            case UNUSED -> {
+                if (facts.resource() != null) tip.row("Nothing takes", facts.resource(), Hyb.AMBER_INK);
+                tip.muted("Wire its output or give it a rate.");
+            }
+            case LIMITED -> tip.muted("Another count or rate in the plan holds it back.");
+        }
+        return tip;
+    }
+
+    // endregion
 
     /** Whether a coil too cold stops any of the card's recipes. */
     private boolean coilTooCold() {
@@ -362,11 +592,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case POWER -> layout.powerRowY >= 0
                 ? new int[] { CardLayout.IN_RAIL_X, layout.powerRowY, CardLayout.RAIL_W, CardLayout.ROW }
                 : null;
-            case MACHINES -> countless() ? null : CardPaint.countRect(countText(), layout.picture());
+            case MACHINES -> countless() ? null : CardPaint.countParts(face(), layout.picture())[0];
+            case RULE -> countless() ? null : CardPaint.countParts(face(), layout.picture())[1];
+            case FOOT -> foot() == null ? null : layout.foot();
             case CIRCUIT -> model.circuit == null || shared() || model.isPower() ? null
                 : layout.circuitRowY >= 0
                     ? new int[] { CardLayout.IN_RAIL_X, layout.circuitRowY, CardLayout.RAIL_W, CardLayout.ROW }
-                    : new int[] { layout.picture()[0], layout.picture()[1] + CardLayout.PICTURE - 24, 24, 24 };
+                    : new int[] { layout.well()[0] + 3, layout.well()[1] + 3, 24, 24 };
             case SECTION, CHIP -> null;
             case BODY -> new int[] { 0, 0, CardLayout.W, layout.height };
         };
@@ -378,12 +610,6 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      */
     private boolean countless() {
         return model != null && com.gtnhplanner.power.FluidTank.is(model.node);
-    }
-
-    /** The machine count as the card shows it: a wheeled count at once, before the solve catches up. */
-    private String countText() {
-        // A crop counts crops planted, not machines: no times sign, and the line under it says so.
-        return (crop() ? "" : "×") + Fmt.machines(pendingCount > 0 ? pendingCount : machinesTotal());
     }
 
     /** Screen point of a card-local point, for anchoring popups. */
@@ -482,20 +708,23 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         }
         drawHead(m, hover);
         CardPaint.hair(CardLayout.HEADER);
-        drawPicture(m, z, hover);
         final int[] key = shared() ? sectionKeyAt(localX(), localY()) : null;
         for (int s = 0; s < models.size(); s++) {
             drawRail(s, models.get(s).inputs, false, z);
             drawRail(s, models.get(s).outputs, true, z);
             if (shared()) drawSectionRule(s, z, isHovering() && key != null && key[0] == s ? key[1] : -1);
         }
+        // After the rails: on a shared machine the well stands over the later recipes' rule lines.
+        drawPicture(m, z, hover);
         if (layout.circuitRowY >= 0) {
-            if (layout.circuitRowY > CardLayout.RAILS_Y) CardPaint.rowSeparator(false, layout.circuitRowY);
+            CardPaint.portTile(false, layout.circuitRowY, hover == Part.CIRCUIT);
             CardPaint.circuitRow(m.circuit, layout.circuitRowY, z);
         }
         if (layout.powerRowY >= 0) drawPowerRow(m, hover == Part.POWER);
         if (emptyHolder()) drawSockets();
         drawStrip(m, z, hover);
+        final CardFace.Foot f = foot();
+        if (f != null && layout.footY >= 0) CardPaint.foot(f, layout.foot());
     }
 
     /**
@@ -583,8 +812,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             return;
         }
         // How many, in white in the corner, at whole screen pixels per font pixel so it stays sharp. Machines: a crop
-        // card's harvesters, beside their picture.
-        final double builds = buildsTotal();
+        // card's harvesters, beside their picture; an Up to card's what runs.
+        final double builds = builds();
         final String count = "×" + Fmt.machines(builds);
         // Two screen pixels per font pixel, or one far out: whole pixels at every wheel step, so it stays sharp.
         float cs = 1 / zoom;
@@ -884,10 +1113,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final BoardCanvas board = canvas();
         for (final CardModel.PortView p : ports) {
             final int y = layout.rowY(section, output, p.index());
-            if (p.index() > 0) CardPaint.rowSeparator(output, y);
-            if (hoveredSlot != null && hoveredSlot.section == section
+            final boolean hot = hoveredSlot != null && hoveredSlot.section == section
                 && hoveredSlot.output == output
-                && hoveredSlot.index == p.index()) Hyb.rect(x, y, w, layout.rowH(section, output, p.index()), 0x10FFFFFF);
+                && hoveredSlot.index == p.index();
             // Unwired but running (a pinned machine runs whatever is wired to it): it takes from outside the plan, or
             // gives out of it, as a spare does, and is drawn as one; nothing is missing, so it does not pulse.
             // A port picked up off the card as a drawer shows as it will be once placed: wired.
@@ -900,6 +1128,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             final boolean controls = !lifted && showsControls(section, p);
             if (open) CardPaint.openRow(p, unit, y, z, set);
             else {
+                // Every port is a tile of one shape (the website's pass 3), lighter under the mouse.
+                CardPaint.portTile(output, y, hot);
                 CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
                 CardPaint.flowWords(
                     p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
@@ -1074,33 +1304,24 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      * how many on its bottom right.
      */
     private void drawPicture(final CardModel m, final float z, final Part hover) {
+        final int[] well = layout.well();
+        CardPaint.well(well);
         final int[] box = layout.picture();
         if (com.gtnhplanner.power.CustomRate.is(m.node)) {
             // A dial for the card that is one: the picker key's gauge, four times over.
             org.lwjgl.opengl.GL11.glPushMatrix();
-            org.lwjgl.opengl.GL11.glTranslatef(box[0] + (box[2] - 36) / 2f, box[1] + 14, 0);
+            org.lwjgl.opengl.GL11.glTranslatef(box[0] + (box[2] - 36) / 2f, box[1] + (box[2] - 32) / 2f, 0);
             org.lwjgl.opengl.GL11.glScalef(4, 4, 1);
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
         } else drawMachineArt(m, box[0], box[1], box[2], box[2], CardLayout.ITEM, z, true);
         if (m.circuit != null && !shared() && !m.isPower() && layout.circuitRowY < 0)
-            CardPaint.circuitBadge(m.circuit, box, z);
+            CardPaint.circuitBadge(m.circuit, well, z);
         if (countless()) return;
-        // Under the count: pinned, or (while the plan has nothing set to solve for) the prompt to set it.
-        final boolean pinnedNow = pendingCount > 0 || pinned() && !pendingUnpin;
-        final String under = crop()
-            ? pinnedNow ? "crops, pinned"
-                : session.unset(nodeId) ? CardPaint.SET_COUNT
-                    : Math.round(machinesTotal()) == 1 ? "crop planted" : "crops planted"
-            : pinnedNow ? CardPaint.PINNED : session.unset(nodeId) ? CardPaint.SET_COUNT : null;
-        CardPaint.count(
-            countText(),
-            machinesTotal() <= 0 && pendingCount <= 0,
-            pinnedNow,
-            under,
-            pinnedNow || crop() && !session.unset(nodeId) ? Hyb.MUTED : CardPaint.prompt(),
-            hover == Part.MACHINES,
-            box);
+        // Under the picture: what runs, and what is set (or, with nothing set, the prompt to set it).
+        final CardFace.Count c = face();
+        CardPaint
+            .count(c, box, c.prompt() ? CardPaint.prompt() : Hyb.MUTED, hover == Part.MACHINES, hover == Part.RULE);
     }
 
     /**
@@ -1109,10 +1330,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      * (the amps, by the board's power key), "Power" small; TIER! in red when the tier is too low to run it.
      */
     private void drawPowerRow(final CardModel m, final boolean hover) {
-        final int y = layout.powerRowY, x = CardLayout.IN_RAIL_X;
-        if (y > CardLayout.RAILS_Y && !shared()) CardPaint.rowSeparator(false, y);
+        final int y = layout.powerRowY;
         if (shared()) CardPaint.hair(y - 3);
-        if (hover) Hyb.rect(x, y, CardLayout.RAIL_W, CardLayout.ROW, 0x10FFFFFF);
+        // Power is a tile among the inputs, as every port is (without a wire).
+        CardPaint.portTile(false, y, hover);
         if (m.steam()) {
             // A steam machine burns steam, not EU: its row bills litres, as the website's steam cell.
             final net.minecraftforge.fluids.FluidStack steam = net.minecraftforge.fluids.FluidRegistry
@@ -1174,13 +1395,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             Hyb.texture(art.location(), px, py, pw, ph);
             return;
         }
-        // Rendered in game on the well's own background: opaque, so it casts no shadow of its own.
+        // Rendered in game on the well's own background: opaque, so it casts no shadow of its own, and a pixel in from
+        // the box so the well's edge shows round it.
         final MultiblockPictures.Picture structure = MultiblockPictures.get(machineStack);
-        if (structure != null) structure.draw(x, y, w, h);
+        if (structure != null) structure.draw(x + 1, y + 1, w - 2, h - 2);
         else if (machineStack != null) {
             final float side = Math.min(itemSize, Math.min(w, h));
-            // Near the top when there is room to spare, so the count in the corner keeps clear of it.
-            final float ix = x + (w - side) / 2f, iy = y + Math.min((h - side) / 2f, 4);
+            final float ix = x + (w - side) / 2f, iy = y + (h - side) / 2f;
             if (shadow) Hyb.iconShadow(machineStack, null, ix, iy, side);
             Hyb.item(machineStack, ix, iy, side, z);
         }
@@ -1613,8 +1834,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
                         bee() && m.machineStack != null ? m.machineStack.getDisplayName()
-                            : m.multiblock ? "Multiblock" : "Machine")
-                    .row(pinned() ? "Pinned machines" : "Required machines", "×" + Fmt.machines(machinesTotal()));
+                            : m.multiblock ? "Multiblock" : "Machine");
+                countRows(tip);
                 if (shared()) tip.row("Recipes", Integer.toString(models.size()));
                 if (m.gregtech && !m.steam()) tip.row("Configured tier", m.tier);
                 tip.row("Time per operation", Fmt.compact(m.durationTicks / 20.0) + " s");
@@ -1662,31 +1883,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 .muted("Not wired in plans.");
             case SETTINGS -> settingsTip();
             case CHIP -> chipTip();
-            case MACHINES -> {
-                final double machines = machinesTotal();
-                final boolean pin = pinned();
-                if (crop()) {
-                    // A crop card counts crops; the harvesters they fill are the machines.
-                    final Tip tip = Tip.of(pin ? "Pinned crops" : "Crops planted")
-                        .row(pin ? "Pinned" : "Calculated", Fmt.machines(machines))
-                        .row(
-                            com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Industrial Farms"
-                                : "Crop Managers",
-                            "×" + Fmt.machines(buildsTotal()));
-                    if (machines <= 0) tip.muted("No rate or pinned count in the plan needs this crop yet.");
-                    yield tip.action(Tip.Input.LEFT, pin ? "Change or unpin" : "Pin count")
-                        .action(Tip.Input.WHEEL, "+1 / -1");
-                }
-                final Tip tip = Tip.of(pin ? "Pinned machines" : "Required machines")
-                    .row(pin ? "Pinned" : "Calculated", "×" + Fmt.machines(machines));
-                final double whole = Math.ceil(machines - 1e-9);
-                if (machines > 0 && whole != machines) tip.row("Whole machines", "×" + (long) whole)
-                    .row("Average utilization", Fmt.compact(100 * machines / whole) + "%");
-                if (shared()) tip.muted("The total for all its recipes, which share the machines.");
-                if (machines <= 0) tip.muted("No rate or pinned count in the plan needs this machine yet.");
-                yield tip.action(Tip.Input.LEFT, pin ? "Change or unpin" : "Pin count")
-                    .action(Tip.Input.WHEEL, "+1 / -1");
-            }
+            case MACHINES -> countTip(m);
+            case RULE -> ruleTip();
+            case FOOT -> footTip();
             case CIRCUIT -> Tip.of("Programmed circuit")
                 .row("Required setting", Integer.toString(m.circuit.getItemDamage()))
                 .muted("Not consumed.");
@@ -1712,7 +1911,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             .muted("Makes " + name + " at the dialed rate for anything that asks.")
             : tip.sub("Requests " + name)
                 .muted("Constantly drains " + name + " at the dialed rate.")).row("Dialed rate", rate)
-                    .row(pinned() ? "Pinned" : "Calculated", "×" + Fmt.machines(machinesTotal()));
+                    .row(pinned() ? "Exactly" : "Calculated", "×" + Fmt.machines(machinesTotal()));
+    }
+
+    /** The count's rows in a name's tip: what runs (or what the plan needs), and what is set under its rule. */
+    private void countRows(final Tip tip) {
+        final CardFace.Count c = face();
+        tip.row(c.pinned() ? "Running machines" : "Required machines", c.run());
+        if (c.pinned()) tip.row(c.rule().label, "×" + c.setText());
     }
 
     /** The fluid tank's name: what it empties or fills, and how much a cell holds. */
@@ -1753,8 +1959,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 if (source != null) tip.muted(source.blurb());
                 if (source == null)
                     tip.note("Unknown machine: this version of GTNH Planner doesn't have it.", Hyb.RED_INK);
-                tip.row(each < 0 ? "Draws per machine" : "Makes per machine", Fmt.power(Math.abs(each)) + " EU/t")
-                    .row(pinned() ? "Pinned machines" : "Required machines", "×" + Fmt.machines(machinesTotal()));
+                tip.row(each < 0 ? "Draws per machine" : "Makes per machine", Fmt.power(Math.abs(each)) + " EU/t");
+                if (!com.gtnhplanner.power.FluidTank.is(m.node)) countRows(tip);
                 if (source != null && source.unlock() != null) tip.row("Unlocks at", source.unlock());
                 yield tip;
             }
@@ -1771,16 +1977,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 .row("All its machines", Fmt.power(Math.abs(each) * machinesTotal()) + " EU/t")
                 .muted(
                     each < 0 ? "Added to the plan's power use."
-                        : "To size it, wire its EU output to a drawer and set a rate, or pin a machine count.");
-            case MACHINES -> {
-                final double machines = machinesTotal();
-                final boolean pin = pinned();
-                final Tip tip = Tip.of(pin ? "Pinned machines" : "Required machines")
-                    .row(pin ? "Pinned" : "Calculated", "×" + Fmt.machines(machines));
-                if (machines <= 0) tip.muted("Not sized yet: pin a machine count, or set a rate on its EU drawer.");
-                yield tip.action(Tip.Input.LEFT, pin ? "Change or unpin" : "Pin count")
-                    .action(Tip.Input.WHEEL, "+1 / -1");
-            }
+                        : "To size it, wire its EU output to a drawer and set a rate, or set a machine count.");
+            case MACHINES -> countTip(m);
+            case RULE -> ruleTip();
+            case FOOT -> footTip();
             default -> null;
         };
     }
@@ -1912,8 +2112,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
             case MACHINES -> {
                 if (mouseButton == 0) openPin();
-                // The middle button unpins: the plan decides the count again.
+                // The middle button goes back to Any: the plan decides the count again.
                 else if (mouseButton == 2 && pinned()) session.pin(model.node, 0);
+            }
+            case RULE -> {
+                if (mouseButton == 0) openRule();
+                else if (mouseButton == 2 && pinned()) session.pin(model.node, 0);
+            }
+            case FOOT -> {
+                return act(Part.BODY, mouseButton, x, y);
             }
             default -> {
                 // The body: a click selects it (Shift adds); the right button opens its actions, as the key does
@@ -1989,7 +2196,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 session.wheelSetting(node, "amp", pendingAmps);
             }
             case MACHINE -> stepMachine(step);
-            case MACHINES -> wheelCount(step);
+            case MACHINES, RULE -> wheelCount(step);
             default -> {
                 return false;
             }
@@ -1998,19 +2205,21 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     }
 
     /**
-     * The wheel on the machine count (the card's, or its line in the overview): a machine more or fewer than it shows,
-     * pinned once the wheel goes still; down from one unpins, as a drawer's rate wheeled to nothing clears it.
+     * The wheel on the machine count (the card's, or its line in the overview), as on the website: from Any, Up to at
+     * what runs rounded up; else a machine more or fewer than is set, the rule kept; below one, back to Any. Set once
+     * the wheel goes still, as a drawer's rate wheeled to nothing clears it.
      */
     public void wheelCount(final int step) {
         if (model == null || countless()) return;
         com.gtnhplanner.ui.sound.Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
-        final long from = pendingUnpin ? 0 : pendingCount > 0 ? pendingCount : Math.round(machinesTotal());
-        if (from + step <= 0) {
+        final CardFace.Count c = face();
+        final Long next = CardFace.wheel(c.rule(), c.set(), c.value(), step);
+        if (next == null) {
             pendingUnpin = pinned() || pendingCount > 0;
             pendingCount = 0;
         } else {
             pendingUnpin = false;
-            pendingCount = Math.max(1, from + step);
+            pendingCount = next;
         }
         wheelAt = System.currentTimeMillis();
         committedOver = null;
@@ -2254,12 +2463,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     private Tip cropTip(final CardModel m) {
         final double crops = machinesTotal();
         final boolean farm = com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack);
+        final CardFace.Count c = face();
         final Tip tip = Tip.of(m.machineName)
             .sub(farm ? "Multiblock" : "Machine")
-            .row(pinned() ? "Pinned crops" : "Crops planted", Fmt.machines(crops))
-            .row(
-                "Crops per machine",
-                Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
+            .row("Crops planted", Fmt.machines(c.value()));
+        if (c.pinned()) tip.row(c.rule().label, c.setText());
+        tip.row(
+            "Crops per machine",
+            Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
             .row(
                 farm ? "Industrial Farms" : "Crop Managers",
                 "×" + com.gtnhplanner.machines.game.CropCards.harvesters(m.node, crops))
@@ -2392,15 +2603,22 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             screenY(partRect(Part.MACHINES)[1] + partRect(Part.MACHINES)[3] + 2));
     }
 
-    /** The box to type a pinned count in, at a screen point (the overview's count line opens it too). */
+    /**
+     * The box to type a count in, at a screen point (the overview's count line opens it too): the rule is kept, Any
+     * becomes Up to; empty goes back to Any.
+     */
     public void openPin(final int screenX, final int screenY) {
         if (model == null || countless()) return;
+        final CardFace.Count c = face();
+        final com.gtnhplanner.data.flowchart.PinRule rule = CardFace.ruleForCount(c.rule(), c.ruleFixed());
         Popup.open(
             session.panel(),
             NumberPopup.create(
-                "Pin the machine count (empty unpins)",
-                "machines",
-                pinned() ? machinesTotal() : 0,
+                (rule == com.gtnhplanner.data.flowchart.PinRule.EXACT ? "Exactly" : "Up to") + " how many "
+                    + (crop() ? "crops" : "machines"),
+                crop() ? "crops" : "machines",
+                "Empty lets the plan decide",
+                c.pinned() ? c.set() : 0,
                 0,
                 100_000,
                 v -> session.pin(model.node, v)),

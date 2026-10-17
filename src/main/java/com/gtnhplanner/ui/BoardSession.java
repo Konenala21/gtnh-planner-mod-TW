@@ -22,6 +22,7 @@ import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.flowchart.TaskEdits;
@@ -34,8 +35,10 @@ import com.gtnhplanner.data.flowchart.balancer.Severity;
 import com.gtnhplanner.data.flowchart.balancer.SolveInput;
 import com.gtnhplanner.data.flowchart.balancer.SolveService;
 import com.gtnhplanner.data.flowchart.balancer.SolverMessage;
+import com.gtnhplanner.data.flowchart.balancer.UpToReadout;
 import com.gtnhplanner.nei.NodeLookupContext;
 import com.gtnhplanner.ui.card.CardDefaults;
+import com.gtnhplanner.ui.card.CardFace;
 import com.gtnhplanner.ui.card.CardLayout;
 import com.gtnhplanner.ui.card.CardModel;
 import com.gtnhplanner.ui.card.MachineChoices;
@@ -2149,15 +2152,17 @@ public final class BoardSession {
         Sfx.TICK.play(step < 0 ? 1.12f : 0.9f);
     }
 
-    /** Pins a shared machine's count (zero unpins): its recipes' machines then add up to exactly that. */
+    /**
+     * Sets a shared machine's count, keeping its rule (Any becomes Up to); zero or less lets the plan decide again
+     * ({@link PinRule}).
+     */
     public void pinShared(final com.gtnhplanner.data.flowchart.MachineGroup g, final double count) {
         (count > 0 ? Sfx.PIN : Sfx.UNPIN).play();
         edit(() -> applyPinShared(g, count));
     }
 
     private static void applyPinShared(final com.gtnhplanner.data.flowchart.MachineGroup g, final double count) {
-        g.setPinned(count > 0);
-        g.setMachineCapacity(count > 0 ? Math.max(1, (int) Math.round(count)) : 0);
+        PinRule.set(g, count > 0 ? CardFace.ruleForCount(PinRule.of(g), false) : PinRule.ANY, count);
     }
 
     // endregion
@@ -2180,9 +2185,8 @@ public final class BoardSession {
             com.gtnhplanner.power.CustomRate.fresh(com.gtnhplanner.ui.card.SettingMemory.powerSettings(id, Map.of())),
             0,
             0);
-        // Its dial is its rate: one of it, pinned, until the player unpins it to let the plan scale it.
-        node.machineConfig.setMachineCount(1);
-        node.setMachineCountFixed(true);
+        // Its dial is its rate: exactly one of it, until the player lets the plan scale it.
+        PinRule.set(node, PinRule.EXACT, 1);
         return add(node, true, false);
     }
 
@@ -2276,8 +2280,8 @@ public final class BoardSession {
     }
 
     /**
-     * Pins the machine count (gold on the card); zero or less unpins and lets the plan decide. On a shared machine the
-     * count is the machine's: its recipes' machines add up to it.
+     * Sets the machine count, keeping its rule (Any becomes Up to, a custom rate card's is Exactly); zero or less lets
+     * the plan decide (Any). On a shared machine the count is the machine's. Written through {@link PinRule}.
      */
     public void pin(final Node node, final double count) {
         final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
@@ -2306,15 +2310,104 @@ public final class BoardSession {
 
     private static void applyPin(final Node node, final double count) {
         if (count <= 0) {
-            node.setMachineCountFixed(false);
+            PinRule.set(node, PinRule.ANY);
             return;
         }
-        node.machineConfig.setMachineCount(Math.max(1, (int) Math.round(count)));
-        node.setMachineCountFixed(true);
-        // A pinned count is the machine's run: a port rate set before gives way to it.
+        PinRule.set(node, CardFace.ruleForCount(PinRule.of(node), com.gtnhplanner.power.CustomRate.is(node)), count);
+        // A set count is the machine's run: a port rate set before gives way to it.
         node.targetOutputRates.clear();
         node.targetInputRates.clear();
     }
+
+    // region The count's rule (docs/design/up-to.md)
+
+    /** A card's count rule ({@link PinRule}): a recipe of a shared machine has its machine's. */
+    public PinRule rule(final Node node) {
+        final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
+        return g != null ? PinRule.of(g) : PinRule.of(node);
+    }
+
+    /** As {@link #rule(Node)} by id; Any for a node not in the plan. */
+    public PinRule rule(final UUID id) {
+        final Node node = graph.nodes.get(id);
+        return node == null ? PinRule.ANY : rule(node);
+    }
+
+    /** The count set on a card (its machine's on a shared machine): 0 for Any. */
+    public double setCount(final Node node) {
+        final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
+        if (g != null) return PinRule.of(g) == PinRule.ANY ? 0 : g.getMachineCapacity();
+        return PinRule.of(node) == PinRule.ANY ? 0 : node.machineConfig.getMachineCount();
+    }
+
+    /**
+     * Sets a card's rule at a count, the rule word's menu (Any lets go of the count). One undo step, solved at once; on
+     * a shared machine it is the machine's.
+     */
+    public void setRule(final Node node, final PinRule rule, final double count) {
+        if (rule == rule(node)) return;
+        (rule == PinRule.ANY ? Sfx.UNPIN : Sfx.PIN).play();
+        final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
+        edit(() -> {
+            if (g != null) {
+                PinRule.set(g, rule, count);
+                return;
+            }
+            PinRule.set(node, rule, count);
+            if (rule != PinRule.ANY) {
+                node.targetOutputRates.clear();
+                node.targetInputRates.clear();
+            }
+        });
+    }
+
+    /** Each Up to read-out, by every machine of its pool, from the last solve (and the dev harness's stand-ins). */
+    private Map<UUID, UpToReadout> upTo = Map.of();
+    /** Read-outs the dev harness shows in place of the solver's, by machine; null for none. */
+    private Map<UUID, UpToReadout> devUpTo;
+    /** Drawer shortfalls the dev harness adds to the solver's; null for none. */
+    private List<DrawerReadout.Shortfall> devShortfalls;
+
+    /** Why an Up to card runs where it does, by any of its recipes; null when the solve read none out. */
+    @Nullable
+    public UpToReadout upTo(final UUID id) {
+        return upTo.get(id);
+    }
+
+    /**
+     * Dev only: read-outs to show in place of the solver's (by each machine of the pool), and drawer shortfalls to add
+     * to its, until cleared with nulls. The cards and notices are rebuilt on the next tick.
+     */
+    public void devUpTo(@Nullable final Map<UUID, UpToReadout> readouts,
+        @Nullable final List<DrawerReadout.Shortfall> shortfalls) {
+        devUpTo = readouts == null ? null : new HashMap<>(readouts);
+        devShortfalls = shortfalls == null ? null : new ArrayList<>(shortfalls);
+        seenVersion = Long.MIN_VALUE;
+    }
+
+    private Map<UUID, UpToReadout> indexUpTo() {
+        final Map<UUID, UpToReadout> out = new HashMap<>();
+        if (result instanceof final BalanceResult.Solved solved) for (final UpToReadout r : solved.auto()
+            .upTo()) {
+            out.put(r.node(), r);
+            for (final UUID m : r.machines()) out.putIfAbsent(m, r);
+        }
+        if (devUpTo != null) out.putAll(devUpTo);
+        return out.isEmpty() ? Map.of() : out;
+    }
+
+    /** The drawers the plan cannot give their rate, from the last solve (and the dev harness's stand-ins). */
+    private List<DrawerReadout.Shortfall> shortfalls() {
+        final List<DrawerReadout.Shortfall> solved = result == null ? List.of()
+            : result.drawers()
+                .shortfalls();
+        if (devShortfalls == null) return solved;
+        final List<DrawerReadout.Shortfall> out = new ArrayList<>(solved);
+        out.addAll(devShortfalls);
+        return out;
+    }
+
+    // endregion
 
     /**
      * Sets the rate a machine's port runs at (units a second): the machine runs so that this input takes, or this
@@ -2529,6 +2622,7 @@ public final class BoardSession {
         }
         models = next;
         drawerModels = nextDrawers;
+        upTo = indexUpTo();
         notices = buildNotices(next);
         totals = buildTotals(next);
         spareLines = buildSpares(next);
@@ -2568,7 +2662,8 @@ public final class BoardSession {
 
     /** One card in the overview's machine list. */
     public record MachineLine(UUID nodeId, String name, ItemStack stack, double machines, boolean pinned, String tier,
-        int amps, boolean multiblock, boolean gregtech, double euPerTick, boolean tooLow, double madeEuPerTick) {}
+        int amps, boolean multiblock, boolean gregtech, double euPerTick, boolean tooLow, double madeEuPerTick,
+        PinRule rule, double set, double runs, @Nullable UpToReadout upTo) {}
 
     /**
      * The overview, Factory Flow's resources column: per resource what the plan needs from outside (deficit), what it
@@ -2649,21 +2744,32 @@ public final class BoardSession {
             eu += power;
             euMade += card.madeEuPerTick();
             // A fluid tank is free and instant: nothing to build.
-            if ((card.machines > 0 || card.pinned) && !com.gtnhplanner.power.FluidTank.is(card.node)) machines.add(
-                new MachineLine(
-                    card.node.id,
-                    card.machineName,
-                    card.machineStack,
-                    // A crop card counts crops; the plan builds its harvesters.
-                    com.gtnhplanner.machines.game.CropCards.builds(card.node, card.machines),
-                    card.pinned,
-                    card.tier,
-                    card.amps,
-                    card.multiblock,
-                    card.gregtech,
-                    power,
-                    card.tierTooLow(),
-                    card.madeEuPerTick()));
+            final PinRule rule = rule(card.node);
+            if ((card.machines > 0 || rule != PinRule.ANY) && !com.gtnhplanner.power.FluidTank.is(card.node)) {
+                // An Up to card lists what runs (its read-out, a lone card's own; a shared machine's recipe its share).
+                final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
+                final double runs = readout != null && sharedOf(card.node.id) == null ? Math.max(0, readout.reached())
+                    : card.machines;
+                machines.add(
+                    new MachineLine(
+                        card.node.id,
+                        card.machineName,
+                        card.machineStack,
+                        // A crop card counts crops; the plan builds its harvesters.
+                        com.gtnhplanner.machines.game.CropCards.builds(card.node, runs),
+                        rule != PinRule.ANY,
+                        card.tier,
+                        card.amps,
+                        card.multiblock,
+                        card.gregtech,
+                        power,
+                        card.tierTooLow(),
+                        card.madeEuPerTick(),
+                        rule,
+                        setCount(card.node),
+                        runs,
+                        readout));
+            }
         }
         // What trash voids leaves the plan without being an output of it.
         final Map<String, Double> trashed = new HashMap<>();
@@ -2822,8 +2928,16 @@ public final class BoardSession {
             for (final UUID to : near.getOrDefault(next.poll(), List.of())) if (reach.add(to)) next.add(to);
         final List<Pin> out = new ArrayList<>();
         final Fmt.RateUnit unit = rateUnit();
-        for (final MachineLine m : totals.machines()) if (m.pinned() && reach.contains(m.nodeId()))
-            out.add(new Pin(m.name() + " *×" + Fmt.machines(m.machines()) + "*", m.stack(), null, false));
+        for (final MachineLine m : totals.machines()) if (m.pinned() && reach.contains(m.nodeId())) out.add(
+            new Pin(
+                m.name() + " *"
+                    + m.rule().label.toLowerCase(java.util.Locale.ROOT)
+                    + " "
+                    + CardFace.setText(m.set())
+                    + "*",
+                m.stack(),
+                null,
+                false));
         for (final Node n : graph.getNodes()) {
             if (!reach.contains(n.id) || n.targetOutputRates.isEmpty() && n.targetInputRates.isEmpty()) continue;
             final CardModel card = models.get(n.id);
@@ -3335,6 +3449,8 @@ public final class BoardSession {
         final java.util.Set<UUID> out = new java.util.HashSet<>(com.gtnhplanner.data.flowchart.balancer.Unanchored.of(graph));
         if (result instanceof final com.gtnhplanner.data.flowchart.balancer.BalanceResult.Solved solved) out.addAll(
             solved.auto().unneeded);
+        // A card with a set count never asks for one: an idle Up to card says why on its bar instead.
+        out.removeIf(id -> rule(id) != PinRule.ANY);
         return out;
     }
 
@@ -3354,12 +3470,11 @@ public final class BoardSession {
                     if (nothingToSolveFor) out.add(
                         new Notice(
                             Severity.INFO,
-                            "Nothing to calculate yet: set a rate on a drawer, or pin a machine count",
+                            "Nothing to calculate yet: set a rate on a drawer, or set a machine count",
                             List.of()));
                 }
             }
-            for (final DrawerReadout.Shortfall s : result.drawers()
-                .shortfalls()) {
+            for (final DrawerReadout.Shortfall s : shortfalls()) {
                 final DrawerModel d = drawerModels.get(s.drawer());
                 final boolean supply = d != null && d.kind == Drawer.Kind.SOURCE;
                 final String label = "The " + (d == null ? "" : d.label + " ") + (supply ? "supply" : "drawer");
@@ -3373,7 +3488,20 @@ public final class BoardSession {
                 // Plain sentences: what the drawer asks for, and what the plan does instead.
                 final String asks = s.rule() == Drawer.Rule.EXACTLY ? "exactly " : "";
                 final String text;
-                if (s.reachable() > s.target()) text = label + " allows at most "
+                // Short of its rate: what it gets, then what holds it back (the cards at their counts, the drawers).
+                if (s.reachable() < s.target()) text = label + " gets "
+                    + reach
+                    + " of "
+                    + target
+                    + "."
+                    + CardFace.holders(
+                        s.limitingNodes(),
+                        s.limitingDrawers(),
+                        id -> cards.get(id) == null ? "machine" : cards.get(id).machineName,
+                        this::rule,
+                        id -> upTo(id) == null ? null : upTo(id).reason(),
+                        id -> drawerModels.get(id) == null ? "other" : drawerModels.get(id).label);
+                else if (s.reachable() > s.target()) text = label + " allows at most "
                     + target
                     + ", but the plan "
                     + (supply ? "needs " : "makes ")

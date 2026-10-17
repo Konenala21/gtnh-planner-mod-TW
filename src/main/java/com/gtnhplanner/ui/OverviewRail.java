@@ -22,6 +22,7 @@ import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widget.ParentWidget;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
 import com.gtnhplanner.data.flowchart.Drawer;
+import com.gtnhplanner.data.flowchart.PinRule;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.card.CardModel;
 import com.gtnhplanner.ui.drawer.DrawerCard;
@@ -90,7 +91,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         MACHINE,
         /** A machine line's count: click to type a pinned count, as on the card. */
         COUNT,
-        /** A machine line's rule key: Any (the plan decides) or = (pinned); a click switches. */
+        /** A machine line's rule key: Any (the plan decides), ≤ (up to) or = (exactly); a click steps it. */
         MACHINE_RULE,
         /** A machine's pin key: puts it on the pin list shown while playing, or takes it off. */
         PIN,
@@ -1065,13 +1066,27 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 // How many it takes, then the count field: as the card's count, the wheel and a click set it here too;
                 // a count being wheeled shows in the field.
                 final long wheeled = card == null ? -1 : card.wheeledCount();
-                final String count = "×" + Fmt.machines(m.machines());
+                // The rule shown: the line's, or the one a count being wheeled will have.
+                final PinRule shownRule = wheeled == 0 ? PinRule.ANY
+                    : wheeled > 0 ? com.gtnhplanner.ui.card.CardFace.ruleForCount(m.rule(), false) : m.rule();
+                final boolean set = shownRule != PinRule.ANY;
+                // An Up to card says what runs of what is set ("×4.5 of" 6), tinted by why when it runs short.
+                final boolean of = shownRule == PinRule.UP_TO && !crop(m);
+                final String count = "×" + Fmt.machines(m.machines()) + (of ? " of" : "");
                 final int countW = Hyb.width(count);
-                Hyb.text(count, numberRight - countW, y + 3, Hyb.INK);
-                final boolean set = wheeled > 0 || wheeled < 0 && m.pinned();
-                // The count's rule, as a drawer's: Any (greyed) while the plan decides how many, = (gold) once pinned.
-                // A click switches: Any pins it at the whole machines it takes now, = lets the plan decide again.
-                final Drawer.Rule rule = set ? Drawer.Rule.EXACTLY : Drawer.Rule.ANY;
+                Hyb.text(
+                    count,
+                    numberRight - countW,
+                    y + 3,
+                    of && wheeled < 0 ? com.gtnhplanner.ui.card.CardFace.railColour(
+                        m.upTo() == null ? null
+                            : m.upTo()
+                                .reason(),
+                        Hyb.INK) : Hyb.INK);
+                // The count's rule, as a drawer's: Any (greyed) while the plan decides how many, then (gold) up to (the
+                // drawer's at most) or exactly. A click steps it: Any sets it up to the whole machines it takes now.
+                final Drawer.Rule rule = shownRule == PinRule.UP_TO ? Drawer.Rule.AT_MOST
+                    : shownRule == PinRule.EXACT ? Drawer.Rule.EXACTLY : Drawer.Rule.ANY;
                 Hyb.rect(keyX, y + 1, RULE_W, 11, 0xFF111317);
                 Hyb.rect(keyX + 1, y + 2, RULE_W - 2, 9, ruleHot ? 0xFF454952 : 0xFF34373E);
                 Hyb.rect(keyX + 1, y + 2, RULE_W - 2, 1, 0x1FFFFFFF);
@@ -1081,14 +1096,14 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     y + 3,
                     set ? Hyb.GOLD : Hyb.MUTED);
                 if (card != null) hits.add(new Hit(Kind.MACHINE_RULE, keyX, y, keyX + RULE_W, y + ROW_H, m));
-                // The count field: being typed into; or the pinned count in gold, or "Set".
+                // The count field: being typed into; or the set count in gold, or "Set".
                 if (edit.editing("count:" + m.nodeId())) edit.drawBox(fieldX, y + 1, COUNT_W, 11, y + 3);
                 else {
                     Hyb.rect(fieldX, y + 1, COUNT_W, 11, countHot ? Hyb.GOLD : 0xFF5A5E68);
                     Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 9, countHot ? 0xFF15171C : 0xFF0F1114);
                     Hyb.rect(fieldX + 1, y + 2, COUNT_W - 2, 1, 0xB3000000);
                     if (set) Hyb.textCentered(
-                        wheeled > 0 ? Long.toString(wheeled) : Fmt.machines(count(m)),
+                        wheeled > 0 ? Long.toString(wheeled) : com.gtnhplanner.ui.card.CardFace.setText(m.set()),
                         fieldX + COUNT_W / 2f,
                         y + 3,
                         Hyb.GOLD);
@@ -1264,18 +1279,13 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 if (card != null) card.openPlaceMenu(sx, sy);
             }
             case MACHINE -> canvas.frame(List.of(((BoardSession.MachineLine) hit.data()).nodeId()));
-            case MACHINE_RULE -> {
-                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
-                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
-                if (card != null && card.model() != null)
-                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(count(m) - 1e-9)));
-            }
+            case MACHINE_RULE -> stepRule((BoardSession.MachineLine) hit.data(), 1);
             case COUNT -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
                 if (card != null && card.model() != null) {
                     final com.gtnhplanner.data.flowchart.Node node = card.model().node;
-                    edit.start("count:" + m.nodeId(), m.pinned() ? count(m) : 0, v -> session.pin(node, v));
+                    edit.start("count:" + m.nodeId(), m.pinned() ? m.set() : 0, v -> session.pin(node, v));
                     getContext().focus(this);
                 }
             }
@@ -1284,12 +1294,26 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     }
 
     /**
-     * What a machine line's count field shows and sets: the card's own count. A crop card's is the crops planted,
-     * while the line's ×count is the harvesters they fill (issue 8).
+     * A machine line's rule key, a click (or the wheel) on it: Any, Up to, Exactly, then Any again (back the other way
+     * for the wheel down). From Any it is set at the whole machines it takes now; the card's count is kept.
+     */
+    private void stepRule(final BoardSession.MachineLine m, final int step) {
+        final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
+        if (card == null || card.model() == null) return;
+        final PinRule[] rules = PinRule.values();
+        final PinRule next = rules[Math.floorMod(
+            m.rule()
+                .ordinal() + step,
+            rules.length)];
+        session.setRule(card.model().node, next, com.gtnhplanner.ui.card.CardFace.ruleCount(m.set(), count(m)));
+    }
+
+    /**
+     * What a machine line's count field sets: the card's own count, here what runs (an Up to card's read-out, else the
+     * solved count). A crop card's is the crops planted, while the line's ×count is the harvesters they fill (issue 8).
      */
     private double count(final BoardSession.MachineLine m) {
-        final com.gtnhplanner.ui.card.CardModel card = session.model(m.nodeId());
-        return card != null ? card.machines : m.machines();
+        return m.runs();
     }
 
     /** Whether a machine line is a crop card's, whose count field is crops planted. */
@@ -1409,10 +1433,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 return true;
             }
             if (hit != null && hit.kind() == Kind.MACHINE_RULE) {
-                final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
-                final com.gtnhplanner.ui.card.RecipeCard card = cardOf(m.nodeId());
-                if (card != null && card.model() != null)
-                    session.pin(card.model().node, m.pinned() ? 0 : Math.max(1, Math.ceil(count(m) - 1e-9)));
+                stepRule((BoardSession.MachineLine) hit.data(), step);
                 return true;
             }
         }
@@ -1554,21 +1575,21 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             }
             case COUNT -> List.of(
                 crop((BoardSession.MachineLine) hit.data()) ? "Crops planted" : "Machine count",
-                hint + "Click: type a pinned count",
-                hint + "Wheel: one more or fewer (below one unpins)");
+                hint + "Click: type a count",
+                hint + "Wheel: one more or fewer (below one lets the plan decide)");
             case MACHINE_RULE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
-                yield m.pinned()
-                    ? List.of(
-                        "Exactly",
-                        hint + "Pinned at " + Fmt.machines(count(m)) + (crop(m) ? " crops" : ""),
-                        hint + "Click: let the plan decide")
-                    : List.of(
+                final String set = com.gtnhplanner.ui.card.CardFace.setText(m.set()) + (crop(m) ? " crops" : "");
+                yield switch (m.rule()) {
+                    case UP_TO -> List.of("Up to", hint + "Never more than " + set, hint + "Click: make it exact");
+                    case EXACT -> List.of("Exactly", hint + "Exactly " + set, hint + "Click: let the plan decide");
+                    case ANY -> List.of(
                         "Any",
                         hint + "The plan decides how many",
-                        hint + "Click: pin it at "
-                            + (long) Math.max(1, Math.ceil(count(m) - 1e-9))
+                        hint + "Click: up to "
+                            + (long) com.gtnhplanner.ui.card.CardFace.ruleCount(0, count(m))
                             + (crop(m) ? " crops" : ""));
+                };
             }
             case SPARE -> {
                 final SpareBar.Hit at = spareHitAt(hit);
@@ -1588,11 +1609,30 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             }
             case MACHINE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
-                yield List.of(
-                    m.name(),
-                    hint + Fmt.machines(m.machines()) + " machines" + (m.pinned() ? " (pinned)" : ""),
-                    hint + Fmt.power(m.euPerTick()) + " EU/t " + (session.peakPower() ? "peak" : "average"),
-                    hint + "Click or middle click: go to the card");
+                final List<String> lines = new ArrayList<>();
+                lines.add(m.name());
+                // An Up to card: what runs of what is set, and why when it runs short.
+                if (m.rule() == PinRule.UP_TO && !crop(m)) lines.add(
+                    hint + Fmt.machines(m.machines())
+                        + " of "
+                        + com.gtnhplanner.ui.card.CardFace.setText(m.set())
+                        + " machines");
+                else lines.add(
+                    hint + Fmt.machines(m.machines())
+                        + " machines"
+                        + (m.rule() == PinRule.EXACT ? " (exactly)" : m.rule() == PinRule.UP_TO ? " (up to)" : ""));
+                if (m.rule() == PinRule.UP_TO && m.upTo() != null
+                    && m.upTo()
+                        .reason() != null)
+                    lines.add(
+                        hint + com.gtnhplanner.ui.card.CardFace.word(
+                            m.upTo()
+                                .reason())
+                            + ". "
+                            + com.gtnhplanner.ui.card.CardFace.sentence(m.upTo()));
+                lines.add(hint + Fmt.power(m.euPerTick()) + " EU/t " + (session.peakPower() ? "peak" : "average"));
+                lines.add(hint + "Click or middle click: go to the card");
+                yield lines;
             }
         };
     }

@@ -56,12 +56,41 @@ in saves and in plans from the website, reads as Up to, old website Build plans 
   fields and `spares()`), so the goldens do not move until the solver port adds it on both sides.
 - `SolverMessage.PIN_UP_TO`: what holds a drawer back when its Up to machines cannot do more (`LIMIT_PIN`).
 
+## The board (the website's pass 3 card, `mockups/up-to-card/`)
+
+- `ui/card/CardFace` is the pure view-model (the website's `clean-model.ts` count and foot, `card-tips.ts`'s words,
+  `up-to-reason.ts`, `notices.ts`'s holders), tested in `CardFaceTest`; the board's card, the minimap and the world
+  draw from it (`PlanSnapshot.Card.count`, `foot`).
+- The card (`CardLayout`, `CardPaint`): every port a tile of one shape (`portTile`; a free end, open or forced, only
+  changes colour: `freeTile`), power a tile among the inputs, the machine in its own sunk well (`well`, at least 120
+  board px of rails, 80 px art) with the count under the picture: what runs big and white (an Up to card's read-out
+  `reached`, else the solved count), under it the rule word (dotted, a click opens Any / Up to / Exactly,
+  `RecipeCard.openRule`) and the set number in gold; Any says "(set count)" or nothing (a crop "crops planted"). A
+  click on the count types it (`openPin`, Any becomes Up to, empty is Any), the wheel steps it (`CardFace.wheel`: from
+  Any, Up to at what runs rounded up; below one, Any), the middle button is Any. A custom rate card is always Exactly
+  (no menu); a fluid tank has no count. Rows and wire anchors did not move (`ROW` 42, tiles 40 tall).
+- The bar along the foot (`CardLayout.footY`, `CardPaint.foot`, Part `FOOT` with its tip): an Up to card with a
+  read-out (fill reached / capacity, the reason's word in its colour, one line shortened to fit, the fraction; a
+  bottleneck runs on striped to `wants`), an Exactly card with an input forced in at one of its rows (FORCED IN, from
+  the card's extra rows). A shared machine's bar reads every recipe's rows.
+- Writes: `BoardSession.pin` keeps the rule (Any becomes Up to), `setRule` sets it at a count, `rule`/`setCount` read
+  it (a shared machine's is its group's), all through `PinRule`. A set count never asks for one (`unsetParts` drops
+  it), so an idle Up to card says UNUSED on its bar, not "(set count)".
+- The overview's machine lines: "×4.5 of" (tinted by the reason when not full), the rule key ≤ for Up to and = for
+  Exactly (a click steps Any, Up to, Exactly), the set count gold in the field; `MachineLine` carries `rule`, `set`,
+  `runs` and the read-out.
+- Notices: a drawer short of its rate says what it gets and what holds it back ("The Benzene drawer gets 1.2/s of 2/s.
+  The Distillation Tower is full."), the limiting cards in its Show me.
+- The tour pins the electrolyzer and the mixer Exactly (their rule word, then Exactly) before it shows forced flows;
+  `starts.json` carries the electrolyzer's flag in every later start.
+- `BoardSession.upTo(id)` reads the solver's read-outs by every machine of a pool; `call upto` puts stand-ins in their
+  place (and drawer shortfalls) to look at before the solver fills them.
+
 ## Still to do
 
 - The solver (`balancer/`): `SolveInput.of` turning an Up to card into a one-machine pool and an Up to group into an Up
   to pool (today every set count is still an exact pin, so the solve has not changed), `ModelBuilder` pools,
   `SolveContext` anchoring and the guard, the push between `TradeStage` and `FlowMinStage` and inside `FastPathStage`,
   the floors on the trades, `Enumerator.evaluateSupport`, `DrawerRelaxation` naming the card, `Unanchored`, the
-  read-out and its island merge. The corpus is re-dumped once both sides agree.
-- The board: the card's count and rule word, its bar and reason, the overview and the notices (the website's pass 3
-  mockup, `mockups/up-to-card/`).
+  read-out and its island merge, and `SolutionView.unneeded` leaving Up to machines out (the board already ignores
+  them). The corpus is re-dumped once both sides agree.

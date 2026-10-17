@@ -13,9 +13,10 @@ import com.gtnhplanner.ui.world.PlanSnapshot;
 /**
  * A plan card drawn from a {@link PlanSnapshot} card, for the cards over the world and on the minimap: the board's
  * clean card ({@link CardLayout}, {@link CardPaint}) with nothing to press. The name large on the left of the header
- * with the amps and tier chips on the right; inputs against the left edge and outputs against the right; power one more
- * row after the inputs, the circuit too when set so (else on the picture's corner); the machine in the middle with how
- * many on its corner; the settings strip along the bottom. In card units, at the origin.
+ * with the amps and tier chips on the right; inputs against the left edge and outputs against the right, each a tile;
+ * power one more row after the inputs, the circuit too when set so (else in the well's corner); the machine in its
+ * well in the middle with what runs and what is set under it; the settings strip along the bottom, then the bar along
+ * the foot of an Up to card. In card units, at the origin.
  */
 public final class CleanCardView {
 
@@ -64,12 +65,17 @@ public final class CleanCardView {
         return at;
     }
 
-    public static int height(final PlanSnapshot.Card c) {
+    /** Where the strip ends (or the rails, with no strip): the bar along the foot comes after. */
+    private static int stripEnd(final PlanSnapshot.Card c) {
         final int stripY = CardLayout.RAILS_Y + body(c) + 6;
         final List<int[]> chips = strip(c, stripY);
-        final int end = chips.isEmpty() ? CardLayout.RAILS_Y + body(c) + 2
+        return chips.isEmpty() ? CardLayout.RAILS_Y + body(c) + 2
             : chips.get(chips.size() - 1)[1] + CardLayout.CHIP + 4;
-        return end + 6;
+    }
+
+    public static int height(final PlanSnapshot.Card c) {
+        final int end = stripEnd(c);
+        return c.foot() != null ? end + 3 + CardLayout.FOOT_H + 3 : end + 6;
     }
 
     public static int width() {
@@ -85,32 +91,18 @@ public final class CleanCardView {
         head(c);
         CardPaint.hair(CardLayout.HEADER);
         final int top = CardLayout.RAILS_Y;
-        final int[] picture = { CardLayout.PICTURE_X + (CardLayout.PICTURE_W - CardLayout.PICTURE) / 2, top,
-            CardLayout.PICTURE };
-        art(c, picture);
-        if (c.circuit() != null && !PlannerSettings.circuitAsInput()) CardPaint.circuitBadge(c.circuit(), picture, 0);
-        // As the board's card: a crop card's count is the crops planted, said under it, no ×; a fluid tank has none.
-        if (!c.countless()) CardPaint.count(
-            (c.crop() ? "" : "×") + Fmt.machines(c.machines()),
-            c.machines() <= 0,
-            c.pinned(),
-            c.crop() ? c.pinned() ? "crops, pinned" : Math.round(c.machines()) == 1 ? "crop planted" : "crops planted"
-                : c.pinned() ? CardPaint.PINNED : null,
-            Hyb.MUTED,
-            false,
-            picture);
         final List<Row> ins = inputs(c);
         for (int i = 0; i < ins.size(); i++) {
             final int y = top + i * ROW;
-            if (i > 0) CardPaint.rowSeparator(false, y);
             final Row r = ins.get(i);
+            CardPaint.portTile(false, y, false);
             if (r.circuit()) CardPaint.circuitRow(c.circuit(), y, 0);
             else flow(r.flow(), false, y, unit);
         }
         for (int i = 0; i < c.outputs()
             .size(); i++) {
             final int y = top + i * ROW;
-            if (i > 0) CardPaint.rowSeparator(true, y);
+            CardPaint.portTile(true, y, false);
             flow(
                 c.outputs()
                     .get(i),
@@ -118,6 +110,15 @@ public final class CleanCardView {
                 y,
                 unit);
         }
+        final int[] well = CardLayout.well(body(c));
+        CardPaint.well(well);
+        final int[] picture = CardLayout.picture(well);
+        art(c, picture);
+        if (c.circuit() != null && !PlannerSettings.circuitAsInput()) CardPaint.circuitBadge(c.circuit(), well, 0);
+        // As the board's card: what runs, and under it what is set (a crop card's count is the crops planted, said
+        // under
+        // it, no ×); a fluid tank has none.
+        if (!c.countless()) CardPaint.count(count(c), picture, Hyb.MUTED, false, false);
         final int stripY = top + body(c) + 6;
         final List<int[]> chips = strip(c, stripY);
         if (!chips.isEmpty()) CardPaint.hair(stripY);
@@ -127,6 +128,16 @@ public final class CleanCardView {
             final int[] at = chips.get(i);
             CardPaint.chip(at[0], at[1], at[2], s.label(), s.value(), s.icon(), s.warn(), s.reading(), false, 0);
         }
+        if (c.foot() != null) CardPaint.foot(
+            c.foot(),
+            new int[] { CardLayout.IN_RAIL_X, stripEnd(c) + 3, W - 2 * CardLayout.IN_RAIL_X, CardLayout.FOOT_H });
+    }
+
+    /** The board's count, or one made from the card's number when the board gave none. */
+    private static CardFace.Count count(final PlanSnapshot.Card c) {
+        if (c.count() != null) return c.count();
+        return CardFace
+            .count(com.gtnhplanner.data.flowchart.PinRule.ANY, 0, c.machines(), null, false, c.crop(), false);
     }
 
     private static void flow(final PlanSnapshot.Flow f, final boolean output, final int y, final Fmt.RateUnit unit) {
@@ -172,7 +183,7 @@ public final class CleanCardView {
             Hyb.texture(art.location(), px, py, pw, ph);
         } else if (c.machine() != null) {
             final float s = Math.min(CardLayout.ITEM, side);
-            final float ix = x + (side - s) / 2f, iy = y + Math.min((side - s) / 2f, 4);
+            final float ix = x + (side - s) / 2f, iy = y + (side - s) / 2f;
             Hyb.iconShadow(c.machine(), null, ix, iy, s);
             Hyb.item(c.machine(), ix, iy, s, 0);
         }

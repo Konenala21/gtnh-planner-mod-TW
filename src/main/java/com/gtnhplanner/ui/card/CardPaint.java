@@ -60,11 +60,6 @@ public final class CardPaint {
         return x;
     }
 
-    /** A thin line between two rows on one side. */
-    public static void rowSeparator(final boolean output, final int y) {
-        Hyb.rect(CardLayout.railX(output) + 4, y - 1, CardLayout.RAIL_W - 8, 1, HAIR);
-    }
-
     /**
      * A port's words: how much in large type with its unit small beside it, and the name small under it on one line
      * (smaller when long, then cut and faded into the card), from the edge {@link CardLayout#textEdge} (right aligned
@@ -228,9 +223,9 @@ public final class CardPaint {
 
     /**
      * A port's extra row ({@link CardModel.PortView#extra}), at {@code y} under the port's own: what the plan is forced
-     * to send out at the port with no drawer to take it, or bring in with no source, drawn as the drawer it stands for
-     * in a row of the card. A faint striped box in that drawer's colours and shape (a product's rounded square out, a
-     * source's tank in), the resource, the rate in the drawer's ink, and the word under it.
+     * to send out at the port with no drawer to take it, or bring in with no source. A tile of every port's shape,
+     * striped in a product's orange going out or a source's blue coming in, the resource, the rate in the drawer's ink,
+     * and the word under it.
      */
     public static void extraRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z) {
         extraRow(p, unit, y, z, 0);
@@ -247,9 +242,9 @@ public final class CardPaint {
             : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE;
         final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(kind);
         final double left = Math.max(0, p.extra() - carried);
-        final int bx = CardLayout.railX(p.output()) - 2, bw = CardLayout.RAIL_W + 4;
+        final int bx = CardLayout.railX(p.output()), bw = CardLayout.RAIL_W;
         if (carried > 0 && left < 1e-6) {
-            Hyb.dashed(bx + 1, y + 3, bw - 2, CardLayout.ROW - 6, Hyb.mix(tint, EDGE, 0.35f), 3, 3);
+            Hyb.dashed(bx, y + CardLayout.BOX_Y, bw, CardLayout.BOX_H, Hyb.mix(tint, EDGE, 0.35f), 3, 3);
             final String gone = "picked up";
             final float x = p.output() ? CardLayout.textEdge(true) - Hyb.width(gone) : CardLayout.textEdge(false);
             Hyb.text(gone, x, y + (CardLayout.ROW - 8) / 2f, Hyb.mix(tint, Hyb.MUTED, 0.3f));
@@ -277,12 +272,7 @@ public final class CardPaint {
         final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(
             p.output() ? com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT
                 : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE);
-        spareBox(
-            !p.output(),
-            CardLayout.railX(p.output()) - 2,
-            y + CardLayout.BOX_Y,
-            CardLayout.RAIL_W + 4,
-            CardLayout.BOX_H);
+        freeTile(p.output(), y);
         icon(p.item(), p.fluid(), p.isPower(), p.output(), y, z);
         final String number = p.isPower() ? Fmt.power(amount / 20) : Fmt.compact(amount * unit.perSecond);
         final String suffix = p.isPower() ? " EU/t" : (p.isFluid() ? " L" : "") + unit.suffix;
@@ -297,38 +287,6 @@ public final class CardPaint {
             controls);
     }
 
-    /**
-     * The faint striped box a leftover is drawn in (a card's extra row, the overview's spare bar): a product's square
-     * in its orange for a forced output, a source's tank in its blue for a forced input.
-     */
-    public static void spareBox(final boolean importing, final float x, final float y, final float w, final float h) {
-        edgeBox(
-            importing ? com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE
-                : com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT,
-            x,
-            y,
-            w,
-            h);
-    }
-
-    /**
-     * The striped box of what crosses the plan's edge, in a drawer kind's colours and shape: a forced row's, a
-     * drawer's (trash a grey bin).
-     */
-    public static void edgeBox(final com.gtnhplanner.data.flowchart.Drawer.Kind kind, final float x, final float y,
-        final float w, final float h) {
-        final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(kind);
-        final boolean own = !Hyb.batching();
-        if (own) Hyb.beginBatch();
-        com.gtnhplanner.ui.drawer.DrawerPaint.shape(kind, x, y, w, h, 0, Hyb.mix(tint, EDGE, 0.4f), EXTRA_SHAPE);
-        com.gtnhplanner.ui.drawer.DrawerPaint.shape(kind, x, y, w, h, -1, Hyb.mix(tint, SURFACE, 0.07f), EXTRA_SHAPE);
-        com.gtnhplanner.ui.drawer.DrawerPaint
-            .stripes(kind, x, y, w, h, -1, Hyb.mix(tint, SURFACE, 0.13f), EXTRA_SHAPE, 8, 3);
-        if (own) Hyb.endBatch();
-    }
-
-    /** The extra row's drawer shape, at a drawer's own share of its corners. */
-    private static final float EXTRA_SHAPE = com.gtnhplanner.ui.drawer.DrawerPaint.SCALE;
     public static final String EXTRA_OUT = "Forced", EXTRA_IN = "Forced";
 
     /** A port's icon at the card's edge (a bolt for power). */
@@ -360,48 +318,217 @@ public final class CardPaint {
         words(String.valueOf(circuit.getItemDamage()), "", "Circuit", Hyb.INK, false, y);
     }
 
-    /** The circuit on the picture's bottom left corner, large. */
-    public static void circuitBadge(final ItemStack circuit, final int[] picture, final float z) {
-        com.gtnhplanner.ui.gt.CircuitIcons.draw(circuit, picture[0], picture[1] + picture[2] - 24, 24, z);
+    /** The circuit in the well's top left corner, large. */
+    public static void circuitBadge(final ItemStack circuit, final int[] well, final float z) {
+        com.gtnhplanner.ui.gt.CircuitIcons.draw(circuit, well[0] + 3, well[1] + 3, 24, z);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
     }
 
-    /** Under a pinned count, centred, in grey. */
-    public static final String PINNED = "(pinned)";
     /** Under a count the plan waits for (nothing set anywhere): what to do, pulsing gold with the drawers' Set rate. */
     public static final String SET_COUNT = "(set count)";
 
-    /**
-     * Card-local {x, y, w, h} of the machine count on the picture's bottom right corner and the line kept under it (for
-     * "(pinned)" or "(set count)"), whatever it says: the count never moves.
-     */
-    public static int[] countRect(final String count, final int[] picture) {
-        final int cw = Math.round(Hyb.width(count) * Hyb.FIGURE);
-        final int w = Math.max(cw, Hyb.width(SET_COUNT)) + 4, h = 23;
-        return new int[] { picture[0] + picture[2] - w, picture[1] + picture[2] - h, w, h };
+    // region Tiles and the well (the website's pass 3)
+
+    /** A port's tile: its face (lighter under the mouse), its edge, and the bevel's light and dark lines. */
+    private static final int TILE = 0xFF2B2D33, TILE_HOVER = 0xFF31343A, TILE_EDGE = 0xFF121418, TILE_HI = 0xFF3B3E45,
+        TILE_LO = 0xFF222428;
+    /** A free end's tile (an open port, a forced row): a source's blue coming in, a product's orange going out. */
+    private static final int IN_BODY = 0xFF292F38, IN_STRIPE = 0xFF2E3844, IN_EDGE = 0xFF4F6986, IN_HI = 0xFF3A4757,
+        IN_LO = 0xFF22272E, OUT_BODY = 0xFF322D2E, OUT_STRIPE = 0xFF3E3431, OUT_EDGE = 0xFF815E49, OUT_HI = 0xFF4B3F39,
+        OUT_LO = 0xFF2A2425;
+
+    /** A port's tile in the row at {@code y}: one shape for every port and the power row. */
+    public static void portTile(final boolean output, final int y, final boolean hover) {
+        tile(
+            CardLayout.railX(output),
+            y + CardLayout.BOX_Y,
+            CardLayout.RAIL_W,
+            CardLayout.BOX_H,
+            hover ? TILE_HOVER : TILE,
+            TILE_EDGE,
+            TILE_HI,
+            TILE_LO);
     }
 
     /**
-     * How many machines, in white on the picture's bottom right corner (gold when {@code pinned}, as everything pinned
-     * is), and under it, centred, {@code under}
-     * ("(pinned)"
-     * in grey, "(set count)" pulsing gold, or nothing) in {@code underColor}; a dotted line under the count when the
-     * mouse
-     * is on it. The count sits in the same place whatever is under it.
+     * A free end's tile (a port the plan runs through with no wire, a forced row): the same shape, striped in a
+     * source's blue on an input or a product's orange on an output.
      */
-    public static void count(final String count, final boolean none, final boolean pinned, @Nullable final String under,
-        final int underColor, final boolean hover, final int[] picture) {
-        final float s = Hyb.FIGURE, tw = Hyb.width(count) * s;
-        final float block = Math.max(Math.max(tw, Hyb.width(SET_COUNT)), under == null ? 0 : Hyb.width(under));
-        final float right = picture[0] + picture[2] - 2;
-        final float cx = right - block / 2f;
-        final float y = picture[1] + picture[2] - 8 * s - 2 - 9;
-        final float x = cx - tw / 2f;
-        Hyb.text(count, x, y, s, pinned ? Hyb.GOLD : none ? Hyb.MUTED : Hyb.INK);
-        if (under != null && !under.isEmpty()) Hyb.text(under, cx - Hyb.width(under) / 2f, y + 8 * s + 1, underColor);
-        if (hover) for (int dx = 0; dx < tw; dx += 3) Hyb.rect(x + dx, y + 8 * s, 1, 1, Hyb.MUTED);
+    public static void freeTile(final boolean output, final int y) {
+        final float x = CardLayout.railX(output), ty = y + CardLayout.BOX_Y;
+        final int w = CardLayout.RAIL_W, h = CardLayout.BOX_H;
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        tile(
+            x,
+            ty,
+            w,
+            h,
+            output ? OUT_BODY : IN_BODY,
+            output ? OUT_EDGE : IN_EDGE,
+            output ? OUT_HI : IN_HI,
+            output ? OUT_LO : IN_LO);
+        stripes(x + 2, ty + 2, w - 4, h - 4, output ? OUT_STRIPE : IN_STRIPE, 8, 3);
+        if (own) Hyb.endBatch();
     }
+
+    /**
+     * A raised tile: its edge round a pixel short of each corner, the light line top and left, the dark bottom right.
+     */
+    private static void tile(final float x, final float y, final float w, final float h, final int face, final int edge,
+        final int hi, final int lo) {
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        Hyb.rect(x + 1, y, w - 2, 1, edge);
+        Hyb.rect(x + 1, y + h - 1, w - 2, 1, edge);
+        Hyb.rect(x, y + 1, 1, h - 2, edge);
+        Hyb.rect(x + w - 1, y + 1, 1, h - 2, edge);
+        Hyb.rect(x + 1, y + 1, w - 2, h - 2, face);
+        Hyb.rect(x + 1, y + 1, w - 2, 1, hi);
+        Hyb.rect(x + 1, y + 2, 1, h - 3, hi);
+        Hyb.rect(x + 2, y + h - 2, w - 3, 1, lo);
+        Hyb.rect(x + w - 2, y + 2, 1, h - 4, lo);
+        if (own) Hyb.endBatch();
+    }
+
+    /**
+     * Diagonal stripes rising to the right inside a box: {@code width} pixels of {@code colour} every {@code period},
+     * as rows of rectangles.
+     */
+    public static void stripes(final float x, final float y, final float w, final float h, final int colour,
+        final int period, final int width) {
+        final int rows = Math.round(h);
+        if (w <= 0 || rows <= 0) return;
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        for (int j = 0; j < rows; j++) {
+            for (float sx = x - Math.floorMod(j + Math.round(x + y), period); sx < x + w; sx += period) {
+                final float a = Math.max(sx, x), b = Math.min(sx + width, x + w);
+                if (b > a) Hyb.rect(a, y + j, b - a, 1, colour);
+            }
+        }
+        if (own) Hyb.endBatch();
+    }
+
+    /** The machine's well, {x, y, w, h}: sunk, dark at its top and left, a light line at its bottom and right. */
+    public static void well(final int[] well) {
+        final int x = well[0], y = well[1], w = well[2], h = well[3];
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        Hyb.rect(x + 1, y, w - 2, 1, 0xFF0E0F12);
+        Hyb.rect(x + 1, y + h - 1, w - 2, 1, 0xFF0E0F12);
+        Hyb.rect(x, y + 1, 1, h - 2, 0xFF0E0F12);
+        Hyb.rect(x + w - 1, y + 1, 1, h - 2, 0xFF0E0F12);
+        Hyb.rect(x + 1, y + 1, w - 2, h - 2, 0xFF1A1C20);
+        Hyb.rect(x + 1, y + 1, w - 2, 1, 0xFF141518);
+        Hyb.rect(x + 1, y + 2, 1, h - 3, 0xFF141518);
+        Hyb.rect(x + 2, y + h - 2, w - 3, 1, 0xFF2F3138);
+        Hyb.rect(x + w - 2, y + 2, 1, h - 4, 0xFF2F3138);
+        if (own) Hyb.endBatch();
+    }
+
+    // endregion
+
+    // region The count under the machine (docs/design/up-to.md)
+
+    /** The gap between the rule word and the set number. */
+    private static final int RULE_GAP = 3;
+
+    /**
+     * Card-local rectangles {x, y, w, h} of the count's parts under the picture: [0] the whole block (a click types a
+     * count), [1] the rule word (a click opens its menu; null for Any), [2] what a click types into (the set number,
+     * else what runs).
+     */
+    public static int[][] countParts(final CardFace.Count c, final int[] picture) {
+        final int top = CardLayout.countY(picture), lineY = top + CardLayout.RUN_H + CardLayout.LINE_GAP;
+        final float cx = picture[0] + picture[2] / 2f;
+        final int[] block = { CardLayout.WELL_X + 2, top - 1, CardLayout.WELL_W - 4, CardLayout.COUNT_H + 2 };
+        if (!c.pinned()) {
+            final int rw = Math.round(Hyb.width(c.run()) * Hyb.FIGURE);
+            return new int[][] { block, null, { Math.round(cx - rw / 2f), top, rw, CardLayout.RUN_H } };
+        }
+        final int ww = Hyb.width(c.ruleWord()), nw = Hyb.width(c.setText());
+        final int x0 = Math.round(cx - (ww + RULE_GAP + nw) / 2f);
+        return new int[][] { block, { x0, lineY - 1, ww, CardLayout.LINE_H + 1 },
+            { x0 + ww + RULE_GAP, lineY - 1, nw, CardLayout.LINE_H + 1 } };
+    }
+
+    /**
+     * The count under the picture: what runs, big and white (grey at none), centred; under it the rule word (a dotted
+     * line under it while it opens a menu) and the set number in gold, or for Any its note ("(set count)" pulsing in
+     * {@code noteColour}). {@code hoverNumber}: a dotted line under what a click types into; {@code hoverRule}: the
+     * rule word lit.
+     */
+    public static void count(final CardFace.Count c, final int[] picture, final int noteColour,
+        final boolean hoverNumber, final boolean hoverRule) {
+        final int top = CardLayout.countY(picture), lineY = top + CardLayout.RUN_H + CardLayout.LINE_GAP;
+        final float cx = picture[0] + picture[2] / 2f, s = Hyb.FIGURE;
+        final float rw = Hyb.width(c.run()) * s, rx = RecipeCard.crisp(cx - rw / 2f);
+        Hyb.text(c.run(), rx, top, s, c.zero() ? Hyb.MUTED : Hyb.INK);
+        if (!c.pinned()) {
+            if (hoverNumber) for (int dx = 0; dx < rw; dx += 3) Hyb.rect(rx + dx, top + 8 * s, 1, 1, Hyb.MUTED);
+            if (!c.note()
+                .isEmpty()) Hyb.text(c.note(), RecipeCard.crisp(cx - Hyb.width(c.note()) / 2f), lineY, noteColour);
+            return;
+        }
+        final int[][] parts = countParts(c, picture);
+        final int[] word = parts[1], number = parts[2];
+        Hyb.text(c.ruleWord(), word[0], lineY, hoverRule ? Hyb.INK : Hyb.MUTED);
+        // The rule word opens its menu: a dotted line under it says so (a custom rate card's cannot change).
+        if (!c.ruleFixed())
+            for (int dx = 0; dx < word[2] - 1; dx += 2) Hyb.rect(word[0] + dx, lineY + 8, 1, 1, 0xFF5A5E68);
+        Hyb.text(c.setText(), number[0], lineY, Hyb.GOLD);
+        if (hoverNumber)
+            for (int dx = 0; dx < number[2] - 1; dx += 3) Hyb.rect(number[0] + dx, lineY + 8, 1, 1, Hyb.MUTED);
+    }
+
+    // endregion
+
+    // region The bar along the foot
+
+    /** The bar's ground and its sunk edge. */
+    private static final int FOOT_BG = 0xFF17191D, FOOT_EDGE = 0xFF0D0E11, FOOT_SHADE = 0xFF111215,
+        FOOT_SAY = 0xFFC8CAD0;
+
+    /**
+     * The bar along an Up to card's foot (docs/design/up-to.md), {x, y, w, h}: its fill is what runs of the count, a
+     * bottleneck's bar runs on striped to what the line wants (a line in the reason's colour where your count ends);
+     * over it the reason's word in its colour, the plain line, and the fraction on the right. FORCED IN has no fill.
+     */
+    public static void foot(final CardFace.Foot f, final int[] r) {
+        final int x = r[0], y = r[1], w = r[2], h = r[3];
+        final int tone = f.tone().colour;
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        Hyb.rect(x + 1, y, w - 2, 1, FOOT_EDGE);
+        Hyb.rect(x + 1, y + h - 1, w - 2, 1, FOOT_EDGE);
+        Hyb.rect(x, y + 1, 1, h - 2, FOOT_EDGE);
+        Hyb.rect(x + w - 1, y + 1, 1, h - 2, FOOT_EDGE);
+        Hyb.rect(x + 1, y + 1, w - 2, h - 2, FOOT_BG);
+        Hyb.rect(x + 1, y + 1, w - 2, 1, FOOT_SHADE);
+        Hyb.rect(x + 1, y + 2, 1, h - 3, FOOT_SHADE);
+        final int tx = x + 2, ty = y + 2, th = h - 4;
+        if (f.fill() > 0) Hyb.rect(tx, ty, Math.min(f.fill(), w - 4), th, Hyb.mix(tone, FOOT_BG, 0.30f));
+        if (f.ghost()) {
+            stripes(tx + f.ghostLeft(), ty, f.ghostWidth(), th, Hyb.mix(tone, FOOT_BG, 0.34f), 7, 3);
+            Hyb.rect(tx + f.ghostLeft(), ty, 1, th, tone);
+        }
+        if (own) Hyb.endBatch();
+        final float textY = y + (h - 8) / 2f;
+        float at = x + 7;
+        if (!f.word()
+            .isEmpty()) {
+            Hyb.text(f.word(), at, textY, tone);
+            at += Hyb.width(f.word()) + CardFace.FOOT_GAP;
+        }
+        if (!f.say()
+            .isEmpty()) Hyb.text(f.say(), at, textY, FOOT_SAY);
+        if (!f.frac()
+            .isEmpty()) Hyb.text(f.frac(), x + w - 7 - Hyb.width(f.frac()), textY, Hyb.INK);
+    }
+
+    // endregion
 
     /** Gold on the beat the drawers' Set rate pulses on, grey off it: the next thing to do, while nothing is set. */
     public static int prompt() {

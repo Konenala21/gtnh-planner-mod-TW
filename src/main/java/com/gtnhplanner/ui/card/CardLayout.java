@@ -7,12 +7,13 @@ import com.gtnhplanner.ui.theme.Hyb;
 
 /**
  * Geometry of a card in GUI pixels, shared by drawing, the child widgets and wire anchors: the clean card
- * ({@code docs/design/card-redesign.md}). One surface, no boxes inside it: a header band (keys, the machine's name,
- * the amps and tier chips), inputs against the left edge and outputs against the right where their wires meet the card,
- * the machine's picture in the middle, and a strip along the bottom of the settings pinned to it. A port row is its
- * icon at the
- * edge, how much in large type and its name small under it. Power drawn, and the circuit when set so, are one more row
- * after a recipe's inputs.
+ * ({@code docs/design/card-redesign.md}) with the website's Up to look ({@code docs/design/up-to.md}): a header band
+ * (keys, the machine's name, the amps and tier chips), inputs against the left edge and outputs against the right where
+ * their wires meet the card, each port a tile of one shape, the machine in its own well in the middle with what runs
+ * and
+ * what is set under its picture, a strip along the bottom of the settings pinned to it, and under everything the bar
+ * along the foot of an Up to card. A port row is its icon at the edge, how much in large type and its name small under
+ * it. Power drawn, and the circuit when set so, are one more row after a recipe's inputs.
  */
 public final class CardLayout {
 
@@ -37,22 +38,36 @@ public final class CardLayout {
     public static final int TEXT_W = RAIL_W - TEXT_X - 2;
     /** A port's rule key and rate box: their height, the key's width, the gap between them, and the box's width. */
     public static final int CTRL_H = 10, CTRL_KEY = 10, CTRL_GAP = 2, CTRL_BOX = TEXT_W - CTRL_KEY - CTRL_GAP;
-    /** A striped row's box: the row less a pixel above and below, so rows on a card keep a hairline apart. */
-    public static final int BOX_Y = 1, BOX_H = ROW - 2;
-    /** The machine's picture: square, in the middle column. */
-    public static final int PICTURE = 88;
     /**
-     * A single block's item in the picture: four times the game's 16, so its pixels stay whole, near the top of the
-     * picture so the machine count under it stays clear.
+     * A port's tile (docs/design/up-to.md, the website's pass 3): every port is one shape, the row less a pixel above
+     * and below so tiles keep a hairline apart; a free end of the plan only changes its colours.
      */
+    public static final int BOX_Y = 1, BOX_H = ROW - 2;
+    /** The machine's picture: square, in its well, over the count. */
+    public static final int PICTURE = 80;
+    /** A single block's item in the picture: four times the game's 16, so its pixels stay whole. */
     public static final int ITEM = 64;
-    public static final int PICTURE_MIN = PICTURE;
+    /**
+     * The rails' least height: the machine's well (its picture over what runs and what is set, a pixel clear above
+     * and below), six board cells as on the website.
+     */
+    public static final int PICTURE_MIN = 120;
 
     public static final int RAILS_Y = HEADER + 6;
     public static final int IN_RAIL_X = 4;
     public static final int OUT_RAIL_X = W - 4 - RAIL_W;
     public static final int PICTURE_X = IN_RAIL_X + RAIL_W;
     public static final int PICTURE_W = OUT_RAIL_X - PICTURE_X;
+    /** The machine's well: sunk between the rails, 4 in from each, and on a shared machine as tall as one card's. */
+    public static final int WELL_X = PICTURE_X + 4, WELL_W = PICTURE_W - 8, WELL_SHARED_H = PICTURE_MIN - 2;
+    /**
+     * The count under the picture: a gap, what runs at the figures' size, then the line under it (the rule word and
+     * the set number, or "(set count)"); the block they make with the picture, centred in the well.
+     */
+    public static final int COUNT_GAP = 6, RUN_H = 12, LINE_GAP = 2, LINE_H = 9, COUNT_H = RUN_H + LINE_GAP + LINE_H,
+        WELL_BLOCK = PICTURE + COUNT_GAP + COUNT_H;
+    /** The bar along an Up to card's foot: its height, a pixel clear above it and three below. */
+    public static final int FOOT_H = 16;
 
     /** The settings strip: a chip's height, a row's, and the room inside a chip. */
     public static final int CHIP = 18, CHIP_ROW = 22, CHIP_PAD = 5;
@@ -70,6 +85,8 @@ public final class CardLayout {
     /** A power card's warnings, wrapped to the card, under the strip. */
     public final List<String> warningLines;
     public final int warningsY;
+    /** The top of the bar along the foot (an Up to card's reason, an Exactly card's FORCED IN); -1 for none. */
+    public final int footY;
     public final int height;
     /** The power row (what the machine draws) and the circuit's row among the inputs, card-local y; -1 for none. */
     public final int powerRowY, circuitRowY;
@@ -86,15 +103,20 @@ public final class CardLayout {
     public final int railsEnd;
 
     public CardLayout(final CardModel model, final com.gtnhplanner.data.flowchart.Graph plan) {
-        this(List.of(model), plan);
+        this(List.of(model), plan, false);
+    }
+
+    public CardLayout(final List<CardModel> models, final com.gtnhplanner.data.flowchart.Graph plan) {
+        this(models, plan, false);
     }
 
     /**
      * A card for its recipes, top first. A shared machine gives each recipe a rule row (its share on the left, its
      * circuit and keys on the right) over its rails, which are as tall as its longer side so its inputs and outputs
-     * face each other; its power is one row after them all.
+     * face each other; its power is one row after them all. {@code foot}: the card has a bar along its foot.
      */
-    public CardLayout(final List<CardModel> models, final com.gtnhplanner.data.flowchart.Graph plan) {
+    public CardLayout(final List<CardModel> models, final com.gtnhplanner.data.flowchart.Graph plan,
+        final boolean foot) {
         sections = models.size();
         final boolean shared = sections > 1;
         final CardModel first = models.get(0);
@@ -140,7 +162,8 @@ public final class CardLayout {
         railsEnd = y;
         circuitRowY = circuitY;
         powerRowY = powerY;
-        railsH = Math.max(railsEnd - RAILS_Y, PICTURE_MIN);
+        // At least the well; on a shared machine it stands beside the first recipe, under its rule row.
+        railsH = Math.max(railsEnd - RAILS_Y, PICTURE_MIN + (shared ? SECTION_RULE : 0));
         // The strip: chips left to right, a new row when one would pass the edge.
         chips = SettingControls.pinned(plan, first);
         pinsVersion = SettingPins.version();
@@ -166,7 +189,9 @@ public final class CardLayout {
                         .listFormattedStringToWidth(warning, W - 2 * PAD - 4));
         }
         warningsY = stripEnd + 2;
-        height = warningsY + (warningLines.isEmpty() ? 0 : warningLines.size() * 9 + 4) + 4;
+        final int end = warningsY + (warningLines.isEmpty() ? 0 : warningLines.size() * 9 + 4);
+        footY = foot ? end + 1 : -1;
+        height = foot ? footY + FOOT_H + 3 : end + 4;
     }
 
     private static boolean[] extras(final List<CardModel.PortView> ports) {
@@ -226,9 +251,35 @@ public final class CardLayout {
         return -1;
     }
 
-    /** The picture's box in the middle column, card-local {x, y, side}. */
+    /** The machine's well, card-local {x, y, w, h}: beside the rails, or beside a shared machine's first recipe. */
+    public int[] well() {
+        if (sections > 1) return new int[] { WELL_X, railsY[0] + 1, WELL_W, WELL_SHARED_H };
+        return well(railsH);
+    }
+
+    /** A card's well beside rails {@code railsH} tall. */
+    public static int[] well(final int railsH) {
+        return new int[] { WELL_X, RAILS_Y + 1, WELL_W, railsH - 2 };
+    }
+
+    /** The picture's box in the well, card-local {x, y, side}: its block with the count under it, centred. */
     public int[] picture() {
-        return new int[] { PICTURE_X + (PICTURE_W - PICTURE) / 2, RAILS_Y, PICTURE };
+        return picture(well());
+    }
+
+    public static int[] picture(final int[] well) {
+        return new int[] { well[0] + (well[2] - PICTURE) / 2, well[1] + Math.max(0, (well[3] - WELL_BLOCK) / 2),
+            PICTURE };
+    }
+
+    /** The top of the count under the picture: what runs, then the line under it. */
+    public static int countY(final int[] picture) {
+        return picture[1] + picture[2] + COUNT_GAP;
+    }
+
+    /** The bar along the foot, card-local {x, y, w, h}; null for none. */
+    public int[] foot() {
+        return footY < 0 ? null : new int[] { IN_RAIL_X, footY, W - 2 * IN_RAIL_X, FOOT_H };
     }
 
     public int sections() {

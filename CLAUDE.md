@@ -44,6 +44,12 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 - `docs/design/ff-card-spec.md` is Factory Flow's card measured from its source (sizes, colours, tooltips, the
   power panel's formulas). Our card is 320 wide to its 380 with chrome kept at 1 px; the clean card replaced its
   look (`docs/design/card-redesign.md`); `ui/card/CardLayout` holds the geometry. Board tooltips are `ui/popup/Tip` panels; a multiblock's power chips show `ui/card/PowerPanel`.
+- Up to (`docs/design/up-to.md`, the website's pass 3 card): a machine count is Any, Up to (the default for a set
+  count) or Exactly, read and written only through `data/flowchart/PinRule` (`BoardSession.rule`, `setCount`,
+  `setRule`, `pin`). The card's words are `ui/card/CardFace` (pure, tested): what runs big under the machine in its
+  well, the rule word (its menu) and the set number in gold under it; every port a tile of one shape; along an Up to
+  card's foot a bar with the solver's reason (`SolutionView.upTo`, read by `BoardSession.upTo`), an Exactly card's
+  FORCED IN. `call upto` puts stand-in read-outs and drawer shortfalls on the board.
 - AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
   machines running, never buying more to sell more), sell as far downstream as it can (spare goes on to every machine
   that takes it and is sold at the brick wall), then the least internal flow; machine steps in `ModelData.portSteps`,

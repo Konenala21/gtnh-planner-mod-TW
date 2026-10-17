@@ -36,7 +36,8 @@ public final class Hyb {
     public static final int KEY_LO = 0xFF17191D;
     public static final int NAMEBAR = 0xFF2D2F35;
     public static final int WELL = 0xFF4A4C54;
-    public static final int PICTURE = 0xFF26282C;
+    /** The ground of a structure rendered in game: the card's machine well (ui/card/CardPaint#well). */
+    public static final int PICTURE = 0xFF1A1C20;
     public static final int CANVAS = 0xFF141414;
     public static final int CANVAS_DOT = 0xFF26282D;
     public static final int GOLD = 0xFFFFD257;

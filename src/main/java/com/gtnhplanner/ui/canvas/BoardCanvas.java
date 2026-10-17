@@ -3531,8 +3531,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     }
 
     /**
-     * A middle-click that did not pan: on a drawer's rule or rate it clears the drawer back to "rate?", as on the
-     * website.
+     * A middle-click that did not pan: on a drawer's rule or rate it clears the drawer back to "rate?", on a card's
+     * count or its rule word it goes back to Any, as on the website.
      */
     private void middleClick() {
         for (final DrawerCard d : drawers.values()) {
@@ -3542,6 +3542,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 return;
             }
         }
+        for (final RecipeCard c : new java.util.LinkedHashSet<>(cards.values())) if (c.middleClick()) return;
     }
 
     /** Ends a middle-button pan on the release: a press that never moved is a middle-click. */
