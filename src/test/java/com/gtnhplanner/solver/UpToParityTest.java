@@ -24,8 +24,9 @@ import com.gtnhplanner.harness.GtnhFlowLoader;
 /**
  * The Up to rule answers the same in the mod as on the website (docs/design/up-to.md): every plan the website's
  * {@code parity/up-to-export.test.ts} wrote under {@code solver-corpus-upto/} (its hand-built Up to plans, and every
- * corpus plan with each exact count turned Up to) is solved here and its whole answer, the read-out and what a buffer
- * banks included, compared with the website's by the golden rules ({@link SolverCorpus#differences}: floating-point
+ * corpus plan with each exact count turned Up to) is solved here and its whole answer, the read-out, its rings and what
+ * a buffer banks included, compared with the website's by the golden rules ({@link SolverCorpus#differences}:
+ * floating-point
  * noise and nothing else). Re-export there after a change to either engine.
  */
 class UpToParityTest {
@@ -38,7 +39,8 @@ class UpToParityTest {
      * a basis whose primal breaks a row the basis does not hold tight), which ojAlgo, keeping the rows, does not: the
      * difference is a sliver near a millionth of a unit a second, too small to see, but it can open a gate or move a
      * few
-     * millionths of a machine onto another recipe. For these the read-out and the machine counts are compared, the
+     * millionths of a machine onto another recipe. For these the read-out, its rings and the machine counts are
+     * compared, the
      * counts to a hundred-thousandth of a machine; every other plan is compared whole.
      */
     private static final java.util.Map<String, String> WITHIN_TOLERANCE = java.util.Map.of(
@@ -91,6 +93,7 @@ class UpToParityTest {
                 "[up to parity] " + file
                     .getFileName() + " within tolerance (" + why + "): " + whole.size() + " differences");
             final List<String> d = SolverCorpus.differences(part(expected, "upTo"), part(actual, "upTo"));
+            d.addAll(SolverCorpus.differences(part(expected, "upToLoops"), part(actual, "upToLoops")));
             d.addAll(countsDiffer(part(expected, "machineCounts"), part(actual, "machineCounts")));
             assertTrue(d.isEmpty(), file.getFileName() + " read-outs or counts differ:\n  " + String.join("\n  ", d));
             return;

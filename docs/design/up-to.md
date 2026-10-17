@@ -54,6 +54,8 @@ in saves and in plans from the website, reads as Up to, old website Build plans 
   `capacity` is a double: a website plan's count may be fractional; `SolveInputJson` writes a whole one as before.
 - `SolutionView.upTo()`: one `UpToReadout` per Up to pool, by its first machine; `UpToReason` is FULL, BOTTLENECK,
   STARVED, CLOGGED, UNUSED or LIMITED. Empty when the plan has no Up to pool.
+- `SolutionView.upToLoops()`: old Build's dead loops and clog locks, `UpToLoop { kind, nodes, ports }` (DEAD_LOOP:
+  every member STARVED; CLOG_LOCK: every member CLOGGED or UNUSED), sorted by first node. Empty when there are none.
 - `DrawerReadout.banked`: per BUFFER of rule ANY, what it banks; null without Up to pools or such a buffer.
 - `SolverMessage.PIN_UP_TO`: what holds a drawer back when its Up to machines cannot do more (`LIMIT_PIN`, the card
   among the shortfall's `limitingNodes`).
@@ -80,7 +82,11 @@ ported to `balancer/`, name for name where the Java already mirrored it:
   `Enumerator.evaluateSupportWith` pushes every support it settles, `applyChoice` keeps what the chosen point was
   settled under, and the swaps skip a gate whose every port is a bank or guarded shut.
 - `UpToRead`: the read-out with the website's budget and reasons (`Solver.feedPort` gives a probe its free ends), merged
-  across islands by node in `Balancer`. `SolutionView.unneeded` leaves Up to machines out. `Unanchored` already counted
+  across islands by node in `Balancer`. Its rings (`findLoops`, the website's `readout.ts` of the same name) come after
+  every reason is known, a pure graph with no model: a STARVED pool blames the Up to pools making on the wire network of
+  its `port` or a `tied` port, a CLOGGED or UNUSED one those taking there; a strongly connected part of that (`Loops`,
+  a pool blaming itself counting) all STARVED is a DEAD_LOOP, all CLOGGED or UNUSED a CLOG_LOCK. `nodes` in pool order,
+  `ports` the members' blaming ports on the ring; merged across islands by first node like `upTo`. `SolutionView.unneeded` leaves Up to machines out. `Unanchored` already counted
   every set count, Up to or Exactly.
 
 ## Checking it against the website
@@ -88,8 +94,8 @@ ported to `balancer/`, name for name where the Java already mirrored it:
 - `UpToTest` is the website's `upto.test.ts` case for case, on the same plans (`UpToPlans`, ids hashed as the website's
   export hashes them). `SolverPathTest` (reversed variables) and `SolverIslandTest` take Up to plans too.
 - `UpToParityTest` solves every plan under `src/test/resources/solver-corpus-upto/` and compares its whole answer with
-  the website's by the golden rules; `upTo` and `banked` are in the digest only when present, so the goldens did not
-  move. The website writes the folder: `UPTO_EXPORT_DIR=<this folder> npx vitest run up-to-export` on `up-to-card`
+  the website's by the golden rules; `upTo`, `upToLoops` and `banked` are in the digest only when present, so the
+  goldens did not move. The website writes the folder: `UPTO_EXPORT_DIR=<this folder> npx vitest run up-to-export` on `up-to-card`
   (`parity/up-to-export.test.ts`: every hand-built Up to plan, and every corpus plan with each exact count Up to). Three
   plans answer alike only to the LP's tolerance (the website's committed point breaks one of its own rows by less than
   HiGHS's tolerance, near a millionth of a unit a second); the test names them with why and compares their read-outs

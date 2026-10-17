@@ -332,6 +332,8 @@ final class SolverCorpus {
             j.add("spares", of(v.spares(), depth + 1));
             // The Up to read-out only when the plan has Up to pools: the goldens before it read the same.
             if (!v.upTo().isEmpty()) j.add("upTo", of(v.upTo(), depth + 1));
+            // Its rings only when there are some: the goldens before them read the same.
+            if (!v.upToLoops().isEmpty()) j.add("upToLoops", of(v.upToLoops(), depth + 1));
             return j;
         }
         // Anything else of ours (a record the build may have made a plain class): its fields.

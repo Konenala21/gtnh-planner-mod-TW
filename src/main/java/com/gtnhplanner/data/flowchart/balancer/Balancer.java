@@ -265,6 +265,7 @@ public final class Balancer {
         final List<Note> choiceNotes = new ArrayList<>();
         final List<Spares.Leftover> spares = new ArrayList<>();
         final List<UpToReadout> upTo = new ArrayList<>();
+        final List<UpToLoop> upToLoops = new ArrayList<>();
         boolean complete = true;
         for (final Piece p : pieces) {
             final SolveContext c = p.ctx();
@@ -319,6 +320,9 @@ public final class Balancer {
             upTo.addAll(
                 solved.solution()
                     .upTo());
+            upToLoops.addAll(
+                solved.solution()
+                    .upToLoops());
         }
         whole.commit(StageOutcome.of(whole, extents, flows, externals, support, false));
         // Each option keeps its island's key: a stored choice applies to the islands its anchors sit on (Islands).
@@ -334,6 +338,12 @@ public final class Balancer {
         view.spares(List.copyOf(spares));
         upTo.sort(Comparator.comparing(UpToReadout::node));
         view.upTo(upTo);
+        // Each island's rings are its own too, merged by their first member.
+        upToLoops.sort(
+            Comparator.comparing(
+                l -> l.nodes()
+                    .get(0)));
+        view.upToLoops(upToLoops);
         return new Answer.Solved(
             view,
             new Alternatives(whole.keyOf(support), List.copyOf(planOptions), complete, List.copyOf(choiceNotes)));
@@ -475,8 +485,11 @@ public final class Balancer {
             view = SolutionView.of(ctx, System.currentTimeMillis() - start);
         }
         view.spares(spares);
-        // Why each Up to card runs where it does, at the point as it now stands (docs/design/up-to.md).
-        view.upTo(UpToRead.of(ctx));
+        // Why each Up to card runs where it does, at the point as it now stands, and the rings they blame each other
+        // round (docs/design/up-to.md).
+        final UpToRead.Result read = UpToRead.of(ctx);
+        view.upTo(read.readouts());
+        view.upToLoops(read.loops());
         return new Piece(ctx, new Answer.Solved(view, alternatives));
     }
 

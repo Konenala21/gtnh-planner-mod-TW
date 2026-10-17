@@ -1,0 +1,430 @@
+{
+ "name": "two rings",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+    "name": "a0",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+    "name": "a1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 0.5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+    "name": "b0",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "f6d57ca0-5530-34fd-b626-a873b97414de",
+    "name": "b1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "x2",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+    "name": "b2",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "x2",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 0.5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "c49dcbf4-1455-30af-b3e5-e9efb34feeb2",
+    "source": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+    "sourceOutput": 0,
+    "target": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+    "targetInput": 0
+   },
+   {
+    "id": "99588d08-10bd-3700-89be-129687866f65",
+    "source": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+    "sourceOutput": 0,
+    "target": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+    "targetInput": 0
+   },
+   {
+    "id": "445645e0-d8db-3ae0-971b-2b568f6f03a4",
+    "source": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+    "sourceOutput": 0,
+    "target": "f6d57ca0-5530-34fd-b626-a873b97414de",
+    "targetInput": 0
+   },
+   {
+    "id": "3cbe8a23-4b1d-31a6-b0ca-644a5bb57b54",
+    "source": "f6d57ca0-5530-34fd-b626-a873b97414de",
+    "sourceOutput": 0,
+    "target": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+    "targetInput": 0
+   },
+   {
+    "id": "d7cdea9e-3693-3245-bdc0-4ab4b3454e73",
+    "source": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+    "sourceOutput": 0,
+    "target": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "eac606f1-25cc-3f91-97ae-bd27f707adbd"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "5ac47ede-7109-3e98-b77c-0cbdc3b517a3"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "f6d57ca0-5530-34fd-b626-a873b97414de"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "0df6d903-e12a-347c-9b50-59ac5704f4ec"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68": 0,
+    "eac606f1-25cc-3f91-97ae-bd27f707adbd": 0,
+    "5ac47ede-7109-3e98-b77c-0cbdc3b517a3": 0,
+    "f6d57ca0-5530-34fd-b626-a873b97414de": 0,
+    "0df6d903-e12a-347c-9b50-59ac5704f4ec": 0
+   },
+   "machineCounts": {
+    "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68": 0,
+    "eac606f1-25cc-3f91-97ae-bd27f707adbd": 0,
+    "5ac47ede-7109-3e98-b77c-0cbdc3b517a3": 0,
+    "f6d57ca0-5530-34fd-b626-a873b97414de": 0,
+    "0df6d903-e12a-347c-9b50-59ac5704f4ec": 0
+   },
+   "edgeFlowsPerSecond": {
+    "c49dcbf4-1455-30af-b3e5-e9efb34feeb2": 0,
+    "99588d08-10bd-3700-89be-129687866f65": 0,
+    "445645e0-d8db-3ae0-971b-2b568f6f03a4": 0,
+    "3cbe8a23-4b1d-31a6-b0ca-644a5bb57b54": 0,
+    "d7cdea9e-3693-3245-bdc0-4ab4b3454e73": 0
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [],
+   "terminalOutputs": [],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+     "machines": [
+      "eac606f1-25cc-3f91-97ae-bd27f707adbd"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "f6d57ca0-5530-34fd-b626-a873b97414de",
+     "machines": [
+      "f6d57ca0-5530-34fd-b626-a873b97414de"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "f6d57ca0-5530-34fd-b626-a873b97414de",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+     "machines": [
+      "0df6d903-e12a-347c-9b50-59ac5704f4ec"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+     "machines": [
+      "5ac47ede-7109-3e98-b77c-0cbdc3b517a3"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+     "machines": [
+      "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ],
+   "upToLoops": [
+    {
+     "kind": "DEAD_LOOP",
+     "nodes": [
+      "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+      "f6d57ca0-5530-34fd-b626-a873b97414de",
+      "0df6d903-e12a-347c-9b50-59ac5704f4ec"
+     ],
+     "ports": [
+      {
+       "nodeId": "5ac47ede-7109-3e98-b77c-0cbdc3b517a3",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "f6d57ca0-5530-34fd-b626-a873b97414de",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "0df6d903-e12a-347c-9b50-59ac5704f4ec",
+       "portIndex": 0,
+       "input": true
+      }
+     ]
+    },
+    {
+     "kind": "DEAD_LOOP",
+     "nodes": [
+      "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+      "eac606f1-25cc-3f91-97ae-bd27f707adbd"
+     ],
+     "ports": [
+      {
+       "nodeId": "5c9a1ba4-04c9-3579-9a17-6eac2ec11a68",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "eac606f1-25cc-3f91-97ae-bd27f707adbd",
+       "portIndex": 0,
+       "input": true
+      }
+     ]
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

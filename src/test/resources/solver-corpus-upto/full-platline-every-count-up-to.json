@@ -4615,6 +4615,33 @@
      "wants": null,
      "upstream": []
     }
+   ],
+   "upToLoops": [
+    {
+     "kind": "CLOG_LOCK",
+     "nodes": [
+      "b4644e4f-1de0-4b3c-9a3b-ed9a1264cd20",
+      "c9bbc5d2-ad7a-4036-bcf9-40cb57786112",
+      "e58d0464-1e41-4bc9-99e7-2235f7fb9fb3"
+     ],
+     "ports": [
+      {
+       "nodeId": "b4644e4f-1de0-4b3c-9a3b-ed9a1264cd20",
+       "portIndex": 0,
+       "input": false
+      },
+      {
+       "nodeId": "c9bbc5d2-ad7a-4036-bcf9-40cb57786112",
+       "portIndex": 0,
+       "input": false
+      },
+      {
+       "nodeId": "e58d0464-1e41-4bc9-99e7-2235f7fb9fb3",
+       "portIndex": 1,
+       "input": false
+      }
+     ]
+    }
    ]
   },
   "alternatives": {

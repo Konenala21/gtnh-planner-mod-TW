@@ -1106,6 +1106,27 @@
      "wants": null,
      "upstream": []
     }
+   ],
+   "upToLoops": [
+    {
+     "kind": "CLOG_LOCK",
+     "nodes": [
+      "931f4bd6-fc07-4e89-a069-caaea49287b7",
+      "e922c56c-2de4-4631-a466-93f435098a61"
+     ],
+     "ports": [
+      {
+       "nodeId": "931f4bd6-fc07-4e89-a069-caaea49287b7",
+       "portIndex": 1,
+       "input": false
+      },
+      {
+       "nodeId": "e922c56c-2de4-4631-a466-93f435098a61",
+       "portIndex": 0,
+       "input": false
+      }
+     ]
+    }
    ]
   },
   "alternatives": {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -464,6 +465,64 @@ class UpToTest {
             assertEquals(UpToReason.BOTTLENECK, readout(s, p).reason());
             assertEquals(2, readout(s, p).wants(), EPS);
         }
+    }
+
+    // ── Rings that blame each other (dead loops and clog locks) ──
+
+    private static List<UUID> ids(final List<String> names) {
+        final List<UUID> out = new ArrayList<>();
+        for (final String name : names) out.add(id(name));
+        return out;
+    }
+
+    @Test
+    void aRecyclingRingNothingFeedsIsADeadLoopTwoAndThreeLongAndAMachineFedByItself() {
+        for (final int n : new int[] { 1, 2, 3 }) {
+            final SolutionView s = solved(UpToPlans.deadRing(n));
+            final List<String> names = UpToPlans.ringIds(n, "r");
+            for (final String name : names) assertEquals(UpToReason.STARVED, readout(s, name).reason(), name);
+            final List<PortRef> ports = new ArrayList<>();
+            for (final String name : names) ports.add(ref(name, 0, true));
+            assertEquals(List.of(new UpToLoop(UpToLoop.Kind.DEAD_LOOP, ids(names), ports)), s.upToLoops(), "n " + n);
+        }
+    }
+
+    @Test
+    void aByproductRingThatFillsItsOwnWayOutIsAClogLockOfItsFullOutputs() {
+        final SolutionView s = solved(UpToPlans.clogRing());
+        assertEquals(UpToReason.UNUSED, readout(s, "a").reason());
+        assertEquals(UpToReason.UNUSED, readout(s, "b").reason());
+        assertEquals(
+            List.of(
+                new UpToLoop(
+                    UpToLoop.Kind.CLOG_LOCK,
+                    ids(List.of("a", "b")),
+                    List.of(ref("a", 0, false), ref("b", 0, false)))),
+            s.upToLoops());
+    }
+
+    @Test
+    void aStarvedChainIsNoRing() {
+        final SolutionView s = solved(UpToPlans.starvedChain());
+        assertEquals(UpToReason.STARVED, readout(s, "a").reason());
+        assertEquals(UpToReason.STARVED, readout(s, "b").reason());
+        assertTrue(
+            s.upToLoops()
+                .isEmpty());
+    }
+
+    @Test
+    void eachIslandsRingsMergedByTheirFirstMember() {
+        final SolutionView s = solved(UpToPlans.twoRings());
+        final List<List<UUID>> expected = new ArrayList<>(
+            List.of(ids(UpToPlans.ringIds(2, "a")), ids(UpToPlans.ringIds(3, "b"))));
+        expected.sort(Comparator.comparing(nodes -> nodes.get(0)));
+        final List<List<UUID>> rings = new ArrayList<>();
+        for (final UpToLoop l : s.upToLoops()) {
+            assertEquals(UpToLoop.Kind.DEAD_LOOP, l.kind());
+            rings.add(l.nodes());
+        }
+        assertEquals(expected, rings);
     }
 
     // ── Several ports short at once ──

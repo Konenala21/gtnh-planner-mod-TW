@@ -1,0 +1,215 @@
+{
+ "name": "clog ring",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "name": "a",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     },
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 9,
+      "name": "ore",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+    "name": "b",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "y",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 2,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "de09bd25-06b6-3cdf-b673-fead9256f3d7",
+    "source": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "sourceOutput": 0,
+    "target": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+    "targetInput": 0
+   },
+   {
+    "id": "8bc59312-b08c-3569-b325-3f8837690776",
+    "source": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+    "sourceOutput": 0,
+    "target": "158d59fb-0a56-31bc-817f-df43109f9c46",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "158d59fb-0a56-31bc-817f-df43109f9c46"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "158d59fb-0a56-31bc-817f-df43109f9c46": 0,
+    "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783": 0
+   },
+   "machineCounts": {
+    "158d59fb-0a56-31bc-817f-df43109f9c46": 0,
+    "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783": 0
+   },
+   "edgeFlowsPerSecond": {
+    "de09bd25-06b6-3cdf-b673-fead9256f3d7": 0,
+    "8bc59312-b08c-3569-b325-3f8837690776": 0
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [],
+   "terminalOutputs": [],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+     "machines": [
+      "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "UNUSED",
+     "port": {
+      "nodeId": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "158d59fb-0a56-31bc-817f-df43109f9c46",
+     "machines": [
+      "158d59fb-0a56-31bc-817f-df43109f9c46"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "UNUSED",
+     "port": {
+      "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "portIndex": 0,
+      "input": false
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ],
+   "upToLoops": [
+    {
+     "kind": "CLOG_LOCK",
+     "nodes": [
+      "158d59fb-0a56-31bc-817f-df43109f9c46",
+      "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783"
+     ],
+     "ports": [
+      {
+       "nodeId": "158d59fb-0a56-31bc-817f-df43109f9c46",
+       "portIndex": 0,
+       "input": false
+      },
+      {
+       "nodeId": "8ddfd6e7-a6c1-3148-9cbd-b3ce31358783",
+       "portIndex": 0,
+       "input": false
+      }
+     ]
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}

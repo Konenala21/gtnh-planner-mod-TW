@@ -3242,6 +3242,33 @@
      "wants": null,
      "upstream": []
     }
+   ],
+   "upToLoops": [
+    {
+     "kind": "DEAD_LOOP",
+     "nodes": [
+      "cf496d73-dcc7-4c41-b5a7-2b03507b025b",
+      "0ee804b0-4514-4d08-accb-6e4160804739",
+      "3c22b8b9-01e8-499d-a0f0-6cd9b4de462b"
+     ],
+     "ports": [
+      {
+       "nodeId": "cf496d73-dcc7-4c41-b5a7-2b03507b025b",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "0ee804b0-4514-4d08-accb-6e4160804739",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "3c22b8b9-01e8-499d-a0f0-6cd9b4de462b",
+       "portIndex": 0,
+       "input": true
+      }
+     ]
+    }
    ]
   },
   "alternatives": {

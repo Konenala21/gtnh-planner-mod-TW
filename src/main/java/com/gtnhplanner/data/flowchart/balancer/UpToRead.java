@@ -38,7 +38,8 @@ import com.gtnhplanner.data.flowchart.Drawer;
  * networks wants more too. Else FULL.</li>
  * </ul>
  * The pools below their capacity are read first (pool order), then those at it: an at-capacity pool's reason looks at
- * who is starved.
+ * who is starved. Once every reason is known, the rings the pools blame each other round are found over them
+ * ({@link #findLoops}, {@link SolutionView#upToLoops()}).
  */
 public final class UpToRead {
 
@@ -123,10 +124,24 @@ public final class UpToRead {
     /** One side's short port: the first that holds it back, and the others that do. */
     private record Short(PortRef port, List<PortRef> tied) {}
 
-    /** The read-out of every Up to pool, by {@code node}; empty when the context has none. */
-    public static List<UpToReadout> of(final SolveContext ctx) {
+    /**
+     * The read-out of every Up to pool, by {@code node}, and the rings they blame each other round: both empty when
+     * the context has none.
+     */
+    public record Result(List<UpToReadout> readouts, List<UpToLoop> loops) {
+
+        static final Result NONE = new Result(List.of(), List.of());
+
+        public Result {
+            readouts = List.copyOf(readouts);
+            loops = List.copyOf(loops);
+        }
+    }
+
+    /** The read-out of every Up to pool and its rings; {@link Result#NONE} when the context has none. */
+    public static Result of(final SolveContext ctx) {
         final List<Integer> pools = ctx.upToPools;
-        if (pools.isEmpty() || ctx.point() == null) return List.of();
+        if (pools.isEmpty() || ctx.point() == null) return Result.NONE;
         final double[] extents = ctx.extents();
         final Solver.Trades trades = ctx.committedTrades;
         final Budget budget = new Budget(budget(pools.size()));
@@ -162,7 +177,104 @@ public final class UpToRead {
         out.sort(
             (a, b) -> a.node()
                 .compareTo(b.node()));
-        return List.copyOf(out);
+        return new Result(out, findLoops(ctx, read));
+    }
+
+    // ── Loops: dead loops and clog locks ──
+
+    /** A member's blaming port ({@code port} or a {@code tied} one) and the wire network it is on. */
+    private record Blame(PortRef ref, int network) {}
+
+    /**
+     * The rings of Up to pools that blame each other (old Build's dead loop and clog lock; the website's
+     * {@code findLoops}). A pool blames the Up to pools on the wire network of its {@code port} and {@code tied} ports:
+     * for a STARVED pool those that make what it is short of, for a CLOGGED or UNUSED one those that take what it
+     * cannot get rid of. A ring is a strongly connected part of that relation ({@link Loops}; a pool blaming itself
+     * counts) whose members all read STARVED (DEAD_LOOP) or all CLOGGED or UNUSED (CLOG_LOCK). Members in pool order,
+     * rings by their first member's {@code node}. A pure graph over the read-out and the model's networks: no model
+     * runs.
+     */
+    private static List<UpToLoop> findLoops(final SolveContext ctx, final Map<Integer, Read> read) {
+        final ModelData model = ctx.model;
+        final List<UpToLoop> loops = new ArrayList<>();
+        for (final UpToLoop.Kind kind : UpToLoop.Kind.values()) {
+            final boolean starving = kind == UpToLoop.Kind.DEAD_LOOP;
+            final List<Integer> members = new ArrayList<>();
+            for (final int p : ctx.upToPools) {
+                final Read r = read.get(p);
+                if (r.port == null) continue;
+                if (starving ? r.reason == UpToReason.STARVED
+                    : r.reason == UpToReason.CLOGGED || r.reason == UpToReason.UNUSED) members.add(p);
+            }
+            if (members.isEmpty()) continue;
+            // What each member blames (its short inputs, or its full outputs), and the networks it makes on or takes
+            // from.
+            final List<List<Blame>> blames = new ArrayList<>();
+            final List<Set<Integer>> touches = new ArrayList<>();
+            for (final int p : members) {
+                final Read r = read.get(p);
+                final List<PortRef> refs = new ArrayList<>();
+                refs.add(r.port);
+                refs.addAll(r.tied);
+                final List<Blame> out = new ArrayList<>();
+                for (final PortRef ref : refs) {
+                    final Integer m = model.machineIndex.get(ref.nodeId());
+                    final Integer q = m == null ? null
+                        : model.portLookup.get(ModelData.portKey(m, ref.portIndex(), ref.input()));
+                    if (q != null) out.add(new Blame(ref, model.portComponent[q]));
+                }
+                blames.add(out);
+                final Set<Integer> own = new HashSet<>(
+                    model.pools.get(p)
+                        .machines());
+                final Set<Integer> networks = new HashSet<>();
+                // A starved pool is fed by those that make there; a clogged one is held by those that take there.
+                for (int q = 0; q < model.connectedPorts.size(); q++) {
+                    final ModelData.ConnectedPort cp = model.connectedPorts.get(q);
+                    if (own.contains(cp.machine()) && cp.input() != starving) networks.add(model.portComponent[q]);
+                }
+                touches.add(networks);
+            }
+            final List<List<Integer>> next = new ArrayList<>();
+            for (int k = 0; k < members.size(); k++) {
+                final List<Integer> to = new ArrayList<>();
+                for (final Blame b : blames.get(k)) {
+                    for (int j = 0; j < members.size(); j++) {
+                        if (touches.get(j)
+                            .contains(b.network()) && !to.contains(j)) to.add(j);
+                    }
+                }
+                to.sort(Integer::compare);
+                next.add(to);
+            }
+            final int[] ring = Loops.of(next);
+            final Map<Integer, List<Integer>> byRing = new LinkedHashMap<>();
+            for (int k = 0; k < members.size(); k++) byRing.computeIfAbsent(ring[k], x -> new ArrayList<>())
+                .add(k);
+            for (final List<Integer> group : byRing.values()) {
+                if (group.size() == 1 && !next.get(group.get(0))
+                    .contains(group.get(0))) continue;
+                final List<UUID> nodes = new ArrayList<>();
+                final List<PortRef> ports = new ArrayList<>();
+                for (final int k : group) {
+                    nodes.add(read.get(members.get(k)).node);
+                    for (final Blame b : blames.get(k)) {
+                        boolean onRing = false;
+                        for (final int j : group) onRing |= touches.get(j)
+                            .contains(b.network());
+                        if (onRing) ports.add(b.ref());
+                    }
+                }
+                loops.add(new UpToLoop(kind, nodes, ports));
+            }
+        }
+        loops.sort(
+            (a, b) -> a.nodes()
+                .get(0)
+                .compareTo(
+                    b.nodes()
+                        .get(0)));
+        return loops;
     }
 
     /** The connected input port a reference names, or null when it is not wired. */

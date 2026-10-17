@@ -395,6 +395,76 @@ final class UpToPlans {
             List.of(upTo(List.of("n"), 2)));
     }
 
+    /** The ids of a dead ring of {@code n}: {@code prefix0} to {@code prefix(n-1)}. */
+    static List<String> ringIds(final int n, final String prefix) {
+        final List<String> ids = new ArrayList<>();
+        for (int k = 0; k < n; k++) ids.add(prefix + k);
+        return ids;
+    }
+
+    /**
+     * A recycling ring of {@code n} Up to 1 machines nothing feeds ({@code prefix0}: x0 -> x1, ..., the last back to x0
+     * at half a craft's worth): every member starved by the one before it, a dead loop (with {@code n} 1, a machine fed
+     * by its own output).
+     */
+    static SolveInput deadRing(final int n, final String prefix) {
+        final List<String> ids = ringIds(n, prefix);
+        final List<SolveInput.Machine> machines = new ArrayList<>();
+        final List<SolveInput.EdgeIn> edges = new ArrayList<>();
+        final List<SolveInput.PoolIn> pools = new ArrayList<>();
+        for (int k = 0; k < n; k++) {
+            final int after = (k + 1) % n;
+            machines.add(
+                machine(
+                    ids.get(k),
+                    List.of(port(k, "x" + k)),
+                    List.of(port(after, "x" + after, k == n - 1 ? 0.5 : 1))));
+            edges.add(edge(prefix + "w" + k, ids.get(k), 0, ids.get(after), 0));
+            pools.add(upTo(List.of(ids.get(k)), 1));
+        }
+        return plan(machines, edges, pools);
+    }
+
+    static SolveInput deadRing(final int n) {
+        return deadRing(n, "r");
+    }
+
+    /**
+     * a (x and free ore -> y) and b (y -> 2 x), both Up to 1, in a ring: b makes twice the x a takes, with nowhere for
+     * the rest to go, so neither runs: a clog lock (the fix is a drawer on b's x).
+     */
+    static SolveInput clogRing() {
+        return plan(
+            List.of(
+                machine("a", List.of(port(1, "x"), port(9, "ore")), List.of(port(2, "y"))),
+                machine("b", List.of(port(2, "y")), List.of(port(1, "x", 2)))),
+            List.of(edge("y", "a", 0, "b", 0), edge("x", "b", 0, "a", 0)),
+            List.of(upTo(List.of("a"), 1), upTo(List.of("b"), 1)));
+    }
+
+    /** e (Exactly 1) -> a (Up to 2) -> b (Up to 2): both starved, b by a, a by e; no ring. */
+    static SolveInput starvedChain() {
+        return plan(
+            List.of(
+                machine("a", List.of(port(1, "x")), List.of(port(2, "y"))),
+                machine("b", List.of(port(2, "y")), List.of(port(3, "z"))),
+                machine("e", List.of(), List.of(port(1, "x")), 1)),
+            List.of(edge("x", "e", 0, "a", 0), edge("y", "a", 0, "b", 0)),
+            List.of(upTo(List.of("a"), 2), upTo(List.of("b"), 2)));
+    }
+
+    /** A dead ring of two (a0, a1) and one of three (b0, b1, b2), two islands. */
+    static SolveInput twoRings() {
+        final SolveInput one = deadRing(2, "a"), two = deadRing(3, "b");
+        final List<SolveInput.Machine> machines = new ArrayList<>(one.machines());
+        machines.addAll(two.machines());
+        final List<SolveInput.EdgeIn> edges = new ArrayList<>(one.edges());
+        edges.addAll(two.edges());
+        final List<SolveInput.PoolIn> pools = new ArrayList<>(one.pools());
+        pools.addAll(two.pools());
+        return plan(machines, edges, pools);
+    }
+
     /**
      * e (Exactly 1) and p (Up to 2) feed c; a drawer asks 5 of c's output; f (Exactly 1) is a second pin on the island.
      */
@@ -471,6 +541,12 @@ final class UpToPlans {
         out.put("two producers", twoProducers());
         out.put("two short inputs", twoShortInputs());
         out.put("two full outputs", twoFullOutputs());
+        out.put("dead ring of one", deadRing(1));
+        out.put("dead ring of two", deadRing(2));
+        out.put("dead ring of three", deadRing(3));
+        out.put("clog ring", clogRing());
+        out.put("starved chain", starvedChain());
+        out.put("two rings", twoRings());
         return out;
     }
 }

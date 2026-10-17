@@ -1,0 +1,279 @@
+{
+ "name": "dead ring of three",
+ "input": {
+  "mode": "AUTO",
+  "machines": [
+   {
+    "id": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+    "name": "r0",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+    "name": "r1",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 1,
+      "name": "x1",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "x2",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   },
+   {
+    "id": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+    "name": "r2",
+    "durationTicks": 20,
+    "energyPerTick": 0,
+    "throughputFactor": 1,
+    "inputs": [
+     {
+      "amount": 1,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 2,
+      "name": "x2",
+      "free": false
+     }
+    ],
+    "outputs": [
+     {
+      "amount": 0.5,
+      "chance": 1,
+      "multiplier": 1,
+      "resource": 0,
+      "name": "x0",
+      "free": false
+     }
+    ],
+    "countFixed": false,
+    "machineCount": 1,
+    "targetOutputRates": {},
+    "targetInputRates": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": "11d7f354-05de-30d2-8e66-a4bbc95371b4",
+    "source": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+    "sourceOutput": 0,
+    "target": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+    "targetInput": 0
+   },
+   {
+    "id": "35f48e50-06be-32bf-9daa-b96713810e68",
+    "source": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+    "sourceOutput": 0,
+    "target": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+    "targetInput": 0
+   },
+   {
+    "id": "e23facec-ff9e-3737-9b31-eff882527e4b",
+    "source": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+    "sourceOutput": 0,
+    "target": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+    "targetInput": 0
+   }
+  ],
+  "pools": [
+   {
+    "machines": [
+     "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "a7bd54bb-3b14-3f83-9deb-4b090030e405"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   },
+   {
+    "machines": [
+     "83677e69-b889-3976-a10a-cdcff48a2ac9"
+    ],
+    "capacity": 1,
+    "exact": false,
+    "upTo": true
+   }
+  ],
+  "drawers": [],
+  "extentPins": {},
+  "spares": {}
+ },
+ "answer": {
+  "solution": {
+   "extentsPerSecond": {
+    "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14": 0,
+    "a7bd54bb-3b14-3f83-9deb-4b090030e405": 0,
+    "83677e69-b889-3976-a10a-cdcff48a2ac9": 0
+   },
+   "machineCounts": {
+    "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14": 0,
+    "a7bd54bb-3b14-3f83-9deb-4b090030e405": 0,
+    "83677e69-b889-3976-a10a-cdcff48a2ac9": 0
+   },
+   "edgeFlowsPerSecond": {
+    "11d7f354-05de-30d2-8e66-a4bbc95371b4": 0,
+    "35f48e50-06be-32bf-9daa-b96713810e68": 0,
+    "e23facec-ff9e-3737-9b31-eff882527e4b": 0
+   },
+   "gatedSources": [],
+   "gatedSinks": [],
+   "terminalInputs": [],
+   "terminalOutputs": [],
+   "unneeded": [],
+   "openGates": 0,
+   "externalQuantity": 0,
+   "totalInternalFlow": 0,
+   "notes": [],
+   "key": {
+    "gateAnchors": []
+   },
+   "drawers": {
+    "rates": {},
+    "unmet": [],
+    "shortfalls": [],
+    "ports": {}
+   },
+   "spares": [],
+   "upTo": [
+    {
+     "node": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+     "machines": [
+      "83677e69-b889-3976-a10a-cdcff48a2ac9"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+     "machines": [
+      "a7bd54bb-3b14-3f83-9deb-4b090030e405"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    },
+    {
+     "node": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+     "machines": [
+      "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14"
+     ],
+     "capacity": 1,
+     "reached": 0,
+     "reason": "STARVED",
+     "port": {
+      "nodeId": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+      "portIndex": 0,
+      "input": true
+     },
+     "tied": [],
+     "wants": null,
+     "upstream": []
+    }
+   ],
+   "upToLoops": [
+    {
+     "kind": "DEAD_LOOP",
+     "nodes": [
+      "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+      "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+      "83677e69-b889-3976-a10a-cdcff48a2ac9"
+     ],
+     "ports": [
+      {
+       "nodeId": "1ef7e05d-0185-3c30-9e1a-18b7fbe4fa14",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "a7bd54bb-3b14-3f83-9deb-4b090030e405",
+       "portIndex": 0,
+       "input": true
+      },
+      {
+       "nodeId": "83677e69-b889-3976-a10a-cdcff48a2ac9",
+       "portIndex": 0,
+       "input": true
+      }
+     ]
+    }
+   ]
+  },
+  "alternatives": {
+   "chosen": {
+    "gateAnchors": []
+   },
+   "options": [],
+   "complete": true,
+   "notes": []
+  }
+ }
+}
