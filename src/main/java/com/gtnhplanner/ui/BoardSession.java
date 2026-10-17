@@ -2399,6 +2399,40 @@ public final class BoardSession {
         return out.isEmpty() ? Map.of() : out;
     }
 
+    /**
+     * Dead loops and clog locks over the read-out (docs/design/up-to.md), from the last solve and the dev harness's
+     * stand-ins: the rings whose cards wear an outline that pulses in the ring's tone.
+     */
+    private List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> upToLoops = List.of();
+    /** Rings the dev harness adds to the solver's; null for none. */
+    private List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> devLoops;
+
+    /** Every dead loop and clog lock on the board, the solver's then the dev harness's; empty for none. */
+    public List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> upToLoops() {
+        return upToLoops;
+    }
+
+    /** The ring a card is in (the first when it is in several), by its id; null for none. */
+    @Nullable
+    public com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind loopOf(final UUID card) {
+        return upToLoops.isEmpty() ? null : CardFace.loopOf(upToLoops, card);
+    }
+
+    /** Dev only: rings to add to the solver's until cleared with null. The cards are redrawn on the next tick. */
+    public void devLoops(@Nullable final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> loops) {
+        devLoops = loops == null ? null : new ArrayList<>(loops);
+        seenVersion = Long.MIN_VALUE;
+    }
+
+    private List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> indexLoops() {
+        final List<com.gtnhplanner.data.flowchart.balancer.UpToLoop> out = new ArrayList<>();
+        if (result instanceof final BalanceResult.Solved solved) out.addAll(
+            solved.auto()
+                .upToLoops());
+        if (devLoops != null) out.addAll(devLoops);
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
     /** The drawers the plan cannot give their rate, from the last solve (and the dev harness's stand-ins). */
     private List<DrawerReadout.Shortfall> shortfalls() {
         final List<DrawerReadout.Shortfall> solved = result == null ? List.of()
@@ -2626,6 +2660,7 @@ public final class BoardSession {
         models = next;
         drawerModels = nextDrawers;
         upTo = indexUpTo();
+        upToLoops = indexLoops();
         notices = buildNotices(next);
         totals = buildTotals(next);
         spareLines = buildSpares(next);

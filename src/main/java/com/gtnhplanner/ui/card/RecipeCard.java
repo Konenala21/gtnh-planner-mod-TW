@@ -339,6 +339,22 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             Hyb::width);
     }
 
+    /**
+     * The tone a row is lit in when the card is Up to and its reason names the row (STARVED's short input, CLOGGED's
+     * or UNUSED's output, and the rows tied with it); null for any other row. {@code node} is the row's recipe (on a
+     * shared machine, its section).
+     */
+    @javax.annotation.Nullable
+    public CardFace.Tone why(final UUID node, final boolean output, final int index) {
+        if (model == null || countless()) return null;
+        return CardFace.why(face().rule(), session.upTo(nodeId), node, output, index);
+    }
+
+    /** The colour of the card's 1 px frame: its bar's problem when the gear's Problem outlines is on; 0 for plain. */
+    private int frameEdge() {
+        return CardFace.edge(foot(), com.gtnhplanner.ui.PlannerSettings.problemOutlines());
+    }
+
     /** The name of one of the card's rows, by the solver's port. */
     private String portName(final com.gtnhplanner.data.flowchart.balancer.PortRef ref) {
         for (final CardModel m : models) {
@@ -361,13 +377,31 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /**
      * A middle-click that did not pan the board (the board hands it on, as the screen takes the middle press for its
-     * pan): on the count or its rule word, back to Any. False when it was not on either.
+     * pan): it clears what is set where it lands, with the unpin sound once, and nothing when nothing was set. On the
+     * count or its rule word, back to Any; on a port's rule key or rate box, its rate goes (and a box being typed into
+     * closes). False when it was on neither.
      */
     public boolean middleClick() {
         final Part part = partUnderMouse();
-        if (part != Part.MACHINES && part != Part.RULE) return false;
-        if (pinned()) session.pin(model.node, 0);
-        return true;
+        // Far out nothing is drawn to clear.
+        if (part == null || glance()) return false;
+        if (part == Part.MACHINES || part == Part.RULE) {
+            if (pinned()) session.pin(model.node, 0);
+            return true;
+        }
+        for (final com.cleanroommc.modularui.api.widget.IWidget child : getChildren()) {
+            if (!(child instanceof final PortSlot slot) || !slot.overRate()) continue;
+            final CardModel m = modelOf(slot.section);
+            final BoardCanvas board = canvas();
+            if (board != null && board.edit()
+                .editing(BoardCanvas.portEditKey(slot.node(), slot.output, slot.index)))
+                board.edit()
+                    .cancel();
+            if (m != null && session.portTarget(m.node, slot.output, slot.index) != null)
+                session.setPortTarget(m.node, slot.output, slot.index, 0);
+            return true;
+        }
+        return false;
     }
 
     /** The rule word's menu: Any, Up to, Exactly, the one in use ticked (the website's CountRuleMenu). */
@@ -693,8 +727,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 alpha(0x4ADE80, (there ? 0.28f : 0.18f * breath) * (5 - i) / 5f));
         }
         // A card with a problem its bar shows (an Up to reason short of full, FORCED IN) wears its frame in the bar's
-        // colour; the selection and cannot-run rings stay outside it.
-        CardPaint.surface(w, h, CardFace.edge(foot()));
+        // colour (unless the gear's Problem outlines is off); the selection and cannot-run rings stay outside it.
+        CardPaint.surface(w, h, frameEdge());
+        // In a dead loop or a clog lock: a 2 px outline in the ring's tone, dimming in the prompt clock's grey half.
+        final com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind loop = session.loopOf(nodeId);
+        if (loop != null) Hyb.ring(2, 2, w - 4, h - 4, 2, CardPaint.loopFrame(loop));
         if (accepts) Hyb.rect(1, 1, w - 2, h - 2, alpha(0x4ADE80, there ? 0.1f : 0.06f * breath));
         if (anyTierTooLow() || coilTooCold()) {
             // Can't run: the tier is below the recipe's (the power row says TIER!) or the coil is too cold (the gear
@@ -755,11 +792,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     static final int CUSTOM_RATE_INK = 0xFFAEBCEB;
 
     /**
-     * At this zoom and below the card shows the glance view instead: the second wheel step out from half size (the
-     * owner, 2026-10-10: one step later than the first, where the card's text is a little under a screen pixel per
-     * font pixel but still reads), past which it breaks up.
+     * At this zoom and below the card shows the glance view instead (the website's NODE_GLANCE_ENTER_ZOOM, 0.65; it was
+     * 0.42): with the Up to bar along its foot the glance face says how hard each machine runs, so it comes in sooner,
+     * at the first wheel step under two thirds (0.57). The website comes back only above 0.67, against the flicker of
+     * a free zoom; the board's wheel steps (0.57, 0.66, 0.76) are fixed and its eases go one way, and 0.66 lies in that
+     * gap, so one threshold keeps every step showing one face whichever way it was reached.
      */
-    public static final float GLANCE_ZOOM = 0.42f;
+    public static final float GLANCE_ZOOM = 0.65f;
+
+    /** The Up to bar along a zoomed-out card's foot, in card pixels (the website's 36), and its track. */
+    private static final int GLANCE_BAR_H = 36, GLANCE_TRACK = 0xFF17191D;
 
     private boolean glance() {
         return session.graph()
@@ -774,27 +816,33 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final int w = CardLayout.W, h = layout.height;
         final float zoom = session.graph()
             .getZoom();
-        // The clean card's surface, its edge holding two screen pixels however far out, and the machine large on it.
+        // The clean card's surface, its edge holding two screen pixels however far out (in a ring's tone, pulsing, for
+        // a card in a dead loop or a clog lock), and the machine large on it.
         Hyb.dropShadow(0, 0, w, h);
         final float rim = Math.max(2, 1 / zoom);
-        final int edge = CardFace.edge(foot());
+        final com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind loop = session.loopOf(nodeId);
+        final int edge = loop != null ? CardPaint.loopFrame(loop) : frameEdge();
         Hyb.rect(0, 0, w, h, edge != 0 ? edge : CardPaint.EDGE);
         Hyb.rect(rim, rim, w - 2 * rim, h - 2 * rim, CardPaint.SURFACE);
         if (m.tierTooLow()) Hyb.ring(-rim, -rim, w + 2 * rim, h + 2 * rim, rim, Hyb.RED_INK);
         if (session.showsSelected(nodeId))
             Hyb.ring(-3 * rim, -3 * rim, w + 6 * rim, h + 6 * rim, 2 * rim, Hyb.SELECTION);
+        // An Up to card's bar along the foot (the website's glance face): the machine sits in the room above it.
+        final CardFace.Glance bar = countless() ? null : CardFace.glance(foot());
+        final int above = bar == null ? h : h - GLANCE_BAR_H;
         // The machine, big and centred: the whole structure where there is a picture of it.
         // As large as the card allows either way: a tall card (a shared machine) is no wider for it.
-        final float side = Math.min(w, h) - 2 * rim - 12;
+        final float side = Math.min(w, above) - 2 * rim - 12;
         if (com.gtnhplanner.power.CustomRate.is(m.node)) {
             // The custom rate card's dial, as big as its picture would be.
             final float scale = side / 9f;
             org.lwjgl.opengl.GL11.glPushMatrix();
-            org.lwjgl.opengl.GL11.glTranslatef((w - 9 * scale) / 2f, (h - 8 * scale) / 2f, 0);
+            org.lwjgl.opengl.GL11.glTranslatef((w - 9 * scale) / 2f, (above - 8 * scale) / 2f, 0);
             org.lwjgl.opengl.GL11.glScalef(scale, scale, 1);
             com.gtnhplanner.ui.power.PowerPicker.gauge(0, 0, CUSTOM_RATE_INK);
             org.lwjgl.opengl.GL11.glPopMatrix();
-        } else drawMachineArt(m, (w - side) / 2f, (h - side) / 2f, side, side, side, z, true);
+        } else drawMachineArt(m, (w - side) / 2f, (above - side) / 2f, side, side, side, z, true);
+        if (bar != null) drawGlanceBar(bar, w, h);
         // On a task: its dot in the top left corner, ten screen pixels across while that is small beside the card.
         final com.gtnhplanner.data.flowchart.Tasks.Status task = com.gtnhplanner.ui.canvas.PlanPicture.drawing() ? null
             : session.taskStatus(nodeId);
@@ -816,8 +864,38 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (cs > 4) cs /= 2;
         while (cs > 1 && Hyb.width(count) * cs > w * 0.8f) cs /= 2;
         final float tw = Hyb.width(count) * cs, th = 8 * cs;
-        Hyb.text(count, w - rim - 6 - tw, h - rim - 6 - th, cs, builds <= 0 ? Hyb.MUTED : Hyb.INK);
+        // Over an Up to bar the count sits just above it.
+        final float bottom = bar == null ? h - rim - 6 : h - GLANCE_BAR_H - 2 - 4 / zoom;
+        Hyb.text(count, w - rim - 6 - tw, bottom - th, cs, builds <= 0 ? Hyb.MUTED : Hyb.INK);
         if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
+    }
+
+    /**
+     * The Up to bar along a zoomed-out card's foot, across the whole card (the website's glance face): the track, the
+     * fill to what runs in the reason's tone (45% of it over the track), and the reason's word in its tone on the bar
+     * while it reads: three card pixels a font pixel (the website's 24 px), on the screen's own pixels, left out once
+     * even one screen pixel a font pixel is too tall for the bar. In card pixels.
+     */
+    private static void drawGlanceBar(final CardFace.Glance bar, final int w, final int h) {
+        final int tone = bar.tone().colour, top = h - GLANCE_BAR_H;
+        Hyb.beginBatch();
+        Hyb.rect(0, top, w, GLANCE_BAR_H, GLANCE_TRACK);
+        if (bar.fill() > 0)
+            Hyb.rect(0, top, (float) (w * bar.fill()), GLANCE_BAR_H, Hyb.mix(tone, GLANCE_TRACK, 0.45f));
+        Hyb.endBatch();
+        if (bar.word()
+            .isEmpty()) return;
+        final float[] g = screenGrid();
+        final float perUnit = g[0] * g[4];
+        final float s = Math.max(1, Math.round(3 * perUnit)) / perUnit;
+        if (7 * s > GLANCE_BAR_H - 4 || Hyb.width(bar.word()) * s > w - 24) return;
+        Hyb.text(
+            bar.word(),
+            snap(12, g[0], g[1], g[4]),
+            snap(top + (GLANCE_BAR_H - 7 * s) / 2f, g[2], g[3], g[4]),
+            s,
+            tone,
+            false);
     }
 
     /**
@@ -906,26 +984,37 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             1);
         keyIcon(false, GEAR_X + KEY_W / 2f, y + CHIP_H / 2f, coilTooCold() ? Hyb.RED_INK : Hyb.INK);
 
+        // The chips are buttons: held down, the one pressed sinks (a tier that cannot change never does).
+        final ChipState tierState = pressedOn(Part.TIER) && !tierFixed() ? ChipState.PRESSED : ChipState.RAISED;
         if (m.gregtech && !m.steam()) {
             // Amps wear the tier's colours too: together they read as one figure, 16A UV.
             final Hyb.Tier tier = Hyb.tier(m.tier);
-            if (m.multiblock) chip(
-                AMPS_X,
-                y,
-                CHIP_W,
-                CHIP_H,
-                tier,
-                Fmt.compact(pendingAmps > 0 ? pendingAmps : m.amps) + "A",
-                false,
-                hover == Part.AMPS,
-                true);
-            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true);
+            if (m.multiblock) {
+                final BoardCanvas board = canvas();
+                final boolean typing = board != null && board.edit()
+                    .editing(ampsEditKey());
+                chip(
+                    AMPS_X,
+                    y,
+                    CHIP_W,
+                    CHIP_H,
+                    tier,
+                    Fmt.compact(pendingAmps > 0 ? pendingAmps : m.amps) + "A",
+                    false,
+                    hover == Part.AMPS,
+                    true,
+                    typing ? ChipState.EDITING : pressedOn(Part.AMPS) ? ChipState.PRESSED : ChipState.RAISED);
+                // Typed into, the chip keeps its width: what is typed stands in its label's place.
+                if (typing) board.edit()
+                    .drawText(AMPS_X + 3, CHIP_W - 6, y + 3, CHIP_H - 6, Hyb.contrastInk(tier.bg()));
+            }
+            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true, tierState);
         } else if (powerTier() != null) {
             final Hyb.Tier tier = Hyb.tier(powerTier().value(m.node.powerSettings.get("tier")));
-            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true);
+            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true, tierState);
         } else if (crop()) {
             final Hyb.Tier tier = Hyb.tier(com.gtnhplanner.machines.game.CropCards.tierName(m.node));
-            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true);
+            chip(tierX(), y, tierW(), CHIP_H, tier, tier.name(), tier.underline(), hover == Part.TIER, true, tierState);
         }
 
         // The name is the machine menu: a faint plate under it while the mouse is on it, and its chevron. A generator
@@ -1019,10 +1108,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     /** The power wing's amber (the website's text-amber-400). */
     private static final int POWER_AMBER = 0xFFFBBF24;
 
+    /** How a head chip stands: raised, held down by the mouse, or sunk while its box is typed into. */
+    enum ChipState {
+        RAISED,
+        PRESSED,
+        EDITING
+    }
+
     /**
-     * A chip in a voltage tier's colours, as Factory Flow draws its amps and tier: a raised face, the label large with
-     * a
-     * hard shadow in the tier's dark, underlined from UV up.
+     * A chip in a voltage tier's colours, as Factory Flow draws its amps and tier: a raised face, the label large,
+     * underlined from UV up.
      */
     static void chip(final int x, final int y, final int w, final int h, final Hyb.Tier tier, final String label,
         final boolean underline, final boolean hover) {
@@ -1035,10 +1130,30 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      */
     static void chip(final int x, final int y, final int w, final int h, final Hyb.Tier tier, final String label,
         final boolean underline, final boolean hover, final boolean snapped) {
-        // Flat, in the tier's colours: a darker edge, the face, the label in black or white (whichever reads on it),
-        // and no shadow to double it.
+        chip(x, y, w, h, tier, label, underline, hover, snapped, ChipState.RAISED);
+    }
+
+    /**
+     * A chip as a button (the website's .cc-chip): the tier's edge and face, the label in black or white (whichever
+     * reads on it), raised by the old card's bevel (two pixels light top and left, dark bottom and right); pressed, the
+     * face darkens, the bevel turns over and the label sinks a pixel; typed into ({@link ChipState#EDITING}), it sinks
+     * and draws no label (the box draws what is typed).
+     */
+    static void chip(final int x, final int y, final int w, final int h, final Hyb.Tier tier, final String label,
+        final boolean underline, final boolean hover, final boolean snapped, final ChipState state) {
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
         Hyb.rect(x, y, w, h, tier.border());
-        Hyb.rect(x + 1, y + 1, w - 2, h - 2, hover ? Hyb.mix(tier.bg(), 0xFFFFFF, 0.88f) : tier.bg());
+        Hyb.rect(
+            x + 1,
+            y + 1,
+            w - 2,
+            h - 2,
+            state == ChipState.PRESSED ? Hyb.mix(tier.bg(), 0xFF000000, 0.92f)
+                : hover ? Hyb.mix(tier.bg(), 0xFFFFFF, 0.88f) : tier.bg());
+        chipBevel(x + 1, y + 1, w - 2, h - 2, state);
+        if (own) Hyb.endBatch();
+        if (state == ChipState.EDITING) return;
         final int ink = Hyb.contrastInk(tier.bg());
         float s = 1.5f;
         float[] g = null;
@@ -1050,13 +1165,27 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             s = Math.max(1, Math.min(Math.round(1.5f * perUnit), (int) Math.floor(most * perUnit + 1e-3f))) / perUnit;
         }
         final float tw = (Hyb.width(label) - 1) * s;
-        float tx = crisp(x + (w - tw) / 2f), ty = crisp(y + (h - 7 * s) / 2f);
+        float tx = crisp(x + (w - tw) / 2f), ty = crisp(y + (h - 7 * s) / 2f) + (state == ChipState.PRESSED ? 1 : 0);
         if (g != null) {
             tx = snap(tx, g[0], g[1], g[4]);
             ty = snap(ty, g[2], g[3], g[4]);
         }
         Hyb.text(label, tx, ty, s, ink, false);
         if (underline) Hyb.rect(tx, ty + 8 * s, tw, 1, ink);
+    }
+
+    /**
+     * A chip's bevel inside its edge, two pixels a side (the website's inset shadows): the light band over the dark
+     * where they cross, as the first shadow lies over the second.
+     */
+    private static void chipBevel(final float x, final float y, final float w, final float h, final ChipState state) {
+        final int light = 0x8CFFFFFF, dark = 0x73000000;
+        final int topLeft = state == ChipState.RAISED ? light : dark;
+        final int bottomRight = state == ChipState.RAISED ? dark : state == ChipState.PRESSED ? light : 0x4DFFFFFF;
+        Hyb.rect(x, y + h - 2, w, 2, bottomRight);
+        Hyb.rect(x + w - 2, y, 2, h - 2, bottomRight);
+        Hyb.rect(x, y, w, 2, topLeft);
+        Hyb.rect(x, y + 2, 2, h - 2, topLeft);
     }
 
     private static final java.nio.FloatBuffer MATRIX = org.lwjgl.BufferUtils.createFloatBuffer(16);
@@ -1122,10 +1251,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 : session.portTarget(models.get(section).node, output, p.index());
             final boolean set = !lifted && target != null;
             final boolean controls = !lifted && showsControls(section, p);
-            if (open) CardPaint.openRow(p, unit, y, z, set);
+            // The row an Up to card's reason names is striped in the reason's tone, its edge and name in it.
+            final CardFace.Tone why = why(sectionId(section), output, p.index());
+            if (open) CardPaint.openRow(p, unit, y, z, set, why);
             else {
                 // Every port is a tile of one shape (the website's pass 3), lighter under the mouse.
-                CardPaint.portTile(output, y, hot);
+                if (why != null) CardPaint.whyTile(output, y, why);
+                else CardPaint.portTile(output, y, hot);
                 CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
                 CardPaint.flowWords(
                     p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
@@ -1136,7 +1268,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                     output,
                     y,
                     set,
-                    controls);
+                    controls,
+                    why != null ? why.colour : Hyb.MUTED);
             }
             if (!output && p.index() < models.get(section).node.inputs.size()
                 && models.get(section).node.inputs.get(p.index())
@@ -1157,8 +1290,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                         .editing(BoardCanvas.portEditKey(sectionId(section), output, p.index())) ? board.edit()
                             : null);
             }
-            if (layout.hasExtra(section, output, p.index())) CardPaint
-                .extraRow(p, unit, y + h, z, board == null ? 0 : board.carriedFrom(sectionId(section), output, p.index()));
+            if (layout.hasExtra(section, output, p.index())) CardPaint.extraRow(
+                p,
+                unit,
+                y + h,
+                z,
+                board == null ? 0 : board.carriedFrom(sectionId(section), output, p.index()),
+                why);
             // Lit, one glow round the port and its extra row (part of the port: what it forces out or in).
             if (session.lit()
                 .port(sectionId(section), output, p.index(), p.key()))
@@ -2046,6 +2184,31 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     private Part pressed;
     private float pressedX, pressedY;
 
+    /** Whether the left button is held down on a part and has not carried the card off: it draws pressed. */
+    private boolean pressedOn(final Part part) {
+        if (pressed != part || com.gtnhplanner.ui.canvas.PlanPicture.drawing()) return false;
+        final BoardCanvas c = canvas();
+        return c == null || !c.isCarried(nodeId);
+    }
+
+    /**
+     * Whether the tier chip cannot change anything: a single block that comes in no other tier that runs the recipe.
+     * Such a chip never presses.
+     */
+    private boolean tierFixed() {
+        if (model == null || !isSingle(model.machineStack)) return false;
+        final int now = GtMachines.of(model.machineStack)
+            .tier();
+        for (final ItemStack m : machineChoices()) if (isSingle(m) && GtMachines.of(m)
+            .tier() != now) return false;
+        return true;
+    }
+
+    /** The key of the amps chip's box on the board's one inline editor. */
+    private String ampsEditKey() {
+        return "amps:" + nodeId;
+    }
+
     @Override
     public Result onMousePressed(final int mouseButton) {
         if (model == null) return Result.IGNORE;
@@ -2579,7 +2742,25 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         Popup.open(session.panel(), PickList.popup("gtnhplanner_coils", null, rows, true, 200), sx, sy);
     }
 
+    /**
+     * Types the amps straight into their chip, as the website's: the chip keeps its width and sinks while the box is
+     * open; Enter or a click elsewhere sets it (1 or more), Escape leaves it. Off the board, a number box.
+     */
     private void openAmps() {
+        final BoardCanvas c = canvas();
+        if (c != null) {
+            final Node node = model.node;
+            c.edit()
+                .start(
+                    ampsEditKey(),
+                    model.amps,
+                    v -> {
+                        if (v >= 1) session
+                            .setSetting(node, "amp", (int) Math.max(1, Math.min(PowerPanel.MAX_AMPS, Math.round(v))));
+                    });
+            getContext().focus(c);
+            return;
+        }
         Popup.open(
             session.panel(),
             NumberPopup.create(

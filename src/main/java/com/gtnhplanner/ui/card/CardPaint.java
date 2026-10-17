@@ -130,6 +130,13 @@ public final class CardPaint {
      */
     public static void flowWords(final double perSecond, final boolean power, final boolean fluid, final String name,
         final Fmt.RateUnit unit, final boolean output, final int y, final boolean set, final boolean controls) {
+        flowWords(perSecond, power, fluid, name, unit, output, y, set, controls, Hyb.MUTED);
+    }
+
+    /** As above, the name in {@code nameColour} (a lit row's in its reason's tone). */
+    public static void flowWords(final double perSecond, final boolean power, final boolean fluid, final String name,
+        final Fmt.RateUnit unit, final boolean output, final int y, final boolean set, final boolean controls,
+        final int nameColour) {
         final String number = power ? Fmt.power(perSecond / 20) : Fmt.compact(perSecond * unit.perSecond);
         final String suffix = power ? " EU/t" : (fluid ? " L" : "") + unit.suffix;
         words(
@@ -137,7 +144,7 @@ public final class CardPaint {
             suffix,
             name,
             set ? Hyb.GOLD : perSecond <= 0 ? 0xFFA8AFBB : Hyb.INK,
-            Hyb.MUTED,
+            nameColour,
             output,
             y,
             controls);
@@ -245,6 +252,15 @@ public final class CardPaint {
      */
     public static void extraRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
         final double carried) {
+        extraRow(p, unit, y, z, carried, null);
+    }
+
+    /**
+     * As above; {@code why}, the port is the row an Up to card's reason names: the forced tile wears the reason's
+     * stripes and edge in place of its own (its words keep theirs).
+     */
+    public static void extraRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
+        final double carried, @Nullable final CardFace.Tone why) {
         final com.gtnhplanner.data.flowchart.Drawer.Kind kind = p.output()
             ? com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT
             : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE;
@@ -258,7 +274,7 @@ public final class CardPaint {
             Hyb.text(gone, x, y + (CardLayout.ROW - 8) / 2f, Hyb.mix(tint, Hyb.MUTED, 0.3f));
             return;
         }
-        spareRow(p, unit, y, z, left, p.output() ? EXTRA_OUT : EXTRA_IN, false, false);
+        spareRow(p, unit, y, z, left, p.output() ? EXTRA_OUT : EXTRA_IN, false, false, why, false);
     }
 
     /**
@@ -268,19 +284,30 @@ public final class CardPaint {
      */
     public static void openRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
         final boolean set) {
-        spareRow(p, unit, y, z, p.perSecond(), p.name(), set, true);
+        openRow(p, unit, y, z, set, null);
+    }
+
+    /**
+     * As above; {@code why}, the row an Up to card's reason names: striped in the reason's tone in place of the free
+     * end's, its edge and its name in that tone.
+     */
+    public static void openRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
+        final boolean set, @Nullable final CardFace.Tone why) {
+        spareRow(p, unit, y, z, p.perSecond(), p.name(), set, true, why, true);
     }
 
     /**
      * The striped row of a flow leaving or coming into the plan at a port: {@code amount} a second, {@code label}; the
-     * number in gold when it is the player's (the port's own rate, {@code set}).
+     * number in gold when it is the player's (the port's own rate, {@code set}). {@code why}: striped in an Up to
+     * reason's tone instead, and with {@code whyName} its name in that tone too.
      */
     private static void spareRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
-        final double amount, final String label, final boolean set, final boolean controls) {
+        final double amount, final String label, final boolean set, final boolean controls,
+        @Nullable final CardFace.Tone why, final boolean whyName) {
         final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(
             p.output() ? com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT
                 : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE);
-        freeTile(p.output(), y);
+        freeTile(p.output(), y, why);
         icon(p.item(), p.fluid(), p.isPower(), p.output(), y, z);
         final String number = p.isPower() ? Fmt.power(amount / 20) : Fmt.compact(amount * unit.perSecond);
         final String suffix = p.isPower() ? " EU/t" : (p.isFluid() ? " L" : "") + unit.suffix;
@@ -289,7 +316,7 @@ public final class CardPaint {
             suffix,
             label,
             set ? Hyb.GOLD : Hyb.mix(tint, Hyb.INK, 0.75f),
-            Hyb.mix(tint, Hyb.MUTED, 0.45f),
+            why != null && whyName ? why.colour : Hyb.mix(tint, Hyb.MUTED, 0.45f),
             p.output(),
             y,
             controls);
@@ -318,17 +345,14 @@ public final class CardPaint {
     }
 
     /**
-     * The recipe's programmed circuit as a badge in the well's top left corner: its own icon with its number on it, in
-     * its bottom right corner as the game prints a stack's size; no words beside it and never dimmed (it is a setting,
-     * not a flow).
+     * The recipe's programmed circuit as a badge in the well's top left corner: its own icon alone, which already
+     * shows its number; no words beside it and never dimmed (it is a setting, not a flow). Its tip says "Circuit 24".
      */
     public static void circuitBadge(final ItemStack circuit, final int[] well, final float z) {
         final int[] r = CardLayout.circuit(well);
         com.gtnhplanner.ui.gt.CircuitIcons.draw(circuit, r[0], r[1], r[2], z);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
-        final String n = String.valueOf(circuit.getItemDamage());
-        Hyb.text(n, r[0] + r[2] + 1 - Hyb.width(n), r[1] + r[3] - 7, Hyb.INK);
     }
 
     /** Under a count the plan waits for (nothing set anywhere): what to do, pulsing gold with the drawers' Set rate. */
@@ -362,8 +386,17 @@ public final class CardPaint {
      * source's blue on an input or a product's orange on an output.
      */
     public static void freeTile(final boolean output, final int y) {
+        freeTile(output, y, null);
+    }
+
+    /**
+     * As above; {@code why}, the row an Up to card's reason names: the reason's stripes replace the free end's and its
+     * edge is the reason's tone, the free end's bevel kept.
+     */
+    public static void freeTile(final boolean output, final int y, @Nullable final CardFace.Tone why) {
         final float x = CardLayout.railX(output), ty = y + CardLayout.BOX_Y;
         final int w = CardLayout.RAIL_W, h = CardLayout.BOX_H;
+        final int[] lit = why == null ? null : CardFace.stripes(why);
         final boolean own = !Hyb.batching();
         if (own) Hyb.beginBatch();
         tile(
@@ -371,11 +404,27 @@ public final class CardPaint {
             ty,
             w,
             h,
-            output ? OUT_BODY : IN_BODY,
-            output ? OUT_EDGE : IN_EDGE,
+            lit != null ? lit[0] : output ? OUT_BODY : IN_BODY,
+            why != null ? why.colour : output ? OUT_EDGE : IN_EDGE,
             output ? OUT_HI : IN_HI,
             output ? OUT_LO : IN_LO);
-        stripes(x + 2, ty + 2, w - 4, h - 4, output ? OUT_STRIPE : IN_STRIPE, 8, 3);
+        stripes(x + 2, ty + 2, w - 4, h - 4, lit != null ? lit[1] : output ? OUT_STRIPE : IN_STRIPE, 8, 3);
+        if (own) Hyb.endBatch();
+    }
+
+    /**
+     * The tile of the row an Up to card's reason names (STARVED's short input, CLOGGED's or UNUSED's output, and the
+     * rows tied with it; the website's lit row): striped in the reason's tone as a free end is in its own, its edge in
+     * that tone, the plain tile's bevel kept. Its name goes in the tone too ({@link #flowWords}).
+     */
+    public static void whyTile(final boolean output, final int y, final CardFace.Tone why) {
+        final float x = CardLayout.railX(output), ty = y + CardLayout.BOX_Y;
+        final int w = CardLayout.RAIL_W, h = CardLayout.BOX_H;
+        final int[] lit = CardFace.stripes(why);
+        final boolean own = !Hyb.batching();
+        if (own) Hyb.beginBatch();
+        tile(x, ty, w, h, lit[0], why.colour, TILE_HI, TILE_LO);
+        stripes(x + 2, ty + 2, w - 4, h - 4, lit[1], 8, 3);
         if (own) Hyb.endBatch();
     }
 
@@ -540,7 +589,23 @@ public final class CardPaint {
     public static int prompt() {
         // A picture of the plan holds still, at rest.
         if (com.gtnhplanner.ui.canvas.PlanPicture.drawing()) return 0xFF6F737C;
-        return (System.currentTimeMillis() / 500) % 2 == 0 ? Hyb.GOLD : 0xFF6F737C;
+        return promptOn() ? Hyb.GOLD : 0xFF6F737C;
+    }
+
+    /**
+     * The board's one prompt clock: true in its bright half (the prompts' gold, a ring's outline at full tone), false
+     * in the grey half. Half a second each.
+     */
+    public static boolean promptOn() {
+        return (System.currentTimeMillis() / 500) % 2 == 0;
+    }
+
+    /**
+     * The outline of a card in a dead loop or a clog lock ({@link CardFace#loopFrame}) on the prompt clock: dimmed in
+     * its grey half, steady in a picture of the plan.
+     */
+    public static int loopFrame(final com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind kind) {
+        return CardFace.loopFrame(kind, com.gtnhplanner.ui.canvas.PlanPicture.drawing() || promptOn());
     }
 
     /**

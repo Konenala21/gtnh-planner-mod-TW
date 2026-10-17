@@ -116,12 +116,40 @@ ported to `balancer/`, name for name where the Java already mirrored it:
 - A card whose bar shows a problem (BOTTLENECK, STARVED, CLOGGED, UNUSED, LIMITED, or FORCED IN) wears its 1 px frame in
   the bar's tone (`CardFace.edge`): on the board, zoomed out, on the minimap and over the world. FULL, Any and no
   read-out keep the plain edge; the selection and cannot-run rings stay outside it. The overview's reason colours are
-  the same tones.
+  the same tones: FULL `#5EE9B5`, BOTTLENECK `#F06262`, STARVED `#E0A63A`, CLOGGED purple `#B49CF0`, UNUSED `#8A8E97`,
+  LIMITED pink `#F472B6`, FORCED IN `#94C3F3` (`CardFace.Tone`). The gear's Board section has "Problem outlines"
+  (`PlannerSettings.problemOutlines`, on by default): off, every card keeps the plain edge, while its bar, its lit row
+  and a loop's outline stay.
+- The row a reason names is lit (`CardFace.why`, the website's withReasonPorts): STARVED's short input, CLOGGED's or
+  UNUSED's output, and the rows tied with them, on the card's own recipe or a shared machine's section, only while the
+  card is Up to. The tile is striped in the reason's tone (body and stripe its tone over the surface at 7% and 13%,
+  `CardFace.stripes`; `CardPaint.whyTile`), its edge and name in the tone; on a free end or a forced row the reason's
+  stripes and edge replace theirs (`freeTile(.., why)`), their numbers keep their colours. FULL, BOTTLENECK and LIMITED
+  light nothing. The snapshot carries it (`PlanSnapshot.Flow.why`), so the reveal and the world card show it too.
+- A card in a dead loop or a clog lock (`SolutionView.upToLoops`, read by `BoardSession.loopOf`; the solver fills it
+  on its own branch) wears a 2 px outline in the ring's tone, dead loop amber, clog lock purple, over its frame; it dims
+  to 30% over the edge in the grey half of the prompt clock that pulses "(set count)" (`CardPaint.loopFrame`), steady
+  in a picture of the plan (the mod has no reduced-motion setting). Zoomed out, the rim takes the ring's tone.
+- Zoomed out (`RecipeCard.GLANCE_ZOOM`, 0.65: the first wheel step under it is 0.57; the website's 0.67 way back is
+  not kept, as the fixed 0.66 step would show either face by the way it was reached), an Up to card's face carries the
+  bar along its foot (`CardFace.glance`, from the foot bar: fill reached / count, a bottleneck's / wants): 36 card px
+  across the whole card, the track `#17191D`, the fill its tone at 45%, the reason's word in its tone at three card px
+  a font pixel on whole screen pixels while one screen pixel a font pixel still fits; the count stands above it and the
+  machine in the room left. The minimap's zoomed-out faces draw the same bar (no word) with their count above it.
+- The tier and amps chips are buttons (the website's .cc-chip): a 2 px bevel inside the tier's edge, 55% white top
+  and left over 45% black bottom and right; held down (`RecipeCard.pressedOn`) the face darkens to 92%, the bevel
+  turns over and the label sinks a pixel; a tier chip that cannot change (a single block with no other tier) never
+  presses. The amps are typed straight into their chip on the board's inline editor (`InlineNumber.drawText`): the
+  chip keeps its width and sinks while the box is open. The count keeps its number popup, a fixed box sized by its
+  words.
+- A middle click clears what is set where it lands (`BoardCanvas.middleClick`, `RecipeCard.middleClick`): the count
+  (to Any), a port's rule key or rate box (a box being typed into closes), a drawer's rule or rate. Each clear plays
+  the unpin sound once; nothing sounds when nothing was set.
 - The count's controls sound for themselves: a click opens the number box or the rule menu with the popup's sound, each
   wheel step ticks (higher up, lower down), on the card and the overview line alike; the set count's own pin sound comes
   once the wheel is still.
-- The recipe's circuit is a badge in the well's top left corner (its own icon, no words, its tip "Circuit 24"); the
-  "Circuit as an input" setting is gone.
+- The recipe's circuit is a badge in the well's top left corner (its own icon, which shows its number, nothing drawn
+  over it; its tip "Circuit 24"); the "Circuit as an input" setting is gone.
 - Importing: an old Build plan's card and plan targets stay display only (made port rates they would pin their cards
   exactly); only a classic Solve plan that nothing else sets takes them as port rates (`FfConverter.targets`, the
   website's convert.ts 07a66852).
@@ -136,7 +164,7 @@ ported to `balancer/`, name for name where the Java already mirrored it:
 - The tour pins the electrolyzer and the mixer Exactly (their rule word, then Exactly) before it shows forced flows;
   `starts.json` carries the electrolyzer's flag in every later start.
 - `BoardSession.upTo(id)` reads the solver's read-outs by every machine of a pool; `call upto` puts stand-ins in their
-  place (and drawer shortfalls) to look at before the solver fills them.
+  place (and drawer shortfalls and loops) to look at before the solver fills them.
 
 ## Still to do
 
