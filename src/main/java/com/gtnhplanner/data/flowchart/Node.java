@@ -53,9 +53,17 @@ public class Node {
     public final MachineConfig machineConfig;
     public final Map<RecipeProperty<?>, Object> properties = new HashMap<>();
 
-    @Getter
     @Setter
     private boolean machineCountFixed;
+
+    /**
+     * Whether the machine count is pinned. Never for a fluid tank: it has no count to show or clear (it keeps up with
+     * the plan), so a pin on it, from a website Build plan or an older save, would force cells through the plan with
+     * nothing shown as set.
+     */
+    public boolean isMachineCountFixed() {
+        return machineCountFixed && !com.gtnhplanner.power.FluidTank.ID.equals(powerSource);
+    }
 
     /**
      * Target production rates by output port index, in ingredient units per second. A target is

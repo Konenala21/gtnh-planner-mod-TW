@@ -490,6 +490,31 @@ class FfConverterTest {
     }
 
     @Test
+    void aPinnedWebsiteTankIsNotPinnedHere() {
+        // FF's Build plans pin every card at its count, tanks too: a count of 1 was 20 cells a second forced through
+        // the plan, on a card that shows no count to clear.
+        final FakeGame game = new FakeGame();
+        game.cells.put("a:ocell", new String[] { "oxygen", "1000", "a:cell" });
+        final String tank = """
+            ,{"id": "t", "recipeId": "tank", "machineCount": 1, "solvePin": 1, "parallel": 1, "overclockTier": "NONE",
+              "enabled": true, "position": {"x": 400, "y": 0}}""";
+        final Graph g = convert(CELLS.formatted(tank, ""), game).graph();
+        final Node t = g.nodes.values()
+            .stream()
+            .filter(n -> com.gtnhplanner.power.FluidTank.ID.equals(n.powerSource))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no fluid tank on the board"));
+        assertFalse(t.isMachineCountFixed(), "its pin is dropped");
+        // Nor does a pin set on one (an older save) hold it.
+        t.setMachineCountFixed(true);
+        assertFalse(t.isMachineCountFixed());
+        assertTrue(
+            com.gtnhplanner.data.flowchart.balancer.Unanchored.of(g)
+                .contains(t.id),
+            "with nothing else set, nothing sets it");
+    }
+
+    @Test
     void aLooseCellWireGetsAFluidTankBetween() {
         // FF wires the mixer's cells straight into the dryer's oxygen; its solver slips a free tank between.
         final FakeGame game = new FakeGame();

@@ -268,9 +268,9 @@ public final class FfCards {
 
     /**
      * FF's Tank card (its free mirror of a fluid Canner recipe) as a fluid tank card: emptying when the recipe takes
-     * the
-     * cell (its fluid comes out), filling when it takes the fluid. Its count is FF's crafts a second (a Tank craft is a
-     * tick), pinned only where FF pinned it. Null when the game builds no tank for it.
+     * the cell (its fluid comes out), filling when it takes the fluid. Its count is FF's crafts a second (a Tank craft
+     * is a tick), never pinned: a tank has no count to show or clear, and FF's Build plans pin every card, tanks too
+     * (20 cells a second for a count of 1). Null when the game builds no tank for it.
      */
     @Nullable
     public static Node tank(final Context ctx, final FfNode card, final FfRecipe recipe, final int x, final int y) {
@@ -286,11 +286,7 @@ public final class FfCards {
         node.x = x;
         node.y = y;
         final double perSecond = card.machineCount() * 20.0 / Math.max(1, recipe.durationTicks());
-        final Double pin = card.solvePin();
-        if (ctx.solveMode() && pin != null && pin > 0) {
-            node.machineConfig.setMachineCount((int) Math.ceil(pin * 20.0 / Math.max(1, recipe.durationTicks())));
-            node.setMachineCountFixed(true);
-        } else node.machineConfig.setMachineCount((int) Math.max(1, Math.min(Integer.MAX_VALUE, Math.ceil(perSecond))));
+        node.machineConfig.setMachineCount((int) Math.max(1, Math.min(Integer.MAX_VALUE, Math.ceil(perSecond))));
         return node;
     }
 
