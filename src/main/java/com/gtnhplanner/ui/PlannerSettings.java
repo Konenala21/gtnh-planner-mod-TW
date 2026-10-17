@@ -58,16 +58,6 @@ public final class PlannerSettings {
 
     // region The settings
 
-    /** Board: names of drawers and machines over them when zoomed far out. */
-    /** Whether a card shows its recipe's circuit as one more input (number and name), rather than on its machine. */
-    public static boolean circuitAsInput() {
-        return bool("card.circuitAsInput", false);
-    }
-
-    public static void setCircuitAsInput(final boolean on) {
-        set("card.circuitAsInput", on);
-    }
-
     /** Whether the board has offered the tour yet (once, the first time it opens). */
     public static boolean tourOffered() {
         return bool("tour.offered", false);

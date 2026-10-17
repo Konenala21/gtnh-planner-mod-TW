@@ -312,7 +312,8 @@ class FfConverterTest {
             .filter(n -> game.port(n, true, "biodiesel") >= 0)
             .findFirst()
             .orElseThrow();
-        assertEquals(100.0, biodiesel.targetOutputRates.get(game.port(biodiesel, true, "biodiesel")));
+        // A Build plan: its card's and its own target were display only, so no port rate pins the card.
+        assertTrue(biodiesel.targetOutputRates.isEmpty());
         assertFalse(biodiesel.machineConfig.settings.containsKey("voltage"), "a DEMO tier is no tier");
         final Node electrolyzer = node(g, "Electrolyzer");
         assertEquals(
@@ -322,6 +323,63 @@ class FfConverterTest {
                 .next()
                 .getKind());
         assertEquals(3, electrolyzer.machineConfig.getMachineCount());
+    }
+
+    /** The biodiesel demo's biodiesel card's port rates, after {@code edit} has its way with the plan. */
+    private static java.util.Map<Integer, Double> biodieselRates(final java.util.function.Consumer<JsonObject> edit) {
+        final JsonObject plan = new Gson().fromJson(FakeGame.fixture("biodiesel-demo.json"), JsonObject.class);
+        edit.accept(plan);
+        final FakeGame game = new FakeGame();
+        final Graph g = convert(plan.toString(), game).graph();
+        for (final Node n : g.getNodes()) if (n != null && !n.targetOutputRates.isEmpty())
+            assertTrue(game.port(n, true, "biodiesel") >= 0, "only the biodiesel card takes a rate");
+        return nodes(g, "Chemical Reactor").stream()
+            .filter(n -> game.port(n, true, "biodiesel") >= 0)
+            .findFirst()
+            .orElseThrow().targetOutputRates;
+    }
+
+    private static JsonObject card(final JsonObject plan, final String id) {
+        for (final var e : plan.getAsJsonArray("nodes")) if (e.getAsJsonObject()
+            .get("id")
+            .getAsString()
+            .equals(id)) return e.getAsJsonObject();
+        throw new AssertionError("no card " + id);
+    }
+
+    @Test
+    void oldBuildTargetsStayDisplayOnly() {
+        // The website's convert.ts (07a66852): a Build plan's card target and plan target never become port rates,
+        // which would pin the card exactly; its counts come over as Up to and the plan reads as old Build did.
+        assertEquals(java.util.Map.of(), biodieselRates(p -> {}));
+        assertEquals(java.util.Map.of(), biodieselRates(p -> card(p, "node-biodiesel").remove("targetOutput")));
+    }
+
+    @Test
+    void anUnanchoredSolvePlansTargetsBecomePortRates() {
+        // Old Solve had no answer with nothing set, so the targets it states stand in: the card's on its output row,
+        final java.util.Map<Integer, Double> own = biodieselRates(p -> p.addProperty("solveMode", true));
+        assertEquals(List.of(100.0), new ArrayList<>(own.values()));
+        // and the plan's on the first card making it when no card targets it.
+        final java.util.Map<Integer, Double> plans = biodieselRates(p -> {
+            p.addProperty("solveMode", true);
+            card(p, "node-biodiesel").remove("targetOutput");
+        });
+        assertEquals(List.of(100.0), new ArrayList<>(plans.values()));
+    }
+
+    @Test
+    void aSolvePlanSetByAnythingElseKeepsItsTargetsOff() {
+        // A pin anywhere sets the plan: the targets stay display only.
+        assertEquals(java.util.Map.of(), biodieselRates(p -> {
+            p.addProperty("solveMode", true);
+            card(p, "node-fish-catcher").addProperty("solvePin", 20);
+        }));
+        // A plan in plan mode never read them at all (its port rates are its portRates).
+        assertEquals(java.util.Map.of(), biodieselRates(p -> {
+            p.addProperty("solveMode", true);
+            p.addProperty("planMode", true);
+        }));
     }
 
     @Test

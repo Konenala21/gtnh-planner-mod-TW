@@ -49,7 +49,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `setRule`, `pin`). The card's words are `ui/card/CardFace` (pure, tested): what runs big under the machine in its
   well, the rule word (its menu) and the set number in gold under it; every port a tile of one shape; along an Up to
   card's foot a bar with the solver's reason (`SolutionView.upTo`, read by `BoardSession.upTo`), an Exactly card's
-  FORCED IN. `call upto` puts stand-in read-outs and drawer shortfalls on the board.
+  FORCED IN, and a card with a problem there wears its frame in the bar's colour (`CardFace.edge`). The recipe's
+  circuit is a badge in the well's top left corner. `call upto` puts stand-in read-outs and drawer shortfalls on the
+  board.
 - AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
   machines running, never buying more to sell more), sell as far downstream as it can (spare goes on to every machine
   that takes it and is sold at the brick wall), then the least internal flow; machine steps in `ModelData.portSteps`,

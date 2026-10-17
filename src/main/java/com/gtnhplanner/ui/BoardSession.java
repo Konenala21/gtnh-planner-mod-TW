@@ -2284,6 +2284,9 @@ public final class BoardSession {
      * the plan decide (Any). On a shared machine the count is the machine's. Written through {@link PinRule}.
      */
     public void pin(final Node node, final double count) {
+        // The count it has already (a number box closed on it): no edit, and no sound for nothing done.
+        if (count > 0 ? rule(node) != PinRule.ANY && Math.max(1, Math.round(count)) == setCount(node)
+            : rule(node) == PinRule.ANY) return;
         final com.gtnhplanner.data.flowchart.MachineGroup g = sharedOf(node.id);
         if (g != null) {
             pinShared(g, count);

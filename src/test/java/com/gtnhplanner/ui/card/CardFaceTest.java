@@ -351,9 +351,32 @@ class CardFaceTest {
         assertEquals("Starved", CardFace.word(UpToReason.STARVED));
         assertEquals(0xFFE8E9EE, CardFace.railColour(UpToReason.FULL, 0xFFE8E9EE), "full is the quiet case");
         assertEquals(0xFFE8E9EE, CardFace.railColour(null, 0xFFE8E9EE));
-        assertEquals(0xFFE0A63A, CardFace.railColour(UpToReason.CLOGGED, 0xFFE8E9EE));
+        // The card's bar tones, as the website's up-to-reason.ts has them.
+        assertEquals(0xFF6FB2D6, CardFace.railColour(UpToReason.CLOGGED, 0xFFE8E9EE));
+        assertEquals(0xFFF06262, CardFace.railColour(UpToReason.BOTTLENECK, 0xFFE8E9EE));
         assertEquals("The plan would use 31.", CardFace.sentence(readout(24, 24, UpToReason.BOTTLENECK, null, 31.0)));
         assertNull(CardFace.sentence(readout(24, 24, null, null, null)));
+    }
+
+    @Test
+    void aProblemCardWearsItsFrameInTheBarsColour() {
+        assertEquals(0, CardFace.edge(null), "Any, or no read-out: the plain edge");
+        assertEquals(0, CardFace.edge(upTo(readout(24, 24, UpToReason.FULL, null, null), SIX)), "full is no problem");
+        assertEquals(0, CardFace.edge(upTo(readout(5, 3, null, null, null), SIX)), "nor a reason not worked out");
+        assertEquals(
+            CardFace.Tone.STARVED.colour,
+            CardFace.edge(upTo(readout(24, 18.2, UpToReason.STARVED, OXYGEN, null), SIX)));
+        assertEquals(
+            CardFace.Tone.BOTTLENECK.colour,
+            CardFace.edge(upTo(readout(24, 24, UpToReason.BOTTLENECK, null, 31.0), SIX)));
+        assertEquals(
+            CardFace.Tone.UNUSED.colour,
+            CardFace.edge(upTo(readout(3, 0, UpToReason.UNUSED, ACID, null), SIX)));
+        assertEquals(
+            CardFace.Tone.FORCED.colour,
+            CardFace.edge(
+                CardFace
+                    .foot(PinRule.EXACT, 4, null, List.of(new CardFace.Forced("Oxygen", "1/s")), PORTS, CARDS, SIX)));
     }
 
     // endregion

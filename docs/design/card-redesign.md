@@ -17,13 +17,14 @@ world draws them (`dev/CardGallery`, arrow keys).
   Rows start at the top; nothing is centred vertically.
 - Power is one more port with a bolt: after the inputs for what the machine draws, after the outputs for what a
   generator makes. Hovering it says, in a few words, that plans do not wire machine power (e.g. "Not wired in plans").
-- The machine picture in the middle, as large as the column allows (88), the machine count in plain white on its
-  bottom right corner.
+- The machine picture in the middle, in its own well since Up to (`docs/design/up-to.md`), what runs and what is set
+  under it.
 - The title level with the chips' labels (the game's capitals are seven of its eight rows).
-- The recipe's programmed circuit as its icon, large, on the picture's bottom left corner; or, with the setting
-  "Circuit as an input", one more input row (its icon, its number large, "Circuit" small). GregTech's circuit icons
-  are drawn clearer everywhere a card shows one (`ui/gt/CircuitIcons`, made by `tools/dev/circuit-icons.mjs`: the
-  faint "88" taken off the screen and the lit segments darker, nothing else changed).
+- The recipe's programmed circuit as a badge in the well's top left corner (the owner, 2026-10-17): its own icon,
+  whose segments show its number, no words beside it, never dimmed; its tip says "Circuit 24". The "Circuit as an
+  input" setting is gone. GregTech's circuit icons are drawn clearer everywhere a card shows one
+  (`ui/gt/CircuitIcons`, made by `tools/dev/circuit-icons.mjs`: the faint "88" taken off the screen and the lit
+  segments darker, nothing else changed).
 - A settings strip along the bottom: a chip for the coil (heat recipes; red when too cold), parallels when more than
   one, and every setting changed from its default (`PlanSnapshot.Setting`, from `SnapshotMaker.settings`); a card left
   at its defaults has no strip.

@@ -29,7 +29,15 @@ public final class CardPaint {
 
     /** The surface with its edge, {@code w} by {@code h}. */
     public static void surface(final int w, final int h) {
-        Hyb.rect(0, 0, w, h, EDGE);
+        surface(w, h, 0);
+    }
+
+    /**
+     * The surface with its edge in {@code edge} ({@link CardFace#edge}: a problem card's frame in its bar's colour),
+     * or the plain edge for 0.
+     */
+    public static void surface(final int w, final int h, final int edge) {
+        Hyb.rect(0, 0, w, h, edge != 0 ? edge : EDGE);
         Hyb.rect(1, 1, w - 2, h - 2, SURFACE);
     }
 
@@ -309,20 +317,18 @@ public final class CardPaint {
         Hyb.rect(x + 1, by + 1, 3, 3, 0xFFFFAA00);
     }
 
-    /** The circuit's row among the inputs: its icon, its number large, "Circuit" small. */
-    public static void circuitRow(final ItemStack circuit, final int y, final float z) {
-        com.gtnhplanner.ui.gt.CircuitIcons
-            .draw(circuit, CardLayout.iconX(false), y + CardLayout.ICON_Y, CardLayout.ICON, z);
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        words(String.valueOf(circuit.getItemDamage()), "", "Circuit", Hyb.INK, false, y);
-    }
-
-    /** The circuit in the well's top left corner, large. */
+    /**
+     * The recipe's programmed circuit as a badge in the well's top left corner: its own icon with its number on it, in
+     * its bottom right corner as the game prints a stack's size; no words beside it and never dimmed (it is a setting,
+     * not a flow).
+     */
     public static void circuitBadge(final ItemStack circuit, final int[] well, final float z) {
-        com.gtnhplanner.ui.gt.CircuitIcons.draw(circuit, well[0] + 3, well[1] + 3, 24, z);
+        final int[] r = CardLayout.circuit(well);
+        com.gtnhplanner.ui.gt.CircuitIcons.draw(circuit, r[0], r[1], r[2], z);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
+        final String n = String.valueOf(circuit.getItemDamage());
+        Hyb.text(n, r[0] + r[2] + 1 - Hyb.width(n), r[1] + r[3] - 7, Hyb.INK);
     }
 
     /** Under a count the plan waits for (nothing set anywhere): what to do, pulsing gold with the drawers' Set rate. */
