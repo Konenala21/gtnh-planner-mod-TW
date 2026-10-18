@@ -705,8 +705,9 @@ final class Rebuild {
         b.when(() -> {
             final BoardSession s = session();
             return s != null && id.get() != null
-                && s.graph()
-                    .getZoom() <= RecipeCard.GLANCE_ZOOM + 0.001f;
+                && RecipeCard.glanceAt(
+                    s.graph()
+                        .getZoom() - 0.001f);
         }, Steps.seq(Steps.run(() -> {
             final BoardScreen b2 = Targets.board();
             if (b2 == null) return;

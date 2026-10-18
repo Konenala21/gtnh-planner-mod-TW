@@ -20,6 +20,7 @@ import com.gtnhplanner.data.SettingDef;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.provider.GTKeys;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.PlannerSettings;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.gt.GtCoils;
 import com.gtnhplanner.ui.gt.GtMachines;
@@ -703,8 +704,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final CardModel m = model;
         if (m == null) return;
         final float z = context.getCurrentDrawingZ();
-        if (session.graph()
-            .getZoom() <= GLANCE_ZOOM) {
+        if (glanceAt(
+            session.graph()
+                .getZoom())) {
             drawGlance(m, z);
             return;
         }
@@ -804,9 +806,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
      * 0.42): with the Up to bar along its foot the glance face says how hard each machine runs, so it comes in sooner,
      * at the first wheel step under two thirds (0.57). The website comes back only above 0.67, against the flicker of
      * a free zoom; the board's wheel steps (0.57, 0.66, 0.76) are fixed and its eases go one way, and 0.66 lies in that
-     * gap, so one threshold keeps every step showing one face whichever way it was reached.
+     * gap, so one threshold keeps every step showing one face whichever way it was reached. The player moves it in the
+     * settings ("Zoomed-out view", {@link PlannerSettings#zoomedOutAt()}); a screenshot keeps the default, so its
+     * Detailed and Simple pictures are what they say.
      */
-    public static final float GLANCE_ZOOM = 0.65f;
+    public static final float GLANCE_ZOOM = PlannerSettings.ZOOMED_OUT_DEFAULT / 100f;
+
+    /** Whether the board at {@code zoom} shows the glance view: below the zoom the settings set. */
+    public static boolean glanceAt(final float zoom) {
+        return zoom < (com.gtnhplanner.ui.canvas.PlanPicture.drawing() ? GLANCE_ZOOM : PlannerSettings.zoomedOutAt());
+    }
 
     /** The Up to bar along a zoomed-out card's foot, in card pixels (the website's 36), and its track. */
     private static final int GLANCE_BAR_H = 36, GLANCE_TRACK = 0xFF17191D;
@@ -818,8 +827,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     private static final float GLANCE_COUNT = 17 / 7f, GLANCE_COUNT_MAX = 76 / 7f;
 
     private boolean glance() {
-        return session.graph()
-            .getZoom() <= GLANCE_ZOOM;
+        return glanceAt(
+            session.graph()
+                .getZoom());
     }
 
     /**
@@ -2376,6 +2386,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (model == null) return false;
         // While a leftover is carried the wheel is the board's: how much is in hand.
         if (canvas() != null && canvas().carryingSpare()) return false;
+        // With "Scroll changes values" off nothing here takes it: the board zooms.
+        if (!PlannerSettings.scrollChangesValues()) return false;
         final int step = direction == UpOrDown.UP ? 1 : -1;
         final Node node = model.node;
         switch (partAt(localX(), localY())) {

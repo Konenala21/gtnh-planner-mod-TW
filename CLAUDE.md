@@ -33,9 +33,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   steps are at the top of `docs/design/build-prompt.md`.
 - Everything must fit GTNH's defaults (1080p, GUI scale 4, the pack's NEI panel): a planner 440 board px wide at the
   gear's Normal Size and 330 at Large (`call 'window?w=1920&h=1080&scale=4&size=3'`; the dev game at scale 2 hides
-  it). The top bar gives way as the website's does (`ui/TopBar`): keys closer, the bolt and arrange's progress short,
-  faces folded to two and a count (`PlanTabs.end`), then the keys on rows under the tabs, the open tab and + always
-  kept. Popups open inside the planner's own panel, never under NEI's list (`Popup.room`, `openCentred`); a box taller
+  it). The top bar is one row that never wraps, as the website's (`ui/TopBar`, `TopBarFit`, pure and tested): the tabs give
+  way first (they scroll, the open one kept in view; faces fold to two and a count, `PlanTabs.end`), then Plans, Share
+  and Sign in show only their pictures beside feedback, settings and help, then the gaps tighten; the open tab and +
+  always stay. The overview gives way too (`RailFit`): the board keeps its toolbar on one row (`BoardToolbar.leastOneRow`),
+  so the overview shrinks toward 160 and then folds (at Large it is folded), never over the player's own fold. Popups open inside the planner's own panel, never under NEI's list (`Popup.room`, `openCentred`); a box taller
   than it scrolls inside (`TaskPanel`'s page), the task board scrolls sideways past four 112 px columns, notices wrap.
   Text gives way by shortening, never by cutting a word.
 - `docs/design/card-redesign.md` is the clean card now on the board, the minimap and the world (`CardLayout`,
@@ -57,7 +59,8 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   prompt clock, and the ring's notice is an alarm (`Notice.alarm`: a chip in that tone blinking with the outlines, one
   short sentence, `Loops.sentence`; the sentence goes under the chip where it does not fit, `NoticeRow`). Notices go
   most pressing first (`Notice.byUrgency`: a failed solve, alarms, warnings, the rest; a flash on top). Zoomed out
-  (from 0.65, `RecipeCard.GLANCE_ZOOM`) the face shows the bar along its foot (`CardFace.glance`). The recipe's
+  (below the gear's Zoomed-out view, 65% unless moved, `RecipeCard.glanceAt`) the face shows the bar along its foot
+  (`CardFace.glance`). The recipe's
   circuit is a badge in the well's top left corner. A middle click clears what is set under it (count, port rate,
   drawer rate). `call upto` puts stand-in read-outs, drawer shortfalls and loops on the board.
 - AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
@@ -202,10 +205,14 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   page; `newboard=<name>`, `add=<title>&status=`, `task=<id>&comment=<text>&by=<id>&name=<name>&ago=<minutes>`,
   `assign=<id>` and `block=<id>`/`unblock=<id>` set a board up to look at; `view=board|chain` and `select=<id>` drive
   the chain view).
-- The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
-  key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
+- The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Plans, Share, the account
+  key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help; short of
+  room Plans, Share and Sign in are picture keys (`BoardScreen.pictureKey`), their tips leading with their names. The
+  overview's width is the player's: a handle on its board-side edge (`ui/RailHandle`, below the toolbar's row, 2 px over
+  the overview and 7 over the board) drags it from 160 to 300 (198 by default; double-click resets it), kept in the
+  settings (`PlannerSettings.overviewWidth`). What edits or
   views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,
-  Arrange, Fit, the rate unit, EU/t, then the pencil key that opens the empty-board menu; wraps like the top bar; Peak
+  Arrange, Fit, the rate unit, EU/t, then the pencil key that opens the empty-board menu; wraps only on a board narrower than its row; Peak
   or Avg is the overview's own key). The rate unit's fifth setting is EU (the website's): each port reads the EU its
   card spends per unit through it and the overview's inputs and outputs the whole plan's average draw per unit
   (`BoardSession.energyView`, `euEach`, `Fmt.euEach`); `rateUnit()` stays the clock, for typed rates, wires and drawers.
@@ -260,7 +267,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   pulsing gold together (`CardPaint.prompt`), however much of the rest is set;
   the count keeps its place, a line kept under it. Scrolling a pinned count below one unpins it. The gear's See-through slider (0 to 100%) fades
   the board, its dots and the overview (`Hyb.seeThrough`) down to nothing; cards and text stay solid. The gear opens
-  `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
+  `ui/popup/SettingsPanel`, a centred box of sections. Its Board section has the website's Zoomed-out view (35 to 100%
+  in steps of 5, 65 by default: where cards turn simple, `PlannerSettings.zoomedOutAt`; screenshots keep 65) and Scroll
+  changes values (on by default; off, no count, chip, rate box, rule key, drawer, overview line or settings row takes
+  the wheel, so the board zooms and lists scroll, and tips leave their wheel rows out: `Tip.action`). The tour borrows
+  both at their defaults, and the overview's width (`Sandbox`). Drawers are drawn by `ui/drawer/DrawerPaint` (board and
   minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin). Where the solve sends
   something out of the plan, or brings it in, at a wired port with no drawer (the balancer's open gates), the card
   shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Forced" in a

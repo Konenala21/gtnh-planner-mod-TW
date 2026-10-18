@@ -106,6 +106,52 @@ public final class PlannerSettings {
         set("board.problemOutlines", on);
     }
 
+    /**
+     * "Zoomed-out view": the board zoom, in percent of a 1:1 view, below which cards turn to their glance faces
+     * ({@code RecipeCard.glanceAt}); from {@value #ZOOMED_OUT_MIN} to {@value #ZOOMED_OUT_MAX} in steps of
+     * {@value #ZOOMED_OUT_STEP}. Lower, a full card's lettering is unreadable before the glance face arrives.
+     */
+    public static final int ZOOMED_OUT_MIN = 35, ZOOMED_OUT_MAX = 100, ZOOMED_OUT_STEP = 5, ZOOMED_OUT_DEFAULT = 65;
+
+    /** Read on every card every frame: kept as the zoom, so no lookup on the way. */
+    private static float zoomedOutAt = Float.NaN;
+
+    public static int zoomedOutPercent() {
+        final int at = integer("board.zoomedOutAt", ZOOMED_OUT_DEFAULT);
+        return Math.max(ZOOMED_OUT_MIN, Math.min(ZOOMED_OUT_MAX, at));
+    }
+
+    public static void setZoomedOutPercent(final int percent) {
+        final int stepped = Math.round(percent / (float) ZOOMED_OUT_STEP) * ZOOMED_OUT_STEP;
+        set("board.zoomedOutAt", Math.max(ZOOMED_OUT_MIN, Math.min(ZOOMED_OUT_MAX, stepped)));
+        zoomedOutAt = Float.NaN;
+    }
+
+    /** The zoom the glance view starts below. */
+    public static float zoomedOutAt() {
+        float at = zoomedOutAt;
+        if (Float.isNaN(at)) zoomedOutAt = at = zoomedOutPercent() / 100f;
+        return at;
+    }
+
+    /**
+     * "Scroll changes values": the wheel over a count, chip, rate box, rule key, drawer, overview line or settings row
+     * steps it. Off, it never changes a value: over the board it zooms, over a list it scrolls. On by default.
+     */
+    public static boolean scrollChangesValues() {
+        Boolean on = scrollChangesValues;
+        if (on == null) scrollChangesValues = on = bool("board.scrollChangesValues", true);
+        return on;
+    }
+
+    public static void setScrollChangesValues(final boolean on) {
+        set("board.scrollChangesValues", on);
+        scrollChangesValues = on;
+    }
+
+    /** Read on every wheel and every tip: kept, as the zoom is. */
+    private static Boolean scrollChangesValues;
+
     public static boolean minimap() {
         return bool("minimap.on", false);
     }
@@ -383,6 +429,15 @@ public final class PlannerSettings {
         set("overview.open", open);
     }
 
+    /** The overview's width as the player dragged its edge, in board pixels ({@link RailFit} keeps it in range). */
+    public static int overviewWidth() {
+        return RailFit.clamp(integer("overview.width", RailFit.DEFAULT));
+    }
+
+    public static void setOverviewWidth(final int width) {
+        set("overview.width", RailFit.clamp(width));
+    }
+
     /** The overview's sections folded to their bars, by title (INPUTS, OUTPUTS, INTERNAL, MACHINES). */
     public static Set<String> overviewFolded() {
         final String saved = load().getProperty("overview.folded");
@@ -505,6 +560,8 @@ public final class PlannerSettings {
     static synchronized void useFile(final File f) {
         testFile = f;
         props = null;
+        zoomedOutAt = Float.NaN;
+        scrollChangesValues = null;
     }
 
     private static File file() {

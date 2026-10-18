@@ -616,7 +616,7 @@ public final class SettingsSheet extends Popup {
         public boolean onMouseScroll(final UpOrDown direction, final int amount) {
             final Line l = lineAtMouse();
             final RecipeCard card = card();
-            if (l == null || card == null) return false;
+            if (l == null || card == null || !com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()) return false;
             final SettingControls.Control c = l.control();
             if (!c.enabled() || c.type() == SettingControls.Type.READING) return false;
             card.stepSetting(c, direction == UpOrDown.UP ? 1 : -1);

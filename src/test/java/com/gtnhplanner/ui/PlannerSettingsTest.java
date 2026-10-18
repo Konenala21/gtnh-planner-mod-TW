@@ -60,6 +60,46 @@ class PlannerSettingsTest {
     }
 
     @Test
+    void theBoardsNewSettingsStartAsTheWebsitesAndOutliveARestart(@TempDir final File dir) {
+        final File file = new File(dir, "settings.properties");
+        PlannerSettings.useFile(file);
+        assertEquals(65, PlannerSettings.zoomedOutPercent());
+        assertEquals(0.65f, PlannerSettings.zoomedOutAt());
+        assertTrue(PlannerSettings.scrollChangesValues());
+        assertEquals(RailFit.DEFAULT, PlannerSettings.overviewWidth());
+        PlannerSettings.setZoomedOutPercent(40);
+        PlannerSettings.setScrollChangesValues(false);
+        PlannerSettings.setOverviewWidth(250);
+        // Read at once, without a restart: the board changes as the slider moves.
+        assertEquals(0.4f, PlannerSettings.zoomedOutAt());
+        assertFalse(PlannerSettings.scrollChangesValues());
+        PlannerSettings.useFile(file);
+        assertEquals(40, PlannerSettings.zoomedOutPercent());
+        assertFalse(PlannerSettings.scrollChangesValues());
+        assertEquals(250, PlannerSettings.overviewWidth());
+    }
+
+    @Test
+    void theZoomedOutViewStaysOnTheSlidersSteps(@TempDir final File dir) throws IOException {
+        final File file = new File(dir, "settings.properties");
+        PlannerSettings.useFile(file);
+        PlannerSettings.setZoomedOutPercent(10);
+        assertEquals(35, PlannerSettings.zoomedOutPercent());
+        PlannerSettings.setZoomedOutPercent(120);
+        assertEquals(100, PlannerSettings.zoomedOutPercent());
+        PlannerSettings.setZoomedOutPercent(57);
+        assertEquals(55, PlannerSettings.zoomedOutPercent());
+        // A hand-edited file out of range, or no number at all.
+        Files.writeString(file.toPath(), "board.zoomedOutAt=7\noverview.width=9999\n", StandardCharsets.UTF_8);
+        PlannerSettings.useFile(file);
+        assertEquals(35, PlannerSettings.zoomedOutPercent());
+        assertEquals(RailFit.MOST, PlannerSettings.overviewWidth());
+        Files.writeString(file.toPath(), "board.zoomedOutAt=lots\n", StandardCharsets.UTF_8);
+        PlannerSettings.useFile(file);
+        assertEquals(65, PlannerSettings.zoomedOutPercent());
+    }
+
+    @Test
     void theTopBarsKeysOutliveARestart(@TempDir final File dir) {
         final File file = new File(dir, "settings.properties");
         PlannerSettings.useFile(file);
