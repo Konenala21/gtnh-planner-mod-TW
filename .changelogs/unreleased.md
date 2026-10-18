@@ -12,6 +12,7 @@
 - The overview lists every machine and every open input and output even at zero. A shared machine is one line there. You can change tier and amps from there too.
 - Machines stuck waiting on each other get a notice and the wires between them light up.
 - The top bar is shorter. Invite people is the first thing in the Share menu and Community is a shelf in Plans.
+- Each setting says what it does. Controls has the list of keys and the tour.
 - A pencil key on the board's toolbar adds a sticky note, box or arrow. Peak and Avg live in the overview now.
 
 ## Fixed

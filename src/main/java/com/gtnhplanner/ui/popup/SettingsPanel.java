@@ -200,15 +200,15 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                 List.of(
                     choice(
                         "Size",
-                        "beside NEI",
+                        "of the planner",
                         PlannerSettings.SIZE_NAMES,
                         PlannerSettings::size,
-                        SettingsPanel::setSize),
+                        SettingsPanel::setSize).about("Sets how big the planner is."),
                     toggle(
                         "Names when zoomed out",
                         null,
                         PlannerSettings::zoomedOutNames,
-                        PlannerSettings::setZoomedOutNames),
+                        PlannerSettings::setZoomedOutNames).about("Names each card when you zoom far out."),
                     toggle(
                         "Problem outlines",
                         null,
@@ -220,18 +220,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         Kind.SLIDER,
                         seeThrough,
                         () -> PlannerSettings.seeThrough() / PlannerSettings.SEE_THROUGH_STEP,
-                        i -> PlannerSettings.setSeeThrough(i * PlannerSettings.SEE_THROUGH_STEP)))));
-
-        out.add(
-            new Section(
-                "Sound",
-                List.of(
-                    choice(
-                        "Sounds",
-                        null,
-                        PlannerSettings.SOUND_NAMES,
-                        PlannerSettings::soundIndex,
-                        PlannerSettings::setSoundIndex))));
+                        i -> PlannerSettings.setSeeThrough(i * PlannerSettings.SEE_THROUGH_STEP))
+                            .about("Fades the board so the game shows through."))));
 
         final String[] mapSeeThrough = new String[PlannerSettings.MINIMAP_SEE_THROUGH_MAX
             / PlannerSettings.MINIMAP_SEE_THROUGH_STEP + 1];
@@ -291,6 +281,17 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         mapSeeThrough,
                         () -> PlannerSettings.minimapSeeThrough() / PlannerSettings.MINIMAP_SEE_THROUGH_STEP,
                         i -> PlannerSettings.setMinimapSeeThrough(i * PlannerSettings.MINIMAP_SEE_THROUGH_STEP)))));
+
+        out.add(
+            new Section(
+                "Sound",
+                List.of(
+                    choice(
+                        "Sounds",
+                        null,
+                        PlannerSettings.SOUND_NAMES,
+                        PlannerSettings::soundIndex,
+                        PlannerSettings::setSoundIndex).about("Sets how loud the clicks are."))));
 
         out.add(
             new Section(
@@ -373,11 +374,26 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
         out.add(
             new Section(
-                "Keys",
-                List.of(new Row("Key bindings", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
-                    final Minecraft mc = Minecraft.getMinecraft();
-                    mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
-                }).about("Opens Minecraft's controls."))));
+                "Controls",
+                List.of(
+                    new Row(
+                        "Controls and shortcuts",
+                        null,
+                        Kind.BUTTON,
+                        new String[] { "Open" },
+                        () -> 0,
+                        i -> com.gtnhplanner.ui.BoardScreen.openControls()).about("Opens the list of keys."),
+                    new Row("Key bindings", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
+                        final Minecraft mc = Minecraft.getMinecraft();
+                        mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
+                    }).about("Opens Minecraft's controls."),
+                    new Row(
+                        "The tour",
+                        null,
+                        Kind.BUTTON,
+                        new String[] { "Take it" },
+                        () -> 0,
+                        i -> com.gtnhplanner.ui.tutorial.Tutorial.start()).about("Walks you through the planner."))));
         return out;
     }
 
@@ -778,6 +794,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                 case BUTTON -> {
                     if (in(c, mx, my)) {
                         Hyb.click();
+                        // As the website's: the box goes, then what the key opens comes up.
+                        getPanel().closeIfOpen();
                         row.to()
                             .accept(0);
                     }

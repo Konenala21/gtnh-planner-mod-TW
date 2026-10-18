@@ -609,6 +609,12 @@ public final class BoardScreen extends ModularScreen {
         }
     }
 
+    /** The list of every control (the help menu's), over the open board; nothing when the planner is shut. */
+    public static void openControls() {
+        if (Planner.screenOf(net.minecraft.client.Minecraft.getMinecraft().currentScreen) instanceof final BoardScreen b)
+            showHelp(b.getMainPanel());
+    }
+
     /** Every gesture on the board, in one list. */
     private static void showHelp(final ModularPanel panel) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
