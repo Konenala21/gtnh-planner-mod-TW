@@ -107,13 +107,16 @@ class RailTotalsTest {
         assertEquals(List.of(), l.outputs());
     }
 
-    /** A card for the machine list: its id, whether it is a fluid tank, runs, its shared machine and host. */
-    private record Card(String id, boolean tank, boolean runs, String machine, boolean host) {}
+    /** A card for the machine list: its id, whether it is a fluid tank, and its shared machine. */
+    private record Card(String id, boolean tank, String machine) {}
 
     private static List<String> machines(final Card... cards) {
-        return RailTotals.machines(List.of(cards), Card::tank, Card::runs, Card::machine, Card::host)
+        return RailTotals.machines(List.of(cards), Card::tank, Card::machine)
             .stream()
-            .map(Card::id)
+            .map(
+                line -> line.stream()
+                    .map(Card::id)
+                    .collect(java.util.stream.Collectors.joining("+")))
             .toList();
     }
 
@@ -122,21 +125,22 @@ class RailTotalsTest {
         assertEquals(
             List.of("comp", "cutter", "saw"),
             machines(
-                new Card("comp", false, true, null, true),
-                new Card("cutter", false, false, null, true),
-                new Card("tank", true, false, null, true),
-                new Card("saw", false, false, null, true)));
+                new Card("comp", false, null),
+                new Card("cutter", false, null),
+                new Card("tank", true, null),
+                new Card("saw", false, null)));
     }
 
     @Test
-    void listsASharedMachineOnceAtZeroByItsFirstRecipe() {
-        // Nothing runs on the bender: its first recipe stands for it. On the press, the recipe that runs has the line.
+    void listsASharedMachineOnceWithAllItsRecipesWhereTheFirstStands() {
+        // As the website's machine list: a shared machine is one card, one line, its recipes summed.
         assertEquals(
-            List.of("bend1", "press2"),
+            List.of("bend1+bend2", "saw", "press1+press2"),
             machines(
-                new Card("bend1", false, false, "bender", true),
-                new Card("bend2", false, false, "bender", false),
-                new Card("press1", false, false, "press", true),
-                new Card("press2", false, true, "press", false)));
+                new Card("bend1", false, "bender"),
+                new Card("saw", false, null),
+                new Card("bend2", false, "bender"),
+                new Card("press1", false, "press"),
+                new Card("press2", false, "press")));
     }
 }

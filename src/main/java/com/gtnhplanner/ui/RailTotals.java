@@ -69,23 +69,30 @@ final class RailTotals {
     }
 
     /**
-     * The machine lines: every card, at zero too, whatever its rule, but a fluid tank (free and instant: nothing to
-     * build). A shared machine is one machine: its recipes that run each have a line, and when none runs its first
-     * recipe ({@code host}) stands for it at zero. {@code machineOf} is the shared machine a card is a recipe of (null
-     * for a card of its own).
+     * The machine lines, as the website's machine list has them: every card once, at zero too, whatever its rule, but a
+     * fluid tank (free and instant: nothing to build). A shared machine is one card and one line: its recipes come
+     * together, in plan order, where the first of them stands. {@code machineOf} is the shared machine a card is a
+     * recipe of (null for a card of its own).
      */
-    static <C> List<C> machines(final List<C> cards, final Predicate<C> tank, final Predicate<C> runs,
-        final Function<C, Object> machineOf, final Predicate<C> host) {
-        final Map<Object, Boolean> running = new HashMap<>();
-        for (final C c : cards) {
-            final Object m = machineOf.apply(c);
-            if (m != null && !tank.test(c)) running.merge(m, runs.test(c), Boolean::logicalOr);
-        }
-        final List<C> out = new ArrayList<>();
+    static <C> List<List<C>> machines(final List<C> cards, final Predicate<C> tank,
+        final Function<C, Object> machineOf) {
+        final Map<Object, List<C>> shared = new HashMap<>();
+        final List<List<C>> out = new ArrayList<>();
         for (final C c : cards) {
             if (tank.test(c)) continue;
             final Object m = machineOf.apply(c);
-            if (m == null || runs.test(c) || !running.get(m) && host.test(c)) out.add(c);
+            if (m == null) {
+                out.add(List.of(c));
+                continue;
+            }
+            final List<C> recipes = shared.get(m);
+            if (recipes != null) recipes.add(c);
+            else {
+                final List<C> first = new ArrayList<>();
+                first.add(c);
+                shared.put(m, first);
+                out.add(first);
+            }
         }
         return out;
     }

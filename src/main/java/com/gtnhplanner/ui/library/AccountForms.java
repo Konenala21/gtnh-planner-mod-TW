@@ -100,14 +100,14 @@ public final class AccountForms {
         return List.of(
             new PickList.Entry(
                 null,
-                "Update my post...",
+                "Update in Community...",
                 "with the plan as it is",
                 Hyb.INK,
                 false,
                 () -> post(parent, session, plan, false, null, null)),
             new PickList.Entry(
                 null,
-                "Post a new copy...",
+                "Post a new copy to Community...",
                 "a post of its own",
                 Hyb.INK,
                 false,

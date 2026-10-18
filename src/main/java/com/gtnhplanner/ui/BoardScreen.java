@@ -205,32 +205,9 @@ public final class BoardScreen extends ModularScreen {
             })),
             18,
             18);
-        topBar.key(
-            0,
-            named(
-                parts,
-                "invite",
-                key(
-                    () -> "Invite",
-                    () -> session.live() != null,
-                    "Invite people to edit this plan with you (sign in to invite)",
-                    fit("Invite"),
-                    () -> com.gtnhplanner.ui.popup.SharePanel.open(panel, session))),
-            fit("Invite"),
-            tight("Invite"));
-        topBar.key(
-            0,
-            named(
-                parts,
-                "share",
-                key(
-                    () -> "Share",
-                    () -> true,
-                    "Share a copy of this plan: a link, a code, in chat, a file or a picture, or post it to Community",
-                    fit("Share"),
-                    () -> openShare(panel, session, canvas, parts.get("share")))),
-            fit("Share"),
-            tight("Share"));
+        // As the website's bar: Plans (the library on My plans; Shared with me and Community are its shelves), then
+        // Share
+        // (Invite people first, then the copies), then the account key.
         topBar.key(
             0,
             named(
@@ -239,10 +216,10 @@ public final class BoardScreen extends ModularScreen {
                 key(
                     () -> "Plans",
                     () -> true,
-                    "Plans: every plan you have, and the plans shared with you",
+                    "Your plans, the ones shared with you, and Community",
                     fit("Plans"),
                     () -> {
-                        if (library.open && library.view.onMine()) {
+                        if (library.open) {
                             library.set(false);
                             return;
                         }
@@ -255,17 +232,15 @@ public final class BoardScreen extends ModularScreen {
             0,
             named(
                 parts,
-                "community",
-                key(() -> "Community", () -> true, "Community: plans other players posted", fit("Community"), () -> {
-                    if (library.open && library.view.onPublic()) {
-                        library.set(false);
-                        return;
-                    }
-                    library.view.showPublic();
-                    library.set(true);
-                })),
-            fit("Community"),
-            tight("Community"));
+                "share",
+                key(
+                    () -> "Share",
+                    () -> true,
+                    "Share this plan: invite people to edit it with you, or send a copy",
+                    fit("Share"),
+                    () -> openShare(panel, session, canvas, parts.get("share")))),
+            fit("Share"),
+            tight("Share"));
         final ButtonWidget<?> account = named(parts, "account", accountKey(panel, session, parts));
         topBar.key(0, account, () -> accountWidth(true), () -> accountWidth(false));
         topBar.key(
@@ -516,7 +491,20 @@ public final class BoardScreen extends ModularScreen {
         final IWidget key) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
         final int slot = session.activeSlot();
-        // Copies only: people are invited with the Invite key. The website's Share menu has the same rows.
+        // The website's Share menu, in its words: people first, then the copies; a copy posted to Community last.
+        if (session.live() != null) rows.add(
+            com.gtnhplanner.ui.popup.PickList.Entry
+                .of("Invite people...", () -> com.gtnhplanner.ui.popup.SharePanel.open(panel, session)));
+        else rows.add(
+            new com.gtnhplanner.ui.popup.PickList.Entry(
+                null,
+                "Invite people...",
+                "sign in",
+                Hyb.MUTED,
+                false,
+                () -> session
+                    .flash(com.gtnhplanner.data.flowchart.balancer.Severity.INFO, "Sign in to invite people")));
+        rows.add(com.gtnhplanner.ui.popup.PickList.Entry.rule());
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan link", session::copyPlanLink));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Copy plan code", () -> session.copyPlan(slot)));
         rows.add(com.gtnhplanner.ui.popup.PickList.Entry.of("Share in game chat", () -> session.shareInChat(slot)));

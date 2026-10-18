@@ -803,6 +803,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     /** The Up to bar along a zoomed-out card's foot, in card pixels (the website's 36), and its track. */
     private static final int GLANCE_BAR_H = 36, GLANCE_TRACK = 0xFF17191D;
 
+    /**
+     * The zoomed-out count's font pixel: in board pixels on screen (the website's 20 px face, digits about 17 px, over
+     * our 7 font pixels), and at most in card pixels (its 90 px cap).
+     */
+    private static final float GLANCE_COUNT = 17 / 7f, GLANCE_COUNT_MAX = 76 / 7f;
+
     private boolean glance() {
         return session.graph()
             .getZoom() <= GLANCE_ZOOM;
@@ -859,14 +865,24 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         // card's harvesters, beside their picture; an Up to card's what runs.
         final double builds = builds();
         final String count = "×" + Fmt.machines(builds);
-        // Two screen pixels per font pixel, or one far out: whole pixels at every wheel step, so it stays sharp.
-        float cs = 1 / zoom;
-        if (cs > 4) cs /= 2;
-        while (cs > 1 && Hyb.width(count) * cs > w * 0.8f) cs /= 2;
-        final float tw = Hyb.width(count) * cs, th = 8 * cs;
-        // Over an Up to bar the count sits just above it.
-        final float bottom = bar == null ? h - rim - 6 : h - GLANCE_BAR_H - 2 - 4 / zoom;
-        Hyb.text(count, w - rim - 6 - tw, bottom - th, cs, builds <= 0 ? Hyb.MUTED : Hyb.INK);
+        // The website's count: its 20 px face held at 20 board px on screen (digits about 17 of them, ours 7 font
+        // pixels tall) and never above its 90 card px, on whole screen pixels so it stays sharp, and narrower than
+        // most of the card.
+        final float[] g = screenGrid();
+        final float perUnit = g[0] * g[4];
+        float sp = Math.max(1, Math.round(Math.min(GLANCE_COUNT / zoom, GLANCE_COUNT_MAX) * perUnit));
+        while (sp > 1 && Hyb.width(count) * sp / perUnit > w * 0.8f) sp--;
+        final float cs = sp / perUnit;
+        final float tw = Hyb.width(count) * cs, th = 7 * cs;
+        // In the bottom right corner as the website sets it (2 + 6 and 2 + 4 board px in), over an Up to bar just
+        // above it.
+        final float bottom = (bar == null ? h : h - GLANCE_BAR_H) - 2 - 4 / zoom;
+        Hyb.text(
+            count,
+            snap(w - 2 - 6 / zoom - tw, g[0], g[1], g[4]),
+            snap(bottom - th, g[2], g[3], g[4]),
+            cs,
+            builds <= 0 ? Hyb.MUTED : Hyb.INK);
         if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
     }
 

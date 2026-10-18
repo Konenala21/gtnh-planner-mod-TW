@@ -1944,6 +1944,21 @@ public final class BoardSession {
     }
 
     /** A card's power as the board's switches say: average or peak. */
+    /**
+     * A machine line's draw, its recipes' together (one card, or a shared machine's sections): averaged, what each
+     * draws at its machines; at peak, the hungriest recipe's draw on every machine the card has.
+     */
+    double power(final List<CardModel> recipes) {
+        if (recipes.size() == 1) return power(recipes.get(0));
+        double sum = 0, built = 0, most = 0;
+        for (final CardModel c : recipes) {
+            sum += c.euPerTick * c.machines;
+            built += c.machines;
+            most = Math.max(most, c.euPerTick);
+        }
+        return peakPower ? most * Math.ceil(built - 1e-9) : sum;
+    }
+
     public double power(final CardModel card) {
         // A crop: its harvesters draw as whole machines (a farm bills its full draw), however few crops it holds.
         if (com.gtnhplanner.machines.game.CropCards.isCrop(card.node))
@@ -2803,19 +2818,27 @@ public final class BoardSession {
             eu += power(card);
             euMade += card.madeEuPerTick();
         }
-        // Every machine, at zero too, whatever its rule (a fluid tank is free and instant: nothing to build).
+        // Every machine, at zero too, whatever its rule (a fluid tank is free and instant: nothing to build). A shared
+        // machine is one line, as the website lists it: its recipes' machines and draw summed, its pool's count and
+        // rule.
         final List<MachineLine> machines = new ArrayList<>();
-        for (final CardModel card : RailTotals.machines(
-            counted,
-            c -> com.gtnhplanner.power.FluidTank.is(c.node),
-            c -> c.machines > 0,
-            c -> sharedOf(c.node.id),
-            c -> hostOf(c.node.id).equals(c.node.id))) {
+        for (final List<CardModel> recipes : RailTotals
+            .machines(counted, c -> com.gtnhplanner.power.FluidTank.is(c.node), c -> sharedOf(c.node.id))) {
+            final CardModel card = recipes.stream()
+                .filter(c -> hostOf(c.node.id).equals(c.node.id))
+                .findFirst()
+                .orElse(recipes.get(0));
             final PinRule rule = rule(card.node);
-            // An Up to card lists what runs (its read-out, a lone card's own; a shared machine's recipe its share).
+            double built = 0, made = 0;
+            boolean tooLow = false;
+            for (final CardModel c : recipes) {
+                built += c.machines;
+                made += c.madeEuPerTick();
+                tooLow |= c.tierTooLow();
+            }
+            // An Up to card lists what runs: its read-out's (a shared machine's is its whole pool's).
             final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
-            final double runs = readout != null && sharedOf(card.node.id) == null ? Math.max(0, readout.reached())
-                : card.machines;
+            final double runs = readout != null ? Math.max(0, readout.reached()) : built;
             machines.add(
                 new MachineLine(
                     card.node.id,
@@ -2828,9 +2851,9 @@ public final class BoardSession {
                     card.amps,
                     card.multiblock,
                     card.gregtech,
-                    power(card),
-                    card.tierTooLow(),
-                    card.madeEuPerTick(),
+                    power(recipes),
+                    tooLow,
+                    made,
                     rule,
                     setCount(card.node),
                     runs,
@@ -2860,10 +2883,13 @@ public final class BoardSession {
             TotalLine::key,
             TotalLine::amount);
         final List<TotalLine> in = lines.inputs(), out = lines.outputs(), internal = lines.internal();
-        machines.sort(
-            java.util.Comparator.<MachineLine>comparingInt(m -> -CardDefaults.tierIndex(m.tier()))
-                .thenComparing(m -> -m.euPerTick())
-                .thenComparing(MachineLine::name));
+        // The website's order: lowest tier first (a machine of no tier last), then the biggest draw, then by name.
+        machines.sort(java.util.Comparator.<MachineLine>comparingInt(m -> {
+            final int tier = CardDefaults.tierIndex(m.tier());
+            return tier < 0 ? Integer.MAX_VALUE : tier;
+        })
+            .thenComparing(m -> -m.euPerTick())
+            .thenComparing(MachineLine::name));
         return new Totals(in, out, internal, eu, machines, euMade);
     }
 

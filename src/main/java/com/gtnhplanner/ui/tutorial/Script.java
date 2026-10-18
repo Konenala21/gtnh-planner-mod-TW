@@ -871,8 +871,8 @@ final class Script {
         beat(out).escIf(Script::popupOpen)
             .rest()
             .note(
-                Targets.topKey("invite"),
-                "Sign in and your plans save as you edit, on any computer. *Invite* someone and you build the plan together, live.");
+                Targets.topKey("share"),
+                "Sign in and your plans save as you edit, on any computer. *Share* invites someone to build the plan with you, live.");
 
         beat(out).click(Targets.topKey("plans"))
             .until(Script::libraryOpen, 2000)
@@ -880,8 +880,9 @@ final class Script {
             .rest()
             .note(Targets.topKey("plans"), "*Plans* has all your plans, and the ones people shared with you.");
 
+        // The Community shelf, in the library Plans opens.
         beat(out).escIf(Script::popupOpen)
-            .click(Targets.topKey("community"))
+            .when(() -> !libraryOpen(), Steps.click(Targets.topKey("plans")))
             .until(
                 () -> Targets.board() != null && Targets.board()
                     .libraryOpen(),
@@ -899,7 +900,7 @@ final class Script {
             .rest()
             .note(
                 Targets.boardPart("library:all"),
-                "*Community* is where people post plans. You can browse them here.");
+                "*Community* is where people post their plans. You can browse them here.");
     }
 
     private static boolean libraryOpen() {
@@ -923,7 +924,7 @@ final class Script {
         final Target grip = Targets.note(null, NoteCard.Part.RESIZE);
         final Target bigger = Targets.note(null, NoteCard.Part.BIGGER);
         // The whole plan in view first, so there is empty board to write on.
-        beat(out).when(Script::libraryOpen, Steps.click(Targets.topKey("community")))
+        beat(out).when(Script::libraryOpen, Steps.click(Targets.topKey("plans")))
             .until(() -> !libraryOpen(), 2000)
             .click(Targets.topKey("fit"))
             .pause(400)
