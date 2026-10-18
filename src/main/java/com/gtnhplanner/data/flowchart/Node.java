@@ -212,7 +212,7 @@ public class Node {
 
     /**
      * Each item input's alternatives: every item NEI shows in the slot the input's item is in (an ore dictionary
-     * slot's members, GregTech's alternatives), the port's own first, never a wildcard.
+     * slot's members, GregTech's alternatives), the port's own first; no other is a wildcard.
      */
     private void readAlternatives(final IRecipeHandler handler, final int recipeIndex) {
         final List<PositionedStack> slots;
@@ -242,12 +242,16 @@ public class Node {
         }
     }
 
-    /** Whether a slot shows the item among its permutations (a wildcard permutation holds every meta). */
+    /**
+     * Whether a slot shows the item among its permutations. A wildcard on either side holds every meta: GregTech's
+     * recipe keeps an ore slot's wildcard log (the Industrial Coke Oven's) while NEI lists each log.
+     */
     private static boolean holds(final PositionedStack slot, final ItemStack item) {
+        final int wildcard = net.minecraftforge.oredict.OreDictionary.WILDCARD_VALUE;
         for (final ItemStack s : slot.items) {
             if (s == null || s.getItem() != item.getItem()) continue;
-            if (s.getItemDamage() == item.getItemDamage()
-                || s.getItemDamage() == net.minecraftforge.oredict.OreDictionary.WILDCARD_VALUE) return true;
+            if (s.getItemDamage() == item.getItemDamage() || s.getItemDamage() == wildcard
+                || item.getItemDamage() == wildcard) return true;
         }
         return false;
     }
