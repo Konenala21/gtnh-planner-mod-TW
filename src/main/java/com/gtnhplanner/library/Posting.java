@@ -333,6 +333,13 @@ public final class Posting {
             return t.isEmpty() || "OFF".equals(t) ? "LV" : t;
         }
 
+        /** The rate key the player reads the board in, so the plan opens in it wherever it goes. */
+        @Override
+        public String rateUnit() {
+            return com.gtnhplanner.importer.PlanView
+                .word(com.gtnhplanner.ui.PlannerSettings.rateUnit(), com.gtnhplanner.ui.PlannerSettings.energyView());
+        }
+
         @Override
         public boolean multiblock(final Node node) {
             final com.gtnhplanner.machines.web.NodeMath.Result r = com.gtnhplanner.machines.game.WebEffect

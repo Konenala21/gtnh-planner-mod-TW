@@ -662,6 +662,14 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
             rows.add(
                 new PickList.Entry(
                     null,
+                    "Open plan file...",
+                    "saved plans and pictures",
+                    Hyb.INK,
+                    false,
+                    () -> com.gtnhplanner.ui.popup.PlanFileMenu.open(session, getPanel(), sx, sy)));
+            rows.add(
+                new PickList.Entry(
+                    null,
                     "Browse Community",
                     "plans others posted",
                     Hyb.INK,

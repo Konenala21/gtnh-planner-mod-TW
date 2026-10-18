@@ -267,6 +267,12 @@ public final class PortSlot extends Widget<PortSlot>
         }
         if (button != 0) return false;
         pressed = -1;
+        // What the game gives for nothing (the Rock Breaker's lava) has no wire to give.
+        if (com.gtnhplanner.data.provider.FreeInputs.isFree(
+            canvas.session()
+                .graph().nodes.get(node()),
+            output,
+            index)) return false;
         canvas.beginPortDrag(node(), output, index, overKey() ? 1 : overBox() ? 2 : 0);
         return true;
     }

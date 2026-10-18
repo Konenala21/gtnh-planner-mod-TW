@@ -83,6 +83,20 @@ public final class BoardSession {
     BoardSession() {
         graph = Plan.getActiveGraph();
         current = this;
+        takeView();
+    }
+
+    /**
+     * A plan that arrived shared in a rate unit (a link, a code, a post, a file) shows its rates in that, as the
+     * website opens one; the player's own key from then on.
+     */
+    private void takeView() {
+        final String word = graph == null ? null : graph.takeView();
+        if (word == null) return;
+        final Fmt.RateUnit unit = com.gtnhplanner.importer.PlanView.unit(word);
+        energyView = unit == null;
+        PlannerSettings.setEnergyView(energyView);
+        if (unit != null) setRateUnit(unit);
     }
 
     /** The session of the open board, or null when the planner is closed. */
@@ -1808,6 +1822,7 @@ public final class BoardSession {
         if (active != graph) {
             graph = active;
             seenVersion = Long.MIN_VALUE;
+            takeView();
         }
     }
 
@@ -2773,10 +2788,13 @@ public final class BoardSession {
         }
     }
 
-    /** One card in the overview's machine list. */
+    /**
+     * One card in the overview's machine list. {@code steamPerSecond}: the steam it burns, L/s, peak or average
+     * as the power is; NaN for a machine that burns none.
+     */
     public record MachineLine(UUID nodeId, String name, ItemStack stack, double machines, boolean pinned, String tier,
         int amps, boolean multiblock, boolean gregtech, double euPerTick, boolean tooLow, double madeEuPerTick,
-        PinRule rule, double set, double runs, @Nullable UpToReadout upTo) {}
+        PinRule rule, double set, double runs, @Nullable UpToReadout upTo, double steamPerSecond) {}
 
     /**
      * The overview, Factory Flow's resources column: per resource what the plan needs from outside (deficit), what it
@@ -2872,10 +2890,14 @@ public final class BoardSession {
             final PinRule rule = rule(card.node);
             double built = 0, made = 0;
             boolean tooLow = false;
-            for (final CardModel c : recipes) {
+            final double[] steamTicks = new double[recipes.size()], steamRuns = new double[recipes.size()];
+            for (int i = 0; i < recipes.size(); i++) {
+                final CardModel c = recipes.get(i);
                 built += c.machines;
                 made += c.madeEuPerTick();
                 tooLow |= c.tierTooLow();
+                steamTicks[i] = c.steam() ? c.steamPerTick : 0;
+                steamRuns[i] = c.machines;
             }
             // An Up to card lists what runs: its read-out's (a shared machine's is its whole pool's).
             final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
@@ -2898,7 +2920,8 @@ public final class BoardSession {
                     rule,
                     setCount(card.node),
                     runs,
-                    readout));
+                    readout,
+                    RailTotals.steamPerSecond(steamTicks, steamRuns, peakPower)));
         }
         // What trash voids leaves the plan without being an output of it.
         final Map<String, Double> trashed = new HashMap<>();
@@ -3470,6 +3493,20 @@ public final class BoardSession {
             final CardModel m = model(id);
             return m == null ? null : m.machines;
         });
+    }
+
+    /**
+     * The open plan as the website's project JSON, for a picture of it to carry (library/PlanImage); null when it
+     * could not be written, and the picture goes without it.
+     */
+    @Nullable
+    public String pictureJson() {
+        try {
+            return websiteJson().toString();
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Could not write the plan into its picture", e);
+            return null;
+        }
     }
 
     /** The open plan's link on the website: its plan code after {@code #p=}, so it never reaches a server. */

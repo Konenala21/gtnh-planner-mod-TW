@@ -250,10 +250,13 @@ public class GTProvider implements PropertyProvider {
         // again on every refresh).
         for (int i = 0; i < r.mInputs.length; i++) {
             if (r.mInputs[i].stackSize <= 0) continue;
+            final ItemStack in = copyOf(r.mInputs[i]);
+            // The Rock Breaker's lava placeholder (FreeInputs): kept on the card, an amount of 0 so nothing asks for it.
+            if (FreeInputs.isFree(in)) in.stackSize = 0;
             node.inputs.add(
                 new Port<>(
                     RecipePropertyAPI.ITEM,
-                    copyOf(r.mInputs[i]),
+                    in,
                     r.mInputChances != null ? r.mInputChances[i] / GT_CHANCE_SCALE : 1.f));
         }
         for (int i = 0; i < r.mOutputs.length; i++) {

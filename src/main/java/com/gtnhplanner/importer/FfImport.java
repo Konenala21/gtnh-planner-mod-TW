@@ -25,6 +25,11 @@ public final class FfImport {
      * @throws FfImportException when the text is not a plan
      */
     public static FfConverter.Result importFromText(final String text, final RecipeIndex index, final NodeMaker maker) {
-        return FfConverter.convert(read(text), index, maker);
+        final com.google.gson.JsonObject root = FfPlanParser.root(FfPlanCode.toJson(text));
+        final FfConverter.Result result = FfConverter.convert(FfPlanParser.read(root), index, maker);
+        // The rate unit it was shared in: the board opens it in that (the website's applyPlanView).
+        result.graph()
+            .viewWhenShown(PlanView.rateUnit(root));
+        return result;
     }
 }

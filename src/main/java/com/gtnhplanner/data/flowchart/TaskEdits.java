@@ -764,6 +764,11 @@ public final class TaskEdits {
         return (d >= 10_000 ? Math.round(d / 1000.0) + " km " : d + " m ") + way;
     }
 
+    /** A spot's block as the game types it, "x y z" (the website's Copy where it is), to paste into a command. */
+    public static String coordinates(final Tasks.Place p) {
+        return p.x() + " " + p.y() + " " + p.z();
+    }
+
     // endregion
 
     // region Comments

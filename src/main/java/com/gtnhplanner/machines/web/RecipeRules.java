@@ -62,7 +62,13 @@ public final class RecipeRules {
 
     /** isHandCraftingRecipeMap. */
     public static boolean isHandCraftingRecipeMap(final Web.Recipe recipe) {
-        final String normalized = normalizeRecipeMapName(recipeMapName(recipe));
+        return isHandCraftingMap(recipeMapName(recipe));
+    }
+
+    /** Whether the map named {@code recipeMap} is the crafting grid's, shaped or shapeless. */
+    public static boolean isHandCraftingMap(@Nullable final String recipeMap) {
+        if (recipeMap == null) return false;
+        final String normalized = normalizeRecipeMapName(recipeMap);
         return normalized.equals("shaped crafting") || normalized.equals("shapeless crafting");
     }
 

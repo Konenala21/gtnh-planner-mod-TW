@@ -95,6 +95,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         BOX,
         THING,
         SHOW,
+        COPY,
         THING_DELETE,
         ADD_HERE,
         ADD_SHOT,
@@ -412,6 +413,16 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
         Hyb.click();
         com.gtnhplanner.ui.world.WorldView.show(p);
+    }
+
+    /** Copies a spot's block, "x y z", to paste into the game (the website's Copy where it is). */
+    private void copyPlace(final TaskThings.Shown s) {
+        final Tasks.Place p = s.item()
+            .place();
+        if (p == null) return;
+        Hyb.click();
+        net.minecraft.client.gui.GuiScreen.setClipboardString(TaskEdits.coordinates(p));
+        session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.INFO, "Copied " + TaskEdits.coordinates(p));
     }
 
     /** Shows a placed card's machine in the world. */
@@ -849,7 +860,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
         /** The room a thing's words have: up to its keys at the right. */
         private int textW(final TaskThings.Shown s) {
-            return mainX + mainW - textX(s) - 16 - (showKey(s) ? showKeyW(s) + 8 : 0);
+            return mainX + mainW
+                - textX(s)
+                - 16
+                - (showKey(s) ? showKeyW(s) + 8 : 0)
+                - (Tasks.LOCATION.equals(s.kind()) ? COPY_W + 4 : 0);
         }
 
         private NoteText words(final TaskThings.Shown s) {
@@ -885,6 +900,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         private int showKeyW(final TaskThings.Shown s) {
             return Tasks.LOCATION.equals(s.kind()) ? Hyb.width("Show") + 10 + Icons.SIZE + 3 : 16;
         }
+
+        /** A spot's Copy key: its x y z to the clipboard, wherever the spot is. */
+        private static final int COPY_W = 34;
 
         private void drawThing(final TaskThings.Shown s, @Nullable final Hit hover, final int y, final int h,
             final float z, final boolean carried) {
@@ -959,6 +977,14 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     Hyb.text("Show", kx + 5 + Icons.SIZE + 3, ky + 4, Hyb.INK);
                 } else Icons.pin(kx + (kw - Icons.SIZE) / 2, ky + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
                 pageHits.add(new Hit(Kind.SHOW, kx, ky, kx + kw, ky + KEY_H, id));
+            }
+            if (Tasks.LOCATION.equals(s.kind())) {
+                if (showKey(s)) right -= showKeyW(s) + 4;
+                final int kx = right - COPY_W, ky = y + (h - KEY_H) / 2;
+                final boolean on = is(hover, Kind.COPY, id);
+                Hyb.bevel(kx, ky, COPY_W, KEY_H, on ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
+                Hyb.textCentered("Copy", kx + COPY_W / 2f, ky + 4, Hyb.INK);
+                pageHits.add(new Hit(Kind.COPY, kx, ky, kx + COPY_W, ky + KEY_H, id));
             }
         }
 
@@ -1487,6 +1513,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                             .place());
                     else if (s != null) showPlaced(s);
                 }
+                case COPY -> {
+                    if (s != null) copyPlace(s);
+                }
                 case THING_DELETE -> {
                     if (s != null) takeOff(s);
                 }
@@ -1591,6 +1620,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     s.item()
                         .place()))
                     rows.add(PickList.Entry.of("Show where it is", () -> act(s)));
+                rows.add(PickList.Entry.of("Copy where it is", () -> copyPlace(s)));
                 rows.add(PickList.Entry.of("Name it", () -> rename(s.item())));
             }
             case Tasks.PICTURE -> rows.add(PickList.Entry.of("See it big", () -> act(s)));
@@ -1828,6 +1858,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             case SHOW -> s == null ? null
                 : Tip.of(Tasks.LOCATION.equals(s.kind()) ? "Show where it is" : "Show it in the world")
                     .sub("The planner closes and a beam marks the spot");
+            case COPY -> Tip.of("Copy where it is")
+                .sub("Its x y z, to paste in the game");
             case THING_DELETE -> Tip.of("Take it off the task");
             case ADD_HERE -> Tip.of("Add the spot you stand on");
             case ADD_SHOT -> Tip.of("Add a screenshot of the world")

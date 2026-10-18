@@ -1339,6 +1339,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
      * thing, or one end is an input that can be set to what the other carries.
      */
     public boolean acceptsDrag(final UUID nodeId, final boolean output, final int index, final String key) {
+        // What the game gives for nothing (the Rock Breaker's lava) takes no wire.
+        if (com.gtnhplanner.data.provider.FreeInputs.isFree(graph().nodes.get(nodeId), output, index)) return false;
         // An empty holder's socket (a custom rate card's, a fluid tank's) takes what it can from a port on the other
         // side, of any other card: the custom rate card anything, the tank a cell or a fluid with cells.
         if (portDrag != null && portDrag.socket()) return key != null && !key.isEmpty()
@@ -1511,6 +1513,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     /** Whether a port takes {@code key}: it holds it, or it is an input that can be set to it. */
     private boolean takes(final UUID node, final boolean output, final int index, final CardModel.PortView port,
         final String key) {
+        if (com.gtnhplanner.data.provider.FreeInputs.isFree(graph().nodes.get(node), output, index)) return false;
         return key.equals(port.key()) || !output && session.choiceKeys(node, false, index)
             .contains(key);
     }

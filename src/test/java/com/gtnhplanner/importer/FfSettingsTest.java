@@ -560,4 +560,42 @@ class FfSettingsTest {
             "an unknown pick falls back to the first machine");
         assertNull(recipe().handler(null), "a recipe with no machines has none to pick");
     }
+
+    @Test
+    void aCraftingCardRunsOnTheAutoWorkbenchUnlessItSaysTheTable() {
+        final FfRecipe crafting = new FfRecipe(
+            "c",
+            "Shaped Crafting: Wooden Axe",
+            "gregtech_machine",
+            "crafting",
+            "Shaped Crafting",
+            "NONE",
+            1,
+            0,
+            0.0,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            null,
+            null);
+        // The website's first machine for the crafting grid, which it lists nowhere.
+        final FfSettings.Mapped awb = FfSettings
+            .map(card("MV", null, null, null, null, 1, null), crafting, 0, true, true);
+        assertEquals(
+            "auto-workbench",
+            awb.machine()
+                .handlerId());
+        assertEquals(
+            "MV",
+            awb.settings()
+                .get("voltage"));
+        final FfSettings.Mapped table = FfSettings
+            .map(card("LV", null, null, null, null, 1, "shaped-crafting"), crafting, 0, true, true);
+        assertEquals(
+            "shaped-crafting",
+            table.machine()
+                .handlerId());
+    }
 }

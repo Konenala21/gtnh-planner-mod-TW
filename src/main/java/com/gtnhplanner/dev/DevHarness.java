@@ -616,6 +616,9 @@ public final class DevHarness {
                             b.session()
                                 .graph()
                                 .getName(),
+                            "0".equals(q.get("plan")) ? null
+                                : b.session()
+                                    .pictureJson(),
                             file -> done.complete(
                                 Map.of(
                                     "path",

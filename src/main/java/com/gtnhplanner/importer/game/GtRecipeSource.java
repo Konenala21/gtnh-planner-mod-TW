@@ -116,7 +116,8 @@ final class GtRecipeSource {
         if (r.mInputs != null) for (final ItemStack s : r.mInputs) {
             if (s == null || s.getItem() == null || s.getItem() instanceof ItemFluidDisplay) continue;
             // GregTech keeps what a recipe does not use up (a circuit, a mold) as a stack of 0.
-            final boolean consumed = s.stackSize > 0;
+            // So is the Rock Breaker's lava placeholder (FreeInputs), though GT gives it a stack of 1.
+            final boolean consumed = s.stackSize > 0 && !com.gtnhplanner.data.provider.FreeInputs.isFree(s);
             inputs.add(new GameStack("item", GameIds.itemIds(s), consumed ? s.stackSize : 1, 1, consumed));
         }
         if (r.mFluidInputs != null) for (final FluidStack f : r.mFluidInputs) {

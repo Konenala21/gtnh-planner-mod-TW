@@ -82,6 +82,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   apart once the board has solved (`layout/Unstack`). Port rates go both ways as plan mode's `portRates` (by the
   website's row handle), a source drawer's rule as a negative `targetPerSecond`, trash as `drainMode: "trash"`, and
   posts say `planMode` with `solveMode`. Real plans to try it on: `POST /api/community/plans/<id>/download` gives a post's plan.
+  A plan carries the rate unit it was read in as the website's `view.rateUnit` (`importer/PlanView`: tick, second,
+  minute, hour, eu): every export writes the player's (`PlanExport.World.rateUnit`), every import hands it to the board
+  once (`Graph.viewWhenShown`, taken by `BoardSession.takeView`). The + tab's Open plan file (`ui/popup/PlanFileMenu`,
+  `library/PlanFiles`) lists `gtnhplanner/exports/` and the screenshots that carry a plan, newest first.
 - Shared machines (one card, several recipes time-sharing one machine; `docs/design/ff-shared-machine-spec.md`) are
   `MachineGroup`s with ordered `sections`: each recipe stays a node with its own ports and wires, the group draws as
   one card, its machine settings are copied to every recipe, and a pinned count is an exact solver pool.
@@ -132,7 +136,15 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `PLANNH_GTNH=1 PLANNH_BEES=1 tools/dev/mc.sh start` adds Forestry and NEI Addons to the dev game.
 - GregTech's steam machines (bronze and steel single blocks, the steam multiblocks: `GtMachines.Kind.steam`, the
   website's "Steam ..." or "High Pressure ..." names) run at no voltage: no tier chip, a voltage left in their settings
-  is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report).
+  is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report), as does its
+  overview machine line, peak or average (`RailTotals.steamPerSecond`).
+- Free inputs (`data/provider/FreeInputs`, the website's free-input.ts): the Rock Breaker's "IT'S FREE! Place Lava on
+  Side" is kept as a port of amount 0, never asked for or wired, drawn greyed with "free" (`CardPaint.giftRow`).
+- Crafting-grid recipes (NEI's shaped and shapeless pages) can run on GT++'s Auto Workbench (`machines/game/AutoWorkbench`,
+  the website's recipe-rules.ts): its tiers join the card's machines after NEI's own, the crafting table staying the
+  default; on it the card takes the GT profile and the website's maths (2048 EU a craft, perfect overclocks to EV), back
+  on the table its plain profile. `WebCards` gives a crafting card the website's recipe (map "Shaped Crafting", a tick at
+  no EU) and handler (`auto-workbench`, else the table's); a website crafting card with no handler imports on it.
 - NEI's recipe pages carry a plan button above + and the star (`nei/PlanButton`, `nei/PlanMenu`, added through NEI's
   `UpdateRecipeButtonsEvent`): it asks which plan (most recently open first, `Plan.byRecency`) and which machine
   (`ui/card/MachineChoices`: GT single blocks are one choice at the recipe's tier), then opens the board on that plan
@@ -180,7 +192,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   icon, "4× Electric Blast Furnace (HV)", its plan, where it is placed in this world; a click shows it on its plan, its
   pin button in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
   where I stand" adds the block under the player and asks for a name; its Show key closes the planner and stands a
-  beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`), a **screenshot**
+  beam on it, `WorldView.show(Place)`, its Copy key copies "x y z" (`TaskEdits.coordinates`); its line says how far and which way, `TaskEdits.howFar`), a **screenshot**
   (`Tasks.Picture`, game only: "Add a screenshot" closes the planner, hides the GUI, reads the frame at a render tick's
   end, saves the full PNG in `screenshots/` and puts a 320 px JPEG data URL under 40 KB on the task, then reopens the
   planner on the task, `TaskPictures`; a click shows it big, `PictureView`), and a **quest** (`Tasks.Quest`,
@@ -315,7 +327,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   cards Detailed or Simple (the zoomed-out glance view, with room for the names), an optional footer as the website's
   export bar (a title row: icon, name, machines and EU/t; Inputs and Outputs as tinted panels in even columns, from the
   overview's totals) and a small "GTNH Planner" mark; previewed in a box nearly the screen's size, then saved as a PNG
-  in `screenshots/` or copied. The Share menu has the website's rows (the owner, 2026-10-14: a post is a copy, like an
+  in `screenshots/` or copied, carrying the plan as the website's pictures do (`library/PlanImage`: a `tEXt` chunk
+  before `IEND`, and a strip of pixels along the foot that a chat or the clipboard keeps; either side opens the other's,
+  `src/test/resources/plan-pictures/` holds one the website made). The Share menu has the website's rows (the owner, 2026-10-14: a post is a copy, like an
   uploaded file, and nothing follows the plan by itself), after the cloud's Share with people: Publish to library, or
   Update in library and Publish as new post for a plan posted (`AccountForms.shareRows`, also in a tab's and a plan
   tile's menu),

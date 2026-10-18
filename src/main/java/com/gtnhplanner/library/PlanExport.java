@@ -64,6 +64,15 @@ public final class PlanExport {
         /** The card's tier name ("LV", "HV"...). */
         String tier(Node node);
 
+        /**
+         * The rate unit the plan is read in, the website's word ({@code importer.PlanView}), written as its view so it
+         * opens in it there; null for none.
+         */
+        @Nullable
+        default String rateUnit() {
+            return null;
+        }
+
         /** Whether the card's machine is a multiblock (its tier is then its hatches'). */
         default boolean multiblock(final Node node) {
             return node.machineConfig != null && Boolean.TRUE.equals(node.machineConfig.settings.get("gt_multiblock"));
@@ -278,6 +287,9 @@ public final class PlanExport {
         p.add("pockets", pockets);
         p.add("edges", edges);
         p.add("fuelProfiles", new JsonArray());
+        // The rate unit it is read in, as the website's capturePlanView keeps it: a shared plan opens in it.
+        final String unit = world.rateUnit();
+        if (unit != null) p.add("view", com.gtnhplanner.importer.PlanView.view(unit));
         final JsonObject meta = new JsonObject();
         meta.addProperty("source", "GTNH Planner");
         p.add("metadata", meta);
@@ -306,7 +318,9 @@ public final class PlanExport {
         final String mapId = site == null || site.metadata == null || !site.metadata.has("recipeMapId") ? null
             : site.metadata.get("recipeMapId")
                 .getAsString();
-        if (site != null) r.addProperty("category", SMELTING.equals(mapId) ? "furnace" : "gregtech");
+        if (site != null) r.addProperty(
+            "category",
+            "crafting".equals(site.category) ? "crafting" : SMELTING.equals(mapId) ? "furnace" : "gregtech");
         // The website's machine type is the recipe map's name; the machine itself is the node's handler.
         r.addProperty("machineType", site != null ? site.machineType : machine);
         r.addProperty("minimumTier", site != null && site.minimumTier != null ? site.minimumTier : world.tier(n));
