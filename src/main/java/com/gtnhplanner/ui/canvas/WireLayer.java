@@ -43,8 +43,12 @@ final class WireLayer {
         LINK
     }
 
+    /**
+     * A wire on the board: an edge, or a drawer's link; its route ({@code path}) and the dots steering it
+     * ({@code stops}, the website's waypoints: the plan's, or those of a dot being dragged on it).
+     */
     record Wire(UUID key, Kind kind, @Nullable Edge edge, @Nullable Drawer drawer, @Nullable Drawer.Link link,
-        int color, float width, double perSecond, List<int[]> path, String resource) {}
+        int color, float width, double perSecond, List<int[]> path, String resource, List<int[]> stops) {}
 
     private final BoardSession session;
     private List<Wire> wires = List.of();
@@ -92,6 +96,28 @@ final class WireLayer {
         ghostEdge = edge;
         ghostDrawer = link == null ? null : drawer;
         ghostLink = drawer == null ? null : link;
+    }
+
+    /**
+     * A dot being dragged: the wire it is on (by key) and its dots as they stand mid-drag, routed and drawn in place of
+     * the plan's until the drop puts them on the plan. Null for none.
+     */
+    @Nullable
+    private UUID draftKey;
+    private List<int[]> draftStops = List.of();
+    private long draftMoves;
+
+    void draft(@Nullable final UUID key, final List<int[]> stops) {
+        if (java.util.Objects.equals(key, draftKey) && com.gtnhplanner.data.flowchart.Waypoints.same(stops, draftStops))
+            return;
+        draftKey = key;
+        draftStops = key == null ? List.of() : stops;
+        draftMoves++;
+    }
+
+    /** A wire's dots: those being dragged on it, else its own. */
+    private List<int[]> stopsOf(final UUID key, final List<int[]> own) {
+        return draftKey != null && draftKey.equals(key) ? draftStops : own;
     }
 
     /** The plan's edges, and the one in hand. */
@@ -174,9 +200,17 @@ final class WireLayer {
             }
         }
         wires = assemble(p);
+        boxes = p.boxes();
         builtGeometry = routeKey;
         builtSignature = signature;
         return wires;
+    }
+
+    /** Every card and drawer as the last route saw them: what a dot carried is kept off. */
+    private List<WireRouter.Box> boxes = List.of();
+
+    List<WireRouter.Box> boxes() {
+        return boxes;
     }
 
     /** What {@link #wires} last hashed the geometry for. */
@@ -202,6 +236,7 @@ final class WireLayer {
         k = k * 31 + System.identityHashCode(phantom);
         k = k * 31 + System.identityHashCode(ghostEdge);
         k = k * 31 + System.identityHashCode(ghostLink);
+        k = k * 31 + draftMoves;
         return k;
     }
 
@@ -279,10 +314,13 @@ final class WireLayer {
         for (final Drawer d : drawers()) {
             sig = ((sig * 31 + d.getId()
                 .hashCode()) * 31 + d.getX()) * 31 + d.getY();
-            for (final Drawer.Link l : linksOf(d)) sig = sig * 31 + l.hashCode();
+            for (final Drawer.Link l : linksOf(d)) sig = stopsSig(sig * 31 + l.hashCode(), l.waypoints());
+            for (final Drawer.Link l : d.getTakers()) sig = stopsSig(sig, l.waypoints());
         }
-        for (final Edge e : edges())
-            sig = ((sig * 31 + e.id.hashCode()) * 31 + e.sourceOutputIndex) * 31 + e.targetInputIndex;
+        for (final Edge e : edges()) sig = stopsSig(
+            ((sig * 31 + e.id.hashCode()) * 31 + e.sourceOutputIndex) * 31 + e.targetInputIndex,
+            e.waypoints);
+        if (draftKey != null) sig = stopsSig(sig * 31 + draftKey.hashCode(), draftStops);
         for (final com.gtnhplanner.data.flowchart.BoardGroup g : graph.boardGroups.values()) {
             sig = ((sig * 31 + g.getId()
                 .hashCode()) * 31 + (g.isCollapsed() ? 1 : 0)) * 31 + (g.getParent() == null ? 0
@@ -291,6 +329,12 @@ final class WireLayer {
             final int[] b = g.isCollapsed() ? groupBox.apply(g.getId()) : null;
             if (b != null) sig = ((sig * 31 + b[0]) * 31 + b[1]) * 31 + b[3];
         }
+        return sig;
+    }
+
+    /** A signature taking in a wire's dots (unchanged by none). */
+    private static long stopsSig(long sig, final List<int[]> stops) {
+        for (final int[] s : stops) sig = (sig * 31 + s[0]) * 31 + s[1];
         return sig;
     }
 
@@ -377,7 +421,8 @@ final class WireLayer {
                     0,
                     edgeFlow(result, e),
                     null,
-                    Resources.key(port)));
+                    Resources.key(port),
+                    stopsOf(e.id, e.waypoints)));
         }
         for (final Drawer d : drawerList) {
             Integer drawerAt = drawerBox.get(d.getId());
@@ -413,7 +458,8 @@ final class WireLayer {
                         d.isBuffer() ? bufferFlow(result, d, new PortRef(n.id, link.portIndex(), source))
                             : linkFlow(result, n, source, link.portIndex()),
                         null,
-                        Resources.key(port)));
+                        Resources.key(port),
+                        stopsOf(key, link.waypoints())));
             }
         }
 
@@ -425,23 +471,11 @@ final class WireLayer {
         final List<int[]> ends = new ArrayList<>(sized.size());
         for (int i = 0; i < sized.size(); i++) {
             final int a = between.get(i)[0], b = between.get(i)[1];
-            final double weight = sized.get(i)
-                .width();
+            final Wire w = sized.get(i);
+            // Steered through its dots, when it has any (the website's waypoints).
             requests.add(
-                a == b ? new WireRouter.Wire(
-                    sized.get(i)
-                        .key(),
-                    a,
-                    b,
-                    WireRouter.RIGHT,
-                    WireRouter.LEFT,
-                    weight)
-                    : new WireRouter.Wire(
-                        sized.get(i)
-                            .key(),
-                        a,
-                        b,
-                        weight));
+                a == b ? new WireRouter.Wire(w.key(), a, b, WireRouter.RIGHT, WireRouter.LEFT, w.width(), w.stops())
+                    : new WireRouter.Wire(w.key(), a, b, WireRouter.ANY, WireRouter.ANY, w.width(), w.stops()));
             final WireRouter.Box from = boxes.get(a), to = boxes.get(b);
             ends.add(new int[] { from.x(), from.y(), from.w(), from.h(), to.x(), to.y(), to.w(), to.h() });
         }
@@ -474,7 +508,8 @@ final class WireLayer {
                     w.width(),
                     w.perSecond(),
                     path,
-                    w.resource()));
+                    w.resource(),
+                    w.stops()));
         }
         return withWidths(built);
     }
@@ -588,7 +623,8 @@ final class WireLayer {
                 width.getOrDefault(w, WIDTH * 1.5f),
                 w.perSecond(),
                 w.path(),
-                w.resource()));
+                w.resource(),
+                w.stops()));
         return out;
     }
 
@@ -664,7 +700,124 @@ final class WireLayer {
         com.cleanroommc.modularui.utils.Platform.setupDrawColor();
         org.lwjgl.opengl.GL11.glCallList(listId);
         drawRings(wires, hopped);
+        // The dots are for steering on the board: a picture of the plan leaves them out.
+        if (!PlanPicture.drawing()) drawStops(wires);
     }
+
+    // region Steering dots
+
+    /** A dot on a wire: the wire, which of its dots, and where it is. */
+    record Dot(Wire wire, int index, int x, int y) {}
+
+    /** The dot under the mouse or in hand (by its wire's key and index), drawn lit; null for none. */
+    @Nullable
+    private UUID hotKey;
+    private int hotIndex;
+
+    void hot(@Nullable final Dot dot) {
+        hotKey = dot == null ? null
+            : dot.wire()
+                .key();
+        hotIndex = dot == null ? -1 : dot.index();
+    }
+
+    /** Whether any of the wires last drawn has dots, and the wires that was worked out for. */
+    private boolean steered;
+    private List<Wire> stopsFor;
+
+    /** A dot's radius, as the website's: a touch wider than the wire it steers. */
+    private float stopRadius(final Wire w) {
+        return atLeast(w.width()) / 2 + 4;
+    }
+
+    /** Every wire's dots, over the wires: the wire's colour a little brighter, in a dark ring. */
+    private void drawStops(final List<Wire> wires) {
+        if (wires != stopsFor) {
+            stopsFor = wires;
+            steered = false;
+            for (final Wire w : wires) steered |= !w.stops()
+                .isEmpty();
+        }
+        if (!steered) return;
+        Hyb.beginBatch();
+        for (final Wire w : wires) {
+            final float r = stopRadius(w);
+            if (w.stops()
+                .isEmpty() || !shows(2 * r)) continue;
+            for (int i = 0; i < w.stops()
+                .size(); i++) {
+                final int[] s = w.stops()
+                    .get(i);
+                if (w.key()
+                    .equals(hotKey) && i == hotIndex) disc(s[0], s[1], r + 4, 0xD8000000 | Hyb.LIT & 0xFFFFFF);
+                disc(s[0], s[1], r + 2, 0xFF111827);
+                disc(s[0], s[1], r, brighter(w.color(), 0.15f));
+            }
+        }
+        Hyb.endBatch();
+    }
+
+    /** A filled circle, as a fan of triangles. */
+    private static void disc(final float x, final float y, final float r, final int color) {
+        final int steps = 20;
+        float px = x + r, py = y;
+        for (int k = 1; k <= steps; k++) {
+            final double a = 2 * Math.PI * k / steps;
+            final float nx = x + r * (float) Math.cos(a), ny = y + r * (float) Math.sin(a);
+            Hyb.triangle(x, y, px, py, nx, ny, color);
+            px = nx;
+            py = ny;
+        }
+    }
+
+    /** The dot under a board point, the topmost first; null for none. */
+    @Nullable
+    Dot dotAt(final float wx, final float wy) {
+        final List<Wire> wires = this.wires;
+        for (int k = wires.size() - 1; k >= 0; k--) {
+            final Wire w = wires.get(k);
+            if (w.stops()
+                .isEmpty()) continue;
+            final float r = stopRadius(w) + 2;
+            for (int i = w.stops()
+                .size() - 1; i >= 0; i--) {
+                final int[] s = w.stops()
+                    .get(i);
+                if (Math.hypot(wx - s[0], wy - s[1]) <= r) return new Dot(w, i, s[0], s[1]);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Where a new dot goes in a wire's list, so the wire visits them in the order they lie along it: after every dot
+     * that lies at or before the point along its route (the website's insertion by arc position).
+     */
+    static int insertAt(final Wire w, final int x, final int y) {
+        final float at = along(w.path(), x, y);
+        int index = 0;
+        for (final int[] s : w.stops()) if (along(w.path(), s[0], s[1]) <= at) index++;
+        return index;
+    }
+
+    /** How far along a path the point nearest (x, y) on it is. */
+    private static float along(final List<int[]> path, final float x, final float y) {
+        float best = Float.MAX_VALUE, bestAt = 0, at = 0;
+        for (int i = 1; i < path.size(); i++) {
+            final int[] a = path.get(i - 1), b = path.get(i);
+            final float vx = b[0] - a[0], vy = b[1] - a[1], len2 = vx * vx + vy * vy, len = (float) Math.sqrt(len2);
+            final float t = len2 == 0 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / len2));
+            final float d = (float) Math.hypot(x - (a[0] + vx * t), y - (a[1] + vy * t));
+            if (d < best) {
+                best = d;
+                bestAt = at + t * len;
+            }
+            at += len;
+        }
+        return bestAt;
+    }
+
+    // endregion
 
     /**
      * The wires a dead loop or a clog lock runs along ({@link BoardSession#loopWires}): lit steady in its tone over the

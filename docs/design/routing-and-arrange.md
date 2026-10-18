@@ -33,7 +33,9 @@ A board straight from the game joins the corpus as `game/<name>`: with the dev g
 `tools/dev/mc.sh call board > build/bench/boards/<name>.json` (the dump has every card's and drawer's world rect and
 the boxes each wire joins, so it routes exactly as the board did). That is how to look into a spot someone points at
 in a screenshot: `-PbenchOnly='game/<name>'`, and `RouterTrace` with `-PprofileBoard='game/<name>' -Pcrop=...` for a close-up.
-`-Pstages` prints how long each step of Arrange takes.
+`-Pstages` prints how long each step of Arrange takes. From a worktree, which has no website checkout beside it,
+`-PbenchFf=C:/Users/jack/gtnh-factory-flow` points the corpus at one (copy `run/client/library-downloads` and
+`build/bench/boards` over too, for the whole corpus).
 
 `-Prouter.turn45=… -Prouter.turn90=… -Prouter.cross=… -Prouter.nearCost=… -Prouter.run=… -Prouter.rounds=…
 -Prouter.near=… -Prouter.wide=…` override the router's prices for an experiment. `RouterTrace` prints the costliest
@@ -67,6 +69,44 @@ that matter most:
 - **On the board** (`ui/canvas/WireLayer`): one router per board, used only on the router's thread. The frame waits
   for a route expected back within 10 ms, so small and middling boards never show a wire out of place; on a big
   board a wire whose box moved stretches to follow it until its route comes back.
+
+### Steering dots (the website's waypoints, 2026-10-18)
+
+A player can pin dots on a wire that its route must pass through, in order: the website's edge `waypoints`
+(website 1.10.0, `ResourceEdge` in its `FactoryFlow.tsx` and `grid-edge-router.ts`).
+
+- **Kept** on the wire: `Edge.waypoints`, and for a drawer's wire on its link (`Drawer.Link.waypoints()`, not part of
+  what the link is: two links to one port are equal however steered). Points are board px on the router's lines, the
+  middles of its 10 px cells (`Waypoints.onLine`); saved only when there are some (`[[x, y], ...]`), undoable, copied
+  with the wire (shifted by the paste), gone with it.
+- **Routed** in legs, as on the website (`WireRouter.steered`): source to the first dot's cell, dot to dot, the last
+  dot to the target. A leg arrives at a dot on any heading and the next leaves on that heading, so passing straight
+  through is free and turning there is a turn; reversing needs two right angles, so an out-and-back reads as two lines
+  three cells apart. The legs already found are on the board while the next is searched, so a wire sent back the way
+  it came runs beside itself, not on top. A wire's ends are planned facing its nearest dot instead of the far box (the
+  website's `exitParam` toward `stops[0]`). A dot in a box, or a leg that finds no way, and the wire routes as if it had
+  no dots (the website's "try again without"). The grid grows to take a dot past it; `reroute` routes again a wire
+  whose dots changed, and only it. A wire without dots routes exactly as before: across the whole corpus (76 rows,
+  placed and arranged) every measure is the same and all 70 drawings are the same pixel for pixel below their
+  header, which prints the route time (`build/bench/wp-before` against `wp-after`).
+- **On the board** (`BoardCanvas`, `WireLayer`): a double-click on a wire pins a dot on the cell of the wire nearest
+  the click, put among its dots in the order they lie along it (the website's insertion by arc position). A press on
+  a dot past `DRAG_SLOP` carries it: it moves cell to cell, kept off cards and drawers and the ring of cells touching
+  them (the website's `clampWaypointToClearSpace`), and the wire routes through it as it goes (roughly while carried,
+  properly once let go, one undoable step). A second press on a dot within 400 ms takes it off. Dots draw over the
+  wires, a touch wider than the wire in its colour in a dark ring, lit under the mouse; a picture of the plan leaves
+  them out. The website freezes every wire while a dot is dragged; ours routes only the steered wire, quickly enough to
+  follow.
+- **Arrange** clears them, as the website's: a dot aimed at a layout that is gone. A wire wholly inside a group, which
+  Arrange moves as one block, keeps its dots moved with it (the website's locked boards). The website's arrange also
+  pins dots of its own walking a bridge round a third island's drawn ground; ours draws no island grounds, so it has
+  none. Opening or shutting a group takes the dots off the wires at what it holds, as the website's pockets do.
+- **Both ways**: the importer reads them (`FfPlanParser`, `FfConverter.stops`: moved as the cards were, onto the
+  router's lines), the posting export writes them (`PlanExport.edge`) and shared plans carry them (`cloud/map`: the
+  site's on its 20 px grid, `Waypoints.toSite`, and the game's own to the pixel in the wire's game data, read back while
+  the website left the wire alone). The website's grid is twice as coarse as the router's lines, so a website dot comes
+  in and goes back out to the same corner, while a dot the game put on every other line comes back from a plan link,
+  code or post one cell over (checked in the GT dev game: pinned at 375,575, posted as 380,580, back at 385,585).
 
 ### Where it stands (2026-10-08, `build/bench/router-v1`)
 

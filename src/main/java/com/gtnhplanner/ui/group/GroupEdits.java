@@ -119,7 +119,10 @@ public final class GroupEdits {
         session.editLayout(() -> g.setColor(tag));
     }
 
-    /** Collapses or expands; the selection lets go of what goes out of sight. */
+    /**
+     * Collapses or expands; the selection lets go of what goes out of sight. The wires at what it holds lose their
+     * steering dots, as on the website: they were steered round a board that now looks otherwise.
+     */
     public void setCollapsed(final UUID group, final boolean collapsed) {
         final BoardGroup g = graph().boardGroups.get(group);
         if (g == null || g.isCollapsed() == collapsed) return;
@@ -127,6 +130,8 @@ public final class GroupEdits {
         session.editLayout(() -> {
             g.setCollapsed(collapsed);
             if (!collapsed) Groups.fit(graph(), this::boxOf);
+            com.gtnhplanner.data.flowchart.Waypoints
+                .dropAt(graph(), new java.util.HashSet<>(Groups.descendants(graph(), group)));
         });
         if (collapsed) for (final UUID id : Groups.descendants(graph(), group)) session.deselect(id);
     }

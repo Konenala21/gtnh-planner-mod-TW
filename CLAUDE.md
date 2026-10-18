@@ -72,6 +72,12 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   re-routes only what it touched. Arrange is `layout/arrange/`, a port of the website's arrange (column pass,
   optimiser, free placement, polish) judged by that router, run in the background from the top bar's key.
   `docs/design/routing-and-arrange.md` has both designs and the benchmark they are tuned against.
+- Steering dots (the website's edge waypoints; `data/flowchart/Waypoints`): points a wire's route passes through in
+  order, kept on `Edge.waypoints` and a drawer's `Link.waypoints()` on the router's lines (cell middles), routed leg by
+  leg (`WireRouter.steered`). A double-click on a wire pins one, a dot carried past the slop steers it live, a second
+  press on it within 400 ms takes it off (`BoardCanvas`, `WireLayer.dotAt`). Arrange clears them (a wire inside a
+  group it moves whole keeps them, moved), as does opening or shutting a group at its wires. They travel both ways on
+  the website's 20 px grid (importer, `PlanExport.edge`, `cloud/map` with the game's own to the pixel).
 - `importer/` converts Factory Flow plans (JSON, plan codes, links) to graphs: a pure core plus `importer/game/`,
   the NEI and GregTech side. The "+" plan tab pastes one from the clipboard; `call 'importff?file=<path>'` does it
   from the harness. Fixtures are in `src/test/resources/factory-flow/`. A card's machine is found by the website's

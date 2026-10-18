@@ -20,6 +20,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.data.flowchart.Port;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.data.properties.RecipeProperty;
 import com.gtnhplanner.importer.FfPlan;
 import com.gtnhplanner.importer.FfSettings;
@@ -216,7 +217,7 @@ public final class PlanExport {
             if (from == null || to == null || e.sourceOutputIndex >= from.outputs.size()) continue;
             final Res r = res.get(from.outputs.get(e.sourceOutputIndex));
             if (r == null) continue;
-            edges.add(edge(e.id.toString(), from.id.toString(), to.id.toString(), r));
+            edges.add(edge(e.id.toString(), from.id.toString(), to.id.toString(), r, e.waypoints));
         }
         for (final Drawer d : g.getDrawers()) {
             final Res r = resource(d, world);
@@ -236,13 +237,15 @@ public final class PlanExport {
                         d.getId()
                             .toString(),
                         n.id.toString(),
-                        r)
+                        r,
+                        link.waypoints())
                         : edge(
                             id,
                             n.id.toString(),
                             d.getId()
                                 .toString(),
-                            r));
+                            r,
+                            link.waypoints()));
             }
             // A buffer's users: a wire from it to each, so the site reads it as fed and drawn from (a buffer).
             for (final Drawer.Link link : d.getTakers()) {
@@ -254,7 +257,8 @@ public final class PlanExport {
                         d.getId()
                             .toString(),
                         n.id.toString(),
-                        r));
+                        r,
+                        link.waypoints()));
             }
         }
         final JsonArray annotations = new JsonArray();
@@ -946,6 +950,15 @@ public final class PlanExport {
 
     /** A wire of resource {@code r} between two things the site knows by these ids. */
     public static JsonObject edge(final String id, final String source, final String target, final Res r) {
+        return edge(id, source, target, r, List.of());
+    }
+
+    /**
+     * As {@link #edge(String, String, String, Res)}, steered through {@code waypoints} (board points, its dots): the
+     * site's own {@code waypoints}, on its grid (none written for none).
+     */
+    public static JsonObject edge(final String id, final String source, final String target, final Res r,
+        final List<int[]> waypoints) {
         final JsonObject o = new JsonObject();
         o.addProperty("id", id);
         o.addProperty("source", source);
@@ -954,6 +967,7 @@ public final class PlanExport {
         o.addProperty("targetHandle", "input:" + r.kind() + ":" + enc(r.id()));
         o.addProperty("resourceKind", r.kind());
         o.addProperty("resourceId", r.id());
+        if (!waypoints.isEmpty()) o.add("waypoints", Waypoints.toSite(waypoints));
         return o;
     }
 

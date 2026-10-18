@@ -93,16 +93,27 @@ public class Drawer extends GraphData {
 
     /**
      * One node port the drawer is attached to. The direction is the drawer's: a source's links are
-     * input ports, every other kind's are output ports. Immutable; equal by value.
+     * input ports, every other kind's are output ports. Immutable; equal by value. Its wire's steering dots
+     * ({@link #waypoints()}) go with it but are not part of what it is: two links to one port are equal however
+     * they are steered.
      */
     public static final class Link {
 
         private final UUID nodeId;
         private final int portIndex;
+        /** The dots steering the link's wire ({@link Waypoints}); null for none, so a save leaves it out. */
+        @org.jetbrains.annotations.Nullable
+        private final List<int[]> waypoints;
 
         public Link(final UUID nodeId, final int portIndex) {
+            this(nodeId, portIndex, null);
+        }
+
+        private Link(final UUID nodeId, final int portIndex,
+            @org.jetbrains.annotations.Nullable final List<int[]> waypoints) {
             this.nodeId = Objects.requireNonNull(nodeId, "nodeId");
             this.portIndex = portIndex;
+            this.waypoints = waypoints;
         }
 
         public UUID nodeId() {
@@ -111,6 +122,22 @@ public class Drawer extends GraphData {
 
         public int portIndex() {
             return portIndex;
+        }
+
+        /** The dots steering its wire, in order; empty for none. */
+        public List<int[]> waypoints() {
+            return waypoints == null ? List.of() : Collections.unmodifiableList(waypoints);
+        }
+
+        /** The same link steered through {@code points} instead. */
+        public Link withWaypoints(final List<int[]> points) {
+            final List<int[]> clean = Waypoints.clean(points);
+            return new Link(nodeId, portIndex, clean.isEmpty() ? null : new ArrayList<>(clean));
+        }
+
+        /** As a hand-edited save may have it, its dots made plain (a malformed one left out). */
+        Link sanitized() {
+            return waypoints == null ? this : withWaypoints(waypoints);
         }
 
         @Override
@@ -287,6 +314,21 @@ public class Drawer extends GraphData {
         return links.remove(link);
     }
 
+    /**
+     * Steers the wire to a port it holds through {@code points} ({@link Waypoints}): on its kind's side, or a buffer's
+     * user when {@code taker}. True when it holds that port.
+     */
+    public boolean setWaypoints(final Link link, final boolean taker, final List<int[]> points) {
+        final List<Link> side = taker && kind == Kind.BUFFER ? takers : links;
+        final int at = side.indexOf(link);
+        if (at < 0) return false;
+        side.set(
+            at,
+            side.get(at)
+                .withWaypoints(points));
+        return true;
+    }
+
     /** Drops every link (and every taker) to {@code nodeId}; true when any went. */
     public boolean removeLinksTo(final UUID nodeId) {
         final boolean any = links.removeIf(
@@ -356,14 +398,15 @@ public class Drawer extends GraphData {
         final List<Link> clean = new ArrayList<>();
         if (links != null) {
             for (final Link link : links) {
-                if (link != null && link.nodeId != null && !clean.contains(link)) clean.add(link);
+                if (link != null && link.nodeId != null && !clean.contains(link)) clean.add(link.sanitized());
             }
         }
         links = clean;
         final List<Link> cleanTakers = new ArrayList<>();
         if (takers != null && kind == Kind.BUFFER) {
             for (final Link link : takers) {
-                if (link != null && link.nodeId != null && !cleanTakers.contains(link)) cleanTakers.add(link);
+                if (link != null && link.nodeId != null && !cleanTakers.contains(link))
+                    cleanTakers.add(link.sanitized());
             }
         }
         takers = cleanTakers;

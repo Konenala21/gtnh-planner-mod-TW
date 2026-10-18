@@ -16,6 +16,9 @@ public class Edge {
     /// Recipe source/targets inside the nodes
     public int sourceOutputIndex;
     public int targetInputIndex;
+    /** The dots steering its route ({@link Waypoints}): board points it passes through, in order; empty for none. */
+    @Nonnull
+    public java.util.List<int[]> waypoints = java.util.List.of();
 
     public Edge(final UUID id, final UUID sourceNodeId, final UUID targetNodeId, final int sourceOutputIndex,
         final int targetInputIndex) {

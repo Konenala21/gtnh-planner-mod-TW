@@ -23,6 +23,7 @@ import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.flowchart.Serializer;
 import com.gtnhplanner.data.flowchart.Tasks;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.importer.FfPlan;
 import com.gtnhplanner.importer.NodeMaker;
 import com.gtnhplanner.library.PlanExport;
@@ -187,9 +188,12 @@ final class Fresh {
                 final String id = linkId(drawerId, nodeId, link.portIndex(), feeds && d.isBuffer());
                 final JsonObject data = new JsonObject();
                 data.addProperty("port", link.portIndex());
+                // Its steering dots to the pixel; the site's own are on its grid.
+                if (!link.waypoints()
+                    .isEmpty()) data.add("waypoints", Waypoints.toJson(link.waypoints()));
                 out.put(gameKey, new Thing("edges", id, gameKey, Canon.of(data), data, false, 0, 0, () -> {
                     final String from = feeds ? drawerId : nodeId, to = feeds ? nodeId : drawerId;
-                    return new JsonObject[] { PlanExport.edge(id, from, to, resource(d, game)) };
+                    return new JsonObject[] { PlanExport.edge(id, from, to, resource(d, game), link.waypoints()) };
                 }));
             }
         }
@@ -205,6 +209,9 @@ final class Fresh {
             final JsonObject data = new JsonObject();
             data.addProperty("srcOut", e.sourceOutputIndex);
             data.addProperty("dstIn", e.targetInputIndex);
+            // Its steering dots to the pixel; the site's own are on its grid.
+            if (!e.waypoints.isEmpty()) data.add("waypoints", Waypoints.toJson(e.waypoints));
+            final List<int[]> stops = e.waypoints;
             final JsonObject state = LiveJson.shallow(data);
             state.addProperty("src", e.sourceNodeId.toString());
             state.addProperty("dst", e.targetNodeId.toString());
@@ -219,7 +226,7 @@ final class Fresh {
                     false,
                     0,
                     0,
-                    () -> new JsonObject[] { PlanExport.edge(id, source, target, port(game, carried)) }));
+                    () -> new JsonObject[] { PlanExport.edge(id, source, target, port(game, carried), stops) }));
         }
         for (final Note n : g.getNotes()) {
             final String gameKey = "note:" + n.getId();

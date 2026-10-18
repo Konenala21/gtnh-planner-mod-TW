@@ -1,5 +1,7 @@
 ## New
 
+- Double-click a wire to pin a dot on it. Drag the dot and the wire follows. Double-click the dot to take it off. Dots
+  come along with plan links and codes.
 - Drag the edge of the overview to resize it. Double-click the edge to reset it.
 - New board settings. Zoomed-out view sets the zoom where cards turn simple. Scroll changes values lets you turn off the wheel on numbers and chips so it only zooms.
 - Crafting recipes can run on the Auto Workbench. It costs 2048 EU a craft and gets faster each tier up to EV. The crafting table is still the free choice.

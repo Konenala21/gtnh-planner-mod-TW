@@ -19,6 +19,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Groups;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.importer.FfDrawers.Role;
 import com.gtnhplanner.importer.FfDrawers.Target;
 import com.gtnhplanner.importer.FfPlan.FfEdge;
@@ -112,15 +113,20 @@ public final class FfConverter {
         }
 
         void link(final Node node, final int port, final PortInfo info) {
-            final Drawer.Link link = new Drawer.Link(node.id, port);
+            link(node, port, info, List.of());
+        }
+
+        /** A port it holds, its wire steered through {@code stops}. */
+        void link(final Node node, final int port, final PortInfo info, final List<int[]> stops) {
+            final Drawer.Link link = new Drawer.Link(node.id, port).withWaypoints(stops);
             if (links.contains(link)) return;
             links.add(link);
             infos.add(info);
         }
 
-        /** A buffer's user: an input port it feeds. */
-        void taker(final Node node, final int port, final PortInfo info) {
-            final Drawer.Link link = new Drawer.Link(node.id, port);
+        /** A buffer's user: an input port it feeds, its wire steered through {@code stops}. */
+        void taker(final Node node, final int port, final PortInfo info, final List<int[]> stops) {
+            final Drawer.Link link = new Drawer.Link(node.id, port).withWaypoints(stops);
             if (takers.contains(link)) return;
             takers.add(link);
             infos.add(info);
@@ -478,15 +484,16 @@ public final class FfConverter {
                             + (out < 0 ? from.card() : to.card()).name());
                     return;
                 }
-                graph.addEdge(
-                    new Edge(
-                        UUID.randomUUID(),
-                        from.card()
-                            .node().id,
-                        to.card()
-                            .node().id,
-                        out,
-                        in));
+                final Edge edge = new Edge(
+                    UUID.randomUUID(),
+                    from.card()
+                        .node().id,
+                    to.card()
+                        .node().id,
+                    out,
+                    in);
+                edge.waypoints = stops(e);
+                graph.addEdge(edge);
                 return;
             }
             if (from.drawer() != null && to.drawer() != null) {
@@ -512,8 +519,9 @@ public final class FfConverter {
                 report.add(Kind.WIRE, d.subject, "no port for it on " + card.name());
                 return;
             }
-            if (buffer && drawerFeeds) d.taker(card.node(), port, describe(card.node(), false).get(port));
-            else d.link(card.node(), port, describe(card.node(), !drawerFeeds).get(port));
+            final List<int[]> stops = stops(e);
+            if (buffer && drawerFeeds) d.taker(card.node(), port, describe(card.node(), false).get(port), stops);
+            else d.link(card.node(), port, describe(card.node(), !drawerFeeds).get(port), stops);
         }
 
         boolean known(final String id) {
@@ -843,9 +851,13 @@ public final class FfConverter {
                 node.setMachineCountFixed(true);
             }
             graph.addNode(node);
-            for (final Drawer.Link link : d.links) graph.addEdge(
-                dial.supply() ? new Edge(UUID.randomUUID(), node.id, link.nodeId(), 0, link.portIndex())
-                    : new Edge(UUID.randomUUID(), link.nodeId(), node.id, link.portIndex(), 0));
+            for (final Drawer.Link link : d.links) {
+                final Edge edge = dial.supply()
+                    ? new Edge(UUID.randomUUID(), node.id, link.nodeId(), 0, link.portIndex())
+                    : new Edge(UUID.randomUUID(), link.nodeId(), node.id, link.portIndex(), 0);
+                edge.waypoints = link.waypoints();
+                graph.addEdge(edge);
+            }
             return true;
         }
 
@@ -939,6 +951,20 @@ public final class FfConverter {
 
         int px(final double ffX) {
             return snap((ffX - minX) * SCALE_X) + MARGIN;
+        }
+
+        /**
+         * A wire's steering dots on the board: moved as the cards were, onto the router's lines (FF keeps them on its
+         * 20 px grid, the router runs wires through the middles of 10 px cells).
+         */
+        List<int[]> stops(final FfEdge e) {
+            if (e.waypoints()
+                .isEmpty()) return List.of();
+            final List<int[]> out = new ArrayList<>();
+            for (final double[] p : e.waypoints()) out.add(
+                new int[] { Waypoints.onLine((int) Math.round((p[0] - minX) * SCALE_X) + MARGIN),
+                    Waypoints.onLine((int) Math.round((p[1] - minY) * SCALE_Y) + MARGIN) });
+            return Waypoints.clean(out);
         }
 
         int py(final double ffY) {

@@ -358,9 +358,19 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
      * (see {@link FfHandle}); legacy plans may have none.
      *
      * @param crossForm a loose cell wire (a cell feeding a fluid slot through a hidden canner)
+     * @param waypoints the dots steering it (FF's edge waypoints, {x, y}), in FF board px as the plan has them
      */
     public record FfEdge(String id, String source, String target, @Nullable String sourceHandle,
-        @Nullable String targetHandle, String resourceKind, String resourceId, boolean crossForm) {}
+        @Nullable String targetHandle, String resourceKind, String resourceId, boolean crossForm,
+        List<double[]> waypoints) {
+
+        /** A wire nothing steers. */
+        public FfEdge(final String id, final String source, final String target, @Nullable final String sourceHandle,
+            @Nullable final String targetHandle, final String resourceKind, final String resourceId,
+            final boolean crossForm) {
+            this(id, source, target, sourceHandle, targetHandle, resourceKind, resourceId, crossForm, List.of());
+        }
+    }
 
     /** A drawer (FF's {@code FactoryStorage}). Its role comes from its wires; see {@link FfDrawers}. */
     public record FfStorage(String id, String kind, String resourceId, @Nullable String displayName,

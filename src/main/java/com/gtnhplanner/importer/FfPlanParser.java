@@ -451,7 +451,26 @@ public final class FfPlanParser {
             if (kind == null) kind = h.kind();
             if (resource == null) resource = h.resourceId();
         }
-        return new FfEdge(id, source, target, sourceHandle, targetHandle, kind, resource, obj(e, "crossForm") != null);
+        return new FfEdge(
+            id,
+            source,
+            target,
+            sourceHandle,
+            targetHandle,
+            kind,
+            resource,
+            obj(e, "crossForm") != null,
+            waypoints(e));
+    }
+
+    /** A wire's steering dots (FF's {@code waypoints}, {x, y} each), as the plan has them; a malformed one left out. */
+    private static List<double[]> waypoints(final JsonObject e) {
+        final List<double[]> out = new ArrayList<>();
+        for (final JsonObject p : objects(e, "waypoints")) {
+            final Double x = num(p, "x"), y = num(p, "y");
+            if (x != null && y != null && Double.isFinite(x) && Double.isFinite(y)) out.add(new double[] { x, y });
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     @Nullable
@@ -628,7 +647,8 @@ public final class FfPlanParser {
                         "input:" + e.resourceKind() + ":" + encode(e.resourceId()),
                         e.resourceKind(),
                         e.resourceId(),
-                        e.crossForm()));
+                        e.crossForm(),
+                        e.waypoints()));
             }
         }
         final List<FfNode> keptNodes = new ArrayList<>();

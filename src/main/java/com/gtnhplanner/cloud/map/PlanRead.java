@@ -28,6 +28,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.data.flowchart.Serializer;
 import com.gtnhplanner.data.flowchart.Tasks;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.importer.FfCards;
 import com.gtnhplanner.importer.FfConverter;
@@ -757,7 +758,7 @@ final class PlanRead {
         if (a != null && b != null) {
             final int out = port(a, true, e, null), in = port(b, false, e, null);
             if (out < 0 || in < 0) report.add(Kind.WIRE, e.resourceId(), "a wire that found no port; left in the plan");
-            else wire(id, a.node(), b.node(), out, in);
+            else wire(id, a.node(), b.node(), out, in, Waypoints.fromSite(json.get("waypoints")));
             return;
         }
         // A drawer's link, on the side the wire says: from the drawer it feeds a card's input (a source, or a buffer's
@@ -773,7 +774,14 @@ final class PlanRead {
             e,
             storages.get(drawerId)
                 .resourceId());
-        if (port >= 0) link(id, drawerId, feeding ? feeds : takes, card.node(), port, feeding);
+        if (port >= 0) link(
+            id,
+            drawerId,
+            feeding ? feeds : takes,
+            card.node(),
+            port,
+            feeding,
+            Waypoints.fromSite(json.get("waypoints")));
     }
 
     /** The port of a card a wire's end names (its handle, its resource, a drawer's resource); -1 when none. */
@@ -802,34 +810,38 @@ final class PlanRead {
         if (a != null && b != null) {
             final int out = integer(data, "srcOut"), in = integer(data, "dstIn");
             if (out < 0 || out >= a.outputs.size() || in < 0 || in >= b.inputs.size()) return false;
-            wire(id, a, b, out, in);
+            wire(id, a, b, out, in, Waypoints.fromJson(data.get("waypoints")));
             return true;
         }
         final int port = integer(data, "port");
         if (feeds != null && b != null && feeds.takesSide(true) && port >= 0 && port < b.inputs.size()) {
-            link(id, e.source(), feeds, b, port, true);
+            link(id, e.source(), feeds, b, port, true, Waypoints.fromJson(data.get("waypoints")));
             return true;
         }
         if (takes != null && a != null && takes.takesSide(false) && port >= 0 && port < a.outputs.size()) {
-            link(id, e.target(), takes, a, port, false);
+            link(id, e.target(), takes, a, port, false, Waypoints.fromJson(data.get("waypoints")));
             return true;
         }
         return false;
     }
 
-    private void wire(final String id, final Node from, final Node to, final int out, final int in) {
+    /** A wire, steered through {@code stops} (its game data's, to the pixel, or the site's, on its grid). */
+    private void wire(final String id, final Node from, final Node to, final int out, final int in,
+        final List<int[]> stops) {
         final UUID uuid = PlanIds.uuid(id);
-        newWires.add(new Edge(uuid, from.id, to.id, out, in));
+        final Edge edge = new Edge(uuid, from.id, to.id, out, in);
+        edge.waypoints = stops;
+        newWires.add(edge);
         basis.map("edges", id, "edge:" + uuid);
     }
 
     /**
-     * A drawer's link to a port on its side ({@code input}: an input the drawer feeds); a drawer the website made takes
-     * its resource from the first port it holds.
+     * A drawer's link to a port on its side ({@code input}: an input the drawer feeds), steered through {@code stops};
+     * a drawer the website made takes its resource from the first port it holds.
      */
     private void link(final String id, @Nullable final String drawerId, final Drawer d, final Node node, final int port,
-        final boolean input) {
-        final Drawer.Link link = new Drawer.Link(node.id, port);
+        final boolean input, final List<int[]> stops) {
+        final Drawer.Link link = new Drawer.Link(node.id, port).withWaypoints(stops);
         newLinks.add(new Graph.LoadedLink(d.getId(), link, input));
         basis.map("edges", id, Fresh.linkKey(d, link, input));
         if (drawerId != null && unkeyed.remove(drawerId) != null) {

@@ -27,6 +27,8 @@ import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.data.flowchart.Edge;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.data.flowchart.Waypoints;
+import com.gtnhplanner.layout.WireRouter;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.card.CardLayout;
 import com.gtnhplanner.ui.card.CardModel;
@@ -526,7 +528,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         final boolean timed = com.gtnhplanner.dev.DevPerf.on();
         final long started = timed ? System.nanoTime() : 0;
-        routed = wires.wires(cards, drawers, moveStart != null || glideStart >= 0 || lifting);
+        routed = wires.wires(cards, drawers, moveStart != null || glideStart >= 0 || lifting || dotMoved);
+        wires.hot(dotPress != null ? dotInHand() : hoveredDot());
         final long drawing = timed ? System.nanoTime() : 0;
         wires.draw(routed, session.lit(), graph().getZoom() * com.gtnhplanner.ui.PlannerScale.board());
         // A port in hand is not on the plan yet: the minimap and the world see it once it is put down.
@@ -819,10 +822,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             .beginEdit(graph());
     }
 
-    /** Whether something is in hand: a port's wire or drawer, a drawer's wire, or a card or drawer carried. */
+    /**
+     * Whether something is in hand: a port's wire or drawer, a drawer's wire, a card or drawer carried, or a wire's
+     * steering dot.
+     */
     public boolean inHand() {
         return portDrag != null && dragHeard || drawerWire != null && drawerWireHeard
-            || moveStart != null && moveStarted;
+            || moveStart != null && moveStarted
+            || dotPress != null && dotMoved;
     }
 
     /** Whether a card or drawer is being carried by a move right now (it draws lifted). */
@@ -1675,6 +1682,16 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                         .getId() : "?"));
             row.add("width=" + w.width());
             row.add("key=" + w.key());
+            // Its steering dots, when it has any: "stops=x,y;x,y".
+            if (!w.stops()
+                .isEmpty()) {
+                final StringBuilder stops = new StringBuilder("stops=");
+                for (final int[] s : w.stops()) stops.append(stops.length() > 6 ? ";" : "")
+                    .append(s[0])
+                    .append(',')
+                    .append(s[1]);
+                row.add(stops.toString());
+            }
             for (final int[] p : w.path()) row.add(p[0] + "," + p[1]);
             out.add(row);
         }
@@ -1683,6 +1700,11 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     /** The wire under the mouse, by its key, or null: what a wire's tip waits on. */
     public Object wireKeyUnderMouse() {
+        // A steering dot has its own tip.
+        final WireLayer.Dot dot = hoveredDot();
+        if (dot != null) return dot.wire()
+            .key() + "#"
+            + dot.index();
         final WireLayer.Wire wire = wires.hit(worldX(getContext().getAbsMouseX()), worldY(getContext().getAbsMouseY()));
         return wire == null ? null : wire.key();
     }
@@ -1696,7 +1718,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             "§7" + (wire.perSecond() > 0
                 ? com.gtnhplanner.ui.theme.Fmt.rate(wire.perSecond(), session.rateUnit(), fluid)
                 : "nothing flows yet"),
-            "§8Right click: add a drawer here, or delete it");
+            "§8Right click: add a drawer here, or delete it",
+            "§8Double-click: pin a dot to steer it");
     }
 
     // region Carrying a leftover
@@ -3033,7 +3056,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             .info("[arrange] chose the {} layout, {} points", result.chosen(), Math.round(result.points()));
         final Graph g = graph();
         // Where everything is now, and where it goes (cards and drawers made since keep their places).
-        final java.util.Map<UUID, int[]> from = new HashMap<>(), to = new HashMap<>();
+        final java.util.Map<UUID, int[]> from = new HashMap<>(), to = new HashMap<>(), groupMoves = new HashMap<>();
         for (final java.util.Map.Entry<String, com.gtnhplanner.layout.arrange.Point> e : result.positions()
             .entrySet()) {
             final UUID id = UUID.fromString(e.getKey());
@@ -3049,6 +3072,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 final int dx = at[0] - group.getX(), dy = at[1] - group.getY();
                 from.put(id, new int[] { group.getX(), group.getY() });
                 to.put(id, at);
+                groupMoves.put(id, new int[] { dx, dy });
                 for (final UUID inside : com.gtnhplanner.data.flowchart.Groups.descendants(g, id)) {
                     final int[] was = placeOf(inside);
                     if (was == null) continue;
@@ -3065,7 +3089,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         if (to.isEmpty()) return;
         // One undoable step with the final places, then rewind and let everything glide there.
-        session.editLayout(() -> place(to));
+        session.editLayout(() -> {
+            place(to);
+            Waypoints.afterArrange(g, groupMoves);
+        });
         Sfx.SWEEP.play();
         place(from);
         glideFrom = from;
@@ -3630,11 +3657,230 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         panStartY = graph().getPanY();
         panMouseX = getContext().getAbsMouseX();
         panMouseY = getContext().getAbsMouseY();
+        pressDot();
         return true;
     }
 
+    // region Steering dots (the website's waypoints: docs/design/routing-and-arrange.md)
+
+    /** A dot pressed: its wire, which dot, the wire's dots as they were, and where the press was (GUI px). */
+    private record DotPress(WireLayer.Wire wire, int index, List<int[]> before, int mouseX, int mouseY) {}
+
+    @Nullable
+    private DotPress dotPress;
+    /** Whether the dot pressed has gone further than a click, so it is carried. */
+    private boolean dotMoved;
+    /** A press that took a dot off: what follows of it does nothing. */
+    private boolean pressSpent;
+    /** The last press on a dot and the last click on a wire, for a double-press or a double-click. */
+    @Nullable
+    private UUID pressedWire, clickedWire;
+    private int pressedIndex, clickedX, clickedY;
+    private long pressedAt, clickedAt;
+    /** Two presses this close together are a double-click, as the website's. */
+    private static final long DOUBLE_MS = 400;
+
+    /**
+     * A press on a wire's dot: pressed again soon after, it comes off (one undoable step); otherwise it is in hand, to
+     * be carried once the press goes further than {@value #DRAG_SLOP} GUI pixels.
+     */
+    private void pressDot() {
+        final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+        final WireLayer.Dot dot = wires.dotAt(worldX(mx), worldY(my));
+        if (dot == null) return;
+        final long now = System.currentTimeMillis();
+        final WireLayer.Wire wire = dot.wire();
+        if (wire.key()
+            .equals(pressedWire) && dot.index() == pressedIndex
+            && now - pressedAt < DOUBLE_MS) {
+            pressedWire = clickedWire = null;
+            pressSpent = true;
+            setStops(wire, Waypoints.removed(wire.stops(), dot.index()));
+            Sfx.UNPIN.play();
+            return;
+        }
+        pressedWire = wire.key();
+        pressedIndex = dot.index();
+        pressedAt = now;
+        dotPress = new DotPress(wire, dot.index(), wire.stops(), mx, my);
+        dotMoved = false;
+    }
+
+    /** The dot in hand moves cell by cell under the mouse, its wire routed through it as it goes. */
+    private void dragDot() {
+        final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+        if (!dotMoved) {
+            if (Math.max(Math.abs(mx - dotPress.mouseX()), Math.abs(my - dotPress.mouseY())) < DRAG_SLOP) return;
+            dotMoved = true;
+            Sfx.LIFT.play();
+        }
+        wires.draft(
+            dotPress.wire()
+                .key(),
+            Waypoints.moved(dotPress.before(), dotPress.index(), clearStop(worldX(mx), worldY(my))));
+    }
+
+    /** Lets go of the dot in hand: carried, it stays where it is (one undoable step); a click does nothing. */
+    private void dropDot() {
+        final DotPress p = dotPress;
+        dotPress = null;
+        if (dotMoved) {
+            final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+            setStops(p.wire(), Waypoints.moved(p.before(), p.index(), clearStop(worldX(mx), worldY(my))));
+            Sfx.DROP.play();
+        }
+        dotMoved = false;
+        wires.draft(null, List.of());
+    }
+
+    /** The dot in hand where it is now, for lighting it. */
+    @Nullable
+    private WireLayer.Dot dotInHand() {
+        final DotPress p = dotPress;
+        if (p == null) return null;
+        for (final WireLayer.Wire w : routed) {
+            if (!w.key()
+                .equals(
+                    p.wire()
+                        .key())
+                || p.index() >= w.stops()
+                    .size())
+                continue;
+            final int[] s = w.stops()
+                .get(p.index());
+            return new WireLayer.Dot(w, p.index(), s[0], s[1]);
+        }
+        return null;
+    }
+
+    /** The dot under the mouse on the board, or null (over a card, a drawer, or nothing). */
+    @Nullable
+    private WireLayer.Dot hoveredDot() {
+        final com.cleanroommc.modularui.api.widget.IWidget hovered = getContext().getHovered();
+        if (hovered != null && hovered != this || inHand()) return null;
+        return wires.dotAt(worldX(getContext().getAbsMouseX()), worldY(getContext().getAbsMouseY()));
+    }
+
+    /**
+     * A click on a wire: clicked again soon after, near the same spot, a dot is pinned there (on the wire's own line)
+     * and its route must pass through it from now on. It goes in among the wire's dots in the order they lie along it.
+     */
+    private void clickWire() {
+        final int mx = getContext().getAbsMouseX(), my = getContext().getAbsMouseY();
+        final float wx = worldX(mx), wy = worldY(my);
+        final WireLayer.Wire wire = wires.hit(wx, wy);
+        final long now = System.currentTimeMillis();
+        if (wire == null) {
+            clickedWire = null;
+            return;
+        }
+        if (!wire.key()
+            .equals(clickedWire) || now - clickedAt >= DOUBLE_MS
+            || Math.max(Math.abs(mx - clickedX), Math.abs(my - clickedY)) >= DRAG_SLOP) {
+            clickedWire = wire.key();
+            clickedAt = now;
+            clickedX = mx;
+            clickedY = my;
+            return;
+        }
+        clickedWire = null;
+        final int[] at = onWire(wire.path(), wx, wy);
+        setStops(wire, Waypoints.inserted(wire.stops(), WireLayer.insertAt(wire, at[0], at[1]), at));
+        Sfx.PIN.play();
+    }
+
+    /**
+     * The middle of a cell the path runs through nearest (wx, wy): of the cells round where the point falls, the one
+     * nearest the path, then the point.
+     */
+    private static int[] onWire(final List<int[]> path, final float wx, final float wy) {
+        final int cx = Waypoints.onLine(Math.round(wx)), cy = Waypoints.onLine(Math.round(wy));
+        int[] best = { cx, cy };
+        double bestPath = Double.MAX_VALUE, bestPoint = Double.MAX_VALUE;
+        for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+            final int x = cx + dx * Waypoints.CELL, y = cy + dy * Waypoints.CELL;
+            final double off = toPath(path, x, y), near = Math.hypot(x - wx, y - wy);
+            if (off < bestPath - 0.5 || Math.abs(off - bestPath) <= 0.5 && near < bestPoint) {
+                best = new int[] { x, y };
+                bestPath = off;
+                bestPoint = near;
+            }
+        }
+        return best;
+    }
+
+    /** How far a point is from a path. */
+    private static double toPath(final List<int[]> path, final float x, final float y) {
+        double best = Double.MAX_VALUE;
+        for (int i = 1; i < path.size(); i++) {
+            final int[] a = path.get(i - 1), b = path.get(i);
+            final float vx = b[0] - a[0], vy = b[1] - a[1], len2 = vx * vx + vy * vy;
+            final float t = len2 == 0 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / len2));
+            best = Math.min(best, Math.hypot(x - (a[0] + vx * t), y - (a[1] + vy * t)));
+        }
+        return best;
+    }
+
+    /**
+     * Where a dot carried to (wx, wy) lands: the middle of the cell there, pushed off any card or drawer and the
+     * ring of cells touching it (the website's clamp), where the router would only send a wire through at a price.
+     */
+    private int[] clearStop(final float wx, final float wy) {
+        int x = Waypoints.onLine(Math.round(wx)), y = Waypoints.onLine(Math.round(wy));
+        final List<WireRouter.Box> boxes = wires.boxes();
+        final int ring = Waypoints.CELL, out = Waypoints.CELL + Waypoints.CELL / 2;
+        for (int pass = 0; pass < 4; pass++) {
+            boolean moved = false;
+            for (final WireRouter.Box b : boxes) {
+                if (x <= b.x() - ring || x >= b.x() + b.w() + ring || y <= b.y() - ring || y >= b.y() + b.h() + ring)
+                    continue;
+                // Out the nearest way: onto the line of cells just past the ring.
+                final int left = x - (b.x() - out), right = b.x() + b.w() + out - x;
+                final int up = y - (b.y() - out), down = b.y() + b.h() + out - y;
+                final int least = Math.min(Math.min(left, right), Math.min(up, down));
+                if (least == left) x = Waypoints.onLine(b.x() - out);
+                else if (least == right) x = Waypoints.onLine(b.x() + b.w() + out);
+                else if (least == up) y = Waypoints.onLine(b.y() - out);
+                else y = Waypoints.onLine(b.y() + b.h() + out);
+                moved = true;
+            }
+            if (!moved) break;
+        }
+        return new int[] { x, y };
+    }
+
+    /** Puts a wire's dots on the plan: an edge's, or a drawer link's. */
+    private void setStops(final WireLayer.Wire wire, final List<int[]> stops) {
+        if (wire.edge() != null) session.setWaypoints(wire.edge().id, null, null, false, stops);
+        else if (wire.drawer() != null && wire.link() != null) session.setWaypoints(
+            null,
+            wire.drawer()
+                .getId(),
+            wire.link(),
+            wire.drawer()
+                .isTaker(wire.link()),
+            stops);
+    }
+
+    /** The tip for the dot under the mouse, or null when there is none. */
+    @Nullable
+    public com.gtnhplanner.ui.popup.Tip dotTip() {
+        if (hoveredDot() == null) return null;
+        return com.gtnhplanner.ui.popup.Tip.of("Steering dot")
+            .muted("The wire passes through it.")
+            .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Steer the wire")
+            .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Remove it (double-click)");
+    }
+
+    // endregion
+
     @Override
     public void onDrag(final int mouseButton, final long timeSinceLastClick) {
+        if (pressSpent) return;
+        if (dotPress != null) {
+            dragDot();
+            return;
+        }
         if (boxing) {
             boxX1 = worldX(getContext().getAbsMouseX());
             boxY1 = worldY(getContext().getAbsMouseY());
@@ -3646,14 +3892,25 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     @Override
     public void onDragEnd(final boolean successful) {
+        if (pressSpent) {
+            pressSpent = false;
+            return;
+        }
+        if (dotPress != null) {
+            dropDot();
+            return;
+        }
         if (boxing) {
             boxing = false;
             selectBox();
             return;
         }
-        // A click on empty board (no pan) clears the selection; a pan let go while moving glides on.
-        if (graph().getPanX() == panStartX && graph().getPanY() == panStartY) session.clearSelection();
-        else startPanGlide();
+        // A click on empty board (no pan) clears the selection, and twice on a wire pins a dot on it; a pan let go
+        // while moving glides on.
+        if (graph().getPanX() == panStartX && graph().getPanY() == panStartY) {
+            session.clearSelection();
+            clickWire();
+        } else startPanGlide();
     }
 
     @Override

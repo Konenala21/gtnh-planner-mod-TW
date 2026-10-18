@@ -27,6 +27,7 @@ import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.data.flowchart.balancer.BalanceResult;
 import com.gtnhplanner.data.flowchart.balancer.DrawerReadout;
@@ -322,6 +323,30 @@ public final class BoardSession {
         PlanAPI.recordEdit(graph, change);
         graph.touchLayout();
         PlanAPI.save();
+    }
+
+    /**
+     * Steers a wire through {@code points}, its dots (the website's waypoints; {@link Waypoints}): an edge by its id,
+     * or a drawer's link (a buffer's user when {@code taker}). One undoable step, saved, never solved: the dots only
+     * route the wire. Nothing happens when the wire is gone or already has them.
+     */
+    public void setWaypoints(@Nullable final UUID edgeId, @Nullable final UUID drawerId,
+        @Nullable final Drawer.Link link, final boolean taker, final List<int[]> points) {
+        final List<int[]> clean = Waypoints.clean(points);
+        if (edgeId != null) {
+            final Edge e = graph.edges.get(edgeId);
+            if (e == null || Waypoints.same(e.waypoints, clean)) return;
+            editLayout(() -> e.waypoints = clean);
+            return;
+        }
+        final Drawer d = drawerId == null ? null : graph.getDrawer(drawerId);
+        if (d == null || link == null) return;
+        for (final Drawer.Link held : taker ? d.getTakers() : d.getLinks()) {
+            if (!held.equals(link)) continue;
+            if (Waypoints.same(held.waypoints(), clean)) return;
+            editLayout(() -> d.setWaypoints(link, taker, clean));
+            return;
+        }
     }
 
     /**
@@ -1113,12 +1138,15 @@ public final class BoardSession {
         String machineName, boolean fixed, boolean exact, int dx, int dy, String powerSource,
         Map<String, String> powerSettings, Map<Integer, String> picks) {}
 
-    /** A copied drawer, and the copied cards' ports it was linked to, as {card index in the copy, port}. */
+    /**
+     * A copied drawer, the copied cards' ports it was linked to as {card index in the copy, port}, and each link's dots
+     * from the copy's top-left.
+     */
     private record ClipDrawer(Drawer.Kind kind, String key, String label, Drawer.Rule rule, double rate, int dx, int dy,
-        List<int[]> links) {}
+        List<int[]> links, List<List<int[]>> linkWaypoints) {}
 
-    /** A wire between two copied cards, by their index in the copy. */
-    private record ClipEdge(int from, int output, int to, int input) {}
+    /** A wire between two copied cards, by their index in the copy, and its dots from the copy's top-left. */
+    private record ClipEdge(int from, int output, int to, int input, List<int[]> waypoints) {}
 
     /** A copied sticky note, and where it sat from the copy's top-left. */
     private record ClipNote(com.gtnhplanner.data.flowchart.Note note, int dx, int dy) {}
@@ -1178,14 +1206,23 @@ public final class BoardSession {
         final List<ClipEdge> edges = new ArrayList<>();
         for (final Edge e : graph.getEdges()) {
             final Integer from = index.get(e.sourceNodeId), to = index.get(e.targetNodeId);
-            if (from != null && to != null) edges.add(new ClipEdge(from, e.sourceOutputIndex, to, e.targetInputIndex));
+            if (from != null && to != null) edges.add(
+                new ClipEdge(
+                    from,
+                    e.sourceOutputIndex,
+                    to,
+                    e.targetInputIndex,
+                    Waypoints.shifted(e.waypoints, -x0, -y0)));
         }
         final List<ClipDrawer> clipDrawers = new ArrayList<>();
         for (final Drawer d : drawers) {
             final List<int[]> links = new ArrayList<>();
+            final List<List<int[]>> linkWaypoints = new ArrayList<>();
             for (final Drawer.Link l : d.getLinks()) {
                 final Integer at = index.get(l.nodeId());
-                if (at != null) links.add(new int[] { at, l.portIndex() });
+                if (at == null) continue;
+                links.add(new int[] { at, l.portIndex() });
+                linkWaypoints.add(Waypoints.shifted(l.waypoints(), -x0, -y0));
             }
             clipDrawers.add(
                 new ClipDrawer(
@@ -1196,7 +1233,8 @@ public final class BoardSession {
                     d.getRate(),
                     d.getX() - x0,
                     d.getY() - y0,
-                    links));
+                    links,
+                    linkWaypoints));
         }
         clipboard = new Clip(clipNodes, clipDrawers, edges, clipNotes);
         return true;
@@ -1258,8 +1296,11 @@ public final class BoardSession {
             for (final Node n : made) if (n != null) graph.addNode(n);
             for (final ClipEdge e : clip.edges()) {
                 final Node from = made.get(e.from()), to = made.get(e.to());
-                if (from != null && to != null)
-                    graph.addEdge(new Edge(UUID.randomUUID(), from.id, to.id, e.output(), e.input()));
+                if (from == null || to == null) continue;
+                final Edge edge = new Edge(UUID.randomUUID(), from.id, to.id, e.output(), e.input());
+                // Its dots ride along with the copy, as on the website.
+                edge.waypoints = Waypoints.shifted(e.waypoints(), snap(worldX), snap(worldY));
+                graph.addEdge(edge);
             }
             for (final ClipDrawer c : clip.drawers()) {
                 final Drawer d = new Drawer(c.kind(), c.key());
@@ -1268,9 +1309,19 @@ public final class BoardSession {
                 d.setY(snap(worldY + c.dy()));
                 d.setTarget(c.rule(), c.rate());
                 graph.addDrawer(d);
-                for (final int[] l : c.links()) {
+                for (int k = 0; k < c.links()
+                    .size(); k++) {
+                    final int[] l = c.links()
+                        .get(k);
                     final Node n = made.get(l[0]);
-                    if (n != null) graph.linkDrawer(d.getId(), new Drawer.Link(n.id, l[1]));
+                    if (n != null) graph.linkDrawer(
+                        d.getId(),
+                        new Drawer.Link(n.id, l[1]).withWaypoints(
+                            Waypoints.shifted(
+                                c.linkWaypoints()
+                                    .get(k),
+                                snap(worldX),
+                                snap(worldY))));
                 }
                 madeDrawers.add(d);
             }
