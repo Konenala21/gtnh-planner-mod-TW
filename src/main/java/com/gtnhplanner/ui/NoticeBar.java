@@ -108,7 +108,8 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
                 Hyb.rect(0, y, rw, rh - 1, Hyb.mix(tone, FILL, 0.16f) & 0x00FFFFFF | 0xE0000000);
                 Hyb.rect(0, y, 3, rh - 1, bright ? tone : dim(tone));
                 Hyb.rect(LEFT, y + 1, r.chipWidth(), LINE + 1, bright ? tone : dim(tone));
-                Hyb.text(n.tag(), LEFT + CHIP_PAD, y + 3, bright ? CHIP_INK : tone);
+                // Flat, as the chip is: a shadow smears dark words on the bright chip.
+                Hyb.text(n.tag(), LEFT + CHIP_PAD, y + 3, 1f, bright ? CHIP_INK : tone, false);
             } else {
                 Hyb.rect(0, y, rw, rh - 1, 0xE0181A1F);
                 Hyb.rect(0, y, 3, rh - 1, stripe(n.severity()));
