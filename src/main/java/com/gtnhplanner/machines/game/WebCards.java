@@ -58,6 +58,7 @@ public final class WebCards {
     /** The card's recipe as the website's dataset carries it, or null when handlers.json has no such map. */
     @Nullable
     public static Web.Recipe recipe(final Node node) {
+        if (AutoWorkbench.crafts(node)) return craftingRecipe(node);
         final String mapId = mapId(node);
         final HandlerData.MapEntry entry = entry(mapId);
         if (entry == null) return null;
@@ -88,6 +89,30 @@ public final class WebCards {
         if (!smelting) r.runtimeCalculation = RuntimeVariants.of(r.durationTicks, r.eut, r.outputs);
         r.machineConfigControls = HandlerData.recipeControls(entry, special);
         r.machineHandlers = HandlerData.handlers(entry, r.minimumTier, r.durationTicks, r.eut, r.machineConfigControls);
+        return r;
+    }
+
+    /**
+     * A crafting-grid recipe as the website's dataset carries it: a tick at no EU on the shaped or shapeless crafting
+     * map, which lists no machines; the website's rules give it the Auto Workbench and the crafting table
+     * ({@link RecipeRules#machineHandlers}).
+     */
+    private static Web.Recipe craftingRecipe(final Node node) {
+        final Web.Recipe r = new Web.Recipe();
+        final String type = AutoWorkbench.machineType(node);
+        r.id = "crafting:" + node.recipeId;
+        r.name = node.machineName;
+        r.kind = "gregtech_machine";
+        r.category = "crafting";
+        r.machineType = type;
+        r.durationTicks = 1;
+        r.eut = 0;
+        r.minimumTier = "NONE";
+        r.specialValue = 0.0;
+        r.source = new Web.Source();
+        r.source.recipeMap = type;
+        r.inputs = resources(node.inputs);
+        r.outputs = resources(node.outputs);
         return r;
     }
 
@@ -214,8 +239,11 @@ public final class WebCards {
     @Nullable
     public static String handlerId(final Node node, final Web.Recipe recipe) {
         final ItemStack machine = machineStack(node);
-        if (machine == null) return null;
         final List<Web.Handler> handlers = RecipeRules.machineHandlers(recipe);
+        // A crafting card: the Auto Workbench, else the crafting table's hand craft (the website's second handler).
+        if (RecipeRules.isHandCraftingRecipeMap(recipe) && handlers.size() > 1)
+            return AutoWorkbench.is(machine) ? RecipeRules.AUTO_WORKBENCH_HANDLER_ID : handlers.get(1).id;
+        if (machine == null) return null;
         // By the machine itself: the template that lists it, or the family it folded into.
         final HandlerData.MapEntry entry = entry(mapId(node));
         if (entry != null && entry.handlers != null) {

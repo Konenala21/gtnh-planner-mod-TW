@@ -1202,6 +1202,12 @@ public final class BoardScreen extends ModularScreen {
         final CardModel.PortView view = slot.view();
         if (view == null) return null;
         if (view.hasExtra() && slot.overExtraRow()) return spareTip(slot, view);
+        // What the game gives for nothing (the Rock Breaker's lava): set it down beside the machine.
+        final CardModel giver = session.model(slot.node());
+        if (giver != null && com.gtnhplanner.data.provider.FreeInputs.isFree(giver.node, view.output(), view.index()))
+            return Tip.of(view.name())
+                .sub("Free input")
+                .muted("Never used up. Nothing to supply.");
         if (slot.overKey()) {
             final CardModel model = session.model(slot.node());
             final boolean set = model != null && session.portTarget(model.node, view.output(), view.index()) != null;

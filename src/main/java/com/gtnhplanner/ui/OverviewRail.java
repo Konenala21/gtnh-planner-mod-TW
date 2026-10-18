@@ -1131,12 +1131,16 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 }
                 if (card != null) hits.add(new Hit(Kind.COUNT, fieldX, y, fieldX + COUNT_W, y + ROW_H, m));
                 // What it draws, grey beside the tier (the unit dropped when there is no room for it).
+                // A steam machine burns steam at no voltage: its steam, L/s.
+                final boolean steam = !m.tooLow() && !(m.madeEuPerTick() > 0) && !Double.isNaN(m.steamPerSecond());
                 final String eu = m.tooLow() ? "TIER!"
-                    : m.madeEuPerTick() > 0 ? "+" + Fmt.power(m.madeEuPerTick()) : Fmt.power(m.euPerTick());
+                    : m.madeEuPerTick() > 0 ? "+" + Fmt.power(m.madeEuPerTick())
+                        : steam ? Fmt.compact(m.steamPerSecond()) : Fmt.power(m.euPerTick());
                 final int euInk = m.tooLow() ? Hyb.RED_INK : m.madeEuPerTick() > 0 ? 0xFFE0B04A : Hyb.MUTED;
                 // Shortened to fit, never cut: the unit goes first, then the number.
                 final int room = numberRight - countW - 4 - cx;
-                final String euText = m.tooLow() || Hyb.width(eu + " EU/t") > room ? eu : eu + " EU/t";
+                final String unit = steam ? " L/s" : " EU/t";
+                final String euText = m.tooLow() || Hyb.width(eu + unit) > room ? eu : eu + unit;
                 if (Hyb.width(euText) <= room) Hyb.text(euText, cx, y + 3, euInk);
                 hits.add(new Hit(Kind.MACHINE, 0, y, w - 1, y + ROW_H, m));
                 y += ROW_H;
@@ -1747,7 +1751,10 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                                 .reason())
                             + ". "
                             + com.gtnhplanner.ui.card.CardFace.sentence(m.upTo()));
-                lines.add(hint + Fmt.power(m.euPerTick()) + " EU/t " + (session.peakPower() ? "peak" : "average"));
+                lines.add(
+                    hint + (Double.isNaN(m.steamPerSecond()) ? Fmt.power(m.euPerTick()) + " EU/t "
+                        : Fmt.compact(m.steamPerSecond()) + " L/s steam ")
+                        + (session.peakPower() ? "peak" : "average"));
                 lines.add(hint + "Click or middle click: go to the card");
                 yield lines;
             }

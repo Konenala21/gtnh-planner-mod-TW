@@ -375,6 +375,13 @@ public final class CardModel {
         for (final PositionedStack ps : RecipeCatalysts.getRecipeCatalysts(ref.handler)) {
             if (ps != null && ps.item != null) out.add(ps.item);
         }
+        // A crafting-grid recipe also runs on GT++'s Auto Workbench, each tier its own machine, after NEI's own.
+        if (com.gtnhplanner.machines.game.AutoWorkbench.crafts(ref.handler))
+            for (final ItemStack awb : com.gtnhplanner.machines.game.AutoWorkbench.stacks()) {
+                boolean listed = false;
+                for (final ItemStack s : out) listed |= ItemStack.areItemStacksEqual(s, awb);
+                if (!listed) out.add(awb);
+            }
         return out;
     }
 

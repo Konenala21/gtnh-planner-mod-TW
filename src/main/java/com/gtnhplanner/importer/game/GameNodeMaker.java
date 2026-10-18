@@ -62,7 +62,13 @@ public final class GameNodeMaker implements NodeMaker {
         final boolean gregtech = CardModel.GT_PROFILE.equals(node.machineConfig.profileId);
         final List<ItemStack> catalysts = CardModel.catalystsOf(node);
         ItemStack pick = null;
-        if (gregtech) {
+        // A crafting card the website ran on the Auto Workbench: its lowest tier, the card's tier then picks the block.
+        if (com.gtnhplanner.machines.web.RecipeRules.AUTO_WORKBENCH_HANDLER_ID.equals(machine.handlerId()))
+            for (final ItemStack s : catalysts) if (com.gtnhplanner.machines.game.AutoWorkbench.is(s)) {
+                pick = s;
+                break;
+            }
+        if (pick == null && gregtech) {
             final List<String> items = WebCards.handlerItems(node, machine.handlerId());
             for (final ItemStack s : catalysts) if (items.contains(GameIds.itemId(s))) {
                 pick = s;

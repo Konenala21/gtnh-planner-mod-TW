@@ -143,4 +143,16 @@ class RailTotalsTest {
                 new Card("press1", false, "press"),
                 new Card("press2", false, "press")));
     }
+
+    @Test
+    void aSteamMachineLineBurnsSteamPeakOrAverage() {
+        // The website's machine list: peak is the most a recipe burns on every whole machine, average what they burn.
+        final double[] perTick = { 6, 3 }, machines = { 1.25, 0.5 };
+        assertEquals(6 * 20 * 2, RailTotals.steamPerSecond(perTick, machines, true), 1e-9);
+        assertEquals(6 * 20 * 1.25 + 3 * 20 * 0.5, RailTotals.steamPerSecond(perTick, machines, false), 1e-9);
+        assertEquals(
+            Double.NaN,
+            RailTotals.steamPerSecond(new double[] { 0 }, new double[] { 3 }, true),
+            "a machine that burns no steam has no steam figure");
+    }
 }

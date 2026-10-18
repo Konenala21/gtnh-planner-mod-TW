@@ -82,7 +82,9 @@ public final class MachineChoices {
         int singlesAt = -1, singleTier = -1;
         ItemStack single = null;
         for (final ItemStack m : CardModel.catalystsOf(node)) {
-            final GtMachines.Kind kind = gt ? GtMachines.of(m) : null;
+            // The Auto Workbench on a crafting card folds into one choice as GregTech's single blocks do.
+            final GtMachines.Kind kind = gt || com.gtnhplanner.machines.game.AutoWorkbench.is(m) ? GtMachines.of(m)
+                : null;
             if (kind != null && !kind.multiblock() && !kind.steam() && kind.tier() >= 0) {
                 if (singlesAt < 0) {
                     singlesAt = out.size();

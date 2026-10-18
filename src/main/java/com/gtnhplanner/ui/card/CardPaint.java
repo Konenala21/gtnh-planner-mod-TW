@@ -372,6 +372,33 @@ public final class CardPaint {
 
     public static final String EXTRA_OUT = "Forced", EXTRA_IN = "Forced";
 
+    /** What a free input reads in place of its rate (the website's word). */
+    public static final String FREE = "free";
+
+    /**
+     * An input the game gives for nothing ({@link com.gtnhplanner.data.provider.FreeInputs}: the Rock Breaker's lava)
+     * in the row at {@code y}: its tile, icon and name with "free" for its rate, greyed as the website's (its row at
+     * 60%) by the card's surface over it.
+     */
+    public static void giftRow(final CardModel.PortView p, final int y, final float z) {
+        portTile(false, y, false);
+        icon(p.item(), p.fluid(), false, false, y, z);
+        // "free" small where the rate goes, the name under it, smaller when long.
+        final int edge = CardLayout.textEdge(false), room = CardLayout.TEXT_W;
+        final String label = p.name() == null ? "" : p.name();
+        final float size = Hyb.width(label) <= room ? 1 : NAME_SMALL;
+        final String shown = Hyb.width(label) * size <= room ? label : Hyb.fit(label, (int) (room / size));
+        final float top = RecipeCard.crisp(y + (CardLayout.ROW - (10 + 8 * size)) / 2f);
+        Hyb.text(FREE, edge, top, Hyb.MUTED);
+        Hyb.text(shown, edge, top + 10, size, Hyb.MUTED);
+        Hyb.rect(
+            CardLayout.railX(false),
+            y + CardLayout.BOX_Y,
+            CardLayout.RAIL_W,
+            CardLayout.BOX_H,
+            0x66 << 24 | SURFACE & 0xFFFFFF);
+    }
+
     /** A port's icon at the card's edge (a bolt for power). */
     public static void icon(@Nullable final ItemStack item, @Nullable final net.minecraftforge.fluids.FluidStack fluid,
         final boolean power, final boolean output, final int y, final float z) {

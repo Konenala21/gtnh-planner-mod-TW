@@ -1254,6 +1254,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final BoardCanvas board = canvas();
         for (final CardModel.PortView p : ports) {
             final int y = layout.rowY(section, output, p.index());
+            // What the game gives for nothing (the Rock Breaker's lava): shown greyed, nothing to wire or set.
+            if (com.gtnhplanner.data.provider.FreeInputs.isFree(models.get(section).node, output, p.index())) {
+                CardPaint.giftRow(p, y, z);
+                continue;
+            }
             final boolean hot = hoveredSlot != null && hoveredSlot.section == section
                 && hoveredSlot.output == output
                 && hoveredSlot.index == p.index();
@@ -2595,7 +2600,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /** Whether a machine is one of GregTech's electric single blocks: one tier of a machine that comes in many. */
     private boolean isSingle(final ItemStack machine) {
-        if (machine == null || model == null || !model.gregtech) return false;
+        if (machine == null || model == null) return false;
+        // The Auto Workbench on a crafting card is one too, on the crafting table as on itself.
+        if (!model.gregtech && !com.gtnhplanner.machines.game.AutoWorkbench.is(machine)) return false;
         final GtMachines.Kind kind = GtMachines.of(machine);
         return kind != null && !kind.multiblock() && !kind.steam() && kind.tier() >= 0;
     }
@@ -2779,7 +2786,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final List<PickList.Entry> rows = new ArrayList<>();
         for (final ItemStack machine : machineMenu()) {
             String detail = "";
-            if (model.gregtech) {
+            if (model.gregtech || com.gtnhplanner.machines.game.AutoWorkbench.is(machine)) {
                 final GtMachines.Kind kind = GtMachines.of(machine);
                 if (kind != null) detail = kind.multiblock() ? "Multiblock"
                     : kind.steam() ? "Steam" : isSingle(machine) ? "Single block, tier by the chip" : "";

@@ -96,4 +96,25 @@ final class RailTotals {
         }
         return out;
     }
+
+    /**
+     * The steam a machine line burns, L/s (the website's machine-list {@code steamLs}, {@code avgSteamLs}), from each
+     * of
+     * its recipes' steam per machine a tick ({@code perTick}) and how many machines it runs ({@code machines}). Peak:
+     * the most any of them burns, on every whole machine the line builds; else what they burn on average. NaN when
+     * none of them burns steam.
+     */
+    static double steamPerSecond(final double[] perTick, final double[] machines, final boolean peak) {
+        double most = 0, built = 0, average = 0;
+        boolean steam = false;
+        for (int i = 0; i < perTick.length; i++) {
+            if (!(perTick[i] > 0)) continue;
+            steam = true;
+            most = Math.max(most, perTick[i]);
+            average += perTick[i] * 20 * machines[i];
+        }
+        if (!steam) return Double.NaN;
+        for (final double m : machines) built += m;
+        return peak ? most * 20 * Math.ceil(built - 1e-9) : average;
+    }
 }

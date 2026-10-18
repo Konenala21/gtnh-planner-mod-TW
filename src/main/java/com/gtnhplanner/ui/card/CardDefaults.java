@@ -126,7 +126,9 @@ public final class CardDefaults {
      */
     public static void useMachine(final Node node, final ItemStack machine, final boolean gregtech) {
         node.machineName = itemKey(machine);
-        if (!gregtech) return;
+        // A crafting card on the Auto Workbench is a GregTech card, and a plain one again off it.
+        com.gtnhplanner.machines.game.AutoWorkbench.choose(node, machine);
+        if (!gregtech && !com.gtnhplanner.machines.game.AutoWorkbench.on(node)) return;
         final GtMachines.Kind kind = GtMachines.of(machine);
         if (kind == null) return;
         node.machineConfig.setBoolean("gt_multiblock", kind.multiblock());
