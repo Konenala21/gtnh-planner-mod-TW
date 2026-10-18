@@ -104,7 +104,9 @@ A player can pin dots on a wire that its route must pass through, in order: the 
 - **Both ways**: the importer reads them (`FfPlanParser`, `FfConverter.stops`: moved as the cards were, onto the
   router's lines), the posting export writes them (`PlanExport.edge`) and shared plans carry them (`cloud/map`: the
   site's on its 20 px grid, `Waypoints.toSite`, and the game's own to the pixel in the wire's game data, read back while
-  the website left the wire alone).
+  the website left the wire alone). The website's grid is twice as coarse as the router's lines, so a website dot comes
+  in and goes back out to the same corner, while a dot the game put on every other line comes back from a plan link,
+  code or post one cell over (checked in the GT dev game: pinned at 375,575, posted as 380,580, back at 385,585).
 
 ### Where it stands (2026-10-08, `build/bench/router-v1`)
 

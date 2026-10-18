@@ -823,10 +823,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             .beginEdit(graph());
     }
 
-    /** Whether something is in hand: a port's wire or drawer, a drawer's wire, or a card or drawer carried. */
+    /**
+     * Whether something is in hand: a port's wire or drawer, a drawer's wire, a card or drawer carried, or a wire's
+     * steering dot.
+     */
     public boolean inHand() {
         return portDrag != null && dragHeard || drawerWire != null && drawerWireHeard
-            || moveStart != null && moveStarted;
+            || moveStart != null && moveStarted
+            || dotPress != null && dotMoved;
     }
 
     /** Whether a card or drawer is being carried by a move right now (it draws lifted). */
