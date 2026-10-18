@@ -167,18 +167,14 @@ public final class BoardScreen extends ModularScreen {
                 parts,
                 "rate",
                 key(
-                    () -> session.rateUnit().suffix,
+                    session::rateKeyLabel,
                     () -> true,
-                    "Rate unit: per tick, second, minute or hour",
-                    fit("/t", "/s", "/min", "/hr"),
-                    () -> session.setRateUnit(
-                        session.rateUnit()
-                            .next()),
-                    step -> session.setRateUnit(
-                        session.rateUnit()
-                            .step(step)))),
-            fit("/t", "/s", "/min", "/hr"),
-            tight("/t", "/s", "/min", "/hr"));
+                    "Rate unit: per tick, second, minute or hour, or EU for the energy each item cost",
+                    fit("/t", "/s", "/min", "/hr", "EU"),
+                    () -> session.stepRateKey(1),
+                    session::stepRateKey)),
+            fit("/t", "/s", "/min", "/hr", "EU"),
+            tight("/t", "/s", "/min", "/hr", "EU"));
         toolbar.key(
             3,
             named(
@@ -1243,6 +1239,10 @@ public final class BoardScreen extends ModularScreen {
                 view.output() ? chanced ? "Average output" : "Produced" : "Consumed",
                 Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()));
         if (chanced) tip.row("Chance", Fmt.compact(view.chance() * 100) + "%");
+        // What each one cost the machine in EU, the rate key's EU reading: said here whatever the key is on.
+        final CardModel owner = session.model(slot.node());
+        final double each = owner == null ? Double.NaN : session.euEach(owner, view);
+        if (!Double.isNaN(each)) tip.row("Energy", Fmt.brief(each) + Fmt.euEachSuffix(view.isFluid()), Hyb.ENERGY);
         if (stack != null) {
             // NEI's lines past the name: a formula, a material's notes, the mod. A few at most.
             final List<String> nei = GuiContainerManager.itemDisplayNameMultiline(stack, null, true);

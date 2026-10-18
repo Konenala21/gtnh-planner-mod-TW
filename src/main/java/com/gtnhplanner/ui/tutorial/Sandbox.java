@@ -41,6 +41,7 @@ final class Sandbox {
     private PlannerSettings.Corner corner, pinCorner;
     /** The top bar's unit keys: the tour types its rates a second, and shows power as EU/t on average. */
     private Fmt.RateUnit rateUnit;
+    private boolean energyView;
     private boolean amps, peak;
     /** The overview: the tour shows it open, every section but Internal unfolded, as it is the first time. */
     private boolean overviewOpen;
@@ -69,9 +70,11 @@ final class Sandbox {
         pinList = PlannerSettings.pinList();
         pinCorner = PlannerSettings.pinListCorner();
         rateUnit = PlannerSettings.rateUnit();
+        energyView = PlannerSettings.energyView();
         amps = PlannerSettings.powerAsAmps();
         peak = PlannerSettings.peakPower();
         PlannerSettings.setRateUnit(Fmt.RateUnit.SECOND);
+        PlannerSettings.setEnergyView(false);
         PlannerSettings.setPowerAsAmps(false);
         PlannerSettings.setPeakPower(false);
         overviewOpen = PlannerSettings.overviewOpen();
@@ -126,6 +129,7 @@ final class Sandbox {
         PlannerSettings.setPinList(pinList);
         PlannerSettings.setPinListCorner(pinCorner);
         PlannerSettings.setRateUnit(rateUnit);
+        PlannerSettings.setEnergyView(energyView);
         PlannerSettings.setPowerAsAmps(amps);
         PlannerSettings.setPeakPower(peak);
         PlannerSettings.setOverviewOpen(overviewOpen);

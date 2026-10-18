@@ -87,6 +87,12 @@ public final class CardPaint {
     /** As above; {@code controls}, the words sit higher, leaving room under them for the port's rule key and box. */
     public static void words(final String number, final String suffix, final String name, final int colour,
         final int nameColour, final boolean output, final int y, final boolean controls) {
+        words(number, suffix, name, colour, nameColour, output, y, controls, Hyb.MUTED);
+    }
+
+    /** As above, the unit beside a large number in {@code suffixColour}. */
+    public static void words(final String number, final String suffix, final String name, final int colour,
+        final int nameColour, final boolean output, final int y, final boolean controls, final int suffixColour) {
         final int edge = CardLayout.textEdge(output), room = CardLayout.TEXT_W;
         final float rateW = Hyb.width(number) * Hyb.FIGURE + 2 + Hyb.width(suffix);
         final boolean big = rateW <= room;
@@ -101,7 +107,7 @@ public final class CardPaint {
         if (big) {
             final float x = output ? edge - rateW : edge;
             Hyb.text(number, x, top, Hyb.FIGURE, colour);
-            Hyb.text(suffix, x + Hyb.width(number) * Hyb.FIGURE + 2, top + 3.5f, Hyb.MUTED);
+            Hyb.text(suffix, x + Hyb.width(number) * Hyb.FIGURE + 2, top + 3.5f, suffixColour);
         } else {
             final String both = Hyb.fit(number + suffix, room);
             Hyb.text(both, output ? edge - Hyb.width(both) : edge, top, colour);
@@ -148,6 +154,24 @@ public final class CardPaint {
             output,
             y,
             controls);
+    }
+
+    /**
+     * A port's words under the rate key's EU: the EU each unit through it cost ({@code each}, {@link Fmt#euEach}) in
+     * place of its rate, amber with a greyed gold unit, an input's a step quieter; its name as ever.
+     */
+    public static void energyWords(final double each, final boolean fluid, final String name, final boolean output,
+        final int y, final boolean controls, final int nameColour) {
+        words(
+            Fmt.brief(each),
+            Fmt.euEachSuffix(fluid),
+            name,
+            output ? Hyb.ENERGY : Hyb.ENERGY_QUIET,
+            nameColour,
+            output,
+            y,
+            controls,
+            Hyb.ENERGY_TAIL);
     }
 
     /**
@@ -293,7 +317,31 @@ public final class CardPaint {
      */
     public static void openRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
         final boolean set, @Nullable final CardFace.Tone why) {
-        spareRow(p, unit, y, z, p.perSecond(), p.name(), set, true, why, true);
+        openRow(p, unit, y, z, set, why, Double.NaN);
+    }
+
+    /**
+     * As above; {@code each}, when a number, is the EU each unit cost, read in place of the rate (the rate key's EU).
+     */
+    public static void openRow(final CardModel.PortView p, final Fmt.RateUnit unit, final int y, final float z,
+        final boolean set, @Nullable final CardFace.Tone why, final double each) {
+        if (Double.isNaN(each)) {
+            spareRow(p, unit, y, z, p.perSecond(), p.name(), set, true, why, true);
+            return;
+        }
+        final int tint = com.gtnhplanner.ui.drawer.DrawerPaint.tint(
+            p.output() ? com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT
+                : com.gtnhplanner.data.flowchart.Drawer.Kind.SOURCE);
+        freeTile(p.output(), y, why);
+        icon(p.item(), p.fluid(), p.isPower(), p.output(), y, z);
+        energyWords(
+            each,
+            p.isFluid(),
+            p.name(),
+            p.output(),
+            y,
+            true,
+            why != null ? why.colour : Hyb.mix(tint, Hyb.MUTED, 0.45f));
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.gtnhplanner.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +25,19 @@ class FmtTest {
         assertEquals("1.2M", Fmt.compact(1_200_000));
         assertEquals("1M", Fmt.compact(999_999.9));
         assertEquals("-900", Fmt.compact(-900));
+    }
+
+    @Test
+    void euEachIsTheDrawOverTheFlow() {
+        // 120 EU/t for 10 s making one ingot: 24,000 EU each, at one machine or ten.
+        assertEquals(24_000, Fmt.euEach(120, 0.1), 1e-9);
+        assertEquals(24_000, Fmt.euEach(1200, 1.0), 1e-9);
+        // Nothing through the port: no reading, never infinity.
+        assertTrue(Double.isNaN(Fmt.euEach(120, 0)));
+        // A card that makes power spends none on what it eats.
+        assertEquals(0, Fmt.euEach(-50, 1), 1e-9);
+        assertEquals(" EU/Item", Fmt.euEachSuffix(false));
+        assertEquals(" EU/L", Fmt.euEachSuffix(true));
     }
 
     @Test

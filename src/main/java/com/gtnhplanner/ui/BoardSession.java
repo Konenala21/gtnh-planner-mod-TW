@@ -176,6 +176,46 @@ public final class BoardSession {
         PlannerSettings.setRateUnit(unit);
     }
 
+    private boolean energyView = PlannerSettings.energyView();
+
+    /**
+     * The rate key is on EU: ports and the overview's inputs and outputs read the EU each unit cost instead of a rate.
+     * {@link #rateUnit()} stays the clock it was on, for every rate typed, wheeled or drawn on a wire or drawer.
+     */
+    public boolean energyView() {
+        return energyView;
+    }
+
+    /** The rate key's label: the clock's suffix, or EU. */
+    public String rateKeyLabel() {
+        return energyView ? "EU" : rateUnit.suffix;
+    }
+
+    /** The rate key a step round its five settings: /t, /s, /min, /hr, then EU. */
+    public void stepRateKey(final int step) {
+        final int n = Fmt.RateUnit.values().length + 1;
+        final int at = Math.floorMod((energyView ? n - 1 : rateUnit.ordinal()) + step, n);
+        energyView = at == n - 1;
+        PlannerSettings.setEnergyView(energyView);
+        if (!energyView) setRateUnit(Fmt.RateUnit.values()[at]);
+    }
+
+    /**
+     * What each unit through {@code p} cost {@code card} in EU (its draw over the port's flow), or NaN where that says
+     * nothing: an EU port, a non-recipe card, a steam machine (it burns steam), a port with nothing through it.
+     */
+    public double euEach(final CardModel card, final CardModel.PortView p) {
+        if (p.isPower() || card.power != null || card.steam()) return Double.NaN;
+        return Fmt.euEach(averagePower(card), p.perSecond());
+    }
+
+    /** A card's draw on average, EU/t, whatever the peak switch says: what its energy is spent at. */
+    private static double averagePower(final CardModel card) {
+        if (com.gtnhplanner.machines.game.CropCards.isCrop(card.node))
+            return com.gtnhplanner.machines.game.CropCards.drawEut(card.node, card.machines);
+        return card.euPerTick * card.machines;
+    }
+
     /**
      * One undoable edit: records the before state, runs the change, marks the plan changed and saves. The next tick
      * re-solves and rebuilds the cards. Every custom rate card or fluid tank the change left with nothing wired lets go
@@ -2743,9 +2783,9 @@ public final class BoardSession {
      * gives out (surplus) and what it makes and uses itself (internal); its power; one line per card to build.
      */
     public record Totals(List<TotalLine> inputs, List<TotalLine> outputs, List<TotalLine> internal, double euPerTick,
-        List<MachineLine> machines, double euMade) {
+        List<MachineLine> machines, double euMade, double euAverage) {
 
-        static final Totals EMPTY = new Totals(List.of(), List.of(), List.of(), 0, List.of(), 0);
+        static final Totals EMPTY = new Totals(List.of(), List.of(), List.of(), 0, List.of(), 0, 0);
     }
 
     private Totals totals = Totals.EMPTY;
@@ -2795,7 +2835,7 @@ public final class BoardSession {
         final Map<String, Look> looks = new HashMap<>();
         // The resources an unwired port takes or makes: listed at 0 when nothing else lists them, so they can be set.
         final Set<String> openIn = new java.util.LinkedHashSet<>(), openOut = new java.util.LinkedHashSet<>();
-        double eu = 0, euMade = 0;
+        double eu = 0, euMade = 0, euAverage = 0;
         final List<CardModel> counted = new ArrayList<>();
         for (final CardModel card : cards.values()) {
             // A custom rate card is the plan's edge, as a drawer is: what it supplies comes in from outside (an input)
@@ -2816,6 +2856,7 @@ public final class BoardSession {
                 if (!p.wired()) openIn.add(key);
             }
             eu += power(card);
+            if (card.power == null) euAverage += averagePower(card);
             euMade += card.madeEuPerTick();
         }
         // Every machine, at zero too, whatever its rule (a fluid tank is free and instant: nothing to build). A shared
@@ -2890,7 +2931,7 @@ public final class BoardSession {
         })
             .thenComparing(m -> -m.euPerTick())
             .thenComparing(MachineLine::name));
-        return new Totals(in, out, internal, eu, machines, euMade);
+        return new Totals(in, out, internal, eu, machines, euMade, euAverage);
     }
 
     private static TotalLine line(final String key, final Look look, final double amount) {

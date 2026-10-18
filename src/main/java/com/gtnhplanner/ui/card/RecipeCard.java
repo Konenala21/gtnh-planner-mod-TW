@@ -1269,13 +1269,23 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             final boolean controls = !lifted && showsControls(section, p);
             // The row an Up to card's reason names is striped in the reason's tone, its edge and name in it.
             final CardFace.Tone why = why(sectionId(section), output, p.index());
-            if (open) CardPaint.openRow(p, unit, y, z, set, why);
+            // The rate key on EU: what each unit through the port cost, where that says something (not EU itself).
+            final double each = session.energyView() ? session.euEach(models.get(section), p) : Double.NaN;
+            if (open) CardPaint.openRow(p, unit, y, z, set, why, each);
             else {
                 // Every port is a tile of one shape (the website's pass 3), lighter under the mouse.
                 if (why != null) CardPaint.whyTile(output, y, why);
                 else CardPaint.portTile(output, y, hot);
                 CardPaint.icon(p.item(), p.fluid(), p.isPower(), output, y, z);
-                CardPaint.flowWords(
+                if (!Double.isNaN(each)) CardPaint.energyWords(
+                    each,
+                    p.isFluid(),
+                    p.name(),
+                    output,
+                    y,
+                    controls,
+                    why != null ? why.colour : Hyb.MUTED);
+                else CardPaint.flowWords(
                     p.hasExtra() ? p.wiredPerSecond() : p.perSecond(),
                     p.isPower(),
                     p.isFluid(),

@@ -559,15 +559,24 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             else Hyb.icon(line.item(), line.fluid(), ICON_X, y + 1, ICON, z);
             GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
+            // The rate key on EU: what the whole plan spends on each unit of an input or output (its embodied cost),
+            // as the website's panel reads it. Never split between a plan's products: each reads all of it.
+            final double each = internal || eu || !session.energyView() ? Double.NaN
+                : Fmt.euEach(
+                    session.totals()
+                        .euAverage(),
+                    amount);
+            final boolean energy = !Double.isNaN(each);
             // What the plan moves, right-aligned against the controls so the numbers line up down the list.
-            final String number = (amount > 0 ? sign : "") + Fmt.compact(eu ? amount / 20 : amount * unit.perSecond);
+            final String number = energy ? Fmt.brief(each)
+                : (amount > 0 ? sign : "") + Fmt.compact(eu ? amount / 20 : amount * unit.perSecond);
             // The time unit is the same on every line, so it is said once, in the section's header; litres go without
-            // saying; EU is in EU/t.
-            final String suffix = eu ? " EU/t" : "";
+            // saying; EU is in EU/t, and the EU reading wears its own.
+            final String suffix = energy ? Fmt.euEachSuffix(line.isFluid()) : eu ? " EU/t" : "";
             final int rateW = Hyb.width(number) + Hyb.width(suffix) + 1;
             Hyb.text(Hyb.fit(line.label(), rateRight - rateW - 4 - NAME_X), NAME_X, y + 3, hot ? Hyb.GOLD : Hyb.INK);
-            Hyb.text(number, rateRight - rateW, y + 3, amount > 0 ? ink : Hyb.MUTED);
-            Hyb.text(suffix, rateRight - Hyb.width(suffix), y + 3, Hyb.MUTED);
+            Hyb.text(number, rateRight - rateW, y + 3, energy ? Hyb.ENERGY : amount > 0 ? ink : Hyb.MUTED);
+            Hyb.text(suffix, rateRight - Hyb.width(suffix), y + 3, energy ? Hyb.ENERGY_TAIL : Hyb.MUTED);
             if (drawers.isEmpty() && !internal && !eu && !openPorts(line, sources).isEmpty())
                 lineControls(line, y + 1, w, hover);
             if (!drawers.isEmpty()) {

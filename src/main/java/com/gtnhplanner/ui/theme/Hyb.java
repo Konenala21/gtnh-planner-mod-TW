@@ -51,6 +51,11 @@ public final class Hyb {
     public static final int MENU_HOVER = 0xFF4E5058;
     public static final int RED_INK = 0xFFE05252;
     public static final int AMBER_INK = 0xFFE0A63A;
+    /**
+     * The rate key's EU reading, the website's: the number amber, its unit a greyed gold; an input's a step quieter.
+     * The one reading on the board that is not a rate, dressed so it is never taken for one.
+     */
+    public static final int ENERGY = 0xFFFCD34D, ENERGY_TAIL = 0xFF8C7D4C, ENERGY_QUIET = 0xFFC9AE5A;
     /** What comes into the plan (inputs, sources): GregTech's blue for inputs, soft as the rest of the ramp. */
     public static final int SOURCE_INK = 0xFF78B6F4;
     /** What leaves the plan (outputs, products): GregTech's orange for outputs, soft, kept clear of the gold. */

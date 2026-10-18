@@ -6,7 +6,10 @@ import java.math.RoundingMode;
 /** Number and rate formatting for the board, following Factory Flow's rules so both apps read the same. */
 public final class Fmt {
 
-    /** The board's rate unit key. Rates are stored per second; this converts and labels them. */
+    /**
+     * The board's rate unit, a clock (the key's fifth setting, EU, is BoardSession.energyView). Rates are stored per
+     * second; this converts and labels them.
+     */
     public enum RateUnit {
 
         TICK("/t", 1.0 / 20.0),
@@ -20,16 +23,6 @@ public final class Fmt {
         RateUnit(final String suffix, final double perSecond) {
             this.suffix = suffix;
             this.perSecond = perSecond;
-        }
-
-        public RateUnit next() {
-            return values()[(ordinal() + 1) % values().length];
-        }
-
-        /** A step along the units, round and round: up to a longer one (+1), down to a shorter (-1). */
-        public RateUnit step(final int step) {
-            final int n = values().length;
-            return values()[((ordinal() + step) % n + n) % n];
         }
     }
 
@@ -112,6 +105,22 @@ public final class Fmt {
     /** EU/t with the compact rules, e.g. "6.93k". */
     public static String power(final double euPerTick) {
         return compact(euPerTick);
+    }
+
+    /**
+     * The rate key's EU reading (the website's rate-unit.ts energyPerUnit): the EU spent on each unit a flow carries,
+     * {@code euPerTick} of draw over {@code perSecond} of it. Scale-free (machine count and parallels cancel) but not
+     * tier-free: a regular overclock doubles it per step, a perfect one leaves it flat. NaN when nothing flows, so the
+     * row keeps its rate instead of reading infinity.
+     */
+    public static double euEach(final double euPerTick, final double perSecond) {
+        if (!Double.isFinite(euPerTick) || !Double.isFinite(perSecond) || perSecond <= 1e-12) return Double.NaN;
+        return Math.max(0, euPerTick) * 20 / perSecond;
+    }
+
+    /** The unit the EU reading wears, as the website's: per item, or per litre for a fluid. */
+    public static String euEachSuffix(final boolean fluid) {
+        return fluid ? " EU/L" : " EU/Item";
     }
 
     private static String strip(final BigDecimal value) {

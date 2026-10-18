@@ -337,6 +337,18 @@ public final class PlannerSettings {
         set("board.rateUnit", unit.name());
     }
 
+    /**
+     * The rate key's fifth setting, EU: ports and the overview's inputs and outputs read the EU each unit cost. Rates
+     * typed or wheeled, wires and drawers keep {@link #rateUnit()}.
+     */
+    public static boolean energyView() {
+        return bool("board.rateEnergy", false);
+    }
+
+    public static void setEnergyView(final boolean on) {
+        set("board.rateEnergy", Boolean.toString(on));
+    }
+
     /** Power shown as amps at each machine's tier rather than EU/t. */
     public static boolean powerAsAmps() {
         return bool("board.powerAmps", false);
