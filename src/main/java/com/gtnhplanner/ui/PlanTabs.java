@@ -38,7 +38,7 @@ import com.gtnhplanner.ui.theme.Hyb;
  * Every tab keeps its name readable. When they do not all fit, the strip scrolls sideways (the wheel, or the thin bar
  * along its bottom), fades at an edge with more beyond it, and keeps the open plan's tab in view; "+" stays put at the
  * end. On a narrow bar the open plan's tab and "+" always fit: the faces fold to two and a count first, then the
- * status keeps only its dot ({@link TopBar} gives the tabs at least {@link #reserve()}).
+ * status keeps only its dot ({@link TopBar} gives the tabs at least {@link #reserve()} while its keys can give way).
  */
 final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
@@ -124,7 +124,21 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
      * given way as far as it goes.
      */
     int reserve() {
-        return TAB_LEAST + TAB_GAP + PLUS + 4 + facesW(FACES_FOLDED) + statusW(false);
+        return TAB_LEAST + TAB_GAP + PLUS + 4 + endLeast();
+    }
+
+    /** The room the tabs and "+" take with every tab at its own width, the strip's end not counted. */
+    int want() {
+        final List<Graph> slots = session.slots();
+        int w = 0;
+        for (final int slot : Plan.getInstance()
+            .openSlots()) w += tabWidth(slots.get(slot)) + TAB_GAP;
+        return w + PLUS + 4;
+    }
+
+    /** The strip's end (who else is here, the account's status) as small as it goes. */
+    int endLeast() {
+        return facesW(FACES_FOLDED) + statusW(false);
     }
 
     // region Who else is here

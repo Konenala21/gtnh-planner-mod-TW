@@ -64,9 +64,10 @@ public final class PortSlot extends Widget<PortSlot>
     /** Far out the ports are not drawn: they take no hover, clicks or drags, and the card under them does. */
     @Override
     public boolean canHover() {
-        return card.session()
-            .graph()
-            .getZoom() > RecipeCard.GLANCE_ZOOM;
+        return !RecipeCard.glanceAt(
+            card.session()
+                .graph()
+                .getZoom());
     }
 
     /** The stack for tooltips. Unlike {@link #getStackForRecipeViewer()} it never arms an NEI lookup. */
@@ -143,6 +144,8 @@ public final class PortSlot extends Widget<PortSlot>
                 .model(node());
         if (model == null || canvas.edit()
             .active()) return false;
+        // With "Scroll changes values" off the wheel changes no rate or item: the board zooms.
+        if (!com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()) return false;
         final com.gtnhplanner.ui.BoardSession session = canvas.session();
         final boolean key = overKey();
         if (!key && !overBox()) return !canvas.carryingSpare() && stepItem(session, model, direction);

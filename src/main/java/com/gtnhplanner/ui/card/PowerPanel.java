@@ -282,7 +282,15 @@ final class PowerPanel {
 
     /** What the mouse does on the amps and tier chips; the section for the chip under the mouse is marked. */
     static int guideHeight() {
-        return PAD + 12 + 5 * LINE + 6 + 12 + 2 * LINE + PAD - 2;
+        return PAD + 12 + ampRows().length * LINE + 6 + 12 + 2 * LINE + PAD - 2;
+    }
+
+    /** The amps chip's rows: the wheel's only while "Scroll changes values" is on. */
+    private static String[][] ampRows() {
+        return com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()
+            ? new String[][] { { "Type amps", "Click" }, { "-1", "Right click" }, { "+1 / -1", "Wheel" },
+                { "+10 / -10", "Ctrl+Wheel" }, { "×4 or ÷4", "Shift+Wheel" } }
+            : new String[][] { { "Type amps", "Click" }, { "-1", "Right click" } };
     }
 
     static void drawGuide(final int x, final int y, final RecipeCard.Part on) {
@@ -290,8 +298,7 @@ final class PowerPanel {
         Tip.beginPanel();
         Tip.chrome(x, y, w, h);
         int ty = y + PAD;
-        final String[][] ampRows = { { "Type amps", "Click" }, { "-1", "Right click" }, { "+1 / -1", "Wheel" },
-            { "+10 / -10", "Ctrl+Wheel" }, { "×4 or ÷4", "Shift+Wheel" } };
+        final String[][] ampRows = ampRows();
         if (on == RecipeCard.Part.AMPS) Hyb.rect(x + PAD, ty, 1, 12 + ampRows.length * LINE - 2, Tip.SUBTLE);
         Hyb.text("Amps", left, ty, Tip.TITLE);
         ty += 12;
@@ -301,7 +308,9 @@ final class PowerPanel {
             ty += LINE;
         }
         ty += 6;
-        final String[][] tierRows = { { "Up", "Click, wheel up" }, { "Down", "Right click, wheel down" } };
+        final boolean wheel = com.gtnhplanner.ui.PlannerSettings.scrollChangesValues();
+        final String[][] tierRows = { { "Up", wheel ? "Click, wheel up" : "Click" },
+            { "Down", wheel ? "Right click, wheel down" : "Right click" } };
         if (on == RecipeCard.Part.TIER) Hyb.rect(x + PAD, ty, 1, 12 + tierRows.length * LINE - 2, Tip.SUBTLE);
         Hyb.text("Tier", left, ty, Tip.TITLE);
         ty += 12;

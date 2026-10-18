@@ -645,8 +645,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         }
         if (b[0] > b[2]) return null;
         for (final WireLayer.Wire w : routed) for (final int[] p : w.path()) grow(b, p[0], p[1]);
-        if (zoom <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM
-            && com.gtnhplanner.ui.PlannerSettings.zoomedOutNames()) {
+        if (com.gtnhplanner.ui.card.RecipeCard.glanceAt(zoom) && com.gtnhplanner.ui.PlannerSettings.zoomedOutNames()) {
             // A card's name sits above or below it, no wider; a drawer's beside it (a source's left, a product's
             // right), or above or below as wide as two of it.
             for (final RecipeCard card : new java.util.LinkedHashSet<>(cards.values())) {
@@ -1987,7 +1986,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Let go: it stays here")
                 : com.gtnhplanner.ui.popup.Tip.of("Hand it to another machine")
                     .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Drop on a green card")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "Change amount");
+                    .wheelAnyway("Change amount");
         final float tx = fn.x + dx + (c.output() ? CardLayout.W + 6 : rx - 6 - tip.width() * s);
         final float ty = fn.y + dy + rowY;
         org.lwjgl.opengl.GL11.glPushMatrix();
@@ -2717,7 +2716,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         float readable = ZOOMS[ZOOMS.length - 1];
         for (final float z : ZOOMS) {
             // The first step out of the glance view (0.66), as the old threshold times 1.4 gave.
-            if (z > RecipeCard.GLANCE_ZOOM) {
+            if (!RecipeCard.glanceAt(z)) {
                 readable = z;
                 break;
             }
@@ -3223,7 +3222,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     /** Whether {@link #frame} would show these closer than the glance view, so their ports can be read. */
     public boolean framesReadably(final List<UUID> ids) {
         final int[] box = box(ids);
-        return box != null && fitZoom(box[0], box[1], box[2], box[3]) > RecipeCard.GLANCE_ZOOM;
+        return box != null && !RecipeCard.glanceAt(fitZoom(box[0], box[1], box[2], box[3]));
     }
 
     /** The world box around the given cards and drawers, as {x0, y0, x1, y1}; null when none is on the board. */

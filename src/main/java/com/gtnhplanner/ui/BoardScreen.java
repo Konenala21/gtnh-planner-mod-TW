@@ -202,41 +202,35 @@ public final class BoardScreen extends ModularScreen {
             18,
             18);
         // As the website's bar: Plans (the library on My plans; Shared with me and Community are its shelves), then
-        // Share
-        // (Invite people first, then the copies), then the account key.
+        // Share (Invite people first, then the copies), then the account key. Short of room the three show only their
+        // pictures, as feedback, settings and help do (TopBar); their tips lead with their names.
         topBar.key(
             0,
             named(
                 parts,
                 "plans",
-                key(
-                    () -> "Plans",
-                    () -> true,
-                    "Your plans, the ones shared with you, and Community",
-                    fit("Plans"),
-                    () -> {
-                        if (library.open) {
-                            library.set(false);
-                            return;
-                        }
-                        library.view.showMine();
-                        library.set(true);
-                    })),
-            fit("Plans"),
-            tight("Plans"));
+                pictureKey("Plans", Picture.PLANS, "Plans: your plans, the ones shared with you, and Community", () -> {
+                    if (library.open) {
+                        library.set(false);
+                        return;
+                    }
+                    library.view.showMine();
+                    library.set(true);
+                })),
+            () -> fit("Plans"),
+            () -> TopBar.PICTURE_W);
         topBar.key(
             0,
             named(
                 parts,
                 "share",
-                key(
-                    () -> "Share",
-                    () -> true,
-                    "Share this plan: invite people to edit it with you, or send a copy",
-                    fit("Share"),
+                pictureKey(
+                    "Share",
+                    Picture.SHARE,
+                    "Share: invite people to edit this plan with you, or send a copy",
                     () -> openShare(panel, session, canvas, parts.get("share")))),
-            fit("Share"),
-            tight("Share"));
+            () -> fit("Share"),
+            () -> TopBar.PICTURE_W);
         final ButtonWidget<?> account = named(parts, "account", accountKey(panel, session, parts));
         topBar.key(0, account, () -> accountWidth(true), () -> accountWidth(false));
         topBar.key(
@@ -249,8 +243,7 @@ public final class BoardScreen extends ModularScreen {
                     () -> true,
                     "Feedback: report a bug, share an idea, or ask for help",
                     () -> com.gtnhplanner.ui.popup.FeedbackPanel.open(panel, session, canvas, null))),
-            18,
-            18);
+            TopBar.PICTURE_W);
         topBar.key(
             1,
             named(
@@ -261,16 +254,14 @@ public final class BoardScreen extends ModularScreen {
                     () -> true,
                     "Settings",
                     () -> com.gtnhplanner.ui.popup.SettingsPanel.open(panel))),
-            18,
-            18);
+            TopBar.PICTURE_W);
         topBar.key(
             1,
             named(
                 parts,
                 "help",
                 iconKey(Picture.HELP, () -> true, "Help: the tour, and every control", () -> openHelp(panel, parts))),
-            18,
-            18);
+            TopBar.PICTURE_W);
 
         final Flow column = Flow.column()
             .widthRel(1f)
@@ -347,11 +338,26 @@ public final class BoardScreen extends ModularScreen {
                 () -> Math.max(0, panel.getArea().width - (rail.isEnabled() ? rail.currentWidth() : 0)),
                 com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
         panel.child(toolbar);
+        // The overview's edge, over the board beside it: drag it to set the overview's width.
+        final RailHandle railHandle = new RailHandle(rail, picker::isEnabled);
+        railHandle
+            .left(
+                () -> rail.currentWidth() - RailHandle.INSIDE,
+                com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
+            .top(
+                () -> topBar.barHeight() + toolbar.barHeight(),
+                com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL)
+            .width(RailHandle.INSIDE + RailHandle.OUTSIDE)
+            .bottom(0);
+        panel.child(railHandle);
+        parts.put("railHandle", railHandle);
+        // The overview gives way to the board, which keeps its toolbar on one row (RailFit).
+        rail.fitTo(() -> panel.getArea().width, toolbar::leastOneRow);
         // Over everything, so the board waits under it.
         panel.child(offer);
         library.body = body;
         library.session = session;
-        library.board = List.of(rail);
+        library.board = List.of(rail, railHandle);
         library.plan = List.of(mid, selectionBar, toolbar);
         library.notices = notices;
         library.tasks = tasks;
@@ -361,9 +367,12 @@ public final class BoardScreen extends ModularScreen {
         return new BoardScreen(panel, session, canvas, library, picker, parts);
     }
 
-    /** The account key's width: "Sign in" while signed out, else the face of the account. */
-    private static int accountWidth(final boolean roomy) {
-        if (!com.gtnhplanner.library.Account.signedIn()) return roomy ? fit("Sign in") : tight("Sign in");
+    /**
+     * The account key's width: "Sign in" while signed out (its picture alone when the bar is short of room), else the
+     * face of the account.
+     */
+    private static int accountWidth(final boolean labelled) {
+        if (!com.gtnhplanner.library.Account.signedIn()) return labelled ? fit("Sign in") : TopBar.PICTURE_W;
         return Math.max(
             18,
             com.gtnhplanner.ui.task.TaskLook
@@ -376,7 +385,7 @@ public final class BoardScreen extends ModularScreen {
      */
     private static ButtonWidget<?> accountKey(final ModularPanel panel, final BoardSession session,
         final java.util.Map<String, IWidget> parts) {
-        final ButtonWidget<?> button = key(() -> "", () -> true, "Your account: sign in, or sign out", 18, () -> {
+        final ButtonWidget<?> button = key(() -> "", () -> true, "Account: sign in, or sign out", 18, () -> {
             if (!com.gtnhplanner.library.Account.signedIn()) {
                 com.gtnhplanner.ui.library.AccountForms.signIn(panel, () -> {});
                 return;
@@ -405,7 +414,11 @@ public final class BoardScreen extends ModularScreen {
         button.overlay((IDrawable) (ctx, x, y, w, h, theme) -> {
             final String who = com.gtnhplanner.library.Account.username();
             if (who == null) {
-                Hyb.textCentered("Sign in", x + w / 2f, y + (h - 8) / 2f, 0xFF22D3EE);
+                // Short of room, a small person, as the other picture keys.
+                if (w < fit("Sign in")) {
+                    final int[] at = Icons.centred(x, y, w, h);
+                    Icons.account(at[0], at[1], 0xFF22D3EE);
+                } else Hyb.textCentered("Sign in", x + w / 2f, y + (h - 8) / 2f, 0xFF22D3EE);
                 return;
             }
             final String id = com.gtnhplanner.library.Account.accountId();
@@ -625,7 +638,8 @@ public final class BoardScreen extends ModularScreen {
             { "Click a card or drawer", "Select it (Shift-click adds to the selection)" },
             { "Drag the board", "Pan (Shift-drag selects a box)" }, { "Drag a selected card", "Move the selection" },
             { "Ctrl+A", "Select everything" }, { "Delete", "Delete the selection (Esc deselects)" },
-            { "Wheel", "Zoom; over a value, change it" }, { "WASD or arrows", "Pan (+/- or Page Up/Down zoom)" },
+            { "Wheel", PlannerSettings.scrollChangesValues() ? "Zoom; over a value, change it" : "Zoom" },
+            { "WASD or arrows", "Pan (+/- or Page Up/Down zoom)" },
             { "Ctrl+C, Ctrl+X, Ctrl+V", "Copy, cut, paste the selection and its wires" },
             { "Ctrl+Z, Ctrl+Shift+Z", "Undo, redo" },
             { "Double-click an overview row", "Show the cards that make or use it" } };
@@ -652,7 +666,7 @@ public final class BoardScreen extends ModularScreen {
 
         @Override
         public boolean onMouseScroll(final com.cleanroommc.modularui.api.UpOrDown direction, final int amount) {
-            if (!enabled.getAsBoolean()) return false;
+            if (!enabled.getAsBoolean() || !PlannerSettings.scrollChangesValues()) return false;
             final int step = direction == com.cleanroommc.modularui.api.UpOrDown.UP ? 1 : -1;
             wheel.accept(step);
             com.gtnhplanner.ui.sound.Sfx.TICK.play(step > 0 ? 1.12f : 0.9f);
@@ -766,7 +780,31 @@ public final class BoardScreen extends ModularScreen {
         FEEDBACK,
         GEAR,
         HELP,
-        PENCIL
+        PENCIL,
+        PLANS,
+        SHARE
+    }
+
+    /**
+     * A top-bar key with a label, or only its picture when the bar is short of room (Plans, Share): the bar gives it
+     * the width.
+     */
+    private static ButtonWidget<?> pictureKey(final String label, final Picture picture, final String tooltip,
+        final Runnable action) {
+        final ButtonWidget<?> button = key(() -> "", () -> true, tooltip, fit(label), action);
+        button.overlay((IDrawable) (ctx, x, y, w, h, theme) -> {
+            if (w >= fit(label)) {
+                Hyb.textCentered(label, x + w / 2f, y + (h - 8) / 2f, Hyb.INK);
+                return;
+            }
+            final int[] at = Icons.centred(x, y, w, h);
+            switch (picture) {
+                case PLANS -> Icons.plans(at[0], at[1], Hyb.INK);
+                case SHARE -> Icons.share(at[0], at[1], Hyb.INK);
+                default -> {}
+            }
+        });
+        return button;
     }
 
     /** A small key with a picture on it (the game's font has none): undo, redo, feedback, settings, help, notes. */
@@ -784,6 +822,8 @@ public final class BoardScreen extends ModularScreen {
                 case GEAR -> Icons.gear(at[0], at[1], c);
                 case HELP -> Icons.help(at[0], at[1], c);
                 case PENCIL -> Icons.pencil(at[0], at[1], c);
+                case PLANS -> Icons.plans(at[0], at[1], c);
+                case SHARE -> Icons.share(at[0], at[1], c);
             }
         });
         return button;
@@ -1130,6 +1170,8 @@ public final class BoardScreen extends ModularScreen {
             return;
         } else if (hovered == null || hovered == canvas) {
             tip = Tip.ofLines(canvas.wireLines());
+        } else if (hovered instanceof final RailHandle handle) {
+            tip = handle.tip();
         } else if (hovered instanceof final SelectionBar bar) {
             tip = bar.overGroupKey() ? Tip.of("Group these")
                 .muted("A frame round the selection. Drag things in and out of it.")

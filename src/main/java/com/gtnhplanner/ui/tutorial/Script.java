@@ -973,7 +973,7 @@ final class Script {
         // Zoomed far out the cards show no keys: in close enough to press the reactor's pin key first. (Under the old
         // glance zoom, 0.42, this allowed for 0.15 more; the glance view now starts at 0.65, past those steps.)
         beat(out).escIf(Script::popupOpen)
-            .when(() -> zoom() <= RecipeCard.GLANCE_ZOOM, Steps.wheel(card(ACID, RecipeCard.Part.BODY), 4))
+            .when(() -> RecipeCard.glanceAt(zoom()), Steps.wheel(card(ACID, RecipeCard.Part.BODY), 4))
             .pause(300)
             .opens(card(ACID, RecipeCard.Part.PLACE))
             .note(

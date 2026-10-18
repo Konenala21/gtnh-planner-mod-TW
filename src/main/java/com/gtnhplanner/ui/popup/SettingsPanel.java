@@ -28,7 +28,8 @@ import com.gtnhplanner.ui.world.PlannerKeys;
 /**
  * The planner's settings (the top bar's gear): a box in the middle of the screen in the card's look, its sections down
  * the left and the chosen one's settings on the right, each with the control that fits it: a switch, a row of
- * choices, a slider, the minimap's corner. A change saves at once; the wheel over a control steps it, as on the cards.
+ * choices, a slider, the minimap's corner. A change saves at once; the wheel over a control steps it, as on the cards
+ * (unless "Scroll changes values" is off).
  */
 public final class SettingsPanel extends Widget<SettingsPanel> implements Interactable {
 
@@ -194,6 +195,10 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
         final String[] seeThrough = new String[100 / PlannerSettings.SEE_THROUGH_STEP + 1];
         for (int i = 0; i < seeThrough.length; i++) seeThrough[i] = i * PlannerSettings.SEE_THROUGH_STEP + "%";
+        final String[] zoomedOut = new String[(PlannerSettings.ZOOMED_OUT_MAX - PlannerSettings.ZOOMED_OUT_MIN)
+            / PlannerSettings.ZOOMED_OUT_STEP + 1];
+        for (int i = 0; i < zoomedOut.length; i++)
+            zoomedOut[i] = PlannerSettings.ZOOMED_OUT_MIN + i * PlannerSettings.ZOOMED_OUT_STEP + "%";
         out.add(
             new Section(
                 "Board",
@@ -209,11 +214,26 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         null,
                         PlannerSettings::zoomedOutNames,
                         PlannerSettings::setZoomedOutNames).about("Names each card when you zoom far out."),
+                    new Row(
+                        "Zoomed-out view",
+                        null,
+                        Kind.SLIDER,
+                        zoomedOut,
+                        () -> (PlannerSettings.zoomedOutPercent() - PlannerSettings.ZOOMED_OUT_MIN)
+                            / PlannerSettings.ZOOMED_OUT_STEP,
+                        i -> PlannerSettings
+                            .setZoomedOutPercent(PlannerSettings.ZOOMED_OUT_MIN + i * PlannerSettings.ZOOMED_OUT_STEP))
+                                .about("Cards turn simple below this zoom."),
                     toggle(
                         "Problem outlines",
                         null,
                         PlannerSettings::problemOutlines,
                         PlannerSettings::setProblemOutlines).about("Draws a card's edge in its bar's colour."),
+                    toggle(
+                        "Scroll changes values",
+                        null,
+                        PlannerSettings::scrollChangesValues,
+                        PlannerSettings::setScrollChangesValues).about("Scroll over a number or chip to change it."),
                     new Row(
                         "See-through",
                         null,
@@ -840,6 +860,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             }
             return true;
         }
+        // With "Scroll changes values" off a row takes no wheel.
+        if (!PlannerSettings.scrollChangesValues()) return true;
         final List<Row> rows = section().rows();
         for (int i = 0; i < rows.size(); i++) {
             final Row row = rows.get(i);

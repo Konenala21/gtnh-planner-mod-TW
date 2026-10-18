@@ -65,8 +65,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         return Result.SUCCESS;
     }
 
-    static final int W = 198;
-    static final int W_FOLDED = 14;
+    static final int W_FOLDED = RailFit.STRIP;
 
     private static final int HEAD_H = 18, FILTER_Y = 20, FILTER_H = 14, LIST_Y = 38;
     private static final int SECTION_H = 12, ROW_H = 13, DRAWER_H = 12, GROUP_H = 18, LINE_H = 14, GAP = 4;
@@ -142,7 +141,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     /** The sections folded to their bars, and whether the overview is open: as the player last left them. */
     private final Set<String> folded = new HashSet<>(PlannerSettings.overviewFolded());
     private final List<Hit> hits = new ArrayList<>();
+    /** The player's fold, and whether they opened it while the planner had folded it (it stays open then). */
     private boolean open = PlannerSettings.overviewOpen();
+    private boolean forced;
+    /** The width the player dragged its edge to. */
+    private int wish = PlannerSettings.overviewWidth();
+    /** The planner's width, and the least the board keeps beside it (its toolbar on one row). */
+    private java.util.function.IntSupplier plannerWidth = () -> 100_000, boardLeast = () -> 0;
+    /** A drag of the edge in progress: the width it shows, or -1. */
+    private int dragWidth = -1;
     private String filter = "";
     private int scroll;
     private int contentH;
@@ -151,35 +158,104 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     OverviewRail(final BoardSession session, final BoardCanvas canvas) {
         this.session = session;
         this.canvas = canvas;
-        width(currentWidth());
+        width(this::currentWidth, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
         filterField = new TextFieldWidget()
             .value(new StringValue.Dynamic(() -> filter, s -> filter = s == null ? "" : s))
             .hintText("Filter resources...")
             .pos(4, FILTER_Y)
-            .size(W - 8, FILTER_H);
+            .height(FILTER_H)
+            .width(() -> currentWidth() - 8, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
         filterField.setEnabled(open);
         child(filterField);
     }
 
+    /** Fits the overview to the planner's width beside a board that keeps at least {@code boardLeast}. */
+    void fitTo(final java.util.function.IntSupplier plannerWidth, final java.util.function.IntSupplier boardLeast) {
+        this.plannerWidth = plannerWidth;
+        this.boardLeast = boardLeast;
+    }
+
+    /** The overview as it shows now: the player's fold and width, and the planner's fold on top of them. */
+    private RailFit.Fit fit() {
+        final int planner = plannerWidth.getAsInt(), least = boardLeast.getAsInt();
+        // Opened against the planner, it is let go once the planner would not fold it any more.
+        if (forced && !RailFit.fit(planner, least, open, false, wish)
+            .autoFolded()) forced = false;
+        final RailFit.Fit fit = RailFit.fit(planner, least, open, forced, wish);
+        return dragWidth > 0 && fit.open() ? new RailFit.Fit(true, dragWidth, false) : fit;
+    }
+
+    /** Whether the overview shows open (the player's fold, and the planner's). */
     boolean isOpen() {
-        return open;
+        return fit().open();
     }
 
     int currentWidth() {
-        return open ? W : W_FOLDED;
+        return fit().width();
     }
 
+    /** What its edge can be dragged to now: {least, most}. */
+    int[] dragLimits() {
+        return RailFit.dragLimits(plannerWidth.getAsInt(), boardLeast.getAsInt());
+    }
+
+    /** A drag of its edge shows this width; nothing is saved until {@link #endDrag}. */
+    void dragTo(final int width) {
+        final int[] limits = dragLimits();
+        final int next = Math.max(limits[0], Math.min(limits[1], width));
+        if (next == dragWidth) return;
+        dragWidth = next;
+        relayout();
+    }
+
+    /** The drag is over: its width is kept, as the player's. */
+    void endDrag() {
+        if (dragWidth < 0) return;
+        wish = dragWidth;
+        dragWidth = -1;
+        PlannerSettings.setOverviewWidth(wish);
+        relayout();
+    }
+
+    /** Back to the default width (a double click on its edge). */
+    void resetWidth() {
+        dragWidth = -1;
+        wish = RailFit.DEFAULT;
+        PlannerSettings.setOverviewWidth(wish);
+        relayout();
+    }
+
+    /**
+     * The fold key and the strip: open, it folds (the player's fold); folded, it opens, and stays open while the
+     * planner is too narrow for it (the board gives way instead).
+     */
     void toggle() {
-        open = !open;
+        if (isOpen()) {
+            open = false;
+            forced = false;
+        } else {
+            open = true;
+            forced = true;
+        }
         PlannerSettings.setOverviewOpen(open);
         scroll = 0;
-        filterField.setEnabled(open);
-        width(currentWidth());
+        relayout();
+    }
+
+    /** Its width changed: the board beside it, and what sits over the board, take their places again. */
+    private void relayout() {
+        filterField.setEnabled(isOpen());
+        laidOpen = isOpen();
+        laidWidth = currentWidth();
         if (getParent() != null) getParent().scheduleResize();
         // What sits over the board (the toolbar, the notices) takes its place from the rail's width too.
         if (getPanel() != null) getPanel().scheduleResize();
         scheduleResize();
     }
+
+    /** The width and fold the planner was last laid out for. */
+    private int laidWidth = -1;
+    private boolean laidOpen;
 
     @Override
     public boolean canHover() {
@@ -189,6 +265,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     @Override
     public void onUpdate() {
         super.onUpdate();
+        // The planner narrowed or widened, or the toolbar's row changed: the overview gives way or comes back.
+        if (currentWidth() != laidWidth || isOpen() != laidOpen) relayout();
         // The field commits only on Enter; read its live text so the list filters as the player types.
         final String live = filterField.getText();
         if (!live.equals(filter)) {
@@ -228,7 +306,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         Hyb.rect(0, 0, w, h, Hyb.seeThrough(0xFF202226, RAIL_FLOOR));
         // Its edge on the board: a dark line, a border rather than a seam; as see-through as the rest.
         Hyb.rect(w - 1, 0, 1, h, Hyb.seeThrough(0xFF0C0D10));
-        if (!open) {
+        if (!isOpen()) {
             drawFolded(h);
             session.setRailHoverKey(null);
             hoverSpare(null, w);
@@ -447,6 +525,9 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             .contains(f);
     }
 
+    /** Where the last section bar's title and count end: what comes after them on the bar gives way first. */
+    private int headEnd;
+
     private int section(final String title, final int count, final int shown, final int y, final int w, final int ink,
         final Hit hover) {
         final boolean isFolded = folded.contains(title);
@@ -461,6 +542,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final int tw = Hyb.width(title), bw = Hyb.width(badge) + 6;
         Hyb.rect(13 + tw + 4, y + 1, bw, 10, 0xFF353942);
         Hyb.text(badge, 13 + tw + 7, y + 2, 0xFFA3A3A3);
+        headEnd = 13 + tw + 4 + bw;
         hits.add(new Hit(Kind.SECTION, 0, y, w - 1, y + SECTION_H, title));
         return y + SECTION_H;
     }
@@ -993,8 +1075,13 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         // Ahead of the heading's own hit, which spans the bar: the first hit under the mouse takes the click, and the
         // key's is on top (behind the heading, a click on the key folded the section).
         hits.add(hits.size() - 1, new Hit(Kind.PEAK, px, y - SECTION_H + 1, px + TOGGLE_W, y - 1, null));
-        // What the machines draw, in the bar beside the key.
-        Hyb.textRight(Fmt.power(t.euPerTick()) + " EU/t", px - 5, y - SECTION_H + 2, Hyb.MUTED);
+        // What the machines draw, in the bar beside the key; on a narrow overview the unit goes, then the figure, so
+        // the
+        // title, the count and the key stay whole.
+        final String draw = Fmt.power(t.euPerTick());
+        final String drawn = Hyb.width(draw + " EU/t") <= px - 5 - headEnd - 4 ? draw + " EU/t"
+            : Hyb.width(draw) <= px - 5 - headEnd - 4 ? draw : "";
+        Hyb.textRight(drawn, px - 5, y - SECTION_H + 2, Hyb.MUTED);
         if (folded.contains("MACHINES")) return y + GAP;
 
         if (t.euMade() > 0) {
@@ -1231,7 +1318,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         // A press anywhere on the overview sets what was being typed.
         edit.commit();
         final Hit hit = hitAtMouseFromLastFrame();
-        if (hit == null) return open ? Result.SUCCESS : Result.IGNORE;
+        if (hit == null) return isOpen() ? Result.SUCCESS : Result.IGNORE;
         if (hit.kind() == Kind.SCROLLBAR) {
             if (mouseButton != 0) return Result.SUCCESS;
             // On the thumb it is taken where it was grabbed; on the track the thumb jumps to centre on the mouse.
@@ -1485,11 +1572,11 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
-        if (!open) return false;
+        if (!isOpen()) return false;
         // A rate box or a machine's count takes the wheel, as on the cards; but a wheel that scrolled the list a
         // moment ago keeps scrolling it, so scrolling past one never steps it by surprise.
         final long now = System.currentTimeMillis();
-        if (now - listWheelAt > 400) {
+        if (now - listWheelAt > 400 && PlannerSettings.scrollChangesValues()) {
             final Hit hit = hitAtMouseFromLastFrame();
             final int step = direction == UpOrDown.UP ? 1 : -1;
             if (hit != null && hit.kind() == Kind.RATE) {
@@ -1603,7 +1690,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final String hint = "§7";
         final Fmt.RateUnit unit = session.rateUnit();
         return switch (hit.kind()) {
-            case FOLD -> List.of(open ? "Fold the overview" : "Open the overview");
+            case FOLD -> List.of(isOpen() ? "Fold the overview" : "Open the overview");
             case SCROLLBAR -> null;
             case ADD -> List.of(
                 inputs.contains(hit.data()) ? "Add a source drawer for it" : "Add a product drawer for it",
