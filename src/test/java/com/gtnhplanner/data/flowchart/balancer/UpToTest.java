@@ -502,6 +502,18 @@ class UpToTest {
     }
 
     @Test
+    void aRecyclingRingFedFromOutsideRunsSoItIsNoDeadLoop() {
+        final SolutionView s = solved(UpToPlans.fedRing(0.25));
+        for (final String name : List.of("r0", "r1")) {
+            assertEquals(UpToReason.STARVED, readout(s, name).reason(), name);
+            assertEquals(0.5, readout(s, name).reached(), 1e-6, name);
+        }
+        assertTrue(
+            s.upToLoops()
+                .isEmpty());
+    }
+
+    @Test
     void aStarvedChainIsNoRing() {
         final SolutionView s = solved(UpToPlans.starvedChain());
         assertEquals(UpToReason.STARVED, readout(s, "a").reason());

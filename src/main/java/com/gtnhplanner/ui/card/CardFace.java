@@ -133,11 +133,11 @@ public final class CardFace {
     /**
      * The bar's facts, for its tip: the reason (null when it was not worked out), FORCED IN, what runs of the count,
      * what the line wants (BOTTLENECK), the row it is about and the others that hold it back as much, the full cards
-     * upstream of a starved one, and each forced input.
+     * upstream of a starved one, each forced input, and the ring the card is in (null for none).
      */
     public record Facts(@Nullable UpToReason reason, boolean forced, double running, double capacity,
         @Nullable Double wants, @Nullable String resource, List<String> tied, List<String> upstream,
-        List<String> forcedIn) {}
+        List<String> forcedIn, @Nullable UpToLoop.Kind loop) {}
 
     /**
      * The bar along the foot: its tone, one word ("BOTTLENECK"; empty when the reason was not worked out), one plain
@@ -169,13 +169,24 @@ public final class CardFace {
     public static Foot foot(final PinRule rule, final double set, @Nullable final UpToReadout upTo,
         final List<Forced> forced, final Function<PortRef, String> portName, final Function<UUID, String> cardName,
         final ToIntFunction<String> width) {
-        if (rule == PinRule.UP_TO && upTo != null) return upToFoot(set, upTo, portName, cardName, width);
+        return foot(rule, set, upTo, forced, portName, cardName, width, null);
+    }
+
+    /**
+     * As above, for a card in a ring ({@code loop}, null for none): an Up to card's bar says DEAD LOOP or CLOG LOCK in
+     * the ring's tone in place of its reason (the website's buildFootView).
+     */
+    @Nullable
+    public static Foot foot(final PinRule rule, final double set, @Nullable final UpToReadout upTo,
+        final List<Forced> forced, final Function<PortRef, String> portName, final Function<UUID, String> cardName,
+        final ToIntFunction<String> width, @Nullable final UpToLoop.Kind loop) {
+        if (rule == PinRule.UP_TO && upTo != null) return upToFoot(set, upTo, portName, cardName, width, loop);
         if (rule == PinRule.EXACT && !forced.isEmpty()) return forcedFoot(set, forced, width);
         return null;
     }
 
     private static Foot upToFoot(final double set, final UpToReadout upTo, final Function<PortRef, String> portName,
-        final Function<UUID, String> cardName, final ToIntFunction<String> width) {
+        final Function<UUID, String> cardName, final ToIntFunction<String> width, @Nullable final UpToLoop.Kind loop) {
         final double capacity = upTo.capacity() > 0 ? upTo.capacity() : set;
         final double reached = Math.max(0, upTo.reached());
         final UpToReason reason = upTo.reason();
@@ -201,12 +212,14 @@ public final class CardFace {
             final String n = cardName.apply(id);
             upstream.add(n == null ? "a card" : n);
         }
-        final String word = reason == null ? "" : reason.name();
+        final String word = loop != null ? loopWord(loop) : reason == null ? "" : reason.name();
         final int room = FOOT_TEXT - (word.isEmpty() ? 0 : width.applyAsInt(word) + FOOT_GAP)
             - width.applyAsInt(frac)
             - FOOT_GAP;
         final String m = wants == null ? "" : Fmt.machines(wants);
-        final List<String> lines = reason == null ? List.of() : switch (reason) {
+        // A clog lock's cards stand still (UNUSED) but say what backs up, as CLOGGED does.
+        final UpToReason says = loop == UpToLoop.Kind.CLOG_LOCK ? UpToReason.CLOGGED : reason;
+        final List<String> lines = says == null ? List.of() : switch (says) {
             case FULL -> List.of("nothing wants more");
             case BOTTLENECK -> wants != null ? List.of("the line wants " + m, "wants " + m)
                 : List.of("the line wants more");
@@ -220,7 +233,7 @@ public final class CardFace {
             case LIMITED -> List.of("the plan holds it back", "held back");
         };
         return new Foot(
-            Tone.of(reason),
+            loop != null ? loopBar(loop) : Tone.of(reason),
             word,
             fitLine(lines, room, width),
             frac,
@@ -228,7 +241,7 @@ public final class CardFace {
             share,
             ghostLeft,
             ghostWidth,
-            new Facts(reason, false, reached, capacity, wants, resource, tied, upstream, List.of()));
+            new Facts(reason, false, reached, capacity, wants, resource, tied, upstream, List.of(), loop));
     }
 
     private static Foot forcedFoot(final double set, final List<Forced> forced, final ToIntFunction<String> width) {
@@ -254,7 +267,7 @@ public final class CardFace {
             0,
             0,
             0,
-            new Facts(null, true, set, set, null, null, List.of(), List.of(), each));
+            new Facts(null, true, set, set, null, null, List.of(), List.of(), each, null));
     }
 
     private static double share(final double value, final double end) {
@@ -339,9 +352,30 @@ public final class CardFace {
         return new Glance(foot.tone(), foot.share(), foot.word());
     }
 
+    /**
+     * What a ring is called (the website's LOOP_WORD): its notice's chip, and the word on each of its cards' foot bars
+     * in place of the reason.
+     */
+    public static String loopWord(final UpToLoop.Kind kind) {
+        return kind == UpToLoop.Kind.DEAD_LOOP ? "DEAD LOOP" : "CLOG LOCK";
+    }
+
+    /**
+     * A ring's bar takes the ring's tone: a dead loop STARVED's amber, a clog lock CLOGGED's purple (never UNUSED's).
+     */
+    public static Tone loopBar(final UpToLoop.Kind kind) {
+        return kind == UpToLoop.Kind.DEAD_LOOP ? Tone.STARVED : Tone.CLOGGED;
+    }
+
+    /** The note at the foot of the bar's tip on a card in a ring: that the ring stops itself, and where to act. */
+    public static String loopNote(final UpToLoop.Kind kind) {
+        return kind == UpToLoop.Kind.DEAD_LOOP ? "This loop starves itself to a stop. Bring this input in from outside."
+            : "This loop clogs itself to a stop. A drawer for this output frees it.";
+    }
+
     /** A dead loop wears STARVED's amber, a clog lock CLOGGED's purple. */
     public static int loopTone(final UpToLoop.Kind kind) {
-        return kind == UpToLoop.Kind.DEAD_LOOP ? Tone.STARVED.colour : Tone.CLOGGED.colour;
+        return loopBar(kind).colour;
     }
 
     /**

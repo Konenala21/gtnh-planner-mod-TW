@@ -20,28 +20,13 @@ class LoopsTest {
     private static final UpToLoop.Kind DEAD = UpToLoop.Kind.DEAD_LOOP, CLOG = UpToLoop.Kind.CLOG_LOCK;
 
     @Test
-    void saysItInPlainShortSentences() {
-        assertEquals(
-            "The Electrolyzer, Chemical Reactor and Mixer wait on each other. Nothing feeds the loop.",
-            Loops.sentence(DEAD, List.of("Electrolyzer", "Chemical Reactor", "Mixer"), List.of()));
-        assertEquals(
-            "The Electrolyzer and Mixer are stuck on Hydrogen. A drawer for it frees them.",
-            Loops.sentence(CLOG, List.of("Electrolyzer", "Mixer"), List.of("Hydrogen")));
-        assertEquals(
-            "The Electrolyzer and Mixer are stuck on Hydrogen and Water. A drawer for each frees them.",
-            Loops.sentence(CLOG, List.of("Electrolyzer", "Mixer"), List.of("Hydrogen", "Water")));
-        assertEquals(
-            "The Mixer waits on itself. Nothing feeds the loop.",
-            Loops.sentence(DEAD, List.of("Mixer"), List.of()));
-        assertEquals(
-            "The Mixer is stuck on Hydrogen. A drawer for it frees it.",
-            Loops.sentence(CLOG, List.of("Mixer"), List.of("Hydrogen")));
-        assertEquals(
-            "The 2 Mixer cards wait on each other. Nothing feeds the loop.",
-            Loops.sentence(DEAD, List.of("Mixer", "Mixer"), List.of()));
-        assertEquals(
-            "The Electrolyzer and Mixer are stuck on what they make. A drawer for it frees them.",
-            Loops.sentence(CLOG, List.of("Electrolyzer", "Mixer"), List.of()));
+    void namesWhatItIsAndSaysItIsADownwardSpiralInOneShortSentence() {
+        assertEquals("DEAD LOOP", Loops.tag(DEAD));
+        assertEquals("CLOG LOCK", Loops.tag(CLOG));
+        assertEquals("These machines starve each other in a downward spiral.", Loops.sentence(DEAD, 3));
+        assertEquals("These machines clog each other in a downward spiral.", Loops.sentence(CLOG, 2));
+        assertEquals("This machine starves itself in a downward spiral.", Loops.sentence(DEAD, 1));
+        assertEquals("This machine clogs itself in a downward spiral.", Loops.sentence(CLOG, 1));
     }
 
     private static final UUID A = id(1), B = id(2), C = id(3), SPLIT = id(4), MAKE = id(5), OTHER = id(6),
@@ -116,21 +101,11 @@ class LoopsTest {
     }
 
     @Test
-    void namesEachCardOnceAndEachResourceOnce() {
+    void namesEachCardOnce() {
         final UpToLoop loop = new UpToLoop(
             CLOG,
             List.of(SHARED, SHARED2, MAKE),
             List.of(new PortRef(SHARED, 0, false), new PortRef(SHARED2, 0, false), new PortRef(MAKE, 2, false)));
         assertEquals(List.of(SHARED, MAKE), Loops.cards(loop, CARD));
-        final Map<PortRef, String> keys = Map.of(
-            new PortRef(SHARED, 0, false),
-            "fluid:hydrogen",
-            new PortRef(SHARED2, 0, false),
-            "fluid:hydrogen",
-            new PortRef(MAKE, 2, false),
-            "fluid:water");
-        assertEquals(
-            List.of("Hydrogen", "Water"),
-            Loops.resources(loop, keys::get, k -> k.equals("fluid:hydrogen") ? "Hydrogen" : "Water"));
     }
 }

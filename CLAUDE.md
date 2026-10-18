@@ -50,8 +50,13 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   well, the rule word (its menu) and the set number in gold under it; every port a tile of one shape; along an Up to
   card's foot a bar with the solver's reason (`SolutionView.upTo`, read by `BoardSession.upTo`), an Exactly card's
   FORCED IN, and a card with a problem there wears its frame in the bar's colour (`CardFace.edge`, the gear's Problem
-  outlines); the row its reason names is striped in the reason's tone (`CardFace.why`); a card in a dead loop or clog
-  lock (`SolutionView.upToLoops`, `BoardSession.loopOf`) wears a 2 px outline pulsing on the prompt clock; zoomed out
+  outlines); the row its reason names is striped in the reason's tone (`CardFace.why`). A ring counts only when it
+  stands still (`UpToRead.findLoops`: a dead loop all STARVED at zero, a clog lock all UNUSED; a ring fed from outside
+  is none); a card in one (`SolutionView.upToLoops`, `BoardSession.loopOf`) says DEAD LOOP or CLOG LOCK on its bar in
+  the ring's tone (a clog lock's in CLOGGED's purple, `CardFace.loopBar`) and wears a 2 px outline pulsing on the
+  prompt clock, and the ring's notice is an alarm (`Notice.alarm`: a chip in that tone blinking with the outlines, one
+  short sentence, `Loops.sentence`; the sentence goes under the chip where it does not fit, `NoticeRow`). Notices go
+  most pressing first (`Notice.byUrgency`: a failed solve, alarms, warnings, the rest; a flash on top). Zoomed out
   (from 0.65, `RecipeCard.GLANCE_ZOOM`) the face shows the bar along its foot (`CardFace.glance`). The recipe's
   circuit is a badge in the well's top left corner. A middle click clears what is set under it (count, port rate,
   drawer rate). `call upto` puts stand-in read-outs, drawer shortfalls and loops on the board.

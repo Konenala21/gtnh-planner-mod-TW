@@ -196,7 +196,7 @@ final class DevBoard {
                 .solving());
         final List<String> notices = new ArrayList<>();
         for (final Notice n : screen.session()
-            .notices()) notices.add(n.severity() + ": " + n.text());
+            .notices()) notices.add(n.severity() + ": " + (n.tag() == null ? "" : "[" + n.tag() + "] ") + n.text());
         m.put("notices", notices);
         // The leftovers and the places that could bear them, with their shares now.
         final List<Map<String, Object>> spares = new ArrayList<>();

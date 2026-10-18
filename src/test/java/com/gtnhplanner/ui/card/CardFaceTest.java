@@ -516,5 +516,49 @@ class CardFaceTest {
             CardFace.loopFrame(com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP, false));
     }
 
+    @Test
+    void aCardInARingSaysDeadLoopOrClogLockOnItsBarInTheRingsTone() {
+        final com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind dead = com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP,
+            clog = com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.CLOG_LOCK;
+        final UpToReadout starved = readout(24, 0, UpToReason.STARVED, OXYGEN, null);
+        final CardFace.Foot d = CardFace.foot(PinRule.UP_TO, 24, starved, List.of(), PORTS, CARDS, SIX, dead);
+        assertEquals(CardFace.Tone.STARVED, d.tone());
+        assertEquals("DEAD LOOP", d.word());
+        assertEquals("short of Oxygen", d.say());
+        assertEquals(
+            dead,
+            d.facts()
+                .loop());
+        // A clog lock's cards stand still (UNUSED), but the bar says what backs up, in CLOGGED's purple, not grey.
+        final UpToReadout unused = readout(24, 0, UpToReason.UNUSED, ACID, null);
+        final CardFace.Foot c = CardFace.foot(PinRule.UP_TO, 24, unused, List.of(), PORTS, CARDS, SIX, clog);
+        assertEquals(CardFace.Tone.CLOGGED, c.tone());
+        assertEquals("CLOG LOCK", c.word());
+        assertEquals("Sulfuric Acid has nowhere to go", c.say());
+        assertEquals(
+            clog,
+            c.facts()
+                .loop());
+        assertEquals(CardFace.Tone.CLOGGED.colour, CardFace.edge(c), "its frame in the ring's tone");
+        // Out of a ring the same card reads UNUSED in grey.
+        assertEquals(CardFace.Tone.UNUSED, upTo(unused, SIX).tone());
+        assertNull(
+            upTo(unused, SIX).facts()
+                .loop());
+        // The zoomed-out bar says it too.
+        final CardFace.Glance glance = CardFace.glance(c);
+        assertEquals(CardFace.Tone.CLOGGED, glance.tone());
+        assertEquals("CLOG LOCK", glance.word());
+        assertEquals(
+            "DEAD LOOP",
+            CardFace.glance(d)
+                .word());
+        // The tip's note.
+        assertEquals("This loop starves itself to a stop. Bring this input in from outside.", CardFace.loopNote(dead));
+        assertEquals("This loop clogs itself to a stop. A drawer for this output frees it.", CardFace.loopNote(clog));
+        // A ring on an Exactly card says nothing of it (its bar is FORCED IN or none).
+        assertNull(CardFace.foot(PinRule.EXACT, 4, null, List.of(), PORTS, CARDS, SIX, dead));
+    }
+
     // endregion
 }

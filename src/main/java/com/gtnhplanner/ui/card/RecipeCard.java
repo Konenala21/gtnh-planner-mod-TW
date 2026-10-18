@@ -336,7 +336,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 final CardModel m = session.model(id);
                 return m == null ? null : m.machineName;
             },
-            Hyb::width);
+            Hyb::width,
+            session.loopOf(nodeId));
     }
 
     /**
@@ -485,6 +486,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             return tip.muted("Set it to Up to and it runs what its inputs allow.");
         }
         tip.row("Usage", CardFace.usage(facts.running(), facts.capacity()));
+        // A ring: what it is short of or backs up with, and that the ring stops itself.
+        if (facts.loop() != null) {
+            final boolean dead = facts.loop() == com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP;
+            if (facts.resource() != null) tip.row(dead ? "Short of" : "Backs up", facts.resource(), Hyb.AMBER_INK);
+            for (final String n : facts.tied()) tip.row(dead ? "Also short of" : "Also backs up", n, Hyb.AMBER_INK);
+            return tip.muted(CardFace.loopNote(facts.loop()));
+        }
         if (facts.reason() == null) return tip.muted("Why it runs less was not worked out in time.");
         switch (facts.reason()) {
             case FULL -> tip.muted("Nothing around it would use more.");

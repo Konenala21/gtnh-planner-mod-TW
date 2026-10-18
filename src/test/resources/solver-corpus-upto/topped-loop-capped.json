@@ -245,27 +245,6 @@
      "wants": null,
      "upstream": []
     }
-   ],
-   "upToLoops": [
-    {
-     "kind": "DEAD_LOOP",
-     "nodes": [
-      "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
-      "c8d13d6f-f353-3a22-9cec-b0ab06460788"
-     ],
-     "ports": [
-      {
-       "nodeId": "ae02b412-2e34-33f1-b5a0-3a401d23b5c6",
-       "portIndex": 0,
-       "input": true
-      },
-      {
-       "nodeId": "c8d13d6f-f353-3a22-9cec-b0ab06460788",
-       "portIndex": 0,
-       "input": true
-      }
-     ]
-    }
    ]
   },
   "alternatives": {

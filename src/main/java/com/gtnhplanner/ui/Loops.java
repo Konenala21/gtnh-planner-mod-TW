@@ -77,52 +77,19 @@ public final class Loops {
         return out;
     }
 
-    /** "A", "A and B", "A, B and C". */
-    static String list(final List<String> words) {
-        if (words.isEmpty()) return "";
-        if (words.size() == 1) return words.get(0);
-        return String.join(", ", words.subList(0, words.size() - 1)) + " and " + words.get(words.size() - 1);
+    /** What a ring is: the chip its notice wears before its sentence, in the ring's tone and blinking. */
+    public static String tag(final UpToLoop.Kind kind) {
+        return com.gtnhplanner.ui.card.CardFace.loopWord(kind);
     }
 
     /**
-     * The notice for a ring, in plain short sentences: a dead loop's cards wait on each other and nothing feeds them; a
-     * clog lock's are stuck on what they cannot get rid of, and a drawer for it frees them. {@code names} are its
-     * cards'
-     * machines, a card each; {@code resources} the names of what its rows carry, once each. A ring of one kind of
-     * machine says how many cards.
+     * The notice for a ring after its chip, one short sentence (the website's loopSentence): its cards starve (a dead
+     * loop) or clog (a clog lock) each other in a downward spiral, each holding the next back. Which cards is for Show
+     * me, their pulsing outlines and the lit wires to say; {@code cards} is how many.
      */
-    public static String sentence(final UpToLoop.Kind kind, final List<String> names, final List<String> resources) {
-        final List<String> distinct = new ArrayList<>(new LinkedHashSet<>(names));
-        final boolean one;
-        final String who;
-        if (names.size() > 1 && distinct.size() == 1) {
-            who = names.size() + " " + distinct.get(0) + " cards";
-            one = false;
-        } else {
-            who = list(distinct);
-            one = names.size() == 1;
-        }
-        if (kind == UpToLoop.Kind.DEAD_LOOP) return one ? "The " + who + " waits on itself. Nothing feeds the loop."
-            : "The " + who + " wait on each other. Nothing feeds the loop.";
-        final String what = resources.isEmpty() ? "what they make" : list(resources);
-        final String drawer = resources.size() > 1 ? "A drawer for each" : "A drawer for it";
-        return one ? "The " + who + " is stuck on " + what + ". " + drawer + " frees it."
-            : "The " + who + " are stuck on " + what + ". " + drawer + " frees them.";
-    }
-
-    /**
-     * The names of what a ring's rows carry, each resource once ({@code keyOf} a row's resource key, null for a row
-     * that is gone), in row order.
-     */
-    public static List<String> resources(final UpToLoop loop, final Function<PortRef, String> keyOf,
-        final Function<String, String> nameOf) {
-        final Set<String> keys = new LinkedHashSet<>();
-        for (final PortRef p : loop.ports()) {
-            final String key = keyOf.apply(p);
-            if (key != null) keys.add(key);
-        }
-        final List<String> out = new ArrayList<>(keys.size());
-        for (final String key : keys) out.add(nameOf.apply(key));
-        return out;
+    public static String sentence(final UpToLoop.Kind kind, final int cards) {
+        final boolean dead = kind == UpToLoop.Kind.DEAD_LOOP;
+        if (cards == 1) return "This machine " + (dead ? "starves" : "clogs") + " itself in a downward spiral.";
+        return "These machines " + (dead ? "starve" : "clog") + " each other in a downward spiral.";
     }
 }

@@ -3598,26 +3598,13 @@ public final class BoardSession {
                             List.of()));
                 }
             }
-            // Old Build's rings: a dead loop's cards wait on each other, a clog lock's are stuck on a surplus. Show me
-            // frames the ring's cards.
+            // Old Build's rings: a dead loop's cards starve each other, a clog lock's clog each other on a surplus.
+            // Alarms: a chip in the ring's tone, blinking, right under a failed solve. Show me frames the ring's cards.
             for (final com.gtnhplanner.data.flowchart.balancer.UpToLoop loop : upToLoops()) {
                 final List<UUID> ring = Loops.cards(loop, this::hostOf);
                 ring.removeIf(id -> !cards.containsKey(id));
                 if (ring.isEmpty()) continue;
-                final List<String> names = new ArrayList<>(ring.size());
-                for (final UUID id : ring) names.add(cards.get(id).machineName);
-                final Map<String, String> named = new HashMap<>();
-                final List<String> what = Loops.resources(loop, p -> {
-                    final CardModel m = cards.get(p.nodeId());
-                    if (m == null) return null;
-                    for (final CardModel.PortView v : p.input() ? m.inputs : m.outputs)
-                        if (v.index() == p.portIndex()) {
-                            named.putIfAbsent(v.key(), v.name());
-                            return v.key();
-                        }
-                    return null;
-                }, named::get);
-                out.add(new Notice(Severity.WARN, Loops.sentence(loop.kind(), names, what), ring));
+                out.add(Notice.alarm(loop.kind(), Loops.sentence(loop.kind(), ring.size()), ring));
             }
             for (final DrawerReadout.Shortfall s : shortfalls()) {
                 final DrawerModel d = drawerModels.get(s.drawer());
@@ -3687,8 +3674,8 @@ public final class BoardSession {
             out.add(failure(lastResult.errorNote()));
         }
         // A port with no wire or drawer is no problem: what it takes comes in from outside the plan, what it makes
-        // leaves it (the card draws it so).
-        return out;
+        // leaves it (the card draws it so). Most pressing first; a flash goes above them all (notices()).
+        return Notice.byUrgency(out);
     }
 
     /** An output made past its target, said in full. */
