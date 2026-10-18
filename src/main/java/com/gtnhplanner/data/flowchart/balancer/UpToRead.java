@@ -190,9 +190,11 @@ public final class UpToRead {
      * {@code findLoops}). A pool blames the Up to pools on the wire network of its {@code port} and {@code tied} ports:
      * for a STARVED pool those that make what it is short of, for a CLOGGED or UNUSED one those that take what it
      * cannot get rid of. A ring is a strongly connected part of that relation ({@link Loops}; a pool blaming itself
-     * counts) whose members all read STARVED (DEAD_LOOP) or all CLOGGED or UNUSED (CLOG_LOCK). Members in pool order,
-     * rings by their first member's {@code node}. A pure graph over the read-out and the model's networks: no model
-     * runs.
+     * counts) whose members all stand still and all read STARVED (DEAD_LOOP) or all UNUSED (CLOG_LOCK). Standing still
+     * is what makes it a ring's own doing: a ring that loses material every lap winds down to zero with nothing feeding
+     * it, so one that runs at all is fed from outside and held back by that feed, which its members' reasons already
+     * point at. Members in pool order, rings by their first member's {@code node}. A pure graph over the read-out and
+     * the model's networks: no model runs.
      */
     private static List<UpToLoop> findLoops(final SolveContext ctx, final Map<Integer, Read> read) {
         final ModelData model = ctx.model;
@@ -203,8 +205,9 @@ public final class UpToRead {
             for (final int p : ctx.upToPools) {
                 final Read r = read.get(p);
                 if (r.port == null) continue;
-                if (starving ? r.reason == UpToReason.STARVED
-                    : r.reason == UpToReason.CLOGGED || r.reason == UpToReason.UNUSED) members.add(p);
+                // UNUSED is CLOGGED standing still.
+                if (starving ? r.reason == UpToReason.STARVED && idle(ctx, p) : r.reason == UpToReason.UNUSED)
+                    members.add(p);
             }
             if (members.isEmpty()) continue;
             // What each member blames (its short inputs, or its full outputs), and the networks it makes on or takes
@@ -275,6 +278,16 @@ public final class UpToRead {
                     b.nodes()
                         .get(0)));
         return loops;
+    }
+
+    /** Whether every machine of a pool stands still at the committed point (within the solve's dust). */
+    private static boolean idle(final SolveContext ctx, final int pool) {
+        final StageOutcome point = ctx.point();
+        final double dust = ctx.heuristics.numerics().dust
+            * ctx.solutionScale(point.extents, point.flows, point.externals);
+        for (final int m : ctx.model.pools.get(pool)
+            .machines()) if (point.extents[m] > dust) return false;
+        return true;
     }
 
     /** The connected input port a reference names, or null when it is not wired. */
@@ -688,13 +701,7 @@ public final class UpToRead {
         if (disposal < capable - tol) {
             final Short at = shortPort(ctx, pool, held, outs, ins, disposal, "up to: one output free", budget);
             if (at == null) return null;
-            final StageOutcome point = ctx.point();
-            final double dust = ctx.heuristics.numerics().dust
-                * ctx.solutionScale(point.extents, point.flows, point.externals);
-            boolean idle = true;
-            for (final int m : ctx.model.pools.get(pool)
-                .machines()) idle &= point.extents[m] <= dust;
-            return new Why(idle ? UpToReason.UNUSED : UpToReason.CLOGGED, at.port(), at.tied(), null);
+            return new Why(idle(ctx, pool) ? UpToReason.UNUSED : UpToReason.CLOGGED, at.port(), at.tied(), null);
         }
         if (capable < 1 - tol && !ins.isEmpty()) {
             // Short at its inputs only when feeding them (its outputs free) does raise it.
