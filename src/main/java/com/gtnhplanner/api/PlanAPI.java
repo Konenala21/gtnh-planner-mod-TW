@@ -88,13 +88,15 @@ public final class PlanAPI {
 
     /**
      * Copies the save on disk into {@code backups} now, whatever the session has already backed up (a change about to
-     * touch every plan, such as uploading them). The newest ten are kept. False when there was nothing to copy or it
-     * failed. The suffix must not be empty.
+     * touch every plan, such as uploading them): the file the plans are read from, the one from before the rename while
+     * there is no other. The newest ten are kept. False when there was nothing to copy or it failed. The suffix is
+     * never empty.
      */
     public static boolean backUpNow(final String suffix) {
         // The session's own backup has no suffix and the same stamp format: it must never be overwritten by this one.
         if (suffix == null || suffix.isBlank()) throw new IllegalArgumentException("a backup needs a suffix");
-        final File saveFile = getSaveFile();
+        File saveFile = getSaveFile();
+        if (!saveFile.isFile()) saveFile = getLegacySaveFile();
         return saveFile.isFile() && copyToBackups(saveFile, suffix);
     }
 

@@ -50,7 +50,8 @@ import com.gtnhplanner.data.flowchart.Plan;
  * deleted from the account (one shared with the player is left instead).</li>
  * <li>{@link #tick} runs every client tick: what the service sent, others' edits read into the boards once they are
  * at rest, rooms joined and left, edits sent, the list and plans fetched, and what failed tried again.</li>
- * <li>A world's own plans go to the account once ({@link Migration}); its save stays as it was.</li>
+ * <li>A world's own plans join the account once, as the planner's plans load ({@link #bringOver}; {@link Migration}
+ * for one cut off on its way); its save only keeps their keys.</li>
  * </ul>
  * One per account, made when the planner first needs it and stopped on sign-out. Everything but the network calls runs
  * on the client thread; those run on a thread of the session's own and answer back through {@link #tick}.
@@ -310,7 +311,7 @@ public final class CloudSession {
     /**
      * The planner's plans for this account: every plan in its list and this device's copies, as this device left
      * them (which have tabs, the open one, the order). Plans not on this device yet are empty until they come. The
-     * world's own plans go to the account once, in the background. Client thread.
+     * world's own plans never sent join them at once and go to the account in the background. Client thread.
      */
     public Plan load() {
         letGoOfPlans();
@@ -354,9 +355,10 @@ public final class CloudSession {
             p.getGraphs()
                 .add(g);
         }
+        final Graph worldOpen = bringOver(p);
         final String active = device.has("active") ? device.get("active")
             .getAsString() : null;
-        int index = 0;
+        int index = -1;
         for (int i = 0; i < p.getGraphs()
             .size(); i++)
             if (Objects.equals(
@@ -364,6 +366,10 @@ public final class CloudSession {
                     .get(i)
                     .getCloudKey(),
                 active)) index = i;
+        // A device the account has never opened a plan on opens on the plan the world had open.
+        if (index < 0 && worldOpen != null) index = p.getGraphs()
+            .indexOf(worldOpen);
+        if (index < 0) index = 0;
         if (!p.getGraphs()
             .isEmpty()) {
             p.setActiveIndex(index);
@@ -382,9 +388,57 @@ public final class CloudSession {
                 .add(standIn);
             p.setActiveIndex(0);
         }
-        deviceKept = deviceState(p);
+        // Plans brought over from the world are new to this device's state: it is written now, not just remembered.
+        if (broughtOver.isEmpty()) deviceKept = deviceState(p);
+        else keepDevice();
         listAt = -LIST_EVERY_MS;
         return p;
+    }
+
+    /** The world's plans brought over by this load, by doc key, until each is in the account. */
+    private final Set<String> broughtOver = new HashSet<>();
+
+    /**
+     * The world's plans that never went to an account join the planner now, each a new plan of this account's, sent as
+     * any plan made here is (kept on this device, tried until it goes): signing in never opens on fewer plans than the
+     * world had. The world's save is backed up first and then keeps each one's key, so none comes over twice. A plan
+     * keyed already (sent before, or cut off on its way) is for the account's list and {@link #migrate}.
+     *
+     * @return the slot the world had open, when it came over; else null
+     */
+    @Nullable
+    private Graph bringOver(final Plan p) {
+        broughtOver.clear();
+        final Plan local = host.worldPlans();
+        if (local == null) return null;
+        final List<Graph> fresh = new ArrayList<>();
+        for (final Graph g : local.getGraphs()) if (g.getCloudKey() == null && Migration.eligible(g)) fresh.add(g);
+        if (fresh.isEmpty()) return null;
+        if (!host.backUpWorld()) {
+            GtnhPlanner.LOG.warn("The world's plans could not be backed up; they stay in the world for now");
+            host.notice("Your plans from this world could not be added to your account");
+            return null;
+        }
+        for (final Graph g : fresh) g.setCloudKey(newKey());
+        if (!host.saveWorld(local)) {
+            for (final Graph g : fresh) g.setCloudKey(null);
+            GtnhPlanner.LOG
+                .warn("The world's plans could not be saved with their keys; they stay in the world for now");
+            host.notice("Your plans from this world could not be added to your account");
+            return null;
+        }
+        for (final Graph g : fresh) {
+            p.getGraphs()
+                .add(g);
+            make(g, g.getCloudKey());
+            broughtOver.add(g.getCloudKey());
+        }
+        GtnhPlanner.LOG.info("[cloud] {}: {} plans from this world joined the account", accountId, fresh.size());
+        final int at = local.getActiveIndex();
+        final Graph open = at >= 0 && at < local.getGraphs()
+            .size() ? local.getGraphs()
+                .get(at) : null;
+        return fresh.contains(open) ? open : null;
     }
 
     /** The empty plan the planner opened on while the account had none, until the world's plans arrive. */
@@ -526,9 +580,16 @@ public final class CloudSession {
      * key.
      */
     private String make(final Graph g) {
-        final String key = accountId + ":"
+        return make(g, newKey());
+    }
+
+    private String newKey() {
+        return accountId + ":"
             + UUID.randomUUID()
                 .toString();
+    }
+
+    private String make(final Graph g, final String key) {
         final LiveDoc d = LiveDoc.made(this, key, g);
         docs.put(key, d);
         cache.saveDocAsIs(key, 0, d.confirmed());
@@ -1172,6 +1233,8 @@ public final class CloudSession {
             }
             makeRefusals.remove(d.key());
             keepDevice();
+            if (broughtOver.remove(d.key()) && broughtOver.isEmpty())
+                host.notice("Your plans from this world are now in your account");
         }, e -> { if (refusal(e)) createRefused(d, e); });
     }
 
@@ -1233,8 +1296,9 @@ public final class CloudSession {
     }
 
     /**
-     * The world's own plans to the account, once: backed up, keyed and saved first; then sent; each that went joins the
-     * planner and the player hears it once. One that did not go stays in the world's save and goes next time.
+     * The world's plans keyed to this account that it does not have (a send cut off before {@link #bringOver} made them
+     * plans of the planner) go again, once a session, against the account's list: backed up and saved first; then sent;
+     * each that went joins the planner and the player hears it once. One that did not go goes next time.
      */
     private void migrate() {
         final Plan local = host.worldPlans();
@@ -1244,6 +1308,9 @@ public final class CloudSession {
         }
         final Set<String> known = new HashSet<>();
         for (final CloudApi.Design d : library.own()) known.add(d.id());
+        // A plan already in the planner (brought over, or made here and still on its way) goes as its own doc does.
+        for (final String key : docs.keySet())
+            if (key.startsWith(accountId + ":")) known.add(key.substring(accountId.length() + 1));
         final Function<Graph, JsonObject> write = g -> CloudPlans.write(g, game(), null, null)
             .plan();
         if (Migration.prepareless(local, accountId, known)) {

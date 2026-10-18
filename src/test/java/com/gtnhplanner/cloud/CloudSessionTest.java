@@ -754,22 +754,16 @@ class CloudSessionTest {
             .add(mine);
         host.world = world;
         final Plan p = begin();
-        // The account has none yet: the planner opens on an empty stand-in until they come.
-        assertEquals(
-            1,
-            p.getGraphs()
-                .size());
-        final Graph standIn = p.getGraphs()
-            .get(0);
-        tickUntil("brought over", () -> host.notices.contains("Your plans from this world are now in your account"));
+        // Before the site has said anything, the world's plan is in the planner, open, keyed in the world's save.
         assertNotNull(mine.getCloudKey(), "the world's slot is keyed");
         assertSame(world, host.worldSaved, "and the world's save kept the key");
         final Graph arrived = slot(p, mine.getCloudKey());
-        assertNotNull(arrived, "the plan is in the planner");
-        assertFalse(
+        assertNotNull(arrived, "the plan is in the planner at once");
+        assertEquals(
+            1,
             p.getGraphs()
-                .contains(standIn),
-            "the empty stand-in gave way");
+                .size(),
+            "no empty stand-in");
         assertSame(
             arrived,
             p.getGraphs()
@@ -780,10 +774,13 @@ class CloudSessionTest {
                 .size(),
             arrived.getNodes()
                 .size());
-        assertTrue(
-            designs.containsKey(
-                mine.getCloudKey()
-                    .substring(ME.length() + 1)));
+        assertTrue(calls.isEmpty(), "nothing asked of the site yet: " + calls);
+        tickUntil("brought over", () -> host.notices.contains("Your plans from this world are now in your account"));
+        final String id = mine.getCloudKey()
+            .substring(ME.length() + 1);
+        assertTrue(designs.containsKey(id));
+        ticks(40);
+        assertEquals(1, putsOf(id), "sent once");
         // The next time, nothing goes again.
         session.stop();
         session = null;
@@ -800,6 +797,52 @@ class CloudSessionTest {
                 .count(),
             "uploaded once");
         assertFalse(host.notices.contains("Your plans from this world are now in your account"));
+    }
+
+    @Test
+    void aWorldsPlanTheSiteCannotTakeYetStaysInThePlannerAndGoesLater() {
+        final Plan world = Plan.cloud("unused");
+        final Graph mine = Boards.corpus("mv");
+        host.game.knowing(mine);
+        world.getGraphs()
+            .add(mine);
+        host.world = world;
+        final Plan p = begin();
+        session.retryEvery(50);
+        final String id = mine.getCloudKey()
+            .substring(ME.length() + 1);
+        refuseId = id;
+        putStatuses.add(503);
+        tickUntil("brought over", () -> host.notices.contains("Your plans from this world are now in your account"));
+        assertNotNull(slot(p, mine.getCloudKey()), "in the planner all along");
+        assertTrue(designs.containsKey(id));
+        ticks(40);
+        // One refused, one taken: the world's copy is never sent beside the plan's own while it waits.
+        assertEquals(2, putsOf(id));
+    }
+
+    @Test
+    void aWorldsPlanCutOffOnItsWayGoesAgainOnce() {
+        // Keyed to this account by an earlier try whose send never reached it.
+        final Plan world = Plan.cloud("unused");
+        final Graph mine = Boards.corpus("mv");
+        host.game.knowing(mine);
+        final String id = UUID.randomUUID()
+            .toString();
+        mine.setCloudKey(ME + ":" + id);
+        world.getGraphs()
+            .add(mine);
+        host.world = world;
+        final Plan p = begin();
+        tickUntil("sent again", () -> host.notices.contains("Your plans from this world are now in your account"));
+        assertNotNull(slot(p, ME + ":" + id), "under the key it had");
+        assertEquals(
+            1,
+            p.getGraphs()
+                .size(),
+            "the empty stand-in gave way");
+        ticks(40);
+        assertEquals(1, putsOf(id));
     }
 
     @Test
