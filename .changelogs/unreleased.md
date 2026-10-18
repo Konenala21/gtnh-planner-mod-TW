@@ -6,7 +6,7 @@
 
 - The circuit now shows in the corner of the machine picture instead of as an input.
 - Middle click clears any count or rate you set, on the card or in the overview.
-- Tier and amps chips look like buttons again. Amps are typed right into the chip.
+- Tier and amps chips look like buttons again. Amps and machine counts are typed right where they show.
 - Zoomed out cards kick in sooner and show how hard each machine runs. Their count is big enough to read now.
 - Deleting a drawer puts its rate back on the machine it hung off. Deleting a drawer between machines wires them straight together when there is only one way to.
 - The overview lists every machine and every open input and output even at zero. A shared machine is one line there. You can change tier and amps from there too.

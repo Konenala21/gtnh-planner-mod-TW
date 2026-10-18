@@ -538,6 +538,23 @@ public final class CardPaint {
             for (int dx = 0; dx < number[2] - 1; dx += 3) Hyb.rect(number[0] + dx, lineY + 8, 1, 1, Hyb.MUTED);
     }
 
+    /**
+     * The count being typed: the website's box where the set number is (after the rule word), or under what runs with
+     * nothing set, as wide as three characters or what is typed and one more, and 4 px either side.
+     */
+    public static void countBox(final CardFace.Count c, final int[] picture,
+        final com.gtnhplanner.ui.popup.InlineNumber edit) {
+        final int top = CardLayout.countY(picture), lineY = top + CardLayout.RUN_H + CardLayout.LINE_GAP;
+        final int w = Math.max(
+            3,
+            edit.text()
+                .length() + 1)
+            * Hyb.width("0") + 8, h = CardLayout.LINE_H + 3;
+        final float x = c.pinned() ? countParts(c, picture)[2][0] - 4
+            : RecipeCard.crisp(picture[0] + picture[2] / 2f - w / 2f);
+        edit.drawBox(x, lineY - 2, w, h, lineY);
+    }
+
     // endregion
 
     // region The bar along the foot

@@ -63,6 +63,11 @@ public final class InlineNumber {
         return key != null;
     }
 
+    /** What has been typed so far. */
+    public String text() {
+        return draft;
+    }
+
     public boolean editing(final String key) {
         return this.key != null && this.key.equals(key);
     }

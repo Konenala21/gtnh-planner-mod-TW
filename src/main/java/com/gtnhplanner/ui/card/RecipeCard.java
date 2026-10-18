@@ -1473,6 +1473,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final CardFace.Count c = face();
         CardPaint
             .count(c, box, c.prompt() ? CardPaint.prompt() : Hyb.MUTED, hover == Part.MACHINES, hover == Part.RULE);
+        final BoardCanvas board = canvas();
+        if (board != null && board.edit()
+            .editing(countEditKey())) CardPaint.countBox(c, box, board.edit());
     }
 
     /**
@@ -2225,6 +2228,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return "amps:" + nodeId;
     }
 
+    /** The key of the count's box on the board's one inline editor. */
+    private String countEditKey() {
+        return "count:" + nodeId;
+    }
+
     @Override
     public Result onMousePressed(final int mouseButton) {
         if (model == null) return Result.IGNORE;
@@ -2847,7 +2855,23 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             screenY(CHIP_Y + CHIP_H + 2));
     }
 
+    /**
+     * Types the count straight into its line, as the website's: a box where the set number is (under what runs with
+     * nothing set), about as wide as the number; Enter or a click elsewhere sets it, empty goes back to Any, Escape
+     * leaves it. The rule is kept, Any becomes Up to. Off the board, a number box.
+     */
     private void openPin() {
+        final BoardCanvas board = canvas();
+        if (board != null && model != null && !countless()) {
+            final CardFace.Count c = face();
+            final Node node = model.node;
+            board.edit()
+                .start(countEditKey(), c.pinned() ? c.set() : 0, v -> session.pin(node, v));
+            if (!c.pinned()) board.edit()
+                .setText("");
+            getContext().focus(board);
+            return;
+        }
         openPin(
             screenX(partRect(Part.MACHINES)[0]),
             screenY(partRect(Part.MACHINES)[1] + partRect(Part.MACHINES)[3] + 2));
