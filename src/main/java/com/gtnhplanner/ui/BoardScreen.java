@@ -1129,7 +1129,8 @@ public final class BoardScreen extends ModularScreen {
                 Math.max(2, Math.min(my - 12, bottom - railTip.height())));
             return;
         } else if (hovered == null || hovered == canvas) {
-            tip = Tip.ofLines(canvas.wireLines());
+            final Tip dot = canvas.dotTip();
+            tip = dot != null ? dot : Tip.ofLines(canvas.wireLines());
         } else if (hovered instanceof final SelectionBar bar) {
             tip = bar.overGroupKey() ? Tip.of("Group these")
                 .muted("A frame round the selection. Drag things in and out of it.")

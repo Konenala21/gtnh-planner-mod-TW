@@ -14,6 +14,7 @@ test {
     if (project.hasProperty('spacing')) systemProperty 'gtnhplanner.spacing', project.property('spacing')
     if (project.hasProperty('crop')) systemProperty 'gtnhplanner.crop', project.property('crop')
     if (project.hasProperty('benchOnly')) systemProperty 'gtnhplanner.bench.only', project.property('benchOnly')
+    if (project.hasProperty('benchFf')) systemProperty 'gtnhplanner.bench.ff', project.property('benchFf')
     if (project.hasProperty('audit')) systemProperty 'gtnhplanner.audit', project.property('audit')
     if (project.hasProperty('runs')) systemProperty 'gtnhplanner.bench.runs', project.property('runs')
     if (project.hasProperty('profileBoard')) systemProperty 'gtnhplanner.profile.board', project.property('profileBoard')

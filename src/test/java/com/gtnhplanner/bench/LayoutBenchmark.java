@@ -151,9 +151,11 @@ class LayoutBenchmark {
     /** Every board the corpus has, plans first. */
     static List<BenchBoard> corpus() throws IOException {
         final List<BenchBoard> boards = new ArrayList<>();
+        // The website's checkout beside this one (-PbenchFf=<dir> from a worktree, which has none beside it).
+        final String ff = System.getProperty("gtnhplanner.bench.ff", "../gtnh-factory-flow");
         for (final File dir : new File[] { new File("src/test/resources/factory-flow"),
-            new File("run/client/library-downloads"), new File("../gtnh-factory-flow/examples"),
-            new File("../gtnh-factory-flow/scratch/router-corpus") }) {
+            new File("run/client/library-downloads"), new File(ff, "examples"),
+            new File(ff, "scratch/router-corpus") }) {
             final File[] files = dir
                 .listFiles((d, n) -> n.endsWith(".json") && !n.endsWith(".capture.json") && !n.contains("-2.plan"));
             if (files == null) continue;
