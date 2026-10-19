@@ -15,6 +15,8 @@ import com.gtnhplanner.api.PlanAPI;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Plan;
+import com.gtnhplanner.data.flowchart.Port;
+import com.gtnhplanner.ui.card.CardDefaults;
 
 import codechicken.nei.PositionedStack;
 import codechicken.nei.recipe.GuiCraftingRecipe;
@@ -130,6 +132,26 @@ final class DevRecipes {
                 node.outputs.forEach(
                     p -> ports.add("out " + p.getDisplayName() + " x" + p.getAmount() + " chance " + p.getChance()));
                 m.put("ports", ports);
+                // What each slot of several items lists, and the items each input can be set to (its alternatives).
+                final List<String> slots = new ArrayList<>();
+                for (final PositionedStack ps : handler.getIngredientStacks(i)) {
+                    if (ps == null || ps.items == null || ps.items.length < 2) continue;
+                    final StringBuilder sb = new StringBuilder();
+                    for (final ItemStack s : ps.items) sb.append(s == null ? "null" : CardDefaults.itemKey(s))
+                        .append(' ');
+                    slots.add(
+                        sb.toString()
+                            .trim());
+                }
+                m.put("slotItems", slots);
+                final List<String> choices = new ArrayList<>();
+                for (final Port<?> p : node.inputs) {
+                    final StringBuilder sb = new StringBuilder(p.key()).append(" ->");
+                    for (final Object alt : p.getAlternatives()) sb.append(' ')
+                        .append(p.keyOf(alt));
+                    choices.add(sb.toString());
+                }
+                m.put("choices", choices);
                 final List<String> props = new ArrayList<>();
                 node.properties.forEach((k, v) -> props.add(k + " = " + v));
                 m.put("properties", props);
