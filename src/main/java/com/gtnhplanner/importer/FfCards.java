@@ -81,9 +81,11 @@ public final class FfCards {
         final ImportReport report = ctx.report();
         final RecipeIndex.Lookup lookup = ctx.index()
             .find(recipe);
-        // A crop is the crop it names, a bee the species: their rates are what the card's settings make of them,
+        // A crop is the crop it names, a bee the species, a crusher the mob: their rates are what the card's settings
+        // make of them,
         // nothing to match by. A recipe found by its own id is the one.
-        final RecipeMatcher.Match match = recipe.isCrop() || recipe.isBee() || lookup.exact() ? exactly(lookup)
+        final RecipeMatcher.Match match = recipe.isCrop() || recipe.isBee() || recipe.isEec() || lookup.exact()
+            ? exactly(lookup)
             : RecipeMatcher.match(recipe, overrides, lookup.candidates());
         if (!match.accepted()) {
             String why = match.detail();
@@ -258,6 +260,24 @@ public final class FfCards {
             // Build runs every card at its count, generators too (as recipe cards come over: FfSettings).
             if (!ctx.solveMode()) node.setMachineCountFixed(true);
         }
+        return node;
+    }
+
+    /**
+     * FF's empty crop farm (no crop picked yet) as one: a crop farm card that plants what is picked on it. Null,
+     * reported, when the game builds none.
+     */
+    @Nullable
+    public static Node cropFarm(final Context ctx, final FfNode card, final FfRecipe recipe, final int x, final int y) {
+        final Node node = ctx.maker()
+            .makePower(com.gtnhplanner.power.CropFarm.ID, Map.of());
+        if (node == null) {
+            ctx.report()
+                .add(Kind.UNMATCHED, recipe.name(), "an empty crop farm the game has no place for");
+            return null;
+        }
+        node.x = x;
+        node.y = y;
         return node;
     }
 

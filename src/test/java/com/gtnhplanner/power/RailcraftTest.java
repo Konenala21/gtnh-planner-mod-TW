@@ -70,7 +70,7 @@ class RailcraftTest {
         assertNotNull(tank);
         assertEquals(PowerGroup.OTHER, tank.group());
         final List<PowerSource> other = PowerRegistry.inGroup(PowerGroup.OTHER);
-        assertEquals(List.of(CustomRate.SOURCE, FluidTank.SOURCE, tank), other);
+        assertEquals(List.of(CustomRate.SOURCE, FluidTank.SOURCE, CropFarm.SOURCE, tank), other);
         assertEquals("water", PowerResources.resolve("Water").id);
     }
 

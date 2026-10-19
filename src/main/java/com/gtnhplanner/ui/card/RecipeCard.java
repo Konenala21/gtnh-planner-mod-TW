@@ -697,10 +697,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /**
      * A card with no count to show or set: the fluid tank, free and instant, which keeps up with whatever the plan
-     * needs (the owner, 2026-10-13: its cells a second was a number nobody plans by).
+     * needs (the owner, 2026-10-13: its cells a second was a number nobody plans by), and an empty crop farm, which
+     * plants
+     * nothing yet.
      */
     private boolean countless() {
-        return model != null && com.gtnhplanner.power.FluidTank.is(model.node);
+        return model != null
+            && (com.gtnhplanner.power.FluidTank.is(model.node) || com.gtnhplanner.power.CropFarm.is(model.node));
     }
 
     /** Screen point of a card-local point, for anchoring popups. */

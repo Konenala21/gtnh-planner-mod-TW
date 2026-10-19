@@ -80,7 +80,8 @@ public final class FakeGame implements RecipeIndex, NodeMaker {
 
     /**
      * Look recipes up only where the game's index would (importer.game.NeiRecipeIndex): by NEI's id for the recipe, a
-     * crop's crop, the crafting and furnace pages by output, GregTech's maps by the map the plan names or the machine
+     * crop's crop, a crusher's mob, the crafting and furnace pages by output, GregTech's maps by the map the plan names
+     * or the machine
      * it names; anything else has no recipe in game. Off, every recipe is found.
      */
     boolean routed;
@@ -101,6 +102,7 @@ public final class FakeGame implements RecipeIndex, NodeMaker {
         }
         final String path;
         if (recipe.isCrop()) path = "crop";
+        else if (recipe.isEec()) path = "eec";
         else if ("crafting".equals(recipe.category()) || "furnace".equals(recipe.category())
             || "Furnace".equals(recipe.machineType())
             || recipe.machineType()

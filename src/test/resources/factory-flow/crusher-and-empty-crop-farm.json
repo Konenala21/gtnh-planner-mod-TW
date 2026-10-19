@@ -1,0 +1,543 @@
+{
+ "schemaVersion": 1,
+ "id": "website-crusher-test",
+ "name": "Website crusher",
+ "solveMode": true,
+ "planMode": true,
+ "recipes": [
+  {
+   "id": "oracle:local-2.9.0-beta-2:kubatech-eec:zombie",
+   "name": "Extreme Entity Crusher: Zombie",
+   "kind": "gregtech_machine",
+   "category": "kubatech-eec",
+   "machineType": "Extreme Entity Crusher",
+   "minimumTier": "EV",
+   "durationTicks": 55,
+   "eut": 1920,
+   "metadata": {
+    "eec": {
+     "mob": "Zombie",
+     "entityName": "Zombie",
+     "maxHealth": 20,
+     "baseEut": 1920,
+     "spawnInterval": 55,
+     "spikesDamage": 9,
+     "maxLooting": 4,
+     "infernal": {
+      "eliteRarity": 20,
+      "ultraRarity": 10,
+      "infernoRarity": 7,
+      "minEliteModifiers": 2,
+      "minUltraModifiers": 5,
+      "minInfernoModifiers": 8,
+      "mobModHealthFactor": 1.8
+     },
+     "outputs": [
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 10000,
+         "lootable": true
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 83
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 83
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 83
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 3,
+         "voidable": true
+        },
+        {
+         "amount": 1,
+         "c0": 10,
+         "voidable": true
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 7,
+         "voidable": true
+        },
+        {
+         "amount": 1,
+         "c0": 21,
+         "voidable": true
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 328
+        }
+       ]
+      },
+      {
+       "refLooting": 1,
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 0,
+         "cL": 500
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 1000
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 50
+        }
+       ]
+      },
+      {
+       "xp": true
+      }
+     ]
+    }
+   },
+   "inputs": [
+    {
+     "kind": "item",
+     "id": "factoryflow:eec_mob:zombie",
+     "amount": 1,
+     "displayName": "Zombie Spawner",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/powered_spawner-254152699ad2.png",
+     "dominantColor": "#303837",
+     "modId": "EnderIO",
+     "tooltip": [
+      "Powered Spawner holding a Zombie",
+      "Goes in the Extreme Entity Crusher's controller slot",
+      "Health: 20"
+     ],
+     "consumed": false
+    }
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "id": "minecraft:rotten_flesh",
+     "amount": 1,
+     "displayName": "Rotten Flesh",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/rotten_flesh-1cb4b7ca72e5.png",
+     "dominantColor": "#72301c",
+     "modId": "minecraft"
+    },
+    {
+     "kind": "item",
+     "id": "minecraft:iron_ingot",
+     "amount": 1,
+     "displayName": "Iron Ingot",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/iron_ingot-d7d187485223.png",
+     "dominantColor": "#808080",
+     "modId": "minecraft",
+     "chance": 0.0083
+    },
+    {
+     "kind": "item",
+     "id": "minecraft:carrot",
+     "amount": 1,
+     "displayName": "Carrot",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/carrot-e7f5481b8b57.png",
+     "dominantColor": "#ff9d2d",
+     "modId": "minecraft",
+     "chance": 0.0083
+    },
+    {
+     "kind": "item",
+     "id": "minecraft:potato",
+     "amount": 1,
+     "displayName": "Potato",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/potato-169629290640.png",
+     "dominantColor": "#d3a14f",
+     "modId": "minecraft",
+     "chance": 0.0083
+    },
+    {
+     "kind": "item",
+     "id": "minecraft:iron_sword",
+     "amount": 0.0013,
+     "displayName": "Iron Sword",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/iron_sword-b7b50536a4fe.png",
+     "dominantColor": "#575757",
+     "modId": "minecraft"
+    },
+    {
+     "kind": "item",
+     "id": "minecraft:iron_shovel",
+     "amount": 0.0028,
+     "displayName": "Iron Shovel",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/iron_shovel-03a0c740ad2c.png",
+     "dominantColor": "#4c3916",
+     "modId": "minecraft"
+    },
+    {
+     "kind": "item",
+     "id": "forbiddenmagic:nethershard",
+     "amount": 1,
+     "displayName": "Wrath Shard",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/wrath_shard-d5edea877445.png",
+     "dominantColor": "#3b0000",
+     "modId": "ForbiddenMagic",
+     "chance": 0.0328
+    },
+    {
+     "kind": "item",
+     "id": "forbiddenmagic:nethershard@6",
+     "amount": 0.05,
+     "displayName": "Greed Shard",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/greed_shard-95c4612b2055.png",
+     "dominantColor": "#937100",
+     "modId": "ForbiddenMagic"
+    },
+    {
+     "kind": "item",
+     "id": "thaumcraft:itemzombiebrain",
+     "amount": 1,
+     "displayName": "Zombie Brain",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/zombie_brain-68ef53071367.png",
+     "dominantColor": "#9b8361",
+     "modId": "Thaumcraft",
+     "chance": 0.1
+    },
+    {
+     "kind": "item",
+     "id": "tconstruct:heartcanister@1",
+     "amount": 1,
+     "displayName": "Miniature Red Heart",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/miniature_red_heart-575dfeaa518a.png",
+     "dominantColor": "#d7130c",
+     "modId": "TConstruct",
+     "chance": 0.005
+    },
+    {
+     "kind": "fluid",
+     "id": "xpjuice",
+     "amount": 120,
+     "displayName": "Liquid XP",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/liquid_xp-a0a8b42de324.png",
+     "dominantColor": "#9dff0a"
+    }
+   ],
+   "source": {
+    "recipeMap": "Extreme Entity Crusher",
+    "rawRecipeId": "Zombie"
+   }
+  },
+  {
+   "id": "oracle:local-2.9.0-beta-2:kubatech-eec:blaze",
+   "name": "Extreme Entity Crusher: Blaze",
+   "kind": "gregtech_machine",
+   "category": "kubatech-eec",
+   "machineType": "Extreme Entity Crusher",
+   "minimumTier": "LuV",
+   "durationTicks": 55,
+   "eut": 15360,
+   "metadata": {
+    "eec": {
+     "mob": "Blaze",
+     "entityName": "Blaze",
+     "maxHealth": 20,
+     "alwaysInfernal": true,
+     "baseEut": 1920,
+     "spawnInterval": 55,
+     "spikesDamage": 9,
+     "maxLooting": 4,
+     "infernal": {
+      "eliteRarity": 20,
+      "ultraRarity": 10,
+      "infernoRarity": 7,
+      "minEliteModifiers": 2,
+      "minUltraModifiers": 5,
+      "minInfernoModifiers": 8,
+      "mobModHealthFactor": 1.8
+     },
+     "outputs": [
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 5000,
+         "lootable": true
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 328
+        }
+       ]
+      },
+      {
+       "refLooting": 1,
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 0,
+         "cL": 500
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 50
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 500
+        }
+       ]
+      },
+      {
+       "drops": [
+        {
+         "amount": 1,
+         "c0": 10
+        },
+        {
+         "amount": 1,
+         "c0": 10
+        }
+       ]
+      },
+      {
+       "xp": true
+      }
+     ]
+    }
+   },
+   "inputs": [
+    {
+     "kind": "item",
+     "id": "factoryflow:eec_mob:blaze",
+     "amount": 1,
+     "displayName": "Blaze Spawner",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/powered_spawner-254152699ad2.png",
+     "dominantColor": "#303837",
+     "modId": "EnderIO",
+     "tooltip": [
+      "Powered Spawner holding a Blaze",
+      "Goes in the Extreme Entity Crusher's controller slot",
+      "Health: 20"
+     ],
+     "consumed": false
+    }
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "id": "minecraft:blaze_rod",
+     "amount": 1,
+     "displayName": "Blaze Rod",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/blaze_rod-22b7aac2c61a.png",
+     "dominantColor": "#b24901",
+     "modId": "minecraft",
+     "chance": 0.5
+    },
+    {
+     "kind": "item",
+     "id": "forbiddenmagic:nethershard",
+     "amount": 1,
+     "displayName": "Wrath Shard",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/wrath_shard-d5edea877445.png",
+     "dominantColor": "#3b0000",
+     "modId": "ForbiddenMagic",
+     "chance": 0.0328
+    },
+    {
+     "kind": "item",
+     "id": "forbiddenmagic:nethershard@6",
+     "amount": 0.05,
+     "displayName": "Greed Shard",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/greed_shard-95c4612b2055.png",
+     "dominantColor": "#937100",
+     "modId": "ForbiddenMagic"
+    },
+    {
+     "kind": "item",
+     "id": "tconstruct:heartcanister@1",
+     "amount": 1,
+     "displayName": "Miniature Red Heart",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/miniature_red_heart-575dfeaa518a.png",
+     "dominantColor": "#d7130c",
+     "modId": "TConstruct",
+     "chance": 0.005
+    },
+    {
+     "kind": "item",
+     "id": "miscutils:item.basicmetafood@8",
+     "amount": 1,
+     "displayName": "Blaze Flesh",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/blaze_flesh-aff5719d134c.png",
+     "dominantColor": "#d60e00",
+     "modId": "miscutils",
+     "chance": 0.05
+    },
+    {
+     "kind": "item",
+     "id": "gregtech:gt.metaitem.01@2843",
+     "amount": 0.002,
+     "displayName": "Pyrotheum Dust",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/pyrotheum_dust-b55a688bab36.png",
+     "dominantColor": "#dabc33",
+     "modId": "gregtech",
+     "alternatives": [
+      {
+       "kind": "item",
+       "id": "gregtech:gt.metaitem.01@2843",
+       "amount": 1,
+       "displayName": "Pyrotheum Dust",
+       "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/pyrotheum_dust-b55a688bab36.png",
+       "dominantColor": "#dabc33",
+       "modId": "gregtech"
+      },
+      {
+       "kind": "item",
+       "id": "miscutils:material@3",
+       "amount": 1,
+       "displayName": "Pyrotheum Dust",
+       "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/pyrotheum_dust-f872cf56b369.png",
+       "dominantColor": "#dabb31",
+       "modId": "miscutils"
+      }
+     ]
+    },
+    {
+     "kind": "fluid",
+     "id": "xpjuice",
+     "amount": 120,
+     "displayName": "Liquid XP",
+     "iconPath": "/datasets/gtnh/local-2.9.0-rc-2/textures/rendered/liquid_xp-a0a8b42de324.png",
+     "dominantColor": "#9dff0a"
+    }
+   ],
+   "source": {
+    "recipeMap": "Extreme Entity Crusher"
+   }
+  },
+  {
+   "id": "factoryflow:crop-farm:empty",
+   "name": "Crop Farm",
+   "kind": "crop_produce",
+   "category": "cropsnh-crop",
+   "machineType": "Crop Farm",
+   "minimumTier": "NONE",
+   "durationTicks": 256,
+   "eut": 0,
+   "inputs": [],
+   "outputs": [],
+   "notes": "Pick a crop to start producing.",
+   "source": {
+    "recipeMap": "Crop Farm"
+   }
+  }
+ ],
+ "nodes": [
+  {
+   "id": "n1",
+   "recipeId": "oracle:local-2.9.0-beta-2:kubatech-eec:zombie",
+   "machineCount": 1,
+   "parallel": 1,
+   "overclockTier": "IV",
+   "enabled": true,
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "hatchVoltageTier": "IV",
+   "hatchAmps": 2,
+   "powerInputMode": "amps",
+   "powerEuT": 16384,
+   "machineConfigTiers": {
+    "eecWeaponDamage": "10",
+    "eecLooting": "3"
+   },
+   "solvePin": 2
+  },
+  {
+   "id": "n2",
+   "recipeId": "oracle:local-2.9.0-beta-2:kubatech-eec:blaze",
+   "machineCount": 1,
+   "parallel": 1,
+   "overclockTier": "LuV",
+   "enabled": true,
+   "position": {
+    "x": 400,
+    "y": 0
+   },
+   "hatchVoltageTier": "LuV",
+   "hatchAmps": 4,
+   "powerInputMode": "amps",
+   "machineConfigTiers": {
+    "eecLooting": "2",
+    "eecInfernal": "off"
+   },
+   "solvePin": 1,
+   "solvePinExact": true
+  },
+  {
+   "id": "n3",
+   "recipeId": "factoryflow:crop-farm:empty",
+   "machineCount": 0,
+   "parallel": 1,
+   "overclockTier": "NONE",
+   "enabled": true,
+   "position": {
+    "x": 800,
+    "y": 0
+   }
+  }
+ ],
+ "storages": [],
+ "edges": [],
+ "annotations": [],
+ "pockets": [],
+ "fuelProfiles": [],
+ "metadata": {}
+}

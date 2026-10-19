@@ -304,6 +304,7 @@ public final class PlanExport {
         final JsonObject picks) {
         if (CustomRate.is(n)) return customRateRecipe(n, id, world, res);
         if (com.gtnhplanner.power.FluidTank.is(n)) return tankRecipe(n, id, world, res);
+        if (com.gtnhplanner.power.CropFarm.is(n)) return emptyCropFarmRecipe(id);
         if (n.isPower()) return powerRecipe(n, id, world, res);
         final Crop crop = world.crop(n);
         if (crop != null) return withNeiRecipe(cropRecipe(n, id, crop, world, res), world.neiRecipe(n));
@@ -313,18 +314,23 @@ public final class PlanExport {
         final JsonObject r = new JsonObject();
         r.addProperty("id", id);
         final String machine = world.machine(n);
+        // A crusher's recipe is named for its mob, as the website's are.
+        final String mob = eecMob(site);
         r.addProperty(
             "name",
-            n.outputs.isEmpty() ? machine
-                : n.outputs.get(0)
-                    .getDisplayName());
+            mob != null && site.name != null ? site.name
+                : n.outputs.isEmpty() ? machine
+                    : n.outputs.get(0)
+                        .getDisplayName());
         r.addProperty("kind", "gregtech_machine");
         final String mapId = site == null || site.metadata == null || !site.metadata.has("recipeMapId") ? null
             : site.metadata.get("recipeMapId")
                 .getAsString();
         if (site != null) r.addProperty(
             "category",
-            "crafting".equals(site.category) ? "crafting" : SMELTING.equals(mapId) ? "furnace" : "gregtech");
+            "crafting".equals(site.category) ? "crafting"
+                : SMELTING.equals(mapId) ? "furnace"
+                    : mob != null ? com.gtnhplanner.machines.MobDrops.MAP_ID : "gregtech");
         // The website's machine type is the recipe map's name; the machine itself is the node's handler.
         r.addProperty("machineType", site != null ? site.machineType : machine);
         r.addProperty("minimumTier", site != null && site.minimumTier != null ? site.minimumTier : world.tier(n));
@@ -333,11 +339,15 @@ public final class PlanExport {
         if (site != null && site.specialValue != null) r.addProperty("specialValue", site.specialValue);
         if (site != null && site.programmedCircuit != null) r.addProperty("programmedCircuit", site.programmedCircuit);
         r.add("inputs", ports(n.inputs, false, world, res, picks));
+        if (mob != null) r.getAsJsonArray("inputs")
+            .add(spawner(mob, site));
         r.add("outputs", ports(n.outputs, true, world, res));
         if (site != null) gregtech(r, site);
         final JsonObject source = new JsonObject();
         if (site != null && site.source != null && site.source.recipeMap != null)
             source.addProperty("recipeMap", site.source.recipeMap);
+        if (site != null && site.source != null && site.source.rawRecipeId != null)
+            source.addProperty("rawRecipeId", site.source.rawRecipeId);
         source.addProperty("exporter", "unknown");
         source.addProperty("sourceMod", "GTNH Planner");
         r.add("source", source);
@@ -347,6 +357,55 @@ public final class PlanExport {
         if (meta.entrySet()
             .size() > 0) r.add("metadata", meta);
         return withNeiRecipe(r, world.neiRecipe(n));
+    }
+
+    /** The mob a crusher recipe kills (its {@code metadata.eec.mob}); null for any other recipe. */
+    @Nullable
+    private static String eecMob(@Nullable final Web.Recipe site) {
+        if (site == null || site.metadata == null || !(site.metadata.get("eec") instanceof final JsonObject eec)) return null;
+        return eec.get("mob") instanceof final JsonElement m && m.isJsonPrimitive() ? m.getAsString() : null;
+    }
+
+    /**
+     * The crusher's spawner, as the website's recipes carry it: the mob's own item, never used up, which names the mob
+     * for the website's mob picker and a game that opens the post.
+     */
+    private static JsonObject spawner(final String mob, final Web.Recipe site) {
+        final String prefix = com.gtnhplanner.machines.MobDrops.MACHINE_TYPE + ": ";
+        final String name = site.name != null && site.name.startsWith(prefix) ? site.name.substring(prefix.length())
+            : mob;
+        final JsonObject o = new JsonObject();
+        o.addProperty("kind", "item");
+        o.addProperty("id", "factoryflow:eec_mob:" + com.gtnhplanner.machines.MobDrops.slug(mob));
+        o.addProperty("amount", 1);
+        o.addProperty("displayName", name + " Spawner");
+        o.addProperty("consumed", false);
+        return o;
+    }
+
+    /**
+     * An empty crop farm, as the website's own (its createCropFarmPlaceholderRecipe): the Crop Farm with no crop
+     * picked,
+     * making nothing.
+     */
+    private static JsonObject emptyCropFarmRecipe(final String id) {
+        final JsonObject r = new JsonObject();
+        r.addProperty("id", id);
+        r.addProperty("name", CROP_FARM);
+        r.addProperty("kind", "crop_produce");
+        r.addProperty("category", "cropsnh-crop");
+        r.addProperty("machineType", CROP_FARM);
+        r.addProperty("minimumTier", "NONE");
+        r.addProperty("durationTicks", 256);
+        r.addProperty("eut", 0);
+        r.add("inputs", new JsonArray());
+        r.add("outputs", new JsonArray());
+        r.addProperty("notes", "Pick a crop to start producing.");
+        final JsonObject source = new JsonObject();
+        source.addProperty("recipeMap", CROP_FARM);
+        source.addProperty("sourceMod", "GTNH Planner");
+        r.add("source", source);
+        return r;
     }
 
     /** The website's vanilla furnace map, whose recipes it files as furnace recipes, not GregTech's. */
@@ -757,7 +816,7 @@ public final class PlanExport {
         final double count = Math.max(0, machines) / (com.gtnhplanner.power.FluidTank.is(n) ? 20.0 : 1.0);
         o.addProperty("machineCount", count);
         o.addProperty("parallel", 1);
-        o.addProperty("overclockTier", CustomRate.is(n) || com.gtnhplanner.power.FluidTank.is(n) ? "NONE" : n.isPower() ? "LV" : world.tier(n));
+        o.addProperty("overclockTier", CustomRate.is(n) || com.gtnhplanner.power.FluidTank.is(n) || com.gtnhplanner.power.CropFarm.is(n) ? "NONE" : n.isPower() ? "LV" : world.tier(n));
         o.addProperty("enabled", true);
         if (CustomRate.is(n)) {
             // The dial, where the site keeps it: a second's worth, and which way it runs.

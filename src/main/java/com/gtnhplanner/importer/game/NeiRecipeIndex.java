@@ -50,6 +50,7 @@ public final class NeiRecipeIndex implements RecipeIndex {
             return byOutput(recipe, h -> "smelting".equals(h.getOverlayIdentifier()));
         if (recipe.isCrop()) return crop(recipe);
         if (recipe.isBee()) return bee(recipe);
+        if (recipe.isEec()) return eec(recipe);
         if (recipe.gregtech()) {
             Lookup found;
             if (!Compat.GREGTECH.isLoaded) found = Lookup.none("GregTech is not loaded");
@@ -160,6 +161,41 @@ public final class NeiRecipeIndex implements RecipeIndex {
             return Lookup.none("the bees could not be read (" + e + ")");
         }
         if (ref == null) return Lookup.none("no bee " + slug + " in this game");
+        return Lookup.of(
+            List.of(
+                new GameRecipe(
+                    ref.handler,
+                    ref.recipeIndex,
+                    ref.handler.getRecipeName()
+                        .trim(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    null,
+                    null)));
+    }
+
+    /**
+     * An Extreme Entity Crusher's mob: its recipe on the Mob Drops page, found by the mob's entity name (FF's crusher
+     * card keeps it as its raw recipe id), else by its slug (its spawner's id).
+     */
+    private static Lookup eec(final FfRecipe recipe) {
+        if (!Compat.MOBSINFO.isLoaded) return Lookup.none("the Extreme Entity Crusher's mobs are not in this game");
+        final String slug = recipe.eecSlug();
+        if (slug == null) return Lookup.none("a crusher card with no mob");
+        final String raw = recipe.rawRecipeId();
+        final codechicken.nei.recipe.RecipeHandlerRef ref;
+        try {
+            final codechicken.nei.recipe.RecipeHandlerRef named = raw == null ? null
+                : com.gtnhplanner.data.provider.MobDropsProvider.mob(raw::equals);
+            ref = named != null ? named
+                : com.gtnhplanner.data.provider.MobDropsProvider.mob(
+                    key -> com.gtnhplanner.machines.MobDrops.slug(key)
+                        .equals(slug));
+        } catch (final LinkageError e) {
+            return Lookup.none("the crusher's mobs could not be read (" + e + ")");
+        }
+        if (ref == null) return Lookup.none("no mob " + slug + " in this game");
         return Lookup.of(
             List.of(
                 new GameRecipe(

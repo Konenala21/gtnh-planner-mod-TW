@@ -250,6 +250,10 @@ public final class FfConverter {
                 placePower(card, recipe);
                 return;
             }
+            if (recipe.isEmptyCropFarm()) {
+                placeCropFarm(card, recipe);
+                return;
+            }
             // FF's free Tank is a fluid tank card here; a game that builds none gets the Canner recipe it mirrors.
             if (recipe.isPlannerTank() && placeTank(card, recipe)) return;
             final List<FfSection> sections = new ArrayList<>();
@@ -302,6 +306,15 @@ public final class FfConverter {
         /** A power card (FfCards.power), placed. */
         void placePower(final FfNode card, final FfRecipe recipe) {
             final Node node = FfCards.power(ctx, card, recipe, px(card.x()), py(card.y()));
+            if (node == null) return;
+            graph.addNode(node);
+            placed.computeIfAbsent(card.id(), k -> new HashMap<>())
+                .put(0, new Placed(node, card, recipe, Map.of(), 0, recipe.name()));
+        }
+
+        /** FF's empty crop farm as one (FfCards.cropFarm), placed. */
+        void placeCropFarm(final FfNode card, final FfRecipe recipe) {
+            final Node node = FfCards.cropFarm(ctx, card, recipe, px(card.x()), py(card.y()));
             if (node == null) return;
             graph.addNode(node);
             placed.computeIfAbsent(card.id(), k -> new HashMap<>())

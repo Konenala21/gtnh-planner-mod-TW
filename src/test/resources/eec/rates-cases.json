@@ -1,0 +1,7 @@
+[
+ { "mob": "Zombie", "voltage": "IV", "amps": 2, "tiers": { "eecWeaponDamage": "10", "eecLooting": "3" } },
+ { "mob": "Zombie", "voltage": "EV", "amps": 1, "tiers": { "eecVoid": "void" } },
+ { "mob": "Blaze", "voltage": "LuV", "amps": 4, "tiers": { "eecLooting": "2", "eecInfernal": "off" } },
+ { "mob": "Blaze", "voltage": "IV", "amps": 1, "tiers": { "eecMode": "ritual" } },
+ { "mob": "Enderman", "voltage": "ZPM", "amps": 1, "tiers": { "eecWeaponDamage": "25.5", "eecLooting": "4" } }
+]

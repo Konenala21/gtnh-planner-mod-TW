@@ -39,6 +39,16 @@ final class DevEec {
         final List<String> names = new ArrayList<>();
         for (final MobDropsProvider.Choice c : choices) names.add(c.key() + " = " + c.name());
         out.put("names", names);
+        // Each mob's card is saved by NEI's id for its recipe: it must find that very mob again.
+        final List<String> lost = new ArrayList<>();
+        for (final MobDropsProvider.Choice c : choices) {
+            final RecipeHandlerRef again = com.gtnhplanner.nei.RecipeRefs
+                .of(codechicken.nei.recipe.Recipe.RecipeId.of(c.ref().handler, c.ref().recipeIndex));
+            final String key = again == null ? null : MobDropsProvider.mobKey(again.handler, again.recipeIndex);
+            if (!c.key()
+                .equals(key)) lost.add(c.key() + " -> " + key);
+        }
+        out.put("foundAgainWrong", lost);
         return out;
     }
 

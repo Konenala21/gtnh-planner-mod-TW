@@ -526,13 +526,14 @@ final class PlanRead {
         if (recipe.isCustomRate()) single = customRate(card, recipe, x, y);
         else if (!card.enabled()) report.add(Kind.DROPPED, recipe.name(), "a switched-off card; left out");
         else if (recipe.power()) single = FfCards.power(ctx, card, recipe, x, y);
+        else if (recipe.isEmptyCropFarm()) single = FfCards.cropFarm(ctx, card, recipe, x, y);
         else if (recipe.isPlannerTank()) single = FfCards.tank(ctx, card, recipe, x, y);
         if (single != null) {
             single.id = uuid;
             made.put(0, new Section(single, recipe, card.overrides()));
             return made;
         }
-        if (recipe.isCustomRate() || !card.enabled() || recipe.power()) return made;
+        if (recipe.isCustomRate() || !card.enabled() || recipe.power() || recipe.isEmptyCropFarm()) return made;
         final List<FfSection> sections = new ArrayList<>();
         sections.add(new FfSection(card.recipeId(), card.overrides()));
         sections.addAll(card.extraRecipes());

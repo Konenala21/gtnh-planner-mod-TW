@@ -2986,12 +2986,15 @@ public final class BoardSession {
             if (card.power == null) euAverage += averagePower(card);
             euMade += card.madeEuPerTick();
         }
-        // Every machine, at zero too, whatever its rule (a fluid tank is free and instant: nothing to build). A shared
+        // Every machine, at zero too, whatever its rule (a fluid tank is free and instant, an empty crop farm plants
+        // nothing: nothing to build). A shared
         // machine is one line, as the website lists it: its recipes' machines and draw summed, its pool's count and
         // rule.
         final List<MachineLine> machines = new ArrayList<>();
-        for (final List<CardModel> recipes : RailTotals
-            .machines(counted, c -> com.gtnhplanner.power.FluidTank.is(c.node), c -> sharedOf(c.node.id))) {
+        for (final List<CardModel> recipes : RailTotals.machines(
+            counted,
+            c -> com.gtnhplanner.power.FluidTank.is(c.node) || com.gtnhplanner.power.CropFarm.is(c.node),
+            c -> sharedOf(c.node.id))) {
             final CardModel card = recipes.stream()
                 .filter(c -> hostOf(c.node.id).equals(c.node.id))
                 .findFirst()

@@ -6,6 +6,8 @@
 - New board settings. Zoomed-out view sets the zoom where cards turn simple. Scroll changes values lets you turn off the wheel on numbers and chips so it only zooms.
 - Crafting recipes can run on the Auto Workbench. It costs 2048 EU a craft and gets faster each tier up to EV. The crafting table is still the free choice.
 - A plan screenshot now carries the plan inside it. Open plan file on the + tab opens those and your exported plans.
+- **Extreme Entity Crusher cards.** Every mob on NEI's Mob Drops page gets a card that kills it. Click its name to swap the mob. The gear sets your weapon, Looting, infernals, the ritual and damaged gear.
+- A Crop Farm card in Non-recipe. It starts empty and you pick the crop on it. A crop card can switch crops from its menu.
 
 ## Better
 

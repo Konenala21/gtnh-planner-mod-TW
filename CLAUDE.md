@@ -111,9 +111,15 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   Power cards post to and import from the website as its power cards. `call power` checks every flow against the
   game (unmapped names, items or fluids this pack lacks).
 - The picker's first column, Other (`PowerGroup.OTHER`, `PowerRegistry.others()`, never in the generator catalog), holds
-  the planning cards: the custom rate card and the fluid tank. Both are holders (`power/Holders`): empty, they show two
-  sockets; a port dropped on one, or a socket dragged to a port, makes it take that resource (`BoardSession.holdAndWire`),
-  and every edit lets a holder with nothing wired go of it (`releaseHolders`). After them comes the Railcraft Water Tank,
+  the planning cards: the custom rate card, the fluid tank and the Crop Farm. The first two are holders (`power/Holders`):
+  empty, they show two sockets; a port dropped on one, or a socket dragged to a port, makes it take that resource
+  (`BoardSession.holdAndWire`), and every edit lets a holder with nothing wired go of it (`releaseHolders`). The Crop Farm
+  (`power/CropFarm`, source `crop-farm`, offered only with CropsNH) is the website's empty crop farm: no ports, no count,
+  no overview line, a Pick a crop key (`RecipeCard` Part.PICK) whose list of CropsNH's crops (`ui/card/RecipePicks`,
+  `CropsNhProvider.choices`, by tier then name, filtered by name or drop) puts that crop's card in its place, keeping its
+  id and spot (`BoardSession.pickCrop`); it posts as the website's empty farm (`crop_produce`, no outputs) and the
+  website's (`factoryflow:crop-farm:empty`, `FfRecipe.isEmptyCropFarm`) imports as one (`FfCards.cropFarm`, also in
+  `cloud/map`). After them comes the Railcraft Water Tank,
   an ordinary source in group `other` (`power/sources/Railcraft`, the website's railcraft.ts, with the Railcraft Boiler
   after GT's large boilers), both worked from Railcraft's own code at GTNH 2.9's version and pinned by `RailcraftTest`.
 - The custom rate card (`power/CustomRate`, the website's custom-rate.ts) is a power card with source `custom-rate`: a
@@ -132,7 +138,23 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   reads CropsNH's NEI Crops page; `machines/game/CropCards` is the card): a card per crop, added from that page, its
   count crops planted, harvested by a Crop Manager or the Industrial Farm (the `cropHarvester` setting, the website's
   `machineHandlerId`), its settings under the website's own keys. They import from and post to the website as its
-  crop farm cards (`metadata.cropsNh`). The full pack has CropsNH; the dev pack does not.
+  crop farm cards (`metadata.cropsNh`). A crop card's actions offer Pick another crop (`BoardSession.swapRecipe`: the card
+  on the new recipe in place, its settings, count, pins and the wires, drawers and rates on what it still makes kept).
+  The full pack has CropsNH; `PLANNH_GTNH=1 PLANNH_CROPS=1 tools/dev/mc.sh start` adds it to the dev game.
+- The Extreme Entity Crusher (the website's 3.8.0): a card per mob on MobsInfo's Mob Drops page, which kubatech makes
+  the crusher's NEI page (`data/provider/MobDropsProvider`, reading MobsInfo and kubatech's `MobHandlerLoader.recipeMap`
+  by name, filled as a world starts). `machines/MobDrops` is the website pipeline's eec-drops.mjs and normalizeMobDrops
+  (which drops a plain crusher rolls, the player-only cut, drops of one item grouped, `metadata.eec`), checked by
+  `MobDropsTest` against the website's own pipeline (`tools/dev/eec/website-eec.mjs` runs it on `call 'eec?dump='`). The
+  card is a GT card (`kubatech-eec` in handlers.json; `machines/game/EecCards` lines the metadata up with its ports for
+  `WebCards`), so `machines/web/ExtremeEntityCrusher` runs its kills: its gear sheet has the website's `eecWeaponDamage`,
+  `eecLooting`, `eecInfernal`, `eecMode`, `eecVoid` (as `machine:<key>`), and `EecCardRatesTest` holds its numbers to
+  the website's maths (`tools/dev/eec/eec-rates.local.test.ts`). It is named for its mob, whose name key opens the mob
+  list (`RecipePicks.mobs`, the website's MobPickerMenu: by name or drop, biggest drop as icon) and swaps the recipe in
+  place. Posts carry the website's crusher recipe (category `kubatech-eec`, its spawner `factoryflow:eec_mob:<slug>`, the
+  mob as `source.rawRecipeId`), and the website's import by the mob (`FfRecipe.isEec`, `eecSlug`). `call eec` lists the
+  mobs and checks each finds itself again; `mob=<key>&voltage&amp&set=` reports a card's maths. `PLANNH_GTNH=1
+  PLANNH_MOBS=1 tools/dev/mc.sh start` adds MobsInfo and EnderIO to the dev game.
 - Bees (issue 7, `docs/design/bees.md`): `machines/Bees` is worked from the game's code (Forestry's getFinalChance, the
   Industrial Apiary's checkRecipe), not the website's bee maths, which it parts from in ways the doc lists; the goldens
   check the parts they share. A card per species from NEI Addons' bee products page (`data/provider/BeeProvider`, read
@@ -446,7 +468,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
 
 - Gradle provisions the JDKs (25 for the build, JetBrains Runtime 25 for `runClient25`). Keep the checkout at a
   short path: deep Windows paths break the clone and the Minecraft dev setup (MAX_PATH).
-- `./gradlew test`: 614 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
+- `./gradlew test`: 1,218 headless JUnit tests (the machine maths and power sources against the website, drawers, solve service, routing, layout, serialization),
   many over gtnh-flow YAML charts in `src/test/resources/gtnh-flow/`. About 40s, no Minecraft. `addon.gradle`
   opts `test` out of the configuration cache; without that a clean build reports `:test NO-SOURCE` and silently
   runs nothing, so if you ever see NO-SOURCE, check the count in `build/test-results/test/*.xml`.

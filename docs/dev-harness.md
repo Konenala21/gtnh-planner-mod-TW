@@ -30,6 +30,11 @@ pause-on-lost-focus so an unfocused window keeps running.
 `PLANNH_GTNH=1` adds `-PgtnhRecipes`: the GTNH core mod, GregTech and the pack's recipes (72 mods instead of 29;
 about 30s to the world once the jars are cached). It uses its own world, `plannh-dev-gtnh`, because opening a world
 across mod sets stops on EndlessIDs' "convert this world?" prompt, which the harness cannot get past.
+With it, `PLANNH_CROPS=1` adds CropsNH (and Better Builders' Wands, which CropsNH links against) for crop cards and
+the Crop Farm, and `PLANNH_MOBS=1` adds MobsInfo and EnderIO for the Extreme Entity Crusher's mobs (its NEI page is
+MobsInfo's Mob Drops); either goes with `PLANNH_BEES=1` or `PLANNH_QUESTS=1` and adds `-crops`, `-mobs` to the world's
+name (`plannh-dev-gtnh-crops-mobs`). A GregTech start can run its Gradle daemon out of memory (the default 512 MB):
+`GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx2g"` gives it a daemon of its own with room.
 
 On first launch it creates a creative superflat world `plannh-dev` (`-Dgtnhplanner.dev.world=name`, empty to stay on
 the main menu) and loads it automatically. Plans are saved per world, so notes and nodes persist across runs;

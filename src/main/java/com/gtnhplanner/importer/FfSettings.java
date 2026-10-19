@@ -91,7 +91,10 @@ public final class FfSettings {
         // A recipe that lists no machines (the game's own posts up to 0.2.0-alpha.5) names its block as its machine
         // type, and gives hatches only to a multiblock.
         final boolean oldPost = handler == null && recipe.fromGame() && recipe.gregtech();
-        final boolean multiblock = handler != null ? handler.multiblock() : oldPost && node.hatchVoltageTier() != null;
+        // The crusher is a multiblock, though the website's recipes for it list no machines (and its own calls it
+        // single).
+        final boolean multiblock = recipe.isEec()
+            || (handler != null ? handler.multiblock() : oldPost && node.hatchVoltageTier() != null);
         // A crafting-grid recipe lists no machines: the website runs it on the Auto Workbench unless the card says the
         // crafting table.
         final String handlerId = handler != null ? handler.id()
