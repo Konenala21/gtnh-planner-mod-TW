@@ -20,6 +20,7 @@
 
 ## Fixed
 
+- Signing in no longer hides the plans you made before. They show up straight away and save to your account.
 - A loop that still gets fed from outside is no longer called a dead loop.
 - The Rock Breaker no longer asks you to supply lava. Its lava slot shows as free.
 - A Tree Growth Simulator's logs now wire into the Industrial Coke Oven and other recipes that take any log.

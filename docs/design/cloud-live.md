@@ -437,9 +437,14 @@ every annotation kind, groups (pockets), port rates, setting pins and leftover s
   `name` only when that name itself moved. Deleting asks the account to delete (owner) or leave (member), and drops it
   from this device's copy of the list at once; a plan taken off the planner any other way stays in the account. A plan
   deleted or unshared elsewhere leaves the planner with a notice.
-- A world's own plans go up once (`Migration`), against a list fetched this session, after a backup; the world's save
-  keeps them and their keys. One notice when any arrived; a plan that failed goes next time. An account with no plans
-  yet opens on one empty plan, which the world's plans replace when they arrive (the one the world had open opens).
+- A world's own plans never sent join the planner the moment the account's plans load (`CloudSession.bringOver`), each
+  a new plan of the account made as any plan made here is (kept on the device, sent until it goes, told when refused),
+  so signing in never shows fewer plans than the world had; the one the world had open opens on a device the account
+  has no open plan on. The world's save is backed up first and keeps their keys, so none comes over twice; one notice
+  once they have all gone up. A plan keyed to the account but missing from its list (a send cut off) goes up once
+  (`Migration`), against a list fetched this session, skipping any plan already in the planner; until it arrives an
+  account with no other plans opens on one empty plan, which it replaces. (Before 2026-10-18 every world plan went
+  that second way, so a new account opened empty until the uploads finished, and stayed empty if one failed.)
 - The top bar's tab strip ends in the status while signed in: Live, Connecting, or Offline (with ": edits kept" while
   edits wait).
 - Presence and sharing build on `BoardSession.live()` (the open plan's `LiveDoc`: `key`, `role`, `owner`, `members`,
