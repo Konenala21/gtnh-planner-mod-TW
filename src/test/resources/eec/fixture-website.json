@@ -1,0 +1,211 @@
+[
+ {
+  "mob": "Zombie",
+  "name": "Extreme Entity Crusher: Zombie",
+  "eut": 1920,
+  "minimumTier": "EV",
+  "durationTicks": 55,
+  "notes": "Never drops in a plain EEC (needs an enchantment, weapon, dimension or other condition): Mob Soul, Odd Head.",
+  "outputs": [
+   {
+    "kind": "item",
+    "id": "minecraft:rotten_flesh",
+    "amount": 1,
+    "chance": null
+   },
+   {
+    "kind": "item",
+    "id": "minecraft:iron_sword",
+    "amount": 0.0013,
+    "chance": null
+   },
+   {
+    "kind": "item",
+    "id": "forbiddenmagic:shard@5",
+    "amount": 0.05,
+    "chance": null
+   },
+   {
+    "kind": "item",
+    "id": "thaumcraft:brain",
+    "amount": 1,
+    "chance": 0.1
+   },
+   {
+    "kind": "item",
+    "id": "bloodarsenal:heart",
+    "amount": 1,
+    "chance": 0.05
+   },
+   {
+    "kind": "fluid",
+    "id": "xpjuice",
+    "amount": 120,
+    "chance": null
+   }
+  ],
+  "eec": {
+   "mob": "Zombie",
+   "maxHealth": 20,
+   "baseEut": 1920,
+   "spawnInterval": 55,
+   "spikesDamage": 9,
+   "maxLooting": 4,
+   "infernal": {
+    "eliteRarity": 20,
+    "ultraRarity": 10,
+    "infernoRarity": 7,
+    "minEliteModifiers": 2,
+    "minUltraModifiers": 5,
+    "minInfernoModifiers": 8,
+    "mobModHealthFactor": 1.8
+   },
+   "outputs": [
+    {
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 10000,
+       "lootable": true
+      }
+     ]
+    },
+    {
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 3,
+       "voidable": true
+      },
+      {
+       "amount": 1,
+       "c0": 10,
+       "voidable": true
+      }
+     ]
+    },
+    {
+     "refLooting": 1,
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 0,
+       "cL": 500
+      }
+     ]
+    },
+    {
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 1000
+      }
+     ]
+    },
+    {
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 500
+      }
+     ]
+    },
+    {
+     "xp": true
+    }
+   ]
+  }
+ },
+ {
+  "mob": "Blaze",
+  "name": "Extreme Entity Crusher: Blaze",
+  "eut": 15360,
+  "minimumTier": "LuV",
+  "durationTicks": 55,
+  "notes": null,
+  "outputs": [
+   {
+    "kind": "item",
+    "id": "minecraft:blaze_rod",
+    "amount": 1,
+    "chance": 0.5
+   },
+   {
+    "kind": "fluid",
+    "id": "xpjuice",
+    "amount": 120,
+    "chance": null
+   }
+  ],
+  "eec": {
+   "mob": "Blaze",
+   "maxHealth": 20,
+   "alwaysInfernal": true,
+   "baseEut": 1920,
+   "spawnInterval": 55,
+   "spikesDamage": 9,
+   "maxLooting": 4,
+   "infernal": {
+    "eliteRarity": 20,
+    "ultraRarity": 10,
+    "infernoRarity": 7,
+    "minEliteModifiers": 2,
+    "minUltraModifiers": 5,
+    "minInfernoModifiers": 8,
+    "mobModHealthFactor": 1.8
+   },
+   "outputs": [
+    {
+     "drops": [
+      {
+       "amount": 1,
+       "c0": 5000,
+       "lootable": true
+      }
+     ]
+    },
+    {
+     "xp": true
+    }
+   ]
+  }
+ },
+ {
+  "mob": "witchery.eye",
+  "name": "Extreme Entity Crusher: Eye",
+  "eut": 1920,
+  "minimumTier": "EV",
+  "durationTicks": 55,
+  "notes": "Never drops in a plain EEC (needs an enchantment, weapon, dimension or other condition): Eye.",
+  "outputs": [
+   {
+    "kind": "fluid",
+    "id": "xpjuice",
+    "amount": 120,
+    "chance": null
+   }
+  ],
+  "eec": {
+   "mob": "witchery.eye",
+   "maxHealth": 1,
+   "baseEut": 1920,
+   "spawnInterval": 55,
+   "spikesDamage": 9,
+   "maxLooting": 4,
+   "infernal": {
+    "eliteRarity": 20,
+    "ultraRarity": 10,
+    "infernoRarity": 7,
+    "minEliteModifiers": 2,
+    "minUltraModifiers": 5,
+    "minInfernoModifiers": 8,
+    "mobModHealthFactor": 1.8
+   },
+   "outputs": [
+    {
+     "xp": true
+    }
+   ]
+  }
+ }
+]

@@ -50,6 +50,8 @@ public final class WebCards {
     @Nullable
     public static String mapId(final Node node) {
         if (node.isPower()) return null;
+        // The Extreme Entity Crusher's recipes are kubatech's own, on MobsInfo's page: the website files them so.
+        if (EecCards.isEec(node)) return com.gtnhplanner.machines.MobDrops.MAP_ID;
         if (node.properties.get(GTProvider.RECIPE_MAP) instanceof final RecipeMap<?> map) return map.unlocalizedName;
         final RecipeHandlerRef ref = com.gtnhplanner.nei.RecipeRefs.of(node.recipeId);
         return ref != null && ref.handler instanceof FurnaceRecipeHandler ? SMELTING : null;
@@ -84,8 +86,16 @@ public final class WebCards {
             r.metadata.addProperty("fusionStartupEu", startup.doubleValue());
         r.inputs = resources(node.inputs);
         r.outputs = resources(node.outputs);
+        final JsonObject eec = EecCards.metadata(node);
+        if (eec != null) {
+            // The crusher's kills, replayed per mob (machines/web/ExtremeEntityCrusher); kubatech's overclock, not GT's.
+            r.name = com.gtnhplanner.machines.MobDrops.MACHINE_TYPE + ": " + EecCards.mobName(node);
+            r.category = com.gtnhplanner.machines.MobDrops.MAP_ID;
+            r.source.rawRecipeId = EecCards.mob(node);
+            r.metadata.add("eec", eec);
+        }
         // The game's own ladder, as the website's oracle runs it for every GregTech map recipe.
-        if (!smelting) r.runtimeCalculation = RuntimeVariants.of(r.durationTicks, r.eut, r.outputs);
+        else if (!smelting) r.runtimeCalculation = RuntimeVariants.of(r.durationTicks, r.eut, r.outputs);
         r.machineConfigControls = HandlerData.recipeControls(entry, special);
         r.machineHandlers = HandlerData.handlers(entry, r.minimumTier, r.durationTicks, r.eut, r.machineConfigControls);
         return r;

@@ -676,6 +676,11 @@ public final class BoardSession {
             false);
     }
 
+    /** Puts an empty crop farm on the board, centred in view and selected: it plants the crop picked on it. */
+    public Node addCropFarm() {
+        return add(Node.power(com.gtnhplanner.power.CropFarm.ID, Map.of(), 0, 0), true, false);
+    }
+
     /** Every wire and drawer link on a card, gone. */
     private void unwire(final UUID nodeId) {
         for (final Edge e : new ArrayList<>(graph.getEdges()))
@@ -2258,33 +2263,86 @@ public final class BoardSession {
             final List<String> ins = keys(node.inputs), outs = keys(node.outputs);
             node.powerSettings.put(settingId, value);
             node.refresh();
-            final List<String> nowIns = keys(node.inputs), nowOuts = keys(node.outputs);
-            for (final Edge e : new ArrayList<>(graph.getEdges())) {
-                if (e.sourceNodeId.equals(node.id)) {
-                    final int at = moved(outs, nowOuts, e.sourceOutputIndex);
-                    if (at < 0) graph.removeEdge(e.id);
-                    else e.sourceOutputIndex = at;
-                }
-                if (e.targetNodeId.equals(node.id)) {
-                    final int at = moved(ins, nowIns, e.targetInputIndex);
-                    if (at < 0) graph.removeEdge(e.id);
-                    else e.targetInputIndex = at;
-                }
-            }
-            for (final Drawer d : graph.getDrawers()) {
-                for (final Drawer.Held held : d.held()) {
-                    final Drawer.Link link = held.link();
-                    final boolean input = held.input();
-                    if (!link.nodeId()
-                        .equals(node.id)) continue;
-                    final int at = input ? moved(ins, nowIns, link.portIndex())
-                        : moved(outs, nowOuts, link.portIndex());
-                    if (at == link.portIndex()) continue;
-                    graph.unlinkDrawerPort(d.getId(), link, input);
-                    if (at >= 0) graph.linkDrawerPort(d.getId(), new Drawer.Link(node.id, at), input);
-                }
-            }
+            followPorts(node, ins, outs);
         });
+    }
+
+    /**
+     * Puts another recipe of its page on a card, in place (the website's swapMachineRecipe: a crusher's mob, a crop):
+     * its machine, settings, count, place and group kept, and a wire, drawer or rate on a port following its resource
+     * to where it now is, gone where the card no longer has it.
+     */
+    public void swapRecipe(final Node node, final codechicken.nei.recipe.RecipeHandlerRef ref) {
+        Sfx.ADJUST.play();
+        edit(() -> {
+            final List<String> ins = keys(node.inputs), outs = keys(node.outputs);
+            node.remake(ref.handler, ref.recipeIndex);
+            followPorts(node, ins, outs);
+            followRates(node.targetOutputRates, outs, keys(node.outputs));
+            followRates(node.targetInputRates, ins, keys(node.inputs));
+        });
+    }
+
+    /**
+     * An empty crop farm planting the crop picked: a crop card in its place (its id, place, group and placements in the
+     * world), set up as one added from NEI is.
+     */
+    public void pickCrop(final Node farm, final codechicken.nei.recipe.RecipeHandlerRef ref) {
+        Sfx.ADJUST.play();
+        edit(() -> {
+            final Node crop = MachineChoices.newNode(ref.handler, ref.recipeIndex, null);
+            crop.id = farm.id;
+            crop.x = farm.x;
+            crop.y = farm.y;
+            crop.group = farm.group;
+            crop.worldLinks.addAll(farm.worldLinks);
+            graph.removeNode(farm.id);
+            graph.addNode(crop);
+        });
+    }
+
+    /**
+     * After a card's ports were read again ({@code ins} and {@code outs} their keys before): each wire and drawer link
+     * on
+     * a port follows its resource to where it now is, and goes when the card no longer has it.
+     */
+    private void followPorts(final Node node, final List<String> ins, final List<String> outs) {
+        final List<String> nowIns = keys(node.inputs), nowOuts = keys(node.outputs);
+        for (final Edge e : new ArrayList<>(graph.getEdges())) {
+            if (e.sourceNodeId.equals(node.id)) {
+                final int at = moved(outs, nowOuts, e.sourceOutputIndex);
+                if (at < 0) graph.removeEdge(e.id);
+                else e.sourceOutputIndex = at;
+            }
+            if (e.targetNodeId.equals(node.id)) {
+                final int at = moved(ins, nowIns, e.targetInputIndex);
+                if (at < 0) graph.removeEdge(e.id);
+                else e.targetInputIndex = at;
+            }
+        }
+        for (final Drawer d : graph.getDrawers()) {
+            for (final Drawer.Held held : d.held()) {
+                final Drawer.Link link = held.link();
+                final boolean input = held.input();
+                if (!link.nodeId()
+                    .equals(node.id)) continue;
+                final int at = input ? moved(ins, nowIns, link.portIndex()) : moved(outs, nowOuts, link.portIndex());
+                if (at == link.portIndex()) continue;
+                graph.unlinkDrawerPort(d.getId(), link, input);
+                if (at >= 0) graph.linkDrawerPort(d.getId(), new Drawer.Link(node.id, at), input);
+            }
+        }
+    }
+
+    private static void followRates(final Map<Integer, Double> rates, final List<String> was, final List<String> now) {
+        if (rates.isEmpty()) return;
+        final Map<Integer, Double> moved = new java.util.LinkedHashMap<>();
+        for (final Map.Entry<Integer, Double> e : rates.entrySet()) {
+            final int at = moved(was, now, e.getKey());
+            if (at >= 0) moved.put(at, e.getValue());
+        }
+        rates.clear();
+        rates.putAll(moved);
     }
 
     private static List<String> keys(final List<com.gtnhplanner.data.flowchart.Port<?>> ports) {

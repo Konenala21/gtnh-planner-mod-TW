@@ -218,6 +218,41 @@ public record FfPlan(String name, boolean solveMode, boolean poolMode, boolean p
         /** FF's dataset names a bee species as an input: {@code factoryflow:bee_species:<slug>}. */
         public static final String BEE_SPECIES = "factoryflow:bee_species:";
 
+        /** FF's Extreme Entity Crusher recipes: one per mob, its map kubatech's. */
+        public static final String EEC_CATEGORY = "kubatech-eec", EEC_MACHINE = "Extreme Entity Crusher";
+        /** FF's dataset names the crusher's mob as its spawner, an input never used up. */
+        public static final String EEC_SPAWNER = "factoryflow:eec_mob:";
+        /** FF's empty crop farm, dropped in before a crop is picked. */
+        public static final String EMPTY_CROP_FARM = "factoryflow:crop-farm:empty";
+
+        /**
+         * An Extreme Entity Crusher killing a mob (FF's crusher card; machines/MobDrops, the game's MobDropsProvider).
+         */
+        public boolean isEec() {
+            return EEC_CATEGORY.equals(category) || EEC_CATEGORY.equals(mapId())
+                || EEC_MACHINE.equals(machineType) && eecSlug() != null;
+        }
+
+        /**
+         * The crusher's mob as FF's ids carry it, slugged ({@code thaumcraft-brainyzombie}): from its spawner input,
+         * else {@code source.rawRecipeId} (the mob's entity name), else the recipe id's end. Null when none says.
+         */
+        @Nullable
+        public String eecSlug() {
+            for (final FfSlot in : inputs) {
+                final String slot = FfIds.normalize(in.id());
+                if (slot.startsWith(EEC_SPAWNER)) return slot.substring(EEC_SPAWNER.length());
+            }
+            if (rawRecipeId != null && !rawRecipeId.isEmpty()) return FfIds.slug(rawRecipeId);
+            final int at = id.indexOf(":" + EEC_CATEGORY + ":");
+            return at >= 0 ? id.substring(at + EEC_CATEGORY.length() + 2) : null;
+        }
+
+        /** FF's empty crop farm: a crop farm card with no crop picked yet. */
+        public boolean isEmptyCropFarm() {
+            return EMPTY_CROP_FARM.equals(id) || isCrop() && cropSlug() == null && outputs.isEmpty();
+        }
+
         /** FF's Tank: a Canner recipe made free and instant. */
         public boolean isPlannerTank() {
             return TANK_MAP.equals(mapId()) || "planner-tank".equals(mapSlug());

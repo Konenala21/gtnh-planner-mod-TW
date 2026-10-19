@@ -432,6 +432,9 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
             .toLowerCase(Locale.ROOT);
         if (tierFilter == null && (groupFilter == null || groupFilter == PowerGroup.OTHER))
             for (final PowerSource other : PowerRegistry.others()) {
+                // The crop farm plants CropsNH's crops: a game without them has none to pick.
+                if (com.gtnhplanner.power.CropFarm.ID.equals(other.id()) && !com.gtnhplanner.Compat.CROPSNH.isLoaded)
+                    continue;
                 if (q.isEmpty() || other.name()
                     .toLowerCase(Locale.ROOT)
                     .contains(q)
@@ -543,6 +546,12 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
                     picked.source()
                         .id())) {
                     session.addFluidTank();
+                    return Result.SUCCESS;
+                }
+                if (com.gtnhplanner.power.CropFarm.ID.equals(
+                    picked.source()
+                        .id())) {
+                    session.addCropFarm();
                     return Result.SUCCESS;
                 }
                 // The settings last changed on this source, then what the search picked over them.

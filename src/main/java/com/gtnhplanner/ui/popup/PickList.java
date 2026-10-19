@@ -27,14 +27,24 @@ public final class PickList extends Widget<PickList> implements Interactable {
 
     /**
      * A row: an icon or a coloured dot before its label ({@code dot} 0 for none), a detail at its right, shaded when it
-     * is the current choice.
+     * is the current choice. The filter finds it by its label, or by its {@code search} words (a mob by what it drops).
      */
     public record Entry(ItemStack icon, String label, String detail, int labelColor, boolean current, Runnable action,
-        int dot) {
+        int dot, String search) {
+
+        public Entry(final ItemStack icon, final String label, final String detail, final int labelColor,
+            final boolean current, final Runnable action, final int dot) {
+            this(icon, label, detail, labelColor, current, action, dot, "");
+        }
 
         public Entry(final ItemStack icon, final String label, final String detail, final int labelColor,
             final boolean current, final Runnable action) {
             this(icon, label, detail, labelColor, current, action, 0);
+        }
+
+        /** The same row, found by these words too. */
+        public Entry searching(final String words) {
+            return new Entry(icon, label, detail, labelColor, current, action, dot, words == null ? "" : words);
         }
 
         public static Entry of(final String label, final Runnable action) {
@@ -184,7 +194,10 @@ public final class PickList extends Widget<PickList> implements Interactable {
             shown = new ArrayList<>();
             for (final Entry e : entries) {
                 if (e.label.toLowerCase(Locale.ROOT)
-                    .contains(f)) shown.add(e);
+                    .contains(f)
+                    || e.search.toLowerCase(Locale.ROOT)
+                        .contains(f))
+                    shown.add(e);
             }
         }
         scroll = 0;

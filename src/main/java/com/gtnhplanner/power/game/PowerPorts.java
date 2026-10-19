@@ -133,6 +133,12 @@ public final class PowerPorts {
             return tank != null && tank.getDisplayName()
                 .contains("Tank") ? tank : item("IC2:itemCellEmpty");
         }
+        // The crop farm is a Crop Manager, the harvester a crop card starts on; a pack without CropsNH draws seeds.
+        if (com.gtnhplanner.power.CropFarm.ID.equals(sourceId)) {
+            final ItemStack manager = item("gregtech:gt.blockmachines");
+            return manager != null && manager.getDisplayName()
+                .contains("Crop") ? manager : item("minecraft:wheat_seeds");
+        }
         final PowerResources.Ref ref = PowerResources.machineIcon(sourceId);
         return ref == null ? null : item(ref.id);
     }

@@ -322,6 +322,21 @@ public class Node {
         ports.addAll(aggregate);
     }
 
+    /**
+     * The card on another recipe (a crusher's mob, a crop): its id, place, machine, settings and count kept, its ports
+     * read afresh. Following its wires to where their resources now are is the caller's ({@code BoardSession}).
+     */
+    public void remake(final IRecipeHandler handler, final int recipeIndex) {
+        recipeId = Recipe.RecipeId.of(handler, recipeIndex);
+        handlerRecipeIndex = recipeIndex;
+        madeFrom = RecipeHandlerRef.of(handler, recipeIndex);
+        availableExtractors = RecipePropertyAPI.getExtractors(handler.getClass());
+        extractorIndex = 0;
+        extractor = availableExtractors.isEmpty() ? DefaultProvider.INSTANCE : pickBestExtractor(handler, recipeIndex);
+        inputPicks.clear();
+        refresh();
+    }
+
     public void switchExtractor() {
         if (availableExtractors.size() < 2) return;
         extractorIndex = (extractorIndex + 1) % availableExtractors.size();

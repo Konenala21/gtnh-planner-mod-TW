@@ -17,6 +17,8 @@
 #      PLANNH_DEV_GUI_SCALE (2), PLANNH_DEV_SOUND (master volume, 0.0 = muted),
 #      PLANNH_GTNH=1 (load GregTech and the pack's recipes; slow first start),
 #      PLANNH_BEES=1 with it (Forestry and NEI Addons too, for bee cards).
+#      PLANNH_CROPS=1 with it (CropsNH too, for crop cards); PLANNH_MOBS=1 with it (MobsInfo and EnderIO too, for the
+#      Extreme Entity Crusher's mobs). Either adds to any of the others, and to the world's name.
 #      PLANNH_QUESTS=1 with it (the quest book, BetterQuesting, with the full pack's quests when its Prism instance is here).
 set -uo pipefail
 
@@ -111,15 +113,30 @@ start() {
     local run_args=(downgradeMainClasses "$TASK" --console=plain)
     # The GTNH core mod pulls in GregTech and the pack's recipes: ~180 dependencies, a much slower start.
     # Its own world too: a world saved with GregTech asks about missing blocks when opened without it.
-    if [ "$GTNH" = 1 ] && [ "${PLANNH_QUESTS:-0}" = 1 ]; then
-        # The quest book beside GregTech, for quests on tasks; its world loads the pack's quests (copied in once).
-        copy_quests
-        run_args=(-PgtnhRecipes -PquestsDev "${run_args[@]}" "--mcJvmArgs=-Dgtnhplanner.dev.world=plannh-dev-quests")
-    elif [ "$GTNH" = 1 ] && [ "${PLANNH_BEES:-0}" = 1 ]; then
-        # Forestry and NEI Addons beside GregTech, for bee cards; a world of its own, as GregTech's has.
-        run_args=(-PgtnhRecipes -PbeesDev "${run_args[@]}" "--mcJvmArgs=-Dgtnhplanner.dev.world=plannh-dev-bees")
-    elif [ "$GTNH" = 1 ]; then
-        run_args=(-PgtnhRecipes "${run_args[@]}" "--mcJvmArgs=-Dgtnhplanner.dev.world=plannh-dev-gtnh")
+    if [ "$GTNH" = 1 ]; then
+        local world=plannh-dev-gtnh
+        run_args=(-PgtnhRecipes "${run_args[@]}")
+        if [ "${PLANNH_QUESTS:-0}" = 1 ]; then
+            # The quest book beside GregTech, for quests on tasks; its world loads the pack's quests (copied in once).
+            copy_quests
+            run_args=(-PquestsDev "${run_args[@]}")
+            world=plannh-dev-quests
+        elif [ "${PLANNH_BEES:-0}" = 1 ]; then
+            # Forestry and NEI Addons beside GregTech, for bee cards; a world of its own, as GregTech's has.
+            run_args=(-PbeesDev "${run_args[@]}")
+            world=plannh-dev-bees
+        fi
+        # CropsNH (crop cards), and MobsInfo with EnderIO (the Extreme Entity Crusher's mobs): either goes with any of
+        # the above, and names the world too, as a world saved with a mod asks about its blocks when opened without it.
+        if [ "${PLANNH_CROPS:-0}" = 1 ]; then
+            run_args=(-PcropsDev "${run_args[@]}")
+            world="$world-crops"
+        fi
+        if [ "${PLANNH_MOBS:-0}" = 1 ]; then
+            run_args=(-PmobsDev "${run_args[@]}")
+            world="$world-mobs"
+        fi
+        run_args+=("--mcJvmArgs=-Dgtnhplanner.dev.world=$world")
     fi
     # The harness listens where this script calls it (another game, the full pack's, may hold the default port).
     [ "$PORT" != 25599 ] && run_args+=("--mcJvmArgs=-Dgtnhplanner.dev.port=$PORT")

@@ -960,10 +960,24 @@ public final class DevHarness {
                 // Every crop's drops against its card's outputs (the full pack); items=<ids> lists ore names anywhere.
                 return onClient(() -> {
                     if (q.containsKey("items")) return DevCrops.items(q.get("items"));
+                    if (q.containsKey("farm")) return DevCrops.add(null);
+                    if (q.containsKey("add")) return DevCrops.add(q.get("add"));
                     try {
                         return DevCrops.report();
                     } catch (final LinkageError e) {
                         return error("CropsNH is not loaded (the full pack has it)");
+                    }
+                });
+            case "/eec":
+                // The Extreme Entity Crusher's mobs: a list, the website's export, a mob's card and its maths.
+                return onClient(() -> {
+                    try {
+                        if (q.containsKey("dump")) return DevEec.dump(new File(q.get("dump")));
+                        if (q.containsKey("add")) return DevEec.add(q.get("add"));
+                        if (q.containsKey("mob")) return DevEec.mob(q.get("mob"), q);
+                        return DevEec.report();
+                    } catch (final java.io.IOException e) {
+                        return error("Could not write: " + e.getMessage());
                     }
                 });
             case "/machinemath":
@@ -1310,7 +1324,8 @@ public final class DevHarness {
                 "/gtmachines?q=turbine[&all=1][&art=1] - GregTech multiblocks (all=1: every machine) as the game names them; art=1 adds the bundled picture each resolves to",
                 "/machinedata?dir=<path> - writes the website's TGS, Bacterial Vat and radio hatch side files from this game (run in the full pack)",
                 "/machinemath - every card of the active plan as the website's machine maths see it: machine, handler, settings, ticks, EU/t, parallels",
-                "/crops[?items=<id,id>] - every CropsNH crop's drops against its card's outputs: lost drops, amounts, drops sharing an ore name (full pack); items= lists ore names",
+                "/eec[?dump=<file>|mob=<key>&voltage&amp&set=k:v,..|add=<key>] - the Extreme Entity Crusher's mobs: names, the website's export of them, a mob's card and its maths, or its card on the board (PLANNH_MOBS=1)",
+                "/crops[?items=<id,id>|add=<id>|farm=1] - every CropsNH crop's drops against its card's outputs: lost drops, amounts, drops sharing an ore name (PLANNH_CROPS=1); items= lists ore names; add= puts a crop's card on the board, farm=1 an empty crop farm",
                 "/slots[?add=name | switch=i | delete=i] - list, open, switch or delete plan slots",
                 "/clearplan - empty the active board (one undoable edit)",
                 "/notice?text=<sentence>[&level=info|warn|error] - a notice along the top of the open board",

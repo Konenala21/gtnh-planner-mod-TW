@@ -85,6 +85,18 @@ final class DevCrops {
     }
 
     /** The ore names of items by website id ("minecraft:dye@4"). */
+    /**
+     * {@code add=<id>}: that crop's card on the open board ({@code cropsnh:wheat}); {@code farm=1}: an empty crop farm.
+     */
+    static Map<String, Object> add(final String id) {
+        final com.gtnhplanner.ui.BoardSession session = com.gtnhplanner.ui.BoardSession.current();
+        if (session == null) return Map.of("error", "open the planner first");
+        if (id == null) return Map.of("added", session.addCropFarm().id.toString());
+        final codechicken.nei.recipe.RecipeHandlerRef ref = CropsNhProvider.crop(id::equals);
+        if (ref == null) return Map.of("error", "no crop " + id);
+        return Map.of("added", session.addRecipe(ref.handler, ref.recipeIndex).id.toString());
+    }
+
     static Map<String, Object> items(final String ids) {
         final Map<String, Object> out = new LinkedHashMap<>();
         for (final String raw : ids.split(",")) {

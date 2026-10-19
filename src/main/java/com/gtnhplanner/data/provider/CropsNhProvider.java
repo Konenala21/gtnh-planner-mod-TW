@@ -184,6 +184,56 @@ public final class CropsNhProvider implements PropertyProvider {
         return null;
     }
 
+    /** One crop to plant: its recipe on our own Crops page, its CropsNH id, name, tier and biggest drop. */
+    public record Choice(codechicken.nei.recipe.RecipeHandlerRef ref, String id, String name, int tier,
+        @Nullable ItemStack icon, List<String> drops) {}
+
+    /** Every crop, by tier and then name, as the website's crop picker lists them. */
+    public static List<Choice> choices() {
+        final List<Choice> out = new ArrayList<>();
+        final NEICropsNHCropHandler crops = allCrops();
+        if (crops == null) return out;
+        for (int i = 0; i < crops.arecipes.size(); i++) {
+            final ICropCard card = card(crops, i);
+            if (card == null) continue;
+            ItemStack icon = null;
+            int weight = -1;
+            final List<String> drops = new ArrayList<>();
+            for (final Map.Entry<ItemStack, Integer> e : card.getDropTable()
+                .entrySet()) {
+                if (e.getKey() == null || e.getKey()
+                    .getItem() == null || e.getValue() == null) continue;
+                drops.add(
+                    e.getKey()
+                        .getDisplayName());
+                if (e.getValue() > weight) {
+                    weight = e.getValue();
+                    icon = e.getKey();
+                }
+            }
+            String name = card.getId();
+            try {
+                final String translated = net.minecraft.util.StatCollector.translateToLocal(card.getUnlocalizedName());
+                if (translated != null && !translated.isEmpty() && !translated.equals(card.getUnlocalizedName()))
+                    name = translated;
+            } catch (final RuntimeException ignored) {}
+            out.add(
+                new Choice(
+                    codechicken.nei.recipe.RecipeHandlerRef.of(crops, i),
+                    card.getId(),
+                    name,
+                    card.getTier(),
+                    icon,
+                    drops));
+        }
+        out.sort(
+            java.util.Comparator.comparingInt(Choice::tier)
+                .thenComparing(
+                    c -> c.name()
+                        .toLowerCase(java.util.Locale.ROOT)));
+        return out;
+    }
+
     @Nullable
     private static NEICropsNHCropHandler allCrops() {
         if (allCrops == null) {

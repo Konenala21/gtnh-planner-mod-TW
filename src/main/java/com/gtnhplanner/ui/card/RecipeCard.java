@@ -60,6 +60,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         SECTION,
         /** A setting pinned to the card, as a chip. */
         CHIP,
+        /** An empty crop farm's Pick a crop key. */
+        PICK,
         BODY
     }
 
@@ -561,6 +563,53 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return model != null && com.gtnhplanner.machines.game.CropCards.isCrop(model.node);
     }
 
+    /** Whether the card is an Extreme Entity Crusher killing a mob (named for the mob, which its name key picks). */
+    private boolean eec() {
+        return model != null && com.gtnhplanner.machines.game.EecCards.isEec(model.node);
+    }
+
+    /** Whether the card is an empty crop farm, which shows its Pick a crop key instead of ports. */
+    private boolean emptyCropFarm() {
+        return model != null && com.gtnhplanner.power.CropFarm.is(model.node);
+    }
+
+    /** The Pick a crop key: across the output rail's first row, where the crop's drops will be. */
+    private static int[] pickRect() {
+        return new int[] { CardLayout.railX(true) + 2, SocketSlot.Y, CardLayout.RAIL_W - 4, SocketSlot.H };
+    }
+
+    /** The name on the card's head: a crusher's is the mob in its spawner, any other its machine's. */
+    private static String headName(final CardModel m) {
+        final String mob = com.gtnhplanner.machines.game.EecCards.mobName(m.node);
+        return mob != null ? mob : m.machineName;
+    }
+
+    /** An empty crop farm's Pick a crop key, dashed as an empty holder's sockets are. */
+    private void drawPickCrop(final boolean hot) {
+        final int[] r = pickRect();
+        Hyb.rect(r[0], r[1], r[2], r[3], hot ? 0x26FFFFFF : 0x14FFFFFF);
+        Hyb.dashed(r[0], r[1], r[2], r[3], hot ? Hyb.GOLD : 0xFF6A6D78);
+        final String label = "PICK A CROP";
+        Hyb.text(label, r[0] + (r[2] - Hyb.width(label)) / 2f, r[1] + (r[3] - 8) / 2f, hot ? Hyb.GOLD : Hyb.MUTED);
+        final String hint = "what this farm plants";
+        Hyb.text(hint, r[0] + (r[2] - Hyb.width(hint)) / 2f, r[1] + r[3] + 6, 0xFF6A6D78);
+    }
+
+    /** The mobs the crusher's spawner can hold, under its name key. */
+    private void openMobs() {
+        RecipePicks.mobs(
+            session,
+            model.node,
+            screenX(partRect(Part.MACHINE)[0]),
+            screenY(partRect(Part.MACHINE)[1] + partRect(Part.MACHINE)[3] + 2));
+    }
+
+    /** The crops this card can plant: under its Pick a crop key when empty, else under its name key. */
+    private void openCrops() {
+        final int[] r = emptyCropFarm() ? pickRect() : partRect(Part.MACHINE);
+        RecipePicks.crops(session, model.node, screenX(r[0]), screenY(r[1] + r[3] + 2));
+    }
+
     /** Whether the card keeps bees (its machine is their housing, picked by a setting; BeeCards). */
     private boolean bee() {
         return model != null && com.gtnhplanner.machines.game.BeeCards.isBee(model.node);
@@ -631,6 +680,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case FOOT -> foot() == null ? null : layout.foot();
             case CIRCUIT -> model.circuit == null || shared() || model.isPower() ? null
                 : CardLayout.circuit(layout.well());
+            case PICK -> emptyCropFarm() ? pickRect() : null;
             case SECTION, CHIP -> null;
             case BODY -> new int[] { 0, 0, CardLayout.W, layout.height };
         };
@@ -754,6 +804,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         drawPicture(m, z, hover);
         if (layout.powerRowY >= 0) drawPowerRow(m, hover == Part.POWER);
         if (emptyHolder()) drawSockets();
+        if (emptyCropFarm()) drawPickCrop(hover == Part.PICK);
         drawStrip(m, z, hover);
         final CardFace.Foot f = foot();
         if (f != null && layout.footY >= 0) CardPaint.foot(f, layout.foot());
@@ -858,7 +909,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 .dot(rim + d / 2, rim + d / 2, d, com.gtnhplanner.ui.task.TaskLook.colour(task));
         }
         if (countless()) {
-            if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
+            if (canvas() != null) canvas().labelCard(headName(m), m.node.x, m.node.y, w, h);
             return;
         }
         // How many, in white in the corner, at whole screen pixels per font pixel so it stays sharp. Machines: a crop
@@ -883,7 +934,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             snap(bottom - th, g[2], g[3], g[4]),
             cs,
             builds <= 0 ? Hyb.MUTED : Hyb.INK);
-        if (canvas() != null) canvas().labelCard(m.machineName, m.node.x, m.node.y, w, h);
+        if (canvas() != null) canvas().labelCard(headName(m), m.node.x, m.node.y, w, h);
     }
 
     /**
@@ -1035,7 +1086,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
         // The name is the machine menu: a faint plate under it while the mouse is on it, and its chevron. A generator
         // has no other machine to pick: its name alone, in the power wing's amber.
-        final boolean menu = !m.isPower();
+        final boolean menu = !m.isPower() || emptyCropFarm();
         if (hover == Part.MACHINE && menu) Hyb.rect(BAR_X - 4, y, barRight() - BAR_X + 4, CHIP_H, 0x14FFFFFF);
         // On a task: a dot in its column's colour before the name (the most pressing task's, when on several).
         final com.gtnhplanner.data.flowchart.Tasks.Status task = com.gtnhplanner.ui.canvas.PlanPicture.drawing() ? null
@@ -1043,7 +1094,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (task != null) com.gtnhplanner.ui.task.TaskLook
             .dot(BAR_X, y + (CHIP_H - 9) / 2f, 9, com.gtnhplanner.ui.task.TaskLook.colour(task));
         final float end = CardPaint.name(
-            m.machineName,
+            headName(m),
             BAR_X + (task != null ? 14 : 0),
             barRight() - (menu ? 12 : 0),
             com.gtnhplanner.power.Holders.is(m.node) ? CUSTOM_RATE_INK : m.isPower() ? 0xFFFEF3C7 : Hyb.INK);
@@ -1995,6 +2046,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
             case MACHINE -> {
                 if (crop()) yield cropTip(m);
+                if (eec()) yield mobTip(m);
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
                         bee() && m.machineStack != null ? m.machineStack.getDisplayName()
@@ -2111,8 +2163,13 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case PLACE -> placeTip();
             case ACTIONS -> Tip.of("Card actions")
                 .action(Tip.Input.LEFT, "Clone, delete");
+            case PICK -> Tip.of("Pick a crop")
+                .muted("Click to pick what this farm plants.");
             case MACHINE -> {
                 if (com.gtnhplanner.power.CustomRate.is(m.node)) yield customRateTip();
+                if (emptyCropFarm()) yield Tip.of(m.machineName)
+                    .muted("Pick a crop to start producing.")
+                    .action(Tip.Input.LEFT, "Pick a crop");
                 if (com.gtnhplanner.power.FluidTank.is(m.node)) yield tankTip();
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
@@ -2282,8 +2339,15 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 }
             }
             case MACHINE -> {
+                if (emptyCropFarm()) {
+                    if (mouseButton == 0) openCrops();
+                    else return act(Part.BODY, mouseButton, x, y);
+                    Hyb.click();
+                    return Result.SUCCESS;
+                }
                 if (model.isPower()) return act(Part.BODY, mouseButton, x, y);
-                if (mouseButton == 0) openMachines();
+                if (mouseButton == 0 && eec()) openMobs();
+                else if (mouseButton == 0) openMachines();
             }
             case TIER -> {
                 if (model.isPower()) stepPowerTier(mouseButton == 1 ? -1 : 1);
@@ -2297,6 +2361,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
             case SETTINGS -> {
                 if (mouseButton == 0) openSheet();
+            }
+            case PICK -> {
+                if (mouseButton == 0) openCrops();
+                else return act(Part.BODY, mouseButton, x, y);
             }
             case AMPS -> {
                 if (mouseButton == 1) session.setSetting(node, "amp", Math.max(1, model.amps - 1));
@@ -2731,6 +2799,19 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         return tip;
     }
 
+    /** A crusher card's name: the mob in its spawner, the kill's figures, and what a click does. */
+    private Tip mobTip(final CardModel m) {
+        final Tip tip = Tip.of(headName(m))
+            .sub("In the " + m.machineName + "'s spawner");
+        countRows(tip);
+        if (m.gregtech) tip.row("Configured tier", m.tier);
+        tip.row("Time per kill", Fmt.compact(m.durationTicks / 20.0) + " s")
+            .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
+        final String gated = com.gtnhplanner.machines.game.EecCards.gated(m.node);
+        if (!gated.isEmpty()) tip.muted("Never drops here: " + gated + ".");
+        return tip.action(Tip.Input.LEFT, "Put in another mob");
+    }
+
     private Tip placeTip() {
         Tip tip = Tip.of(placed() ? "Placed in the world" : listed() ? "Pinned to the screen" : "Pin");
         if (placed()) {
@@ -2753,6 +2834,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final Node node = model.node;
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(PickList.Entry.of("Clone node", () -> session.cloneNode(node)));
+        // What it runs on: a crusher's mob, a crop card's crop.
+        if (eec()) rows.add(PickList.Entry.of("Put in another mob", () -> RecipePicks.mobs(session, node, sx, sy)));
+        if (crop()) rows.add(PickList.Entry.of("Pick another crop", () -> RecipePicks.crops(session, node, sx, sy)));
         // Into a task, with every card selected with it: a machine thing each.
         final List<UUID> taskCards = session.isSelected(nodeId) ? session.cardsIn(session.selection())
             : List.of(nodeId);

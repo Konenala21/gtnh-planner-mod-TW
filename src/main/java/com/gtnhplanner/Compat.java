@@ -23,6 +23,7 @@ import com.gtnhplanner.data.provider.GalacticraftProvider;
 import com.gtnhplanner.data.provider.GendustryProvider;
 import com.gtnhplanner.data.provider.HarvestCraftProvider;
 import com.gtnhplanner.data.provider.LogisticsPipesProvider;
+import com.gtnhplanner.data.provider.MobDropsProvider;
 import com.gtnhplanner.data.provider.ProjectBlueProvider;
 import com.gtnhplanner.data.provider.RailcraftProvider;
 import com.gtnhplanner.data.provider.RandomThingsProvider;
@@ -61,7 +62,8 @@ public enum Compat {
     WITCHINGGADGETS(IDs.WITCHINGGADGETS, WitchingGadgetsProvider.class),
     EFR(IDs.EFR, EFRProvider.class),
     CROPSNH(IDs.CROPSNH, CropsNhProvider.class),
-    BEES(IDs.NEIADDONS, BeeProvider.class);
+    BEES(IDs.NEIADDONS, BeeProvider.class),
+    MOBSINFO(IDs.MOBSINFO, MobDropsProvider.class);
 
     public static class IDs {
 
@@ -90,6 +92,8 @@ public enum Compat {
         public static final String CROPSNH = "cropsnh";
         /** NEI Addons: its bee products page is what bee cards are made from (BeeProvider, with Forestry). */
         public static final String NEIADDONS = "NEIAddons";
+        /** MobsInfo: its Mob Drops page is the Extreme Entity Crusher's, its mobs kubatech's (MobDropsProvider). */
+        public static final String MOBSINFO = "mobsinfo";
     }
 
     public final String modid;

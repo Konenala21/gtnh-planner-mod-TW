@@ -52,6 +52,7 @@ public final class PowerRegistry {
         // The planning cards are listed apart from the generator catalog (others()).
         if (CustomRate.ID.equals(sourceId)) return CustomRate.SOURCE;
         if (FluidTank.ID.equals(sourceId)) return FluidTank.SOURCE;
+        if (CropFarm.ID.equals(sourceId)) return CropFarm.SOURCE;
         sources();
         return byId.get(sourceId);
     }
@@ -61,7 +62,7 @@ public final class PowerRegistry {
      * column's sources (the Railcraft Water Tank) follow them ({@link #inGroup}).
      */
     public static List<PowerSource> others() {
-        return List.of(CustomRate.SOURCE, FluidTank.SOURCE);
+        return List.of(CustomRate.SOURCE, FluidTank.SOURCE, CropFarm.SOURCE);
     }
 
     public static List<PowerSource> inGroup(final PowerGroup group) {

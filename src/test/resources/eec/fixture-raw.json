@@ -1,0 +1,231 @@
+{
+ "domains": [
+  {
+   "id": "mobDrops",
+   "machine": {
+    "mobSpawnInterval": 55,
+    "maxLootingLevel": 4,
+    "diamondSpikesDamage": 9,
+    "playerOnlyDropsModifier": 0.1,
+    "controller": {
+     "kind": "item",
+     "id": "gregtech:gt.blockmachines@14201",
+     "amount": 1,
+     "displayName": "Extreme Entity Crusher"
+    },
+    "experience": {
+     "kind": "fluid",
+     "id": "xpjuice",
+     "amount": 120,
+     "displayName": "Liquid XP"
+    },
+    "spawner": {
+     "kind": "item",
+     "id": "enderio:blockpoweredspawner",
+     "amount": 1,
+     "displayName": "Powered Spawner"
+    }
+   },
+   "infernal": {
+    "eliteRarity": 20,
+    "ultraRarity": 10,
+    "infernoRarity": 7,
+    "minEliteModifiers": 2,
+    "minUltraModifiers": 5,
+    "minInfernoModifiers": 8,
+    "mobModHealthFactor": 1.8
+   },
+   "mobs": [
+    {
+     "key": "Zombie",
+     "displayName": "Zombie",
+     "maxEntityHealth": 20,
+     "eut": 1920,
+     "durationTicks": 55,
+     "drops": [
+      {
+       "resource": {
+        "kind": "item",
+        "id": "minecraft:rotten_flesh",
+        "amount": 1,
+        "displayName": "Rotten Flesh"
+       },
+       "chance": 10000,
+       "lootable": true
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "minecraft:iron_sword",
+        "amount": 1,
+        "displayName": "Iron Sword"
+       },
+       "chance": 3,
+       "enchantable": 14,
+       "damages": {
+        "26": 1
+       }
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "minecraft:iron_sword",
+        "amount": 1,
+        "displayName": "Iron Sword"
+       },
+       "chance": 10,
+       "damages": {
+        "26": 1
+       }
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "forbiddenmagic:shard@5",
+        "amount": 1,
+        "displayName": "Greed Shard"
+       },
+       "chance": 0,
+       "chanceModifiers": [
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$NormalChance",
+         "fields": {
+          "chance": 0
+         }
+        },
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$EachLevelOfGives",
+         "fields": {
+          "enchantment": {
+           "id": 21
+          },
+          "change": 5
+         }
+        },
+        {
+         "className": "com.kuba6000.mobsinfo.loader.extras.ForbiddenMagic$EachLevelOfGivesFocus",
+         "fields": {
+          "change": 0
+         }
+        }
+       ]
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "thaumcraft:brain",
+        "amount": 1,
+        "displayName": "Zombie Brain"
+       },
+       "chance": 0,
+       "chanceModifiers": [
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$NormalChance",
+         "fields": {
+          "chance": 10
+         }
+        }
+       ]
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "draconicevolution:soul",
+        "amount": 1,
+        "displayName": "Mob Soul"
+       },
+       "chance": 0,
+       "chanceModifiers": [
+        {
+         "className": "com.kuba6000.mobsinfo.loader.extras.DraconicEvolution$DraconicEvolutionSoulChanceModifier",
+         "fields": {
+          "baseChance": 0.125
+         }
+        }
+       ]
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "bloodarsenal:heart",
+        "amount": 1,
+        "displayName": "Heart"
+       },
+       "chance": 5000,
+       "playerOnly": true
+      },
+      {
+       "resource": {
+        "kind": "item",
+        "id": "somemod:head",
+        "amount": 1,
+        "displayName": "Odd Head"
+       },
+       "chance": 0,
+       "chanceModifiers": [
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$NormalChance",
+         "fields": {
+          "chance": 5
+         }
+        },
+        {
+         "className": "com.kuba6000.mobsinfo.loader.extras.Mystery$NewGate"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "Blaze",
+     "displayName": "Blaze",
+     "maxEntityHealth": 20,
+     "eut": 1920,
+     "durationTicks": 55,
+     "alwaysInfernal": true,
+     "drops": [
+      {
+       "resource": {
+        "kind": "item",
+        "id": "minecraft:blaze_rod",
+        "amount": 1,
+        "displayName": "Blaze Rod"
+       },
+       "chance": 5000,
+       "lootable": true
+      }
+     ]
+    },
+    {
+     "key": "witchery.eye",
+     "displayName": "Eye",
+     "maxEntityHealth": 1,
+     "eut": 1920,
+     "durationTicks": 55,
+     "drops": [
+      {
+       "resource": {
+        "kind": "item",
+        "id": "minecraft:ender_eye",
+        "amount": 1,
+        "displayName": "Eye"
+       },
+       "chance": 0,
+       "chanceModifiers": [
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$NormalChance",
+         "fields": {
+          "chance": 50
+         }
+        },
+        {
+         "className": "com.kuba6000.mobsinfo.api.IChanceModifier$PoweredCreeper"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

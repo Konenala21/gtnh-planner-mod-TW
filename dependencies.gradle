@@ -97,6 +97,19 @@ dependencies {
             runtimeOnlyNonPublishable('com.github.GTNewHorizons:ForestryMC:4.11.39:dev')
             runtimeOnlyNonPublishable('com.github.GTNewHorizons:neiaddons:1.18.6:dev') { transitive = false }
         }
+        // Crops (`PLANNH_CROPS=1 tools/dev/mc.sh start`): CropsNH, the pack's version, for crop cards. Its post-init
+        // links against Better Builders' Wands whether or not that mod is loaded, so the pack's version comes too.
+        if (project.hasProperty('cropsDev')) {
+            runtimeOnlyNonPublishable('com.github.GTNewHorizons:CropsNH:2.0.134:dev') { transitive = false }
+            runtimeOnlyNonPublishable('com.github.GTNewHorizons:BetterBuildersWands:0.13.12-GTNH:dev') { transitive = false }
+        }
+        // The Extreme Entity Crusher's mobs (`PLANNH_MOBS=1 tools/dev/mc.sh start`): MobsInfo's Mob Drops page, which
+        // is the crusher's NEI page, and EnderIO, whose Powered Spawner the crusher holds (kubatech shows the page's
+        // crusher only with both). The pack's versions.
+        if (project.hasProperty('mobsDev')) {
+            runtimeOnlyNonPublishable('com.github.GTNewHorizons:Mobs-Info:0.6.0-GTNH:dev') { transitive = false }
+            runtimeOnlyNonPublishable('com.github.GTNewHorizons:EnderIO:2.10.48:dev')
+        }
         // The quest book (`PLANNH_QUESTS=1 tools/dev/mc.sh start`), for quests on tasks.
         if (project.hasProperty('questsDev')) {
             runtimeOnlyNonPublishable('com.github.GTNewHorizons:BetterQuesting:3.8.89-GTNH:dev') { transitive = false }
