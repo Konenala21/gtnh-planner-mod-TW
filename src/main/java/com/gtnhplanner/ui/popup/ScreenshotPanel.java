@@ -151,6 +151,8 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
             picture,
             session.graph()
                 .getName(),
+            // The plan goes in the picture: it opens as the plan, in the planner and on the website.
+            session.pictureJson(),
             file -> {
                 keeping = false;
                 said("Saved as " + file.getName(), true);
@@ -166,7 +168,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         if (!ready()) return;
         keeping = true;
         status = null;
-        PlanPicture.copy(picture, () -> {
+        PlanPicture.copy(picture, session.pictureJson(), () -> {
             keeping = false;
             said("Copied: paste it anywhere", true);
         }, why -> {

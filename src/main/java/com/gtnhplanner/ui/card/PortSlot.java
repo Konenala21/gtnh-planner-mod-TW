@@ -64,9 +64,10 @@ public final class PortSlot extends Widget<PortSlot>
     /** Far out the ports are not drawn: they take no hover, clicks or drags, and the card under them does. */
     @Override
     public boolean canHover() {
-        return card.session()
-            .graph()
-            .getZoom() > RecipeCard.GLANCE_ZOOM;
+        return !RecipeCard.glanceAt(
+            card.session()
+                .graph()
+                .getZoom());
     }
 
     /** The stack for tooltips. Unlike {@link #getStackForRecipeViewer()} it never arms an NEI lookup. */
@@ -143,6 +144,8 @@ public final class PortSlot extends Widget<PortSlot>
                 .model(node());
         if (model == null || canvas.edit()
             .active()) return false;
+        // With "Scroll changes values" off the wheel changes no rate or item: the board zooms.
+        if (!com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()) return false;
         final com.gtnhplanner.ui.BoardSession session = canvas.session();
         final boolean key = overKey();
         if (!key && !overBox()) return !canvas.carryingSpare() && stepItem(session, model, direction);
@@ -264,6 +267,12 @@ public final class PortSlot extends Widget<PortSlot>
         }
         if (button != 0) return false;
         pressed = -1;
+        // What the game gives for nothing (the Rock Breaker's lava) has no wire to give.
+        if (com.gtnhplanner.data.provider.FreeInputs.isFree(
+            canvas.session()
+                .graph().nodes.get(node()),
+            output,
+            index)) return false;
         canvas.beginPortDrag(node(), output, index, overKey() ? 1 : overBox() ? 2 : 0);
         return true;
     }

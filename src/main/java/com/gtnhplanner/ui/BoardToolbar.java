@@ -58,6 +58,15 @@ final class BoardToolbar extends ParentWidget<BoardToolbar> {
         return widget;
     }
 
+    /**
+     * The least board width that keeps the keys on one row, sitting close: what the overview leaves the board while it
+     * can still give way ({@link RailFit}).
+     */
+    int leastOneRow() {
+        final int split = split();
+        return 2 * MARGIN + span(0, split, true) + TIGHT_GROUP_GAP + span(split, keys.size(), true);
+    }
+
     /** What the keys take from the board's top now: the margin and a row, or more when the keys wrapped. */
     int barHeight() {
         return isEnabled() ? MARGIN + layout().rows() * TopBar.ROW_H : 0;

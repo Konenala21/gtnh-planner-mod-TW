@@ -46,6 +46,11 @@ public final class FfPlanParser {
 
     /** The plan in FF's JSON. */
     public static FfPlan parse(final String json) {
+        return read(root(json));
+    }
+
+    /** The plan's JSON, read: what {@link #parse} reads, with its errors. */
+    static JsonObject root(final String json) {
         final JsonObject root;
         try {
             root = GSON.fromJson(json, JsonObject.class);
@@ -55,7 +60,7 @@ public final class FfPlanParser {
         if (root == null) throw new FfImportException("That is not a plan: it is empty.");
         if (!root.has("recipes") || !root.has("nodes"))
             throw new FfImportException("That is not a plan: it has no recipes or cards.");
-        return read(root);
+        return root;
     }
 
     static FfPlan read(final JsonObject root) {
@@ -325,7 +330,8 @@ public final class FfPlanParser {
             id,
             amount == null || amount <= 0 ? 1 : amount,
             chance == null ? 1 : chance,
-            !input || bool(s, "consumed", true),
+            // The Rock Breaker's lava is the game's gift (FreeInputs), whatever the plan says: never supplied.
+            !input || bool(s, "consumed", true) && !com.gtnhplanner.data.provider.FreeInputs.isFreeId(id),
             alternatives,
             str(s, "displayName", id));
     }
@@ -445,7 +451,26 @@ public final class FfPlanParser {
             if (kind == null) kind = h.kind();
             if (resource == null) resource = h.resourceId();
         }
-        return new FfEdge(id, source, target, sourceHandle, targetHandle, kind, resource, obj(e, "crossForm") != null);
+        return new FfEdge(
+            id,
+            source,
+            target,
+            sourceHandle,
+            targetHandle,
+            kind,
+            resource,
+            obj(e, "crossForm") != null,
+            waypoints(e));
+    }
+
+    /** A wire's steering dots (FF's {@code waypoints}, {x, y} each), as the plan has them; a malformed one left out. */
+    private static List<double[]> waypoints(final JsonObject e) {
+        final List<double[]> out = new ArrayList<>();
+        for (final JsonObject p : objects(e, "waypoints")) {
+            final Double x = num(p, "x"), y = num(p, "y");
+            if (x != null && y != null && Double.isFinite(x) && Double.isFinite(y)) out.add(new double[] { x, y });
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
     @Nullable
@@ -622,7 +647,8 @@ public final class FfPlanParser {
                         "input:" + e.resourceKind() + ":" + encode(e.resourceId()),
                         e.resourceKind(),
                         e.resourceId(),
-                        e.crossForm()));
+                        e.crossForm(),
+                        e.waypoints()));
             }
         }
         final List<FfNode> keptNodes = new ArrayList<>();

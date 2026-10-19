@@ -143,6 +143,156 @@ class WireRouterTest {
         assertFalse(router.statRouted == left.size(), "everything routed again");
     }
 
+    // region Steering dots (the website's waypoints)
+
+    @Test
+    void aSteeredWirePassesThroughItsDot() {
+        final List<Box> boxes = List.of(new Box(0, 0, 320, 200), new Box(800, 0, 320, 200));
+        final int[] dot = { 555, 405 };
+        final Wire w = new Wire(id("steered"), 0, 1, WireRouter.ANY, WireRouter.ANY, 1, List.of(dot));
+        final Set<UUID> fellBack = new HashSet<>();
+        final List<int[]> path = new WireRouter().route(boxes, List.of(w), fellBack, true)
+            .get(w.key());
+        assertTrue(fellBack.isEmpty());
+        assertTrue(along(path, dot) >= 0, () -> "misses the dot: " + describe(path));
+        assertTrue(octilinear(path), () -> describe(path));
+        assertTrue(clear(path, boxes), () -> describe(path));
+        assertTrue(onEdge(path.getFirst(), boxes.get(0)) && onEdge(path.getLast(), boxes.get(1)), () -> describe(path));
+    }
+
+    @Test
+    void dotsAreVisitedInTheirOrderWhereverTheyLie() {
+        final List<Box> boxes = List.of(new Box(0, 0, 320, 200), new Box(800, 0, 320, 200));
+        // The first below the target, the second above the source: the wire goes there and back, in that order.
+        final int[] first = { 955, 405 }, second = { 155, -195 };
+        final Wire w = new Wire(id("order"), 0, 1, WireRouter.ANY, WireRouter.ANY, 1, List.of(first, second));
+        final List<int[]> path = new WireRouter().route(boxes, List.of(w))
+            .get(w.key());
+        final double a = along(path, first), b = along(path, second);
+        assertTrue(a >= 0 && b >= 0, () -> describe(path));
+        assertTrue(a < b, () -> "out of order: " + describe(path));
+        assertTrue(clear(path, boxes), () -> describe(path));
+    }
+
+    @Test
+    void aWireSentBackTheWayItCameDoesNotRunOnItself() {
+        final List<Box> boxes = List.of(new Box(0, 0, 320, 200), new Box(800, 0, 320, 200));
+        // Straight between the two, and a dot out past the target's far side: out to it and back.
+        final int[] dot = { 1405, 105 };
+        final Wire w = new Wire(id("spur"), 0, 1, WireRouter.ANY, WireRouter.ANY, 1, List.<int[]>of(dot));
+        final List<int[]> path = new WireRouter().route(boxes, List.of(w))
+            .get(w.key());
+        assertTrue(along(path, dot) >= 0, () -> describe(path));
+        assertEquals(0, overlaps(path), () -> "runs on itself: " + describe(path));
+        assertTrue(clear(path, boxes), () -> describe(path));
+    }
+
+    @Test
+    void aDotInsideABoxIsLeftOut() {
+        final List<Box> boxes = List
+            .of(new Box(0, 0, 320, 200), new Box(800, 0, 320, 200), new Box(400, 300, 200, 200));
+        final Wire plain = wire("plain", 0, 1);
+        final Wire inBox = new Wire(
+            plain.key(),
+            0,
+            1,
+            WireRouter.ANY,
+            WireRouter.ANY,
+            1,
+            List.<int[]>of(new int[] { 505, 405 }));
+        final List<int[]> a = new WireRouter().route(boxes, List.of(plain))
+            .get(plain.key()),
+            b = new WireRouter().route(boxes, List.of(inBox))
+                .get(plain.key());
+        assertEquals(describe(a), describe(b));
+    }
+
+    @Test
+    void movingADotRoutesOnlyItsWire() {
+        final List<Box> boxes = grid();
+        final List<Wire> wires = wiresOf(boxes.size());
+        final WireRouter router = new WireRouter();
+        router.route(boxes, wires);
+        // The first wire steered below its row, then the dot moved: only that wire routes again, through the dot.
+        final Wire first = wires.getFirst();
+        final List<Wire> steered = new ArrayList<>(wires);
+        steered.set(0, withStops(first, new int[] { 425, 255 }));
+        Map<UUID, List<int[]>> routes = router.reroute(boxes, steered, null, true);
+        assertEquals(1, router.statRouted);
+        final List<Wire> moved = new ArrayList<>(wires);
+        final int[] dot = { 425, 295 };
+        moved.set(0, withStops(first, dot));
+        final Map<UUID, List<int[]>> before = routes;
+        routes = router.reroute(boxes, moved, null, true);
+        assertEquals(1, router.statRouted);
+        final List<int[]> path = routes.get(first.key());
+        assertTrue(along(path, dot) >= 0, () -> describe(path));
+        for (final Wire w : wires.subList(1, wires.size())) {
+            if (!w.key()
+                .equals(first.key())) assertSame(before.get(w.key()), routes.get(w.key()));
+        }
+        // And taken off again, it routes as it did unsteered.
+        final Map<UUID, List<int[]>> off = router.reroute(boxes, wires, null, true);
+        assertEquals(
+            describe(
+                new WireRouter().route(boxes, wires)
+                    .get(first.key())),
+            describe(off.get(first.key())));
+    }
+
+    @Test
+    void aDotPastTheBoardStillRoutes() {
+        final List<Box> boxes = List.of(new Box(0, 0, 320, 200), new Box(800, 0, 320, 200));
+        final WireRouter router = new WireRouter();
+        final Wire plain = wire("far", 0, 1);
+        router.route(boxes, List.of(plain));
+        // Far past the grid's slack: the grid grows to take it.
+        final int[] dot = { 555, 2005 };
+        final Map<UUID, List<int[]>> routes = router.reroute(boxes, List.of(withStops(plain, dot)), null, true);
+        assertTrue(along(routes.get(plain.key()), dot) >= 0, () -> describe(routes.get(plain.key())));
+    }
+
+    private static Wire withStops(final Wire w, final int[]... stops) {
+        return new Wire(w.key(), w.from(), w.to(), w.fromSides(), w.toSides(), w.weight(), List.of(stops));
+    }
+
+    /** How far along the path the point is, or -1 when the path does not pass through it. */
+    private static double along(final List<int[]> path, final int[] p) {
+        double at = 0;
+        for (int i = 1; i < path.size(); i++) {
+            final int[] a = path.get(i - 1), b = path.get(i);
+            final double len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            final long cross = (long) (b[0] - a[0]) * (p[1] - a[1]) - (long) (b[1] - a[1]) * (p[0] - a[0]);
+            final boolean within = Math.min(a[0], b[0]) <= p[0] && p[0] <= Math.max(a[0], b[0])
+                && Math.min(a[1], b[1]) <= p[1]
+                && p[1] <= Math.max(a[1], b[1]);
+            if (cross == 0 && within) return at + Math.hypot(p[0] - a[0], p[1] - a[1]);
+            at += len;
+        }
+        return -1;
+    }
+
+    /** Ten-pixel steps the path runs along twice (either way). */
+    private static int overlaps(final List<int[]> path) {
+        final Set<String> seen = new HashSet<>();
+        int twice = 0;
+        for (int i = 1; i < path.size(); i++) {
+            final int[] a = path.get(i - 1), b = path.get(i);
+            final int steps = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / 10;
+            final int sx = Integer.signum(b[0] - a[0]) * 10, sy = Integer.signum(b[1] - a[1]) * 10;
+            for (int k = 0; k < steps; k++) {
+                final int x0 = a[0] + k * sx, y0 = a[1] + k * sy, x1 = x0 + sx, y1 = y0 + sy;
+                final String step = Math.min(
+                    x0,
+                    x1) + "," + Math.min(y0, y1) + "," + Math.max(x0, x1) + "," + Math.max(y0, y1) + "," + (sx * sy);
+                if (!seen.add(step)) twice++;
+            }
+        }
+        return twice;
+    }
+
+    // endregion
+
     // region Helpers
 
     /** Three rows of four cards with room between. */

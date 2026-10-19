@@ -668,38 +668,6 @@
      "wants": 2.5,
      "upstream": []
     }
-   ],
-   "upToLoops": [
-    {
-     "kind": "DEAD_LOOP",
-     "nodes": [
-      "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
-      "8dff4411-e404-4416-8f3a-fb2ca62f1283",
-      "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795"
-     ],
-     "ports": [
-      {
-       "nodeId": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
-       "portIndex": 0,
-       "input": true
-      },
-      {
-       "nodeId": "80dd9ac4-9630-4ca4-96d4-b74b875d06a0",
-       "portIndex": 1,
-       "input": true
-      },
-      {
-       "nodeId": "8dff4411-e404-4416-8f3a-fb2ca62f1283",
-       "portIndex": 0,
-       "input": true
-      },
-      {
-       "nodeId": "ad605ca1-ab84-4ba3-9b08-1fb9dd6e1795",
-       "portIndex": 0,
-       "input": true
-      }
-     ]
-    }
    ]
   },
   "alternatives": {

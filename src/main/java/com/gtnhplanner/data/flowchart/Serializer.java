@@ -688,6 +688,8 @@ public final class Serializer {
         obj.addProperty("dst", edge.targetNodeId.toString());
         obj.addProperty("srcOut", edge.sourceOutputIndex);
         obj.addProperty("dstIn", edge.targetInputIndex);
+        // Written only when steered: an older build reads the wire as it always did.
+        if (!edge.waypoints.isEmpty()) obj.add("waypoints", Waypoints.toJson(edge.waypoints));
         return obj;
     }
 
@@ -707,7 +709,9 @@ public final class Serializer {
             .getAsInt();
         final int dstIn = obj.get("dstIn")
             .getAsInt();
-        return new Edge(id, src, dst, srcOut, dstIn);
+        final Edge edge = new Edge(id, src, dst, srcOut, dstIn);
+        edge.waypoints = Waypoints.fromJson(obj.get("waypoints"));
+        return edge;
     }
 
     /** The settings each machine's cards show, as the save writes them ({@link Graph#settingPins}). */

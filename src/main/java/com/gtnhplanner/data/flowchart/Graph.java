@@ -231,6 +231,21 @@ public class Graph {
         return unstackPending;
     }
 
+    /** The rate unit an imported plan was shared in, the website's word ({@code importer.PlanView}); null for none. */
+    private transient String arrivedRateUnit;
+
+    /** Asks the board to show rates in {@code rateUnit} (a website word) the next time it shows the plan. */
+    public void viewWhenShown(final String rateUnit) {
+        arrivedRateUnit = rateUnit;
+    }
+
+    /** The rate unit the plan arrived in, once: null when it has none to give or gave it already. */
+    public String takeView() {
+        final String unit = arrivedRateUnit;
+        arrivedRateUnit = null;
+        return unit;
+    }
+
     public Graph() {
         this.name = "";
     }

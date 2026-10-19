@@ -13,42 +13,46 @@ import com.gtnhplanner.ui.theme.Hyb;
 
 /**
  * The planner's top bar, for the account's things only: the plan tabs (with their live status and faces), then the
- * keys in their groups (library, share and the account; feedback, settings and help). What edits or views the board
- * is in {@link BoardToolbar}, along the top of the board.
+ * keys in their groups (plans, share and the account; feedback, settings and help). What edits or views the board is
+ * in {@link BoardToolbar}, along the top of the board.
  *
  * <p>
- * It gives way as the planner narrows, as the website's bar does. First the keys sit closer, the non-recipe key keeps
- * only its bolt and arrange's progress only its number, and the faces of who else is here fold to two and a count (in
- * {@link PlanTabs}). When the keys still leave the tabs too little room they move to rows of their own under the tabs,
- * wrapped a group at a time; the last of those rows goes up beside the tabs when it fits there. The tabs always keep
- * room for the open plan's tab and "+".
+ * It is always one row and hides no key, as the website's bar ({@link TopBarFit}). As the planner narrows the tabs give
+ * way first (they scroll, the open plan's tab kept in view; their end folds the faces to two and a count, in
+ * {@link PlanTabs}), then Plans, Share and Sign in show only their pictures, as feedback, settings and help do, then
+ * the keys sit closer. The open plan's tab and "+" always stay.
  */
 final class TopBar extends ParentWidget<TopBar> {
 
-    /** One row of the bar, and the keys on it. */
+    /** The bar's height, and the keys' on it. */
     static final int ROW_H = 20, KEY_H = 16;
+    /** A key with only its picture. */
+    static final int PICTURE_W = 18;
     private static final int PAD = 4, GAP = 3, GROUP_GAP = 9, TIGHT_GAP = 1, TIGHT_GROUP_GAP = 4;
     private static final int BG = 0xFF0E0F12, LINE = 0xFF2A2C31;
 
-    /** A key: its group, and its width with room to spare and when the bar is tight (a key may change its width). */
-    private record Key(Widget<?> widget, int group, IntSupplier roomy, IntSupplier tight) {}
+    /** A key: its group, and its width with its label and with only its picture (the same for a picture key). */
+    private record Key(Widget<?> widget, int group, IntSupplier labelled, IntSupplier picture) {
 
-    /** Where everything goes: the rows, the tabs' width, and each key's place and width. */
-    private record Layout(int rows, int tabsW, int[] x, int[] y, int[] w) {}
+        int width(final int step) {
+            return (step == TopBarFit.ROOMY ? labelled : picture).getAsInt();
+        }
+    }
+
+    /** Where everything goes: the dress, the tabs' width, and each key's place and width. */
+    private record Layout(int step, int tabsW, int[] x, int[] w) {}
 
     private final PlanTabs tabs;
     private final List<Key> keys = new ArrayList<>();
     private Layout laid;
-    private int laidWidth = -1, laidReserve = -1, laidKeys = -1;
+    private int laidWidth = -1, laidTabs = -1, laidKeys = -1;
 
     TopBar(final PlanTabs tabs) {
         this.tabs = tabs;
         widthRel(1f);
-        height(() -> layout().rows() * ROW_H, Unit.Measure.PIXEL);
+        height(ROW_H);
         background((IDrawable) (ctx, x, y, w, h, theme) -> {
             Hyb.rect(x, y, w, h, BG);
-            // The tabs sit on a line, as on one row; the keys' rows under it share the bar's ground.
-            if (h > ROW_H) Hyb.rect(x, y + ROW_H - 1, w, 1, LINE);
             Hyb.rect(x, y + h - 1, w, 1, LINE);
         });
         tabs.left(PAD)
@@ -58,28 +62,35 @@ final class TopBar extends ParentWidget<TopBar> {
         child(tabs);
     }
 
-    /**
-     * Adds a key to {@code group} (groups in order, from 0), {@code roomy} wide with room and {@code tight} without.
-     */
-    <W extends Widget<?>> W key(final int group, final W widget, final int roomy, final int tight) {
-        return key(group, widget, () -> roomy, () -> tight);
+    /** Adds a key to {@code group} (groups in order, from 0), as wide with its label as with only its picture. */
+    <W extends Widget<?>> W key(final int group, final W widget, final int width) {
+        return key(group, widget, () -> width, () -> width);
     }
 
-    /** As above, for a key whose width changes (the account's: "Sign in", then a face). */
-    <W extends Widget<?>> W key(final int group, final W widget, final IntSupplier roomy, final IntSupplier tight) {
+    /**
+     * Adds a key to {@code group}, {@code labelled} wide with its label and {@code picture} wide with only its picture
+     * (a key may change its width: the account's is "Sign in", then a face).
+     */
+    <W extends Widget<?>> W key(final int group, final W widget, final IntSupplier labelled,
+        final IntSupplier picture) {
         final int i = keys.size();
-        keys.add(new Key(widget, group, roomy, tight));
+        keys.add(new Key(widget, group, labelled, picture));
         widget.left(() -> layout().x()[i], Unit.Measure.PIXEL)
-            .top(() -> layout().y()[i], Unit.Measure.PIXEL)
+            .top(2)
             .width(() -> layout().w()[i], Unit.Measure.PIXEL)
             .height(KEY_H);
         child(widget);
         return widget;
     }
 
-    /** The bar's height now: a row, or more when the keys moved under the tabs. */
+    /** The bar's height: always one row. */
     int barHeight() {
-        return layout().rows() * ROW_H;
+        return ROW_H;
+    }
+
+    /** The dress the keys are in now ({@link TopBarFit}). */
+    int step() {
+        return layout().step();
     }
 
     /** The planner's width, which the bar spans. */
@@ -92,29 +103,34 @@ final class TopBar extends ParentWidget<TopBar> {
     /** The keys' widths added up: it moves when one of them changes its width. */
     private int keysSig() {
         int sig = 0;
-        for (final Key k : keys) sig = sig * 31 + k.roomy()
+        for (final Key k : keys) sig = sig * 31 + k.labelled()
             .getAsInt() * 7
-            + k.tight()
+            + k.picture()
                 .getAsInt();
         return sig;
     }
 
+    /** What the tabs ask for: it moves when a plan opens, closes or is renamed, or someone comes or goes. */
+    private int tabsSig() {
+        return tabs.want() * 31 + tabs.endLeast();
+    }
+
     private Layout layout() {
-        final int width = barWidth(), reserve = tabs.reserve(), sig = keysSig();
-        if (laid == null || width != laidWidth || reserve != laidReserve || sig != laidKeys) {
-            laid = lay(width, reserve);
+        final int width = barWidth(), tabsSig = tabsSig(), sig = keysSig();
+        if (laid == null || width != laidWidth || tabsSig != laidTabs || sig != laidKeys) {
+            laid = lay(width);
             laidWidth = width;
-            laidReserve = reserve;
+            laidTabs = tabsSig;
             laidKeys = sig;
         }
         return laid;
     }
 
-    /** The planner was resized, or the tabs' end changed (someone came or went): lay the bar out again. */
+    /** The planner was resized, or the tabs or keys changed: lay the bar out again. */
     @Override
     public void onUpdate() {
         super.onUpdate();
-        if (barWidth() != laidWidth || tabs.reserve() != laidReserve || keysSig() != laidKeys) {
+        if (barWidth() != laidWidth || tabsSig() != laidTabs || keysSig() != laidKeys) {
             layout();
             final ModularPanel panel = getPanel();
             if (panel != null) panel.scheduleResize();
@@ -123,84 +139,47 @@ final class TopBar extends ParentWidget<TopBar> {
 
     // region The layout
 
-    private Layout lay(final int width, final int reserve) {
+    /** The keys at the bar's right end in the widest dress that leaves the tabs their room; the tabs take the rest. */
+    private Layout lay(final int width) {
         final int room = Math.max(0, width - 2 * PAD), n = keys.size();
-        final int[] x = new int[n], y = new int[n], w = new int[n];
-        // One row: the keys at its right end, roomy if they can be, the tabs taking the rest.
-        for (final boolean tight : new boolean[] { false, true }) {
-            final int keysW = span(0, n, tight), groupGap = tight ? TIGHT_GROUP_GAP : GROUP_GAP;
-            if (reserve + groupGap + keysW > room) continue;
-            place(0, n, PAD + room - keysW, 2, tight, x, y, w);
-            return new Layout(1, room - keysW - groupGap, x, y, w);
-        }
-        // Rows: the tabs on the first, the keys under them, wrapped a group at a time.
-        final List<int[]> rows = new ArrayList<>();
-        int from = 0;
-        for (int i = 1; i < n; i++) {
-            // A group goes on whole: to the next row when it does not fit what is left of this one. Only a group wider
-            // than a row breaks between its keys.
-            final boolean groupStart = keys.get(i)
-                .group()
-                != keys.get(i - 1)
-                    .group();
-            if (span(from, groupStart ? groupEnd(i) : i + 1, true) > room) {
-                rows.add(new int[] { from, i });
-                from = i;
-            }
-        }
-        if (n > 0) rows.add(new int[] { from, n });
-        int tabsW = room;
-        int below = rows.size();
-        // The last row beside the tabs, when they keep their room.
-        if (rows.size() > 1) {
-            final int[] last = rows.get(rows.size() - 1);
-            final int lastW = span(last[0], last[1], true);
-            if (reserve + TIGHT_GROUP_GAP + lastW <= room) {
-                place(last[0], last[1], PAD + room - lastW, 2, true, x, y, w);
-                tabsW = room - lastW - TIGHT_GROUP_GAP;
-                below--;
-            }
-        }
-        for (int r = 0; r < below; r++) place(rows.get(r)[0], rows.get(r)[1], PAD, (r + 1) * ROW_H + 2, true, x, y, w);
-        return new Layout(1 + below, tabsW, x, y, w);
-    }
-
-    /** The end of the group key {@code i} is in (exclusive). */
-    private int groupEnd(final int i) {
-        int end = i;
-        while (end < keys.size() && keys.get(end)
-            .group()
-            == keys.get(i)
-                .group())
-            end++;
-        return end;
-    }
-
-    /** The width of keys {@code from} to {@code to} (exclusive) side by side, a group's gap between groups. */
-    private int span(final int from, final int to, final boolean tight) {
-        int w = 0;
-        for (int i = from; i < to; i++) {
-            final Key k = keys.get(i);
-            if (i > from) w += k.group() != keys.get(i - 1)
-                .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
-            w += (tight ? k.tight() : k.roomy()).getAsInt();
-        }
-        return w;
-    }
-
-    /** Puts keys {@code from} to {@code to} (exclusive) side by side from {@code left}, at {@code top}. */
-    private void place(final int from, final int to, final int left, final int top, final boolean tight, final int[] x,
-        final int[] y, final int[] w) {
-        int at = left;
-        for (int i = from; i < to; i++) {
-            final Key k = keys.get(i);
-            if (i > from) at += k.group() != keys.get(i - 1)
-                .group() ? tight ? TIGHT_GROUP_GAP : GROUP_GAP : tight ? TIGHT_GAP : GAP;
+        final int[] spans = new int[TopBarFit.TIGHT + 1];
+        for (int step = 0; step <= TopBarFit.TIGHT; step++) spans[step] = span(step) + groupGap(step);
+        final int step = TopBarFit.step(room, spans, tabs.want(), tabs.endLeast());
+        final int[] x = new int[n], w = new int[n];
+        int at = PAD + room - span(step);
+        for (int i = 0; i < n; i++) {
+            if (i > 0) at += gapBefore(i, step);
             x[i] = at;
-            y[i] = top;
-            w[i] = (tight ? k.tight() : k.roomy()).getAsInt();
+            w[i] = keys.get(i)
+                .width(step);
             at += w[i];
         }
+        return new Layout(step, Math.max(0, room - spans[step]), x, w);
+    }
+
+    private static int groupGap(final int step) {
+        return step == TopBarFit.TIGHT ? TIGHT_GROUP_GAP : GROUP_GAP;
+    }
+
+    /** The gap before key {@code i}: a group's between groups. */
+    private int gapBefore(final int i, final int step) {
+        final boolean newGroup = keys.get(i)
+            .group()
+            != keys.get(i - 1)
+                .group();
+        if (step == TopBarFit.TIGHT) return newGroup ? TIGHT_GROUP_GAP : TIGHT_GAP;
+        return newGroup ? GROUP_GAP : GAP;
+    }
+
+    /** The keys' width side by side in a dress. */
+    private int span(final int step) {
+        int w = 0;
+        for (int i = 0; i < keys.size(); i++) {
+            if (i > 0) w += gapBefore(i, step);
+            w += keys.get(i)
+                .width(step);
+        }
+        return w;
     }
 
     // endregion

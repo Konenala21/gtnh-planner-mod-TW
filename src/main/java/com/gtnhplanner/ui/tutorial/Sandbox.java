@@ -46,6 +46,10 @@ final class Sandbox {
     /** The overview: the tour shows it open, every section but Internal unfolded, as it is the first time. */
     private boolean overviewOpen;
     private Set<String> overviewFolded;
+    private int overviewWidth;
+    /** The board: the glance view where the tour's steps expect it, and the wheel stepping values as they show. */
+    private int zoomedOutAt;
+    private boolean scrollChangesValues;
 
     void enter() {
         if (active) return;
@@ -81,6 +85,12 @@ final class Sandbox {
         overviewFolded = PlannerSettings.overviewFolded();
         PlannerSettings.setOverviewOpen(true);
         PlannerSettings.setOverviewFolded(PlannerSettings.OVERVIEW_FOLDED_AT_FIRST);
+        overviewWidth = PlannerSettings.overviewWidth();
+        PlannerSettings.setOverviewWidth(com.gtnhplanner.ui.RailFit.DEFAULT);
+        zoomedOutAt = PlannerSettings.zoomedOutPercent();
+        PlannerSettings.setZoomedOutPercent(PlannerSettings.ZOOMED_OUT_DEFAULT);
+        scrollChangesValues = PlannerSettings.scrollChangesValues();
+        PlannerSettings.setScrollChangesValues(true);
         Plan.enterSandbox();
     }
 
@@ -134,6 +144,9 @@ final class Sandbox {
         PlannerSettings.setPeakPower(peak);
         PlannerSettings.setOverviewOpen(overviewOpen);
         PlannerSettings.setOverviewFolded(overviewFolded);
+        PlannerSettings.setOverviewWidth(overviewWidth);
+        PlannerSettings.setZoomedOutPercent(zoomedOutAt);
+        PlannerSettings.setScrollChangesValues(scrollChangesValues);
         if (world) {
             final GuiScreen screen = mc.currentScreen;
             if (Planner.isPlanner(screen)) Planner.open();

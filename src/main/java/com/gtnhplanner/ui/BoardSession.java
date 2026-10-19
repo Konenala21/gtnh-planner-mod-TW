@@ -27,6 +27,7 @@ import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.data.flowchart.Port;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
+import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.data.flowchart.balancer.BalanceMode;
 import com.gtnhplanner.data.flowchart.balancer.BalanceResult;
 import com.gtnhplanner.data.flowchart.balancer.DrawerReadout;
@@ -83,6 +84,20 @@ public final class BoardSession {
     BoardSession() {
         graph = Plan.getActiveGraph();
         current = this;
+        takeView();
+    }
+
+    /**
+     * A plan that arrived shared in a rate unit (a link, a code, a post, a file) shows its rates in that, as the
+     * website opens one; the player's own key from then on.
+     */
+    private void takeView() {
+        final String word = graph == null ? null : graph.takeView();
+        if (word == null) return;
+        final Fmt.RateUnit unit = com.gtnhplanner.importer.PlanView.unit(word);
+        energyView = unit == null;
+        PlannerSettings.setEnergyView(energyView);
+        if (unit != null) setRateUnit(unit);
     }
 
     /** The session of the open board, or null when the planner is closed. */
@@ -308,6 +323,30 @@ public final class BoardSession {
         PlanAPI.recordEdit(graph, change);
         graph.touchLayout();
         PlanAPI.save();
+    }
+
+    /**
+     * Steers a wire through {@code points}, its dots (the website's waypoints; {@link Waypoints}): an edge by its id,
+     * or a drawer's link (a buffer's user when {@code taker}). One undoable step, saved, never solved: the dots only
+     * route the wire. Nothing happens when the wire is gone or already has them.
+     */
+    public void setWaypoints(@Nullable final UUID edgeId, @Nullable final UUID drawerId,
+        @Nullable final Drawer.Link link, final boolean taker, final List<int[]> points) {
+        final List<int[]> clean = Waypoints.clean(points);
+        if (edgeId != null) {
+            final Edge e = graph.edges.get(edgeId);
+            if (e == null || Waypoints.same(e.waypoints, clean)) return;
+            editLayout(() -> e.waypoints = clean);
+            return;
+        }
+        final Drawer d = drawerId == null ? null : graph.getDrawer(drawerId);
+        if (d == null || link == null) return;
+        for (final Drawer.Link held : taker ? d.getTakers() : d.getLinks()) {
+            if (!held.equals(link)) continue;
+            if (Waypoints.same(held.waypoints(), clean)) return;
+            editLayout(() -> d.setWaypoints(link, taker, clean));
+            return;
+        }
     }
 
     /**
@@ -1104,12 +1143,15 @@ public final class BoardSession {
         String machineName, boolean fixed, boolean exact, int dx, int dy, String powerSource,
         Map<String, String> powerSettings, Map<Integer, String> picks) {}
 
-    /** A copied drawer, and the copied cards' ports it was linked to, as {card index in the copy, port}. */
+    /**
+     * A copied drawer, the copied cards' ports it was linked to as {card index in the copy, port}, and each link's dots
+     * from the copy's top-left.
+     */
     private record ClipDrawer(Drawer.Kind kind, String key, String label, Drawer.Rule rule, double rate, int dx, int dy,
-        List<int[]> links) {}
+        List<int[]> links, List<List<int[]>> linkWaypoints) {}
 
-    /** A wire between two copied cards, by their index in the copy. */
-    private record ClipEdge(int from, int output, int to, int input) {}
+    /** A wire between two copied cards, by their index in the copy, and its dots from the copy's top-left. */
+    private record ClipEdge(int from, int output, int to, int input, List<int[]> waypoints) {}
 
     /** A copied sticky note, and where it sat from the copy's top-left. */
     private record ClipNote(com.gtnhplanner.data.flowchart.Note note, int dx, int dy) {}
@@ -1169,14 +1211,23 @@ public final class BoardSession {
         final List<ClipEdge> edges = new ArrayList<>();
         for (final Edge e : graph.getEdges()) {
             final Integer from = index.get(e.sourceNodeId), to = index.get(e.targetNodeId);
-            if (from != null && to != null) edges.add(new ClipEdge(from, e.sourceOutputIndex, to, e.targetInputIndex));
+            if (from != null && to != null) edges.add(
+                new ClipEdge(
+                    from,
+                    e.sourceOutputIndex,
+                    to,
+                    e.targetInputIndex,
+                    Waypoints.shifted(e.waypoints, -x0, -y0)));
         }
         final List<ClipDrawer> clipDrawers = new ArrayList<>();
         for (final Drawer d : drawers) {
             final List<int[]> links = new ArrayList<>();
+            final List<List<int[]>> linkWaypoints = new ArrayList<>();
             for (final Drawer.Link l : d.getLinks()) {
                 final Integer at = index.get(l.nodeId());
-                if (at != null) links.add(new int[] { at, l.portIndex() });
+                if (at == null) continue;
+                links.add(new int[] { at, l.portIndex() });
+                linkWaypoints.add(Waypoints.shifted(l.waypoints(), -x0, -y0));
             }
             clipDrawers.add(
                 new ClipDrawer(
@@ -1187,7 +1238,8 @@ public final class BoardSession {
                     d.getRate(),
                     d.getX() - x0,
                     d.getY() - y0,
-                    links));
+                    links,
+                    linkWaypoints));
         }
         clipboard = new Clip(clipNodes, clipDrawers, edges, clipNotes);
         return true;
@@ -1249,8 +1301,11 @@ public final class BoardSession {
             for (final Node n : made) if (n != null) graph.addNode(n);
             for (final ClipEdge e : clip.edges()) {
                 final Node from = made.get(e.from()), to = made.get(e.to());
-                if (from != null && to != null)
-                    graph.addEdge(new Edge(UUID.randomUUID(), from.id, to.id, e.output(), e.input()));
+                if (from == null || to == null) continue;
+                final Edge edge = new Edge(UUID.randomUUID(), from.id, to.id, e.output(), e.input());
+                // Its dots ride along with the copy, as on the website.
+                edge.waypoints = Waypoints.shifted(e.waypoints(), snap(worldX), snap(worldY));
+                graph.addEdge(edge);
             }
             for (final ClipDrawer c : clip.drawers()) {
                 final Drawer d = new Drawer(c.kind(), c.key());
@@ -1259,9 +1314,19 @@ public final class BoardSession {
                 d.setY(snap(worldY + c.dy()));
                 d.setTarget(c.rule(), c.rate());
                 graph.addDrawer(d);
-                for (final int[] l : c.links()) {
+                for (int k = 0; k < c.links()
+                    .size(); k++) {
+                    final int[] l = c.links()
+                        .get(k);
                     final Node n = made.get(l[0]);
-                    if (n != null) graph.linkDrawer(d.getId(), new Drawer.Link(n.id, l[1]));
+                    if (n != null) graph.linkDrawer(
+                        d.getId(),
+                        new Drawer.Link(n.id, l[1]).withWaypoints(
+                            Waypoints.shifted(
+                                c.linkWaypoints()
+                                    .get(k),
+                                snap(worldX),
+                                snap(worldY))));
                 }
                 madeDrawers.add(d);
             }
@@ -1813,6 +1878,7 @@ public final class BoardSession {
         if (active != graph) {
             graph = active;
             seenVersion = Long.MIN_VALUE;
+            takeView();
         }
     }
 
@@ -2831,10 +2897,13 @@ public final class BoardSession {
         }
     }
 
-    /** One card in the overview's machine list. */
+    /**
+     * One card in the overview's machine list. {@code steamPerSecond}: the steam it burns, L/s, peak or average
+     * as the power is; NaN for a machine that burns none.
+     */
     public record MachineLine(UUID nodeId, String name, ItemStack stack, double machines, boolean pinned, String tier,
         int amps, boolean multiblock, boolean gregtech, double euPerTick, boolean tooLow, double madeEuPerTick,
-        PinRule rule, double set, double runs, @Nullable UpToReadout upTo) {}
+        PinRule rule, double set, double runs, @Nullable UpToReadout upTo, double steamPerSecond) {}
 
     /**
      * The overview, Factory Flow's resources column: per resource what the plan needs from outside (deficit), what it
@@ -2930,10 +2999,14 @@ public final class BoardSession {
             final PinRule rule = rule(card.node);
             double built = 0, made = 0;
             boolean tooLow = false;
-            for (final CardModel c : recipes) {
+            final double[] steamTicks = new double[recipes.size()], steamRuns = new double[recipes.size()];
+            for (int i = 0; i < recipes.size(); i++) {
+                final CardModel c = recipes.get(i);
                 built += c.machines;
                 made += c.madeEuPerTick();
                 tooLow |= c.tierTooLow();
+                steamTicks[i] = c.steam() ? c.steamPerTick : 0;
+                steamRuns[i] = c.machines;
             }
             // An Up to card lists what runs: its read-out's (a shared machine's is its whole pool's).
             final UpToReadout readout = rule == PinRule.UP_TO ? upTo(card.node.id) : null;
@@ -2956,7 +3029,8 @@ public final class BoardSession {
                     rule,
                     setCount(card.node),
                     runs,
-                    readout));
+                    readout,
+                    RailTotals.steamPerSecond(steamTicks, steamRuns, peakPower)));
         }
         // What trash voids leaves the plan without being an output of it.
         final Map<String, Double> trashed = new HashMap<>();
@@ -3530,6 +3604,20 @@ public final class BoardSession {
         });
     }
 
+    /**
+     * The open plan as the website's project JSON, for a picture of it to carry (library/PlanImage); null when it
+     * could not be written, and the picture goes without it.
+     */
+    @Nullable
+    public String pictureJson() {
+        try {
+            return websiteJson().toString();
+        } catch (final RuntimeException e) {
+            GtnhPlanner.LOG.warn("Could not write the plan into its picture", e);
+            return null;
+        }
+    }
+
     /** The open plan's link on the website: its plan code after {@code #p=}, so it never reaches a server. */
     @Nullable
     private String websiteLink() {
@@ -3656,26 +3744,13 @@ public final class BoardSession {
                             List.of()));
                 }
             }
-            // Old Build's rings: a dead loop's cards wait on each other, a clog lock's are stuck on a surplus. Show me
-            // frames the ring's cards.
+            // Old Build's rings: a dead loop's cards starve each other, a clog lock's clog each other on a surplus.
+            // Alarms: a chip in the ring's tone, blinking, right under a failed solve. Show me frames the ring's cards.
             for (final com.gtnhplanner.data.flowchart.balancer.UpToLoop loop : upToLoops()) {
                 final List<UUID> ring = Loops.cards(loop, this::hostOf);
                 ring.removeIf(id -> !cards.containsKey(id));
                 if (ring.isEmpty()) continue;
-                final List<String> names = new ArrayList<>(ring.size());
-                for (final UUID id : ring) names.add(cards.get(id).machineName);
-                final Map<String, String> named = new HashMap<>();
-                final List<String> what = Loops.resources(loop, p -> {
-                    final CardModel m = cards.get(p.nodeId());
-                    if (m == null) return null;
-                    for (final CardModel.PortView v : p.input() ? m.inputs : m.outputs)
-                        if (v.index() == p.portIndex()) {
-                            named.putIfAbsent(v.key(), v.name());
-                            return v.key();
-                        }
-                    return null;
-                }, named::get);
-                out.add(new Notice(Severity.WARN, Loops.sentence(loop.kind(), names, what), ring));
+                out.add(Notice.alarm(loop.kind(), Loops.sentence(loop.kind(), ring.size()), ring));
             }
             for (final DrawerReadout.Shortfall s : shortfalls()) {
                 final DrawerModel d = drawerModels.get(s.drawer());
@@ -3745,8 +3820,8 @@ public final class BoardSession {
             out.add(failure(lastResult.errorNote()));
         }
         // A port with no wire or drawer is no problem: what it takes comes in from outside the plan, what it makes
-        // leaves it (the card draws it so).
-        return out;
+        // leaves it (the card draws it so). Most pressing first; a flash goes above them all (notices()).
+        return Notice.byUrgency(out);
     }
 
     /** An output made past its target, said in full. */

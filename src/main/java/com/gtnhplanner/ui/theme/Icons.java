@@ -81,6 +81,21 @@ public final class Icons {
         draw(PENCIL, x, y, c, false);
     }
 
+    /** Four squares: every plan (the top bar's Plans, short of room). */
+    public static void plans(final int x, final int y, final int c) {
+        draw(PLANS, x, y, c, false);
+    }
+
+    /** An arrow up out of a tray: sharing (the top bar's Share, short of room). */
+    public static void share(final int x, final int y, final int c) {
+        draw(SHARE, x, y, c, false);
+    }
+
+    /** A person: the account (the top bar's Sign in, short of room). */
+    public static void account(final int x, final int y, final int c) {
+        draw(ACCOUNT, x, y, c, false);
+    }
+
     /**
      * Where an icon goes on a key {@code w} by {@code h}: the middle of its lit face (the dark edge right and below
      * melts into the bar), its rows level with a label's letters. Exact on a key of even width and height.
@@ -116,6 +131,13 @@ public final class Icons {
         "...##....", ".........", "........." };
     private static final String[] PENCIL = { "......##.", ".....###.", "....###..", "...###...", "..###....",
         ".###.....", "####.....", "###......", "........." };
+    // The website's pixel icons (pixel-icons.tsx).
+    private static final String[] PLANS = { "####.####", "####.####", "####.####", "####.####", ".........",
+        "####.####", "####.####", "####.####", "####.####" };
+    private static final String[] SHARE = { "...##....", "..####...", ".######..", "...##....", "##.##.##.",
+        "##....##.", "##....##.", "########.", "########." };
+    private static final String[] ACCOUNT = { "...###...", "..#####..", "..#####..", "...###...", ".........",
+        ".#######.", "#########", "#########", "#########" };
 
     private static void draw(final String[] rows, final int x, final int y, final int c, final boolean mirror) {
         final boolean own = !Hyb.batching();

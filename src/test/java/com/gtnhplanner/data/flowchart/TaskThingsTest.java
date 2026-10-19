@@ -233,6 +233,12 @@ class TaskThingsTest {
     }
 
     @Test
+    void aSpotCopiesAsTheGameTypesIt() {
+        // The website's Copy where it is: x y z, ready to paste after /tp.
+        assertEquals("120 64 -30", TaskEdits.coordinates(SPOT));
+    }
+
+    @Test
     void aQuestIsWrittenUnderItsThingWithItsNameAsItsWords() {
         final JsonObject root = new JsonObject();
         Tasks.write(board(), root);

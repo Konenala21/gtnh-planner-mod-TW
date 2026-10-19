@@ -527,9 +527,13 @@ public final class PlanPicture {
         return to;
     }
 
-    /** Saves the picture as a PNG in the game's screenshots folder, named for the plan; {@code done} gets the file. */
-    public static void save(final BufferedImage image, final String planName, final Consumer<File> done,
-        final Consumer<String> failed) {
+    /**
+     * Saves the picture as a PNG in the game's screenshots folder, named for the plan; {@code done} gets the file.
+     * {@code plan}, the plan's JSON as the website reads it, goes in the picture (library/PlanImage), so the picture
+     * opens as the plan, here and on the website; null leaves it a plain picture.
+     */
+    public static void save(final BufferedImage image, final String planName, @Nullable final String plan,
+        final Consumer<File> done, final Consumer<String> failed) {
         final File dir = new File(Minecraft.getMinecraft().mcDataDir, "screenshots");
         final String base = planName.replaceAll("[^A-Za-z0-9 _-]", "")
             .trim()
@@ -542,7 +546,9 @@ public final class PlanPicture {
         FILES.execute(() -> {
             try {
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("could not make " + dir);
-                ImageIO.write(image, "png", file);
+                if (plan == null) ImageIO.write(image, "png", file);
+                else java.nio.file.Files
+                    .write(file.toPath(), com.gtnhplanner.library.PlanImage.png(image, plan, Hyb.CANVAS));
                 onClient(() -> done.accept(file));
             } catch (final IOException | RuntimeException e) {
                 GtnhPlanner.LOG.warn("Could not save the picture of the plan", e);
@@ -551,13 +557,21 @@ public final class PlanPicture {
         });
     }
 
-    /** Puts the picture on the clipboard, to paste into a chat. */
-    public static void copy(final BufferedImage image, final Runnable done, final Consumer<String> failed) {
+    /**
+     * Puts the picture on the clipboard, to paste into a chat; {@code plan} goes with it in its strip of pixels (a
+     * clipboard keeps no PNG chunks), null for none.
+     */
+    public static void copy(final BufferedImage image, @Nullable final String plan, final Runnable done,
+        final Consumer<String> failed) {
         FILES.execute(() -> {
             try {
                 Toolkit.getDefaultToolkit()
                     .getSystemClipboard()
-                    .setContents(new Picture(image), null);
+                    .setContents(
+                        new Picture(
+                            plan == null ? image
+                                : com.gtnhplanner.library.PlanImage.withStrip(image, plan, Hyb.CANVAS)),
+                        null);
                 onClient(done);
             } catch (final RuntimeException | Error e) {
                 GtnhPlanner.LOG.warn("Could not copy the picture of the plan", e);

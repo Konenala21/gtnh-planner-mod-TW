@@ -33,9 +33,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   steps are at the top of `docs/design/build-prompt.md`.
 - Everything must fit GTNH's defaults (1080p, GUI scale 4, the pack's NEI panel): a planner 440 board px wide at the
   gear's Normal Size and 330 at Large (`call 'window?w=1920&h=1080&scale=4&size=3'`; the dev game at scale 2 hides
-  it). The top bar gives way as the website's does (`ui/TopBar`): keys closer, the bolt and arrange's progress short,
-  faces folded to two and a count (`PlanTabs.end`), then the keys on rows under the tabs, the open tab and + always
-  kept. Popups open inside the planner's own panel, never under NEI's list (`Popup.room`, `openCentred`); a box taller
+  it). The top bar is one row that never wraps, as the website's (`ui/TopBar`, `TopBarFit`, pure and tested): the tabs give
+  way first (they scroll, the open one kept in view; faces fold to two and a count, `PlanTabs.end`), then Plans, Share
+  and Sign in show only their pictures beside feedback, settings and help, then the gaps tighten; the open tab and +
+  always stay. The overview gives way too (`RailFit`): the board keeps its toolbar on one row (`BoardToolbar.leastOneRow`),
+  so the overview shrinks toward 160 and then folds (at Large it is folded), never over the player's own fold. Popups open inside the planner's own panel, never under NEI's list (`Popup.room`, `openCentred`); a box taller
   than it scrolls inside (`TaskPanel`'s page), the task board scrolls sideways past four 112 px columns, notices wrap.
   Text gives way by shortening, never by cutting a word.
 - `docs/design/card-redesign.md` is the clean card now on the board, the minimap and the world (`CardLayout`,
@@ -50,9 +52,15 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   well, the rule word (its menu) and the set number in gold under it; every port a tile of one shape; along an Up to
   card's foot a bar with the solver's reason (`SolutionView.upTo`, read by `BoardSession.upTo`), an Exactly card's
   FORCED IN, and a card with a problem there wears its frame in the bar's colour (`CardFace.edge`, the gear's Problem
-  outlines); the row its reason names is striped in the reason's tone (`CardFace.why`); a card in a dead loop or clog
-  lock (`SolutionView.upToLoops`, `BoardSession.loopOf`) wears a 2 px outline pulsing on the prompt clock; zoomed out
-  (from 0.65, `RecipeCard.GLANCE_ZOOM`) the face shows the bar along its foot (`CardFace.glance`). The recipe's
+  outlines); the row its reason names is striped in the reason's tone (`CardFace.why`). A ring counts only when it
+  stands still (`UpToRead.findLoops`: a dead loop all STARVED at zero, a clog lock all UNUSED; a ring fed from outside
+  is none); a card in one (`SolutionView.upToLoops`, `BoardSession.loopOf`) says DEAD LOOP or CLOG LOCK on its bar in
+  the ring's tone (a clog lock's in CLOGGED's purple, `CardFace.loopBar`) and wears a 2 px outline pulsing on the
+  prompt clock, and the ring's notice is an alarm (`Notice.alarm`: a chip in that tone blinking with the outlines, one
+  short sentence, `Loops.sentence`; the sentence goes under the chip where it does not fit, `NoticeRow`). Notices go
+  most pressing first (`Notice.byUrgency`: a failed solve, alarms, warnings, the rest; a flash on top). Zoomed out
+  (below the gear's Zoomed-out view, 65% unless moved, `RecipeCard.glanceAt`) the face shows the bar along its foot
+  (`CardFace.glance`). The recipe's
   circuit is a badge in the well's top left corner. A middle click clears what is set under it (count, port rate,
   drawer rate). `call upto` puts stand-in read-outs, drawer shortfalls and loops on the board.
 - AUTO's rule (the owner, 2026-10-13; `docs/design/solver-plan.md`): buy as far upstream as it can (raw goods, your own
@@ -64,6 +72,12 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   re-routes only what it touched. Arrange is `layout/arrange/`, a port of the website's arrange (column pass,
   optimiser, free placement, polish) judged by that router, run in the background from the top bar's key.
   `docs/design/routing-and-arrange.md` has both designs and the benchmark they are tuned against.
+- Steering dots (the website's edge waypoints; `data/flowchart/Waypoints`): points a wire's route passes through in
+  order, kept on `Edge.waypoints` and a drawer's `Link.waypoints()` on the router's lines (cell middles), routed leg by
+  leg (`WireRouter.steered`). A double-click on a wire pins one, a dot carried past the slop steers it live, a second
+  press on it within 400 ms takes it off (`BoardCanvas`, `WireLayer.dotAt`). Arrange clears them (a wire inside a
+  group it moves whole keeps them, moved), as does opening or shutting a group at its wires. They travel both ways on
+  the website's 20 px grid (importer, `PlanExport.edge`, `cloud/map` with the game's own to the pixel).
 - `importer/` converts Factory Flow plans (JSON, plan codes, links) to graphs: a pure core plus `importer/game/`,
   the NEI and GregTech side. The "+" plan tab pastes one from the clipboard; `call 'importff?file=<path>'` does it
   from the harness. Fixtures are in `src/test/resources/factory-flow/`. A card's machine is found by the website's
@@ -74,6 +88,10 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   apart once the board has solved (`layout/Unstack`). Port rates go both ways as plan mode's `portRates` (by the
   website's row handle), a source drawer's rule as a negative `targetPerSecond`, trash as `drainMode: "trash"`, and
   posts say `planMode` with `solveMode`. Real plans to try it on: `POST /api/community/plans/<id>/download` gives a post's plan.
+  A plan carries the rate unit it was read in as the website's `view.rateUnit` (`importer/PlanView`: tick, second,
+  minute, hour, eu): every export writes the player's (`PlanExport.World.rateUnit`), every import hands it to the board
+  once (`Graph.viewWhenShown`, taken by `BoardSession.takeView`). The + tab's Open plan file (`ui/popup/PlanFileMenu`,
+  `library/PlanFiles`) lists `gtnhplanner/exports/` and the screenshots that carry a plan, newest first.
 - Shared machines (one card, several recipes time-sharing one machine; `docs/design/ff-shared-machine-spec.md`) are
   `MachineGroup`s with ordered `sections`: each recipe stays a node with its own ports and wires, the group draws as
   one card, its machine settings are copied to every recipe, and a pinned count is an exact solver pool.
@@ -124,7 +142,15 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   `PLANNH_GTNH=1 PLANNH_BEES=1 tools/dev/mc.sh start` adds Forestry and NEI Addons to the dev game.
 - GregTech's steam machines (bronze and steel single blocks, the steam multiblocks: `GtMachines.Kind.steam`, the
   website's "Steam ..." or "High Pressure ..." names) run at no voltage: no tier chip, a voltage left in their settings
-  is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report).
+  is ignored by the maths, and the card's power row bills steam in L/s (the website's steam report), as does its
+  overview machine line, peak or average (`RailTotals.steamPerSecond`).
+- Free inputs (`data/provider/FreeInputs`, the website's free-input.ts): the Rock Breaker's "IT'S FREE! Place Lava on
+  Side" is kept as a port of amount 0, never asked for or wired, drawn greyed with "free" (`CardPaint.giftRow`).
+- Crafting-grid recipes (NEI's shaped and shapeless pages) can run on GT++'s Auto Workbench (`machines/game/AutoWorkbench`,
+  the website's recipe-rules.ts): its tiers join the card's machines after NEI's own, the crafting table staying the
+  default; on it the card takes the GT profile and the website's maths (2048 EU a craft, perfect overclocks to EV), back
+  on the table its plain profile. `WebCards` gives a crafting card the website's recipe (map "Shaped Crafting", a tick at
+  no EU) and handler (`auto-workbench`, else the table's); a website crafting card with no handler imports on it.
 - NEI's recipe pages carry a plan button above + and the star (`nei/PlanButton`, `nei/PlanMenu`, added through NEI's
   `UpdateRecipeButtonsEvent`): it asks which plan (most recently open first, `Plan.byRecency`) and which machine
   (`ui/card/MachineChoices`: GT single blocks are one choice at the recipe's tier), then opens the board on that plan
@@ -172,7 +198,7 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   icon, "4× Electric Blast Furnace (HV)", its plan, where it is placed in this world; a click shows it on its plan, its
   pin button in the world), a **location** (`Tasks.Place`: block, dimension, world key `GameCloud.worldKey`, label; "Add
   where I stand" adds the block under the player and asks for a name; its Show key closes the planner and stands a
-  beam on it, `WorldView.show(Place)`; its line says how far and which way, `TaskEdits.howFar`), a **screenshot**
+  beam on it, `WorldView.show(Place)`, its Copy key copies "x y z" (`TaskEdits.coordinates`); its line says how far and which way, `TaskEdits.howFar`), a **screenshot**
   (`Tasks.Picture`, game only: "Add a screenshot" closes the planner, hides the GUI, reads the frame at a render tick's
   end, saves the full PNG in `screenshots/` and puts a 320 px JPEG data URL under 40 KB on the task, then reopens the
   planner on the task, `TaskPictures`; a click shows it big, `PictureView`), and a **quest** (`Tasks.Quest`,
@@ -197,10 +223,14 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   page; `newboard=<name>`, `add=<title>&status=`, `task=<id>&comment=<text>&by=<id>&name=<name>&ago=<minutes>`,
   `assign=<id>` and `block=<id>`/`unblock=<id>` set a board up to look at; `view=board|chain` and `select=<id>` drive
   the chain view).
-- The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Library, Share, the account
-  key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help. What edits or
+- The top bar (`ui/TopBar`) holds account things only: tabs and +, live status and faces, Plans, Share, the account
+  key (Sign in, or the account's face with a menu of the username and Sign out), feedback, settings, help; short of
+  room Plans, Share and Sign in are picture keys (`BoardScreen.pictureKey`), their tips leading with their names. The
+  overview's width is the player's: a handle on its board-side edge (`ui/RailHandle`, below the toolbar's row, 2 px over
+  the overview and 7 over the board) drags it from 160 to 300 (198 by default; double-click resets it), kept in the
+  settings (`PlannerSettings.overviewWidth`). What edits or
   views the board is `ui/BoardToolbar`, a strip along the top of the board in the middle column (Non-recipe, undo, redo,
-  Arrange, Fit, the rate unit, EU/t, then the pencil key that opens the empty-board menu; wraps like the top bar; Peak
+  Arrange, Fit, the rate unit, EU/t, then the pencil key that opens the empty-board menu; wraps only on a board narrower than its row; Peak
   or Avg is the overview's own key). The rate unit's fifth setting is EU (the website's): each port reads the EU its
   card spends per unit through it and the overview's inputs and outputs the whole plan's average draw per unit
   (`BoardSession.energyView`, `euEach`, `Fmt.euEach`); `rateUnit()` stays the clock, for typed rates, wires and drawers.
@@ -255,7 +285,11 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   pulsing gold together (`CardPaint.prompt`), however much of the rest is set;
   the count keeps its place, a line kept under it. Scrolling a pinned count below one unpins it. The gear's See-through slider (0 to 100%) fades
   the board, its dots and the overview (`Hyb.seeThrough`) down to nothing; cards and text stay solid. The gear opens
-  `ui/popup/SettingsPanel`, a centred box of sections. Drawers are drawn by `ui/drawer/DrawerPaint` (board and
+  `ui/popup/SettingsPanel`, a centred box of sections. Its Board section has the website's Zoomed-out view (35 to 100%
+  in steps of 5, 65 by default: where cards turn simple, `PlannerSettings.zoomedOutAt`; screenshots keep 65) and Scroll
+  changes values (on by default; off, no count, chip, rate box, rule key, drawer, overview line or settings row takes
+  the wheel, so the board zooms and lists scroll, and tips leave their wheel rows out: `Tip.action`). The tour borrows
+  both at their defaults, and the overview's width (`Sandbox`). Drawers are drawn by `ui/drawer/DrawerPaint` (board and
   minimap): the clean card's look in the website's shapes per kind (tank, crate, shield, bin). Where the solve sends
   something out of the plan, or brings it in, at a wired port with no drawer (the balancer's open gates), the card
   shows it as a row of its own under that port (`BoardSession.extraFlows`, `CardPaint.extraRow`): "Forced" in a
@@ -299,7 +333,9 @@ solved in the background (`data/flowchart/balancer/`, `SolveService`), auto-layo
   cards Detailed or Simple (the zoomed-out glance view, with room for the names), an optional footer as the website's
   export bar (a title row: icon, name, machines and EU/t; Inputs and Outputs as tinted panels in even columns, from the
   overview's totals) and a small "GTNH Planner" mark; previewed in a box nearly the screen's size, then saved as a PNG
-  in `screenshots/` or copied. The Share menu has the website's rows (the owner, 2026-10-14: a post is a copy, like an
+  in `screenshots/` or copied, carrying the plan as the website's pictures do (`library/PlanImage`: a `tEXt` chunk
+  before `IEND`, and a strip of pixels along the foot that a chat or the clipboard keeps; either side opens the other's,
+  `src/test/resources/plan-pictures/` holds one the website made). The Share menu has the website's rows (the owner, 2026-10-14: a post is a copy, like an
   uploaded file, and nothing follows the plan by itself), after the cloud's Share with people: Publish to library, or
   Update in library and Publish as new post for a plan posted (`AccountForms.shareRows`, also in a tab's and a plan
   tile's menu),

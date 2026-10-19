@@ -167,7 +167,7 @@ public final class Tip {
             if (action == null) return false;
             found.add(action);
         }
-        actions.addAll(found);
+        for (final Action a : found) if (offered(a.input())) actions.add(a);
         return !found.isEmpty();
     }
 
@@ -269,8 +269,22 @@ public final class Tip {
     }
 
     public Tip action(final Input input, final String label) {
-        actions.add(new Action(input, label));
+        if (offered(input)) actions.add(new Action(input, label));
         return this;
+    }
+
+    /**
+     * A wheel row for what the wheel does whatever the settings say (a leftover in hand, how much of it is carried):
+     * {@link #action} leaves the wheel's rows out while "Scroll changes values" is off.
+     */
+    public Tip wheelAnyway(final String label) {
+        actions.add(new Action(Input.WHEEL, label));
+        return this;
+    }
+
+    /** Whether a tip offers this input: the wheel changes no value while "Scroll changes values" is off. */
+    private static boolean offered(final Input input) {
+        return input != Input.WHEEL || com.gtnhplanner.ui.PlannerSettings.scrollChangesValues();
     }
 
     // region Layout

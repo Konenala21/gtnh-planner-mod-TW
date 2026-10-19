@@ -92,7 +92,13 @@ public final class FfSettings {
         // type, and gives hatches only to a multiblock.
         final boolean oldPost = handler == null && recipe.fromGame() && recipe.gregtech();
         final boolean multiblock = handler != null ? handler.multiblock() : oldPost && node.hatchVoltageTier() != null;
-        final String handlerId = handler != null ? handler.id() : node.machineHandlerId();
+        // A crafting-grid recipe lists no machines: the website runs it on the Auto Workbench unless the card says the
+        // crafting table.
+        final String handlerId = handler != null ? handler.id()
+            : node.machineHandlerId() != null ? node.machineHandlerId()
+                : com.gtnhplanner.machines.web.RecipeRules.isHandCraftingMap(recipe.machineType())
+                    ? com.gtnhplanner.machines.web.RecipeRules.AUTO_WORKBENCH_HANDLER_ID
+                    : null;
         final String label = handler != null ? handler.label()
             : oldPost && !recipe.machineType()
                 .isEmpty() ? recipe.machineType() : null;

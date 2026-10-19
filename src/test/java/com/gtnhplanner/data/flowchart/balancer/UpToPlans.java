@@ -430,6 +430,19 @@ final class UpToPlans {
     }
 
     /**
+     * The dead ring of two fed from outside: e (Exactly 1) puts {@code feed} x0 a second into r0. With 0.25 the ring
+     * runs at half its counts, both starved, held back by the feed: it is no dead loop.
+     */
+    static SolveInput fedRing(final double feed) {
+        final SolveInput ring = deadRing(2);
+        final List<SolveInput.Machine> machines = new ArrayList<>(ring.machines());
+        machines.add(machine("e", List.of(), List.of(port(0, "x0", feed)), 1));
+        final List<SolveInput.EdgeIn> edges = new ArrayList<>(ring.edges());
+        edges.add(edge("rfeed", "e", 0, "r0", 0));
+        return plan(machines, edges, ring.pools());
+    }
+
+    /**
      * a (x and free ore -> y) and b (y -> 2 x), both Up to 1, in a ring: b makes twice the x a takes, with nowhere for
      * the rest to go, so neither runs: a clog lock (the fix is a drawer on b's x).
      */

@@ -52,9 +52,10 @@ public final class SocketSlot extends Widget<SocketSlot> implements Interactable
 
     @Override
     public boolean canHover() {
-        return card.session()
-            .graph()
-            .getZoom() > RecipeCard.GLANCE_ZOOM;
+        return !RecipeCard.glanceAt(
+            card.session()
+                .graph()
+                .getZoom());
     }
 
     @Override

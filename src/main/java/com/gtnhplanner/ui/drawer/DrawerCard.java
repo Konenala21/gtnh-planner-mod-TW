@@ -130,8 +130,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
 
     public Part partAt(final float x, final float y) {
         // Far out the controls are not drawn, so nothing invisible answers a click or the wheel: all of it moves it.
-        if (session.graph()
-            .getZoom() <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM) return Part.BAR;
+        if (com.gtnhplanner.ui.card.RecipeCard.glanceAt(
+            session.graph()
+                .getZoom()))
+            return Part.BAR;
         for (final Part part : new Part[] { Part.DELETE, Part.BAR, Part.CYCLE, Part.RULE, Part.RATE }) {
             final int[] r = partRect(part);
             if (r != null && in(x, y, r[0], r[1], r[2], r[3])) return part;
@@ -244,8 +246,9 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                 DrawerPaint.SCALE);
         }
         final int edge = lit ? Hyb.mix(DrawerPaint.edge(kind), Hyb.LIT, 0.6f) : DrawerPaint.edge(kind);
-        if (session.graph()
-            .getZoom() <= com.gtnhplanner.ui.card.RecipeCard.GLANCE_ZOOM) {
+        if (com.gtnhplanner.ui.card.RecipeCard.glanceAt(
+            session.graph()
+                .getZoom())) {
             Hyb.endBatch();
             drawGlance(m, z, edge);
             return;
@@ -523,7 +526,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
 
     @Override
     public boolean onMouseScroll(final UpOrDown direction, final int amount) {
-        if (model == null) return false;
+        if (model == null || !com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()) return false;
         final int step = direction == UpOrDown.UP ? 1 : -1;
         switch (partAt(localX(), localY())) {
             case RULE -> {
