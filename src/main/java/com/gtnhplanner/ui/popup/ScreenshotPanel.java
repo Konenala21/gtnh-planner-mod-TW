@@ -157,7 +157,9 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
             file -> {
                 keeping = false;
                 said("Saved as " + file.getName(), true);
-                session.flash(Severity.INFO, UiText.tr("screenshot.saved_the_picture_in_screenshots") + " " + file.getName());
+                session.flash(
+                    Severity.INFO,
+                    UiText.tr("screenshot.saved_the_picture_in_screenshots") + " " + file.getName());
             },
             why -> {
                 keeping = false;

@@ -90,12 +90,12 @@ final class SpareBar {
         // The header: what it is, then Split and Auto.
         final float autoX = x + w - KEY_W, splitX = autoX - 2 - KEY_W;
         final boolean headHot = hover != null && hover.kind() == Kind.HEAD;
-        Hyb.text("Forced", x, y + 3, headHot ? Hyb.INK : ink);
+        Hyb.text(UiText.tr("sparebar.forced"), x, y + 3, headHot ? Hyb.INK : ink);
         rects.add(new Rect(Kind.HEAD, -1, x, y, splitX - 2, y + HEAD - 1));
-        key("Split", splitX, y + 1, hover != null && hover.kind() == Kind.SPLIT, true);
+        key(UiText.tr("sparebar.split"), splitX, y + 1, hover != null && hover.kind() == Kind.SPLIT, true);
         rects.add(new Rect(Kind.SPLIT, -1, splitX, y + 1, splitX + KEY_W, y + 1 + KEY_H));
         final boolean custom = session.spareCustom(line);
-        key("Auto", autoX, y + 1, custom && hover != null && hover.kind() == Kind.AUTO, custom);
+        key(UiText.tr("sparebar.auto"), autoX, y + 1, custom && hover != null && hover.kind() == Kind.AUTO, custom);
         if (custom) rects.add(new Rect(Kind.AUTO, -1, autoX, y + 1, autoX + KEY_W, y + 1 + KEY_H));
         // A line per place.
         for (int i = 0; i < n; i++) row(line, i, shares[i], x, y + HEAD + i * ROW, w, z, hover, here, ink, unit, true);
@@ -167,7 +167,7 @@ final class SpareBar {
         for (final BoardSession.SpareBearer other : line.bearers()) if (other.name()
             .equals(b.name())) same++;
         return (same > 1 ? b.machine() : b.name()) + (b.key()
-            .equals(here) ? " (here)" : "");
+            .equals(here) ? UiText.tr("sparebar.here") : "");
     }
 
     /** Where a part was last drawn, {x0, y0, x1, y1} in the coordinates it was drawn in; null when it was not. */

@@ -9,6 +9,7 @@ import com.gtnhplanner.data.provider.MobDropsProvider;
 import com.gtnhplanner.machines.game.CropCards;
 import com.gtnhplanner.machines.game.EecCards;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.theme.Fmt;
@@ -35,13 +36,17 @@ final class RecipePicks {
                 new PickList.Entry(
                     c.icon(),
                     c.name(),
-                    c.alwaysInfernal() ? "Always infernal" : Fmt.compact(c.health()) + " health",
+                    c.alwaysInfernal() ? UiText.tr("recipepick.always_infernal") : Fmt.compact(c.health()) + " health",
                     Hyb.INK,
                     now,
                     () -> { if (!now) session.swapRecipe(node, c.ref()); }).searching(String.join(" ", c.drops())));
         }
-        if (rows.isEmpty()) rows.add(PickList.Entry.of("No mobs in this game", () -> {}));
-        Popup.open(session.panel(), PickList.popup("gtnhplanner_mobs", "MOB IN THE SPAWNER", rows, true, 190), sx, sy);
+        if (rows.isEmpty()) rows.add(PickList.Entry.of(UiText.tr("recipepick.no_mobs_in_this_game"), () -> {}));
+        Popup.open(
+            session.panel(),
+            PickList.popup("gtnhplanner_mobs", UiText.tr("recipepick.mob_in_the_spawner"), rows, true, 190),
+            sx,
+            sy);
     }
 
     /** The crops a crop card or an empty crop farm can plant, at a screen point. */
@@ -59,7 +64,7 @@ final class RecipePicks {
                     else session.swapRecipe(node, c.ref());
                 }).searching(String.join(" ", c.drops())));
         }
-        if (rows.isEmpty()) rows.add(PickList.Entry.of("No crops in this game", () -> {}));
-        Popup.open(session.panel(), PickList.popup("gtnhplanner_crops", "CROPS TO PLANT", rows, true, 190), sx, sy);
+        if (rows.isEmpty()) rows.add(PickList.Entry.of(UiText.tr("recipepick.no_crops_in_this_game"), () -> {}));
+        Popup.open(session.panel(), PickList.popup("gtnhplanner_crops", UiText.tr("recipepick.crops_to_plant"), rows, true, 190), sx, sy);
     }
 }

@@ -391,9 +391,11 @@ public final class LinkPicker {
             + (g == null ? "" : "   " + dimensions(g));
         final String turns = PlannerKeys.label(PlannerKeys.ROTATE) + UiText.tr("linkpicker.turns_it");
         final String how = placed > 0
-            ? UiText.tr("linkpicker.click_for_the_next_one") + " " + turns
+            ? UiText.tr("linkpicker.click_for_the_next_one") + " "
+                + turns
                 + UiText.tr("linkpicker.right_click_or_esc_to_stop_here")
-            : UiText.tr("linkpicker.click_a_block_face_to_place_it_there") + " " + turns
+            : UiText.tr("linkpicker.click_a_block_face_to_place_it_there") + " "
+                + turns
                 + (g != null && g.sized() ? ", " + PlannerKeys.label(PlannerKeys.ZOOM_OUT)
                     + " "
                     + PlannerKeys.label(PlannerKeys.ZOOM_IN)

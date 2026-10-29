@@ -13,6 +13,7 @@ import com.gtnhplanner.data.flowchart.balancer.Severity;
 import com.gtnhplanner.importer.FfImportException;
 import com.gtnhplanner.library.PlanFiles;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -43,7 +44,9 @@ public final class PlanFileMenu {
         final List<PlanFiles.Found> found = PlanFiles.list(MOST, exports(), screenshots());
         if (found.isEmpty()) {
             Sfx.DENY.play();
-            session.flash(Severity.INFO, "No plan files yet. Export a plan or save a screenshot of one");
+            session.flash(
+                Severity.INFO,
+                UiText.tr("planfile.no_plan_files_yet_export_a_plan_or_save_a_screenshot_of_one"));
             return;
         }
         final List<PickList.Entry> rows = new ArrayList<>();
@@ -51,15 +54,16 @@ public final class PlanFileMenu {
             new PickList.Entry(
                 null,
                 f.name(),
-                (f.picture() ? "picture " : "plan file ") + com.gtnhplanner.ui.task.TaskLook.ago(
-                    java.time.Instant.ofEpochMilli(f.modified())
-                        .toString()),
+                (f.picture() ? UiText.tr("planfile.picture") : UiText.tr("planfile.plan_file"))
+                    + " " + com.gtnhplanner.ui.task.TaskLook.ago(
+                        java.time.Instant.ofEpochMilli(f.modified())
+                            .toString()),
                 Hyb.INK,
                 false,
                 () -> openFile(session, f.file())));
         Popup.open(
             panel,
-            PickList.popup("gtnhplanner_plan_files", "Open plan file", rows, false, 200),
+            PickList.popup("gtnhplanner_plan_files", UiText.tr("planfile.open_plan_file"), rows, false, 200),
             screenX,
             screenY);
     }
@@ -82,12 +86,13 @@ public final class PlanFileMenu {
                         .summary());
             Sfx.SWEEP.play();
         } catch (final IOException | FfImportException e) {
-            session
-                .flash(Severity.WARN, e.getMessage() == null ? "That plan file could not be opened" : e.getMessage());
+            session.flash(
+                Severity.WARN,
+                e.getMessage() == null ? UiText.tr("planfile.that_plan_file_could_not_be_opened") : e.getMessage());
             Sfx.DENY.play();
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not open the plan file {}", file, e);
-            session.flash(Severity.WARN, "That plan file could not be opened");
+            GtnhPlanner.LOG.warn(UiText.tr("planfile.could_not_open_the_plan_file"), file, e);
+            session.flash(Severity.WARN, UiText.tr("planfile.that_plan_file_could_not_be_opened"));
             Sfx.DENY.play();
         }
     }

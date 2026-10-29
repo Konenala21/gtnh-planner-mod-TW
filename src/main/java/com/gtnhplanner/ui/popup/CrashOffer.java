@@ -9,6 +9,7 @@ import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.client.CrashReports;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
@@ -60,12 +61,12 @@ public final class CrashOffer extends Widget<CrashOffer> implements Interactable
     }
 
     private int[] sendRect() {
-        final int w = Hyb.width("Send a report") + 20;
+        final int w = Hyb.width(UiText.tr("crash.send_a_report")) + 20;
         return new int[] { W - PAD - w, H - PAD - KEY_H, w, KEY_H };
     }
 
     private int[] laterRect() {
-        final int w = Hyb.width("Not now") + 16;
+        final int w = Hyb.width(UiText.tr("crash.not_now")) + 16;
         return new int[] { sendRect()[0] - 6 - w, H - PAD - KEY_H, w, KEY_H };
     }
 
@@ -77,10 +78,14 @@ public final class CrashOffer extends Widget<CrashOffer> implements Interactable
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final int mx = isHovering() ? getContext().getAbsMouseX() - getArea().x : -1,
             my = isHovering() ? getContext().getAbsMouseY() - getArea().y : -1;
-        Hyb.text("The game crashed last time", PAD, PAD, Hyb.INK);
-        Hyb.text("GTNH Planner was part of it:", PAD, PAD + 14, Hyb.MUTED);
+        Hyb.text(UiText.tr("crash.the_game_crashed_last_time"), PAD, PAD, Hyb.INK);
+        Hyb.text(UiText.tr("crash.gtnh_planner_was_part_of_it"), PAD, PAD + 14, Hyb.MUTED);
         Hyb.text(Hyb.fit(crash.summary(), W - 2 * PAD), PAD, PAD + 26, Hyb.AMBER_INK);
-        Hyb.text(Hyb.fit("Send the crash report so it can be fixed?", W - 2 * PAD), PAD, PAD + 42, Hyb.INK);
+        Hyb.text(
+            Hyb.fit(UiText.tr("crash.send_the_crash_report_so_it_can_be_fixed"), W - 2 * PAD),
+            PAD,
+            PAD + 42,
+            Hyb.INK);
         final int[] later = laterRect(), send = sendRect();
         final boolean laterHot = in(later, mx, my), sendHot = in(send, mx, my);
         Hyb.bevel(
@@ -93,12 +98,12 @@ public final class CrashOffer extends Widget<CrashOffer> implements Interactable
             Hyb.KEY_LO,
             0,
             1);
-        Hyb.textCentered("Not now", later[0] + later[2] / 2f, later[1] + 5, Hyb.INK);
+        Hyb.textCentered(UiText.tr("crash.not_now"), later[0] + later[2] / 2f, later[1] + 5, Hyb.INK);
         Hyb.rect(send[0], send[1], send[2], send[3], sendHot ? 0xFF38E1F5 : 0xFF22D3EE);
         Hyb.rect(send[0], send[1], send[2], 1, 0x66FFFFFF);
         com.cleanroommc.modularui.drawable.GuiDraw.drawText(
-            "Send a report",
-            send[0] + (send[2] - Hyb.width("Send a report")) / 2f,
+            UiText.tr("crash.send_a_report"),
+            send[0] + (send[2] - Hyb.width(UiText.tr("crash.send_a_report"))) / 2f,
             send[1] + 5,
             1f,
             0xFF0B1A1E,
