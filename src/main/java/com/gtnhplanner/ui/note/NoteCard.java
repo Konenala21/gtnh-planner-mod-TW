@@ -742,17 +742,23 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         final Note n = note();
         if (n == null) return;
         final List<PickList.Entry> rows = new ArrayList<>();
-        for (final String[] c : NoteColors.MENU) rows
-            .add(new PickList.Entry(null, "■ " + c[1], "", NoteColors.paper(c[0]), c[0].equals(n.colorTag()), () -> {
-                com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
-                session.editLayout(() -> {
-                    n.setColor(c[0]);
-                    if (n.isDrawing()) {
-                        n.setBorderColor(null);
-                        n.setFillColor(null);
-                    }
-                });
-            }));
+        for (final String[] c : NoteColors.MENU) rows.add(
+            new PickList.Entry(
+                null,
+                "■ " + UiText.tr("note.color." + c[0]),
+                "",
+                NoteColors.paper(c[0]),
+                c[0].equals(n.colorTag()),
+                () -> {
+                    com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
+                    session.editLayout(() -> {
+                        n.setColor(c[0]);
+                        if (n.isDrawing()) {
+                            n.setBorderColor(null);
+                            n.setFillColor(null);
+                        }
+                    });
+                }));
         Popup.open(
             session.panel(),
             PickList

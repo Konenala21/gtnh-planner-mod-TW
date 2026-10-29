@@ -17,6 +17,7 @@ import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.data.flowchart.balancer.Severity;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.canvas.PlanPicture;
 import com.gtnhplanner.ui.card.CardPaint;
@@ -46,7 +47,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
     private static final int WELL = 0xFF0E0F11, CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C,
         CONTROL_PICKED = 0xFF4A4D55, TRACK = 0xFF3A3C42, SWITCH_ON = 0xFF3E8F72, CYAN = 0xFF22D3EE;
 
-    private static final String[] DETAILS = { "Detailed", "Simple" };
+    private static final String[] DETAILS = { UiText.tr("screenshot.detailed"), UiText.tr("screenshot.simple") };
 
     /** What was chosen last, kept while the game runs. */
     private static PlanPicture.Options chosen = new PlanPicture.Options(PlanPicture.Detail.DETAILED, false, false);
@@ -156,11 +157,11 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
             file -> {
                 keeping = false;
                 said("Saved as " + file.getName(), true);
-                session.flash(Severity.INFO, "Saved the picture in screenshots: " + file.getName());
+                session.flash(Severity.INFO, UiText.tr("screenshot.saved_the_picture_in_screenshots") + " " + file.getName());
             },
             why -> {
                 keeping = false;
-                said("Couldn't save it: " + why, false);
+                said(UiText.tr("screenshot.couldn_t_save_it") + " " + why, false);
             });
     }
 
@@ -170,10 +171,10 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         status = null;
         PlanPicture.copy(picture, session.pictureJson(), () -> {
             keeping = false;
-            said("Copied: paste it anywhere", true);
+            said(UiText.tr("screenshot.copied_paste_it_anywhere"), true);
         }, why -> {
             keeping = false;
-            said("Couldn't copy it: " + why, false);
+            said(UiText.tr("screenshot.couldn_t_copy_it") + " " + why, false);
         });
     }
 
@@ -245,7 +246,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         final boolean hovering = isHovering();
         final int mx = hovering ? mouseX() : -1, my = hovering ? mouseY() : -1;
 
-        Hyb.text("Screenshot", 10, (TITLE - 8) / 2f + 1, Hyb.INK);
+        Hyb.text(UiText.tr("screenshot.screenshot"), 10, (TITLE - 8) / 2f + 1, Hyb.INK);
         final int[] close = closeRect();
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);
@@ -256,7 +257,7 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
 
         // The choices.
         final PlanPicture.Options o = chosen;
-        label(0, "Cards");
+        label(0, UiText.tr("screenshot.cards"));
         Hyb.rect(detailRect(0)[0] - 1, detailRect(0)[1] - 1, right - detailRect(0)[0] + 1, CHOICE_H, CardPaint.EDGE);
         for (int i = 0; i < DETAILS.length; i++) {
             final int[] r = detailRect(i);
@@ -269,8 +270,8 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
                 r[1] + (r[3] - 8) / 2f + 1,
                 picked || hot ? Hyb.INK : Hyb.MUTED);
         }
-        drawSwitch(1, "Plan name", o.name(), mx, my);
-        drawSwitch(2, "Inputs and outputs", o.flows(), mx, my);
+        drawSwitch(1, UiText.tr("screenshot.plan_name"), o.name(), mx, my);
+        drawSwitch(2, UiText.tr("screenshot.inputs_and_outputs"), o.flows(), mx, my);
 
         // How big it comes out, and what Save or Copy did.
         final int infoY = rowY(3) + 6;
@@ -285,10 +286,10 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
         final int[] copy = copyRect(), save = saveRect();
         final boolean copyHot = on && in(copy, mx, my), saveHot = on && in(save, mx, my);
         Hyb.bevel(copy[0], copy[1], copy[2], copy[3], copyHot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
-        Hyb.textCentered("Copy", copy[0] + copy[2] / 2f, copy[1] + 5, on ? Hyb.INK : 0xFF5A5C65);
+        Hyb.textCentered(UiText.tr("screenshot.copy"), copy[0] + copy[2] / 2f, copy[1] + 5, on ? Hyb.INK : 0xFF5A5C65);
         Hyb.rect(save[0], save[1], save[2], save[3], !on ? 0xFF1E6B78 : saveHot ? 0xFF38E1F5 : CYAN);
         Hyb.rect(save[0], save[1], save[2], 1, 0x66FFFFFF);
-        final String saveLabel = keeping ? "..." : "Save";
+        final String saveLabel = keeping ? "..." : UiText.tr("screenshot.save");
         com.cleanroommc.modularui.drawable.GuiDraw
             .drawText(saveLabel, save[0] + (save[2] - Hyb.width(saveLabel)) / 2f, save[1] + 5, 1f, 0xFF0B1A1E, false);
     }
@@ -306,9 +307,9 @@ public final class ScreenshotPanel extends Widget<ScreenshotPanel> implements In
             Hyb.texture(PREVIEW, cx - pw / 2f, cy - ph / 2f, pw, ph);
             if (taking != null) Hyb.rect(x + 1, y + 1, wellW - 2, wellH - 2, 0x99000000);
         }
-        if (taking != null) Hyb.textCentered("Taking the picture...", cx, cy - 4, Hyb.INK);
+        if (taking != null) Hyb.textCentered(UiText.tr("screenshot.taking_the_picture_prompt"), cx, cy - 4, Hyb.INK);
         else if (problem != null) {
-            Hyb.textCentered("No picture", cx, cy - 10, Hyb.AMBER_INK);
+            Hyb.textCentered(UiText.tr("screenshot.no_picture"), cx, cy - 10, Hyb.AMBER_INK);
             Hyb.textCentered(Hyb.fit(problem, wellW - 12), cx, cy + 2, Hyb.MUTED);
         }
     }

@@ -19,6 +19,7 @@ import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.data.flowchart.balancer.Severity;
 import com.gtnhplanner.machines.game.CropCards;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardModel;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
@@ -87,16 +88,24 @@ public final class TaskActions {
                 new PickList.Entry(
                     null,
                     board.getName(),
-                    n == 0 ? "" : n + (n == 1 ? " task" : " tasks"),
+                    n == 0 ? "" : n + (n == 1 ? UiText.tr("taskactions.task") : UiText.tr("taskactions.tasks")),
                     Hyb.INK,
                     false,
                     () -> taskMenu(session, panel, cards, board, sx, sy)));
         }
         if (!rows.isEmpty()) rows.add(PickList.Entry.rule());
-        rows.add(PickList.Entry.of("New task board", () -> addTo(session, cards, session.addTaskBoard(false), null)));
+        rows.add(
+            PickList.Entry.of(
+                UiText.tr("taskactions.new_task_board"),
+                () -> addTo(session, cards, session.addTaskBoard(false), null)));
         Popup.open(
             panel,
-            PickList.popup("gtnhplanner_task_boards", "Which task board", rows, rows.size() > 9, 160),
+            PickList.popup(
+                "gtnhplanner_task_boards",
+                UiText.tr("taskactions.which_task_board"),
+                rows,
+                rows.size() > 9,
+                160),
             sx,
             sy);
     }
@@ -105,7 +114,11 @@ public final class TaskActions {
     private static void taskMenu(final BoardSession session, final ModularPanel panel, final List<UUID> cards,
         final Graph board, final int sx, final int sy) {
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.adding("New task", "in To do", () -> addTo(session, cards, board, null)));
+        rows.add(
+            PickList.Entry.adding(
+                UiText.tr("taskactions.new_task"),
+                UiText.tr("taskactions.in_to_do"),
+                () -> addTo(session, cards, board, null)));
         boolean any = false;
         for (final Tasks.Status s : new Tasks.Status[] { Tasks.Status.DOING, Tasks.Status.BLOCKED, Tasks.Status.TODO,
             Tasks.Status.DONE }) {
@@ -165,11 +178,11 @@ public final class TaskActions {
         PlanAPI.save();
         Sfx.NOTE_STICK.play();
         final String what = cards.size() == 1 ? cards.get(0)
-            .name() : cards.size() + " machines";
+            .name() : cards.size() + UiText.tr("taskactions.machines");
         session.flash(
             Severity.INFO,
             "Added " + what + " to '" + title + "'",
-            "Open",
+            UiText.tr("taskactions.open"),
             () -> session.openTask(board, id),
             10);
         return id;
@@ -181,9 +194,9 @@ public final class TaskActions {
         for (final Card c : cards) names.add(c.name());
         final List<String> n = new ArrayList<>(names);
         final String title = switch (n.size()) {
-            case 1 -> "Build " + n.get(0);
-            case 2 -> "Build " + n.get(0) + " and " + n.get(1);
-            default -> "Build " + n.get(0) + " and " + (n.size() - 1) + " more";
+            case 1 -> UiText.tr("taskactions.build") + " " + n.get(0);
+            case 2 -> UiText.tr("taskactions.build") + " " + n.get(0) + " and " + n.get(1);
+            default -> UiText.tr("taskactions.build") + " " + n.get(0) + " and " + (n.size() - 1) + " more";
         };
         return TaskEdits.clip(title, TaskEdits.TITLE_MAX);
     }

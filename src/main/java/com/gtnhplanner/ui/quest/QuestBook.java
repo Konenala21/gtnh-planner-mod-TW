@@ -20,6 +20,7 @@ import net.minecraftforge.client.event.GuiScreenEvent;
 import org.lwjgl.opengl.GL11;
 
 import com.gtnhplanner.GtnhPlanner;
+import com.gtnhplanner.ui.UiText;
 
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
@@ -249,7 +250,7 @@ public final class QuestBook {
         final Minecraft mc = Minecraft.getMinecraft();
         final FontRenderer font = mc.fontRenderer;
         final ScaledResolution res = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        final String line = "Click a quest to add it to your task. Esc goes back.";
+        final String line = UiText.tr("quest.pick_hint");
         final int w = font.getStringWidth(line) + 16, h = 16;
         final int x = (res.getScaledWidth() - w) / 2, y = 4;
         GL11.glPushMatrix();

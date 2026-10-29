@@ -43,14 +43,16 @@ final class SpareTips {
         tip.gap();
         if (line.bearers()
             .size() > 1)
-            tip.say(in ? "You choose which machine *takes it in*." : "You choose which machine *ships it out*.");
+            tip.say(
+                in ? UiText.tr("spare.you_choose_which_machine_takes_it_in")
+                    : UiText.tr("spare.you_choose_which_machine_ships_it_out"));
         else tip.say(
             "Only the " + line.bearers()
                 .get(0)
                 .machine() + (in ? " can take it in." : " can ship it out."),
             Tip.SUBTLE);
         if (action != null) tip.action(Tip.Input.LEFT, action);
-        if (drag) tip.action(Tip.Input.DRAG, "Hand it to another card");
+        if (drag) tip.action(Tip.Input.DRAG, UiText.tr("spare.hand_it_to_another_card"));
         return tip;
     }
 
@@ -67,8 +69,10 @@ final class SpareTips {
         tip.icon(view.item(), view.fluid(), false, "*" + rate + "* " + where);
         return tip.gap()
             .say(
-                in ? "Nothing in the plan makes it here. Wire it to a card that does, or drag it out for a drawer."
-                    : "Nothing takes it here. Wire it to a card that uses it, or drag it out for a drawer.",
+                in ? UiText.tr(
+                    "spare.nothing_in_the_plan_makes_it_here_wire_it_to_a_card_that_does_or_drag_it_out_for_a_drawer")
+                    : UiText
+                        .tr("spare.nothing_takes_it_here_wire_it_to_a_card_that_uses_it_or_drag_it_out_for_a_drawer"),
                 Tip.SUBTLE);
     }
 
@@ -77,10 +81,10 @@ final class SpareTips {
      * leaves or comes in now.
      */
     private static Tip head(final boolean in, final List<BoardSession.Pin> pins) {
-        final Tip tip = Tip.of(in ? "Forced input" : "Forced output")
+        final Tip tip = Tip.of(in ? UiText.tr("spare.forced_input") : UiText.tr("spare.forced_output"))
             .titleColor(in ? Hyb.SOURCE_INK : Hyb.PRODUCT_INK);
         if (!pins.isEmpty()) {
-            tip.say("You set", Tip.SUBTLE);
+            tip.say(UiText.tr("spare.you_set"), Tip.SUBTLE);
             for (int i = 0; i < Math.min(pins.size(), PINS_SHOWN); i++) {
                 final BoardSession.Pin pin = pins.get(i);
                 tip.icon(pin.item(), pin.fluid(), pin.eu(), pin.text());
@@ -89,9 +93,11 @@ final class SpareTips {
             tip.gap();
         }
         tip.say(
-            in ? "Satisfying that *forces* the plan to use more of this than it makes, so it *comes into the plan*."
-                : "Satisfying that *forces* this to be made, and nothing in the plan takes it, so it *leaves the plan*.");
+            in ? UiText
+                .tr("spare.satisfying_that_forces_the_plan_to_use_more_of_this_than_it_makes_so_it_comes_into_the_plan")
+                : UiText.tr(
+                    "spare.satisfying_that_forces_this_to_be_made_and_nothing_in_the_plan_takes_it_so_it_leaves_the_plan"));
         return tip.gap()
-            .say(in ? "Coming in now" : "Leaving now", Tip.SUBTLE);
+            .say(in ? UiText.tr("spare.coming_in_now") : UiText.tr("spare.leaving_now"), Tip.SUBTLE);
     }
 }

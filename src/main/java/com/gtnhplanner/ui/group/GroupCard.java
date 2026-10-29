@@ -17,6 +17,7 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.cleanroommc.modularui.widget.sizer.Area;
 import com.gtnhplanner.data.flowchart.BoardGroup;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.note.NoteColors;
 import com.gtnhplanner.ui.popup.PickList;
@@ -189,17 +190,18 @@ public final class GroupCard extends Widget<GroupCard> implements Interactable, 
         final BoardGroup g = group();
         if (g == null) return null;
         final Part part = partAt(localX(), localY());
-        if (part == Part.KEY) return Tip.of(g.isCollapsed() ? "Expand" : "Collapse")
-            .action(Tip.Input.LEFT, g.isCollapsed() ? "Expand" : "Collapse");
+        if (part == Part.KEY) return Tip.of(g.isCollapsed() ? UiText.tr("group.expand") : UiText.tr("group.collapse"))
+            .action(Tip.Input.LEFT, g.isCollapsed() ? UiText.tr("group.expand") : UiText.tr("group.collapse"));
         final String count = GroupPaint.machinesText(summary().machines());
         final Tip tip = Tip.of(g.getName());
         if (!count.isEmpty()) tip.sub(count);
-        if (part == Part.GRIP) return tip.action(Tip.Input.DRAG, "Resize the group");
-        return tip.action(Tip.Input.DRAG, "Move the group")
+        if (part == Part.GRIP) return tip.action(Tip.Input.DRAG, UiText.tr("group.resize_the_group"));
+        return tip.action(Tip.Input.DRAG, UiText.tr("group.move_the_group"))
             .action(
                 Tip.Input.LEFT,
-                g.isCollapsed() ? "Rename on the name, expand with a double-click" : "Rename (on the name)")
-            .action(Tip.Input.RIGHT, "Group menu");
+                g.isCollapsed() ? UiText.tr("group.rename_on_the_name_expand_with_a_double_click")
+                    : UiText.tr("group.rename_on_the_name"))
+            .action(Tip.Input.RIGHT, UiText.tr("group.group_menu"));
     }
 
     // endregion
@@ -260,7 +262,7 @@ public final class GroupCard extends Widget<GroupCard> implements Interactable, 
         Popup.open(
             session.panel(),
             TextPopup.create(
-                "Group name",
+                UiText.tr("group.group_name"),
                 g.getName(),
                 name -> c.groups()
                     .rename(groupId, name)),
@@ -277,22 +279,23 @@ public final class GroupCard extends Widget<GroupCard> implements Interactable, 
         final BoardCanvas c = canvas();
         if (g == null || c == null) return;
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Rename", () -> onLive(c, GroupCard::rename)));
+        rows.add(PickList.Entry.of(UiText.tr("group.rename"), () -> onLive(c, GroupCard::rename)));
         rows.add(
             PickList.Entry.of(
-                g.isCollapsed() ? "Expand" : "Collapse",
+                g.isCollapsed() ? UiText.tr("group.expand") : UiText.tr("group.collapse"),
                 () -> c.groups()
                     .setCollapsed(groupId, !g.isCollapsed())));
-        rows.add(PickList.Entry.of("Colour...", () -> onLive(c, card -> card.openColours(sx, sy))));
+        rows.add(
+            PickList.Entry.of(UiText.tr("group.colour_prompt"), () -> onLive(c, card -> card.openColours(sx, sy))));
         rows.add(
             PickList.Entry.of(
-                "Ungroup (keeps contents)",
+                UiText.tr("group.ungroup_keeps_contents"),
                 () -> c.groups()
                     .ungroup(groupId)));
         rows.add(
             new PickList.Entry(
                 null,
-                "Delete group and contents",
+                UiText.tr("group.delete_group_and_contents"),
                 "",
                 Hyb.RED_INK,
                 false,
@@ -317,7 +320,8 @@ public final class GroupCard extends Widget<GroupCard> implements Interactable, 
                     .recolor(groupId, tag[0])));
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_group_colour", "Colour", rows, false, 120, NoteColors.MENU.size()),
+            PickList
+                .popup("gtnhplanner_group_colour", UiText.tr("group.colour"), rows, false, 120, NoteColors.MENU.size()),
             sx,
             sy);
     }

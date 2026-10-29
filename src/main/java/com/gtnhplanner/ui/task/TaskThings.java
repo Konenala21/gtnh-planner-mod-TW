@@ -16,6 +16,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 
 import codechicken.nei.NEIClientConfig;
 
@@ -79,7 +80,7 @@ public final class TaskThings {
             case Tasks.PICTURE -> new Shown(
                 i,
                 Tasks.PICTURE,
-                "Screenshot",
+                UiText.tr("taskthings.screenshot"),
                 taken(i.picture()),
                 null,
                 false,
@@ -95,12 +96,13 @@ public final class TaskThings {
         final Node node = on == null ? null : on.nodes.get(PlanIds.uuid(link.node()));
         if (node == null) {
             final String words = i.text()
-                .isEmpty() ? "A machine" : i.text();
+                .isEmpty() ? UiText.tr("taskthings.a_machine") : i.text();
             return new Shown(
                 i,
                 Tasks.MACHINE,
                 words,
-                on == null ? "Its plan is gone" : "Its card is gone from " + on.getName(),
+                on == null ? UiText.tr("taskthings.its_plan_is_gone")
+                    : UiText.tr("taskthings.its_card_is_gone_from") + " " + on.getName(),
                 null,
                 true,
                 on,
@@ -113,19 +115,22 @@ public final class TaskThings {
             name = icon != null ? icon.getDisplayName() : null;
         }
         final String words = !i.text()
-            .isEmpty() ? i.text() : name != null ? name : "A machine";
-        String detail = "On " + on.getName();
+            .isEmpty() ? i.text() : name != null ? name : UiText.tr("taskthings.a_machine");
+        String detail = UiText.tr("taskthings.on") + " " + on.getName();
         final String placed = placed(node);
         if (placed != null) detail += SEP + placed;
         return new Shown(i, Tasks.MACHINE, words, detail, icon, false, on, node);
     }
 
-    /** Where a card is placed in this world: "placed 40 m north-east", or "placed in another dimension"; else null. */
+    /**
+     * Where a card is placed in this world: "placed 40 m north-east", or
+     * UiText.tr("taskthings.placed_in_another_dimension"); else null.
+     */
     @Nullable
     private static String placed(final Node node) {
         if (node.worldLinks.isEmpty()) return null;
         final EntityPlayer me = Minecraft.getMinecraft().thePlayer;
-        if (me == null) return "placed in the world";
+        if (me == null) return UiText.tr("taskthings.placed_in_the_world");
         final int dim = me.dimension;
         int[] nearest = null;
         double best = Double.MAX_VALUE;
@@ -137,7 +142,7 @@ public final class TaskThings {
                 nearest = l;
             }
         }
-        if (nearest == null) return "placed in another dimension";
+        if (nearest == null) return UiText.tr("taskthings.placed_in_another_dimension");
         return "placed " + TaskEdits.howFar(nearest[1] + 0.5 - me.posX, nearest[3] + 0.5 - me.posZ);
     }
 
@@ -150,10 +155,10 @@ public final class TaskThings {
         final String words = !seen.name()
             .isEmpty() ? seen.name() : i.text();
         final String state = switch (seen.state()) {
-            case DONE -> "Done in your quest book";
-            case OPEN -> "Not done yet";
-            case GONE -> "Not in this quest book";
-            case NO_BOOK -> "No quest book in this game";
+            case DONE -> UiText.tr("taskthings.done_in_your_quest_book");
+            case OPEN -> UiText.tr("taskthings.not_done_yet");
+            case GONE -> UiText.tr("taskthings.not_in_this_quest_book");
+            case NO_BOOK -> UiText.tr("taskthings.no_quest_book_in_this_game");
         };
         final String detail = seen.line() == null || seen.line()
             .isEmpty() ? state : seen.line() + SEP + state;
@@ -172,7 +177,7 @@ public final class TaskThings {
         final StringBuilder detail = new StringBuilder();
         if (p.label() != null) detail.append(at);
         final String dim = p.dimName()
-            .isEmpty() ? "Dimension " + p.dim() : p.dimName();
+            .isEmpty() ? UiText.tr("taskthings.dimension") + " " + p.dim() : p.dimName();
         if (detail.length() > 0) detail.append(SEP);
         detail.append(dim);
         final String where = where(p);
@@ -182,7 +187,8 @@ public final class TaskThings {
     }
 
     /**
-     * How far and which way a spot is from the player ("40 m north-east", "where you stand"), "in another world" when
+     * How far and which way a spot is from the player ("40 m north-east", UiText.tr("taskthings.where_you_stand")),
+     * UiText.tr("taskthings.in_another_world") when
      * it is not in this one; "" when it is in another dimension of it (its name says which).
      */
     public static String where(final Tasks.Place p) {
@@ -191,10 +197,10 @@ public final class TaskThings {
         if (me == null || mc.theWorld == null
             || !p.world()
                 .equals(worldKey()))
-            return "in another world";
+            return UiText.tr("taskthings.in_another_world");
         if (me.dimension != p.dim()) return "";
         final String far = TaskEdits.howFar(p.x() + 0.5 - me.posX, p.z() + 0.5 - me.posZ);
-        return far.equals("here") ? "where you stand" : far;
+        return far.equals("here") ? UiText.tr("taskthings.where_you_stand") : far;
     }
 
     /** Whether a spot is in the world being played (any dimension of it). */

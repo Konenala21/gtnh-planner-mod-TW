@@ -17,6 +17,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.TaskChain;
 import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteText;
 import com.gtnhplanner.ui.popup.Tip;
@@ -249,8 +250,13 @@ final class TaskChainView {
         @Nullable final Hit hover) {
         final Graph g = graph();
         if (g.tasks.isEmpty()) {
-            centred("No tasks yet.", ml + mw / 2, top + h / 2 - 10, mw - 16, Hyb.MUTED);
-            centred("Press New task to add one.", ml + mw / 2, top + h / 2 + 2, mw - 16, TaskPanel.FAINT);
+            centred(UiText.tr("taskchain.no_tasks_yet"), ml + mw / 2, top + h / 2 - 10, mw - 16, Hyb.MUTED);
+            centred(
+                UiText.tr("taskchain.press_new_task_to_add_one"),
+                ml + mw / 2,
+                top + h / 2 + 2,
+                mw - 16,
+                TaskPanel.FAINT);
             return;
         }
         final String lit = hover != null && (hover.kind() == Kind.NODE || hover.kind() == Kind.ROW) ? hover.id()
@@ -291,7 +297,7 @@ final class TaskChainView {
         Hyb.endBatch();
         if (looseY >= 0) Hyb.text(
             layout.chains()
-                .isEmpty() ? "No task waits on another yet" : "Not linked",
+                .isEmpty() ? UiText.tr("taskchain.no_task_waits_on_another_yet") : UiText.tr("taskchain.not_linked"),
             MARGIN,
             looseY + 3,
             TaskPanel.FAINT);
@@ -321,7 +327,7 @@ final class TaskChainView {
             .isEmpty()) {
             // Nothing linked yet: how to link tasks, along the map's foot.
             centred(
-                "Open a task and add what it waits on to link it.",
+                UiText.tr("taskchain.open_a_task_and_add_what_it_waits_on_to_link_it"),
                 ml + mw / 2,
                 top + h - 22,
                 mw - 16,
@@ -391,7 +397,7 @@ final class TaskChainView {
     /** The map's own key at its foot on the right: Fit. */
     private void drawMapKeys(final int ml, final int mw, @Nullable final Hit hover) {
         if (nodes.isEmpty()) return;
-        final String label = "Fit";
+        final String label = UiText.tr("taskchain.fit");
         final int kw = Hyb.width(label) + 12, x = ml + mw - kw - 6, y = top + height - 16 - 6;
         final boolean hot = hover != null && hover.kind() == Kind.FIT;
         Hyb.bevel(x, y, kw, 16, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
@@ -415,7 +421,7 @@ final class TaskChainView {
         hits.add(new Hit(Kind.LIST, 0, top, lw, top + h, null));
         // Its head: how many, and the key that folds it.
         final int n = graph().tasks.size();
-        Hyb.text(n + (n == 1 ? " task" : " tasks"), 6, top + 5, Hyb.MUTED);
+        Hyb.text(n + (n == 1 ? UiText.tr("taskchain.task") : UiText.tr("taskchain.tasks")), 6, top + 5, Hyb.MUTED);
         final int fx = lw - 16, fy = top + 2;
         if (foldHot) Hyb.rect(fx, fy, 14, 14, Hyb.KEY_HOVER);
         caret(fx + 6, fy + 4, false, foldHot ? Hyb.INK : Hyb.MUTED);
@@ -438,7 +444,7 @@ final class TaskChainView {
         if (!layout.loose()
             .isEmpty()) {
             y = heading(
-                "Not linked",
+                UiText.tr("taskchain.not_linked"),
                 layout.loose()
                     .size(),
                 y);
@@ -525,11 +531,15 @@ final class TaskChainView {
                 if (t == null) yield null;
                 final Tip tip = Tip.of(t.title())
                     .sub(TaskLook.inColumn(t));
-                tip.action(Tip.Input.LEFT, h.kind() == Kind.NODE ? "Open it" : "Show it on the map");
+                tip.action(
+                    Tip.Input.LEFT,
+                    h.kind() == Kind.NODE ? UiText.tr("taskchain.open_it") : UiText.tr("taskchain.show_it_on_the_map"));
                 yield tip;
             }
-            case FOLD -> Tip.of(listShown() ? "Fold the list away" : "Show the list of tasks");
-            case FIT -> Tip.of("Show every task");
+            case FOLD -> Tip.of(
+                listShown() ? UiText.tr("taskchain.fold_the_list_away")
+                    : UiText.tr("taskchain.show_the_list_of_tasks"));
+            case FIT -> Tip.of(UiText.tr("taskchain.show_every_task"));
             default -> null;
         };
     }

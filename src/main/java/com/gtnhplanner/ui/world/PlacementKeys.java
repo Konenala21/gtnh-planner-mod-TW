@@ -12,6 +12,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.gt.StructureGhosts;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -105,12 +106,16 @@ public final class PlacementKeys {
         final int key = Keyboard.getEventKey();
         if (PlannerKeys.is(PlannerKeys.FOCUS, key)) {
             com.gtnhplanner.ui.PlannerSettings.setArFocus(!com.gtnhplanner.ui.PlannerSettings.arFocus());
-            WorldView.say(com.gtnhplanner.ui.PlannerSettings.arFocus() ? "Focus: on" : "Focus: off");
+            WorldView.say(
+                com.gtnhplanner.ui.PlannerSettings.arFocus() ? UiText.tr("placement.focus_on")
+                    : UiText.tr("placement.focus_off"));
             return;
         }
         if (PlannerKeys.is(PlannerKeys.LABELS, key)) {
             com.gtnhplanner.ui.PlannerSettings.setArLabels(!com.gtnhplanner.ui.PlannerSettings.arLabels());
-            WorldView.say(com.gtnhplanner.ui.PlannerSettings.arLabels() ? "Labels: on" : "Labels: off");
+            WorldView.say(
+                com.gtnhplanner.ui.PlannerSettings.arLabels() ? UiText.tr("placement.labels_on")
+                    : UiText.tr("placement.labels_off"));
             return;
         }
         // The key can come in the same tick as sneak, before the tick takes the placement in hand.
@@ -129,7 +134,7 @@ public final class PlacementKeys {
         to[1] += (int) Math.round(((a[0] + a[3]) - (b[0] + b[3])) / 2);
         to[3] += (int) Math.round(((a[2] + a[5]) - (b[2] + b[5])) / 2);
         if (!WorldLinks.relink(graph, node, link, to, false)) {
-            WorldView.say("A machine is there already");
+            WorldView.say(UiText.tr("placement.a_machine_is_there_already"));
             com.gtnhplanner.ui.sound.Sfx.DENY.play();
             return;
         }
@@ -151,7 +156,7 @@ public final class PlacementKeys {
 
     private void remove() {
         WorldLinks.unlink(graph, node, link[0], link[1], link[2], link[3]);
-        WorldView.say("Removed from the world");
+        WorldView.say(UiText.tr("placement.removed_from_the_world"));
         com.gtnhplanner.ui.sound.Sfx.WORLD_REMOVE.play();
         link = null;
     }
@@ -220,12 +225,12 @@ public final class PlacementKeys {
         final String shift = keyName(mc.gameSettings.keyBindSneak.getKeyCode()) + " + ";
         final boolean focus = com.gtnhplanner.ui.PlannerSettings.arFocus();
         final java.util.List<Item> items = java.util.List.of(
-            new Item(shift + PlannerKeys.label(PlannerKeys.ROTATE), "Rotate", some),
-            new Item(shift + PlannerKeys.label(PlannerKeys.PICK_UP), "Pick up", some),
-            new Item(shift + PlannerKeys.label(PlannerKeys.REMOVE), "Remove", some),
-            new Item(shift + PlannerKeys.label(PlannerKeys.FOCUS), "Focus", true),
-            new Item(shift + PlannerKeys.label(PlannerKeys.LABELS), "Labels", true),
-            new Item(shift + PlannerKeys.label(PlannerKeys.AR), "Hide", true));
+            new Item(shift + PlannerKeys.label(PlannerKeys.ROTATE), UiText.tr("placement.rotate"), some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.PICK_UP), UiText.tr("placement.pick_up"), some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.REMOVE), UiText.tr("placement.remove"), some),
+            new Item(shift + PlannerKeys.label(PlannerKeys.FOCUS), UiText.tr("placement.focus"), true),
+            new Item(shift + PlannerKeys.label(PlannerKeys.LABELS), UiText.tr("placement.labels"), true),
+            new Item(shift + PlannerKeys.label(PlannerKeys.AR), UiText.tr("placement.hide"), true));
 
         final ScaledResolution sr = event.resolution;
         final int[] map = Minimap.bounds(sr);
@@ -254,9 +259,9 @@ public final class PlacementKeys {
         float ry = y + 3;
         for (final Item it : items) {
             final boolean on = focus && it.what()
-                .equals("Focus") || com.gtnhplanner.ui.PlannerSettings.arLabels()
+                .equals(UiText.tr("placement.focus")) || com.gtnhplanner.ui.PlannerSettings.arLabels()
                     && it.what()
-                        .equals("Labels");
+                        .equals(UiText.tr("placement.labels"));
             final int key = on ? Hyb.GOLD : it.live() ? 0xFFC8CAD0 : 0x70C8CAD0;
             final int what = on ? Hyb.GOLD : it.live() ? Hyb.MUTED : 0x709A9CA4;
             Hyb.text(it.key(), x + 5, ry, key);

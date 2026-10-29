@@ -15,6 +15,7 @@ import com.gtnhplanner.cloud.session.LiveDoc;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.library.Account;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.live.Peers;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -29,10 +30,10 @@ public final class TaskLook {
     /** A column's name. */
     public static String name(final Tasks.Status s) {
         return switch (s) {
-            case TODO -> "To do";
-            case DOING -> "Doing";
-            case BLOCKED -> "Blocked";
-            case DONE -> "Done";
+            case TODO -> UiText.tr("tasklook.to_do");
+            case DOING -> UiText.tr("tasklook.doing");
+            case BLOCKED -> UiText.tr("tasklook.blocked");
+            case DONE -> UiText.tr("tasklook.done");
         };
     }
 
@@ -91,9 +92,9 @@ public final class TaskLook {
     /** A priority's name. */
     public static String priorityName(final String p) {
         return switch (p) {
-            case Tasks.HIGH -> "High";
-            case Tasks.LOW -> "Low";
-            default -> "Medium";
+            case Tasks.HIGH -> UiText.tr("tasklook.high");
+            case Tasks.LOW -> UiText.tr("tasklook.low");
+            default -> UiText.tr("tasklook.medium");
         };
     }
 
@@ -157,9 +158,9 @@ public final class TaskLook {
         return n == 0 ? 0 : n * 5 - 2;
     }
 
-    /** "5 days", "1 day" or "under a day". */
+    /** "5 days", "1 day" or UiText.tr("tasklook.under_a_day"). */
     public static String span(final int days) {
-        return days < 1 ? "under a day" : days + (days == 1 ? " day" : " days");
+        return days < 1 ? UiText.tr("tasklook.under_a_day") : days + (days == 1 ? " day" : " days");
     }
 
     /** "In Doing for 5 days": the tooltip's line. */
@@ -177,7 +178,7 @@ public final class TaskLook {
     // region People
 
     /** What a signed-out player writes as, and is called. */
-    public static final String LOCAL = "local", YOU = "You";
+    public static final String LOCAL = "local", YOU = UiText.tr("tasklook.you");
 
     /** The signed-in account's id, or {@link #LOCAL} signed out. */
     public static String me() {
@@ -185,7 +186,7 @@ public final class TaskLook {
         return id == null ? LOCAL : id;
     }
 
-    /** The signed-in account's name, or "You" signed out. */
+    /** The signed-in account's name, or UiText.tr("tasklook.you") signed out. */
     public static String myName() {
         final String name = Account.username();
         return name == null ? YOU : name;
@@ -313,7 +314,10 @@ public final class TaskLook {
         return ISO.format(Instant.now());
     }
 
-    /** "just now", "5m ago", "3h ago", "12d ago" from a time the plan wrote; "" when it does not read. */
+    /**
+     * UiText.tr("tasklook.just_now"), "5m ago", "3h ago", "12d ago" from a time the plan wrote; "" when it does not
+     * read.
+     */
     public static String ago(@Nullable final String iso) {
         if (iso == null) return "";
         try {
@@ -321,11 +325,11 @@ public final class TaskLook {
                 0,
                 Duration.between(Instant.parse(iso), Instant.now())
                     .toMinutes());
-            if (m < 1) return "just now";
-            if (m < 60) return m + "m ago";
-            if (m < 60 * 24) return m / 60 + "h ago";
-            if (m < 60 * 24 * 60) return m / (60 * 24) + "d ago";
-            return m / (60 * 24 * 30) + "mo ago";
+            if (m < 1) return UiText.tr("tasklook.just_now");
+            if (m < 60) return m + UiText.tr("tasklook.m_ago");
+            if (m < 60 * 24) return m / 60 + UiText.tr("tasklook.h_ago");
+            if (m < 60 * 24 * 60) return m / (60 * 24) + UiText.tr("tasklook.d_ago");
+            return m / (60 * 24 * 30) + UiText.tr("tasklook.mo_ago");
         } catch (final RuntimeException e) {
             return "";
         }

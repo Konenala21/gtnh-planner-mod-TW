@@ -38,6 +38,7 @@ import com.gtnhplanner.GtnhPlanner;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.Resources;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.RecipeCard;
 import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -121,9 +122,11 @@ public final class PlanPicture {
             try {
                 image = render(job.canvas(), job.options());
             } catch (final RuntimeException | OutOfMemoryError e) {
-                GtnhPlanner.LOG.warn("Could not take a picture of the plan", e);
+                GtnhPlanner.LOG.warn(UiText.tr("picture.could_not_take_a_picture_of_the_plan"), e);
                 job.failed()
-                    .accept(e instanceof OutOfMemoryError ? "The plan is too big for a picture" : reason(e));
+                    .accept(
+                        e instanceof OutOfMemoryError ? UiText.tr("picture.the_plan_is_too_big_for_a_picture")
+                            : reason(e));
                 return;
             }
             job.done()
@@ -145,7 +148,7 @@ public final class PlanPicture {
         while (true) {
             // The names zoomed out are as big on screen at any zoom, so they take more of the board the smaller it is.
             b = canvas.planBounds(zoom);
-            if (b == null) throw new IllegalStateException("There is nothing on the board yet");
+            if (b == null) throw new IllegalStateException(UiText.tr("picture.there_is_nothing_on_the_board_yet"));
             final float worldW = b[2] - b[0] + 2 * MARGIN, worldH = b[3] - b[1] + 2 * MARGIN;
             boardW = (int) Math.ceil(worldW * zoom);
             boardH = (int) Math.ceil(worldH * zoom);
@@ -422,9 +425,18 @@ public final class PlanPicture {
             if (ins != null) {
                 if (name != null) y += GAP;
                 final int panelW = (width - 2 * PAD - GAP) / 2;
-                panel("INPUTS", Hyb.SOURCE_INK, IN_FILL, IN_EDGE, ins, PAD, y, panelW, "Nothing comes in");
                 panel(
-                    "OUTPUTS",
+                    UiText.tr("picture.inputs"),
+                    Hyb.SOURCE_INK,
+                    IN_FILL,
+                    IN_EDGE,
+                    ins,
+                    PAD,
+                    y,
+                    panelW,
+                    UiText.tr("picture.nothing_comes_in"));
+                panel(
+                    UiText.tr("picture.outputs"),
                     Hyb.PRODUCT_INK,
                     OUT_FILL,
                     OUT_EDGE,
@@ -432,7 +444,7 @@ public final class PlanPicture {
                     PAD + panelW + GAP,
                     y,
                     width - 2 * PAD - GAP - panelW,
-                    "Nothing goes out");
+                    UiText.tr("picture.nothing_goes_out"));
                 y += panelH;
                 if (name == null) Hyb.text(MARK, width - PAD - Hyb.width(MARK), y + 5, 1f, BRAND, false);
             }
@@ -551,7 +563,7 @@ public final class PlanPicture {
                     .write(file.toPath(), com.gtnhplanner.library.PlanImage.png(image, plan, Hyb.CANVAS));
                 onClient(() -> done.accept(file));
             } catch (final IOException | RuntimeException e) {
-                GtnhPlanner.LOG.warn("Could not save the picture of the plan", e);
+                GtnhPlanner.LOG.warn(UiText.tr("picture.could_not_save_the_picture_of_the_plan"), e);
                 onClient(() -> failed.accept(reason(e)));
             }
         });
@@ -574,7 +586,7 @@ public final class PlanPicture {
                         null);
                 onClient(done);
             } catch (final RuntimeException | Error e) {
-                GtnhPlanner.LOG.warn("Could not copy the picture of the plan", e);
+                GtnhPlanner.LOG.warn(UiText.tr("picture.could_not_copy_the_picture_of_the_plan"), e);
                 onClient(() -> failed.accept(reason(e)));
             }
         });

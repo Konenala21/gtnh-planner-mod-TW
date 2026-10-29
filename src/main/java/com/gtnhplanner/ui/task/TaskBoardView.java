@@ -806,8 +806,8 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         Hyb.click();
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(PickList.Entry.of(UiText.tr("taskboard.open"), () -> TaskPanel.open(session, id)));
-        for (final Tasks.Status s : Tasks.Status.values())
-            if (s != t.status()) rows.add(PickList.Entry.of(UiText.tr("taskboard.move_to") + " " + TaskLook.name(s), () -> {
+        for (final Tasks.Status s : Tasks.Status.values()) if (s != t.status())
+            rows.add(PickList.Entry.of(UiText.tr("taskboard.move_to") + " " + TaskLook.name(s), () -> {
                 session.editTasks(
                     () -> TaskEdits.move(
                         session.graph(),

@@ -20,6 +20,7 @@ import org.lwjgl.opengl.GL11;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.ui.Planner;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.gt.StructureGhosts;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -314,7 +315,7 @@ public final class LinkPicker {
         final int dim = mc.theWorld.provider.dimensionId;
         // One of this card's machines there already: placing it again would count it twice.
         if (moving == null && placed > 0 && WorldLinks.indexOf(node, dim, at[0], at[1], at[2]) >= 0) {
-            WorldView.say("One is placed there already");
+            WorldView.say(UiText.tr("linkpicker.one_is_placed_there_already"));
             com.gtnhplanner.ui.sound.Sfx.DENY.play();
             return;
         }
@@ -388,14 +389,16 @@ public final class LinkPicker {
         final String title = (moving != null ? "Move " : "Place ") + name
             + (max > 1 ? ": " + (placed + 1) + " of " + max : "")
             + (g == null ? "" : "   " + dimensions(g));
-        final String turns = PlannerKeys.label(PlannerKeys.ROTATE) + " turns it";
-        final String how = placed > 0 ? "Click for the next one. " + turns + ". Right-click or Esc to stop here."
-            : "Click a block face to place it there. " + turns
+        final String turns = PlannerKeys.label(PlannerKeys.ROTATE) + UiText.tr("linkpicker.turns_it");
+        final String how = placed > 0
+            ? UiText.tr("linkpicker.click_for_the_next_one") + " " + turns
+                + UiText.tr("linkpicker.right_click_or_esc_to_stop_here")
+            : UiText.tr("linkpicker.click_a_block_face_to_place_it_there") + " " + turns
                 + (g != null && g.sized() ? ", " + PlannerKeys.label(PlannerKeys.ZOOM_OUT)
                     + " "
                     + PlannerKeys.label(PlannerKeys.ZOOM_IN)
-                    + " sizes it" : "")
-                + ". Right-click or Esc to cancel.";
+                    + UiText.tr("linkpicker.sizes_it") : "")
+                + UiText.tr("linkpicker.right_click_or_esc_to_cancel");
         final int w = Math.max(Hyb.width(title) + 22, Hyb.width(how)) + 12, h = 29;
         final float x = (event.resolution.getScaledWidth() - w) / 2f, y = 6;
         titleAt = new int[] { (int) x - 1, (int) y - 1, w + 2, h + 2 };
