@@ -1,0 +1,242 @@
+## Mod Settings
+
+## Settings
+## Settings - General
+gtnhplanner.settings.duration_ticks=耗時（刻）
+gtnhplanner.settings.tick_modifier=刻速率（%）
+gtnhplanner.settings.machines=機器數量
+gtnhplanner.settings.energy_per_tick=每刻能耗
+gtnhplanner.settings.inputs_per_tick=每刻輸入量
+gtnhplanner.settings.burnable_override=可燃物設定覆寫
+
+## Settings - GT
+gtnhplanner.settings.voltage=電壓等級
+gtnhplanner.settings.amp=安培數
+gtnhplanner.settings.speed=速度（%）
+gtnhplanner.settings.parallels=並行數
+gtnhplanner.settings.gt_multiblock=多方塊結構
+gtnhplanner.settings.machine_heat=線圈溫度（K）
+gtnhplanner.settings.recipe_heat=配方溫度（K）
+gtnhplanner.settings.heat_discount_mult=熱量折扣強度（%）
+gtnhplanner.settings.eut_discount=耗電折扣（%）
+gtnhplanner.settings.eut_increase_per_oc=每次超頻的耗電倍率（%）
+gtnhplanner.settings.duration_decrease_per_oc=每次超頻的速度倍率（%）
+gtnhplanner.settings.max_overclocks=超頻次數上限
+gtnhplanner.settings.max_regular_oc=一般超頻次數上限
+gtnhplanner.settings.max_tier_skips=跨電壓等級上限
+gtnhplanner.settings.fuel_efficiency=燃料效率（%）
+gtnhplanner.settings.perfect_oc=完美超頻
+gtnhplanner.settings.heat_oc=熱量超頻
+gtnhplanner.settings.heat_discount=熱量折扣
+gtnhplanner.settings.laser_oc=雷射超頻
+gtnhplanner.settings.unlimited_skips=無限跨電壓等級
+gtnhplanner.settings.no_overclock=停用超頻
+gtnhplanner.settings.catalyst_astral_arrays=星體陣列
+gtnhplanner.settings.catalyst_accel_card=加速卡
+
+## Settings - Botania
+gtnhplanner.settings.mana_per_tick=每刻魔力
+
+## Settings - Thaumcraft (and friends)
+gtnhplanner.settings.vis_per_tick=每刻 Vis
+
+## Settings - Forestry
+gtnhplanner.settings.forestry_rf_per_tick=每刻 RF（林業）
+
+## Settings - BloodMagic
+gtnhplanner.settings.lp_per_tick=每刻 LP
+
+## Settings - Cofh core
+gtnhplanner.settings.rf_per_tick=每刻 RF
+
+## Settings - Steam
+gtnhplanner.settings.steam_eut_discount=蒸汽消耗（%）
+gtnhplanner.settings.steam_duration_modifier=蒸汽機速度（%）
+
+## Properties
+## Properties - General
+gtnhplanner.properties.duration_ticks=耗時
+gtnhplanner.properties.num_components=組件數量
+
+## Properties - GT (and friends)
+gtnhplanner.properties.gt.special_value=特殊數值
+gtnhplanner.properties.gt.bartworks.glass_tier=玻璃等級
+gtnhplanner.properties.gt.bartworks.sievert=西弗
+gtnhplanner.properties.gt.bartworks.sievert_exact=精確西弗值
+gtnhplanner.properties.gt.bartworks.mass=質量
+gtnhplanner.properties.gt.total_eu=總 EU
+gtnhplanner.properties.gt.eu_per_tick=EU/t
+gtnhplanner.properties.gt.coil_heat=線圈溫度
+gtnhplanner.properties.gt.fusion_threshold=核融合門檻
+gtnhplanner.properties.gt.recipe_map=配方類別
+gtnhplanner.properties.gt.steam_eu_pert=蒸汽/t
+gtnhplanner.properties.gt.total_steam_eu=蒸汽總量
+
+## Properties - Avaritia
+gtnhplanner.properties.avaritia.compression_cost=壓縮消耗
+
+## Properties - Botania
+gtnhplanner.properties.botania.mana_cost=魔力消耗
+
+## Properties - BloodMagic
+gtnhplanner.properties.bloodmagic.lp_amount=LP 消耗
+gtnhplanner.properties.bloodmagic.lp_tier=LP 等級
+
+## Properties - Thaumcraft (and friends)
+gtnhplanner.properties.thaumcraft.vis_cost=Vis 消耗
+gtnhplanner.properties.thaumcraft.instability=不穩定度
+gtnhplanner.properties.thaumcraft.total_vis=Vis 總量
+gtnhplanner.properties.thaumcraft.research_key=研究項目
+gtnhplanner.properties.thaumcraft.num_components=組件數量
+
+## Properties - Forestry
+gtnhplanner.properties.forestry.processing_time=處理時間
+
+## Properties - Cofh core
+gtnhplanner.properties.cofh.rf_total=RF 總量
+gtnhplanner.properties.cofh.rf_per_t=RF/t
+
+## Properties - Ender IO
+gtnhplanner.properties.enderio.experience=經驗值
+
+## Share messages
+
+## GUI
+## GUI - Groups
+gtnhplanner.gui.group.add_machine_group=新增機器群組
+gtnhplanner.gui.group.machine_badge=[M]
+gtnhplanner.gui.group.machine_group_tooltip=機器群組：框內所有配方都在同一台機器上執行，因此共用設定，所需機器數量會相加
+gtnhplanner.gui.group.machine_capacity=此群組的機器數量；設為 0 表示不限數量
+
+## GUI - Balancer
+gtnhplanner.gui.balancer_mode=模式：%s
+gtnhplanner.gui.balancer_mode.none=一般
+gtnhplanner.gui.balancer_mode.input=固定機器數量（輸入%s）
+gtnhplanner.gui.balancer_mode.output=固定機器數量（輸出%s）
+gtnhplanner.gui.balancer_mode.auto=自動%s
+
+## GUI - Balancer messages
+## Failures
+gtnhplanner.solver.no_pin=尚未固定任何數值：請固定機器數量以計算平衡
+gtnhplanner.solver.empty_graph=流程圖是空的
+gtnhplanner.solver.balance_failed=平衡計算失敗：%s
+gtnhplanner.solver.validation_failed=解答未通過獨立驗證：%s
+## Wiring diagnostics
+gtnhplanner.solver.wiring_import=「%s」從外部輸入 %s，但「%s」已有產出，是否漏接連線？
+gtnhplanner.solver.wiring_unlinked=「%s」從外部取得 %s，但流程圖中未連線的「%s」已有產出，是否漏接連線？
+gtnhplanner.solver.overshoots_target=「%s」超過 %s 的目標值：實際產出 %s/s，目標為 %s/s，原因是同一台機器的另一項輸出需要更高產量
+## Alternatives search
+gtnhplanner.solver.showing_closest=顯示最接近的 %d 個可行解，共有 %d 個
+gtnhplanner.solver.stopped_early=已檢查 %d 種組合後停止，可能還有其他解（尚未檢查 %d 種）
+gtnhplanner.solver.choice_no_longer_fits=儲存的過剩產量選項已不適用於此流程圖，改顯示求解器的結果
+gtnhplanner.solver.choice_needs_more_gates=儲存的過剩產量選項比求解器的結果需要更多限制條件，因此已捨棄
+## Pipeline diagnostics
+gtnhplanner.solver.pins_conflict=這些固定值互相衝突；移除後流程圖即可求解：%s
+gtnhplanner.solver.pin_dropped=「%s」（%s）
+gtnhplanner.solver.stage_failed=%s %s
+gtnhplanner.solver.machines_cannot_run=%d 台機器無法運作：%s
+gtnhplanner.solver.budget=計算額度已用盡，求解器狀態：%s
+gtnhplanner.solver.unsatisfiable=找不到可行解，求解器狀態：%s
+gtnhplanner.solver.no_solution=找不到可行解
+gtnhplanner.solver.not_conserving=計算結果未符合物料守恆：%s
+gtnhplanner.solver.negative_extent=計算結果出現負的執行量：%s
+gtnhplanner.solver.negative_flow=計算結果出現負的連線流量：%s
+gtnhplanner.solver.inexact_residual=計算結果出現不精確的連接埠餘量：%s
+gtnhplanner.solver.under_supply=計算結果出現供應不足的連接埠：餘量 %s
+gtnhplanner.solver.solve_crashed=求解器發生錯誤並停止：%s
+
+gtnhplanner.solver.drawer_unmet=%1$s 無法維持在 %2$s %3$s/s；目前規劃只能達到 %4$s/s
+gtnhplanner.solver.drawer_limited_by=%1$s 受到 %2$s 限制
+gtnhplanner.solver.drawer_not_connected=%s 設定了產量，但未連接任何承載此資源的路徑
+gtnhplanner.solver.drawer_wired_ignored=%s 只連接到已接線的連接埠，此平衡模式不會計入
+gtnhplanner.solver.drawer_only_upper_bounds=資源抽屜只能設定上限：請設定產品產量或固定機器數量，讓規劃有明確規模
+gtnhplanner.solver.limit_pin=「%s」（%s）
+gtnhplanner.solver.limit_drawer=%s
+gtnhplanner.solver.limit_group=有 %s 台機器的機器群組
+gtnhplanner.solver.rule_any=不限
+gtnhplanner.solver.rule_at_least=至少
+gtnhplanner.solver.rule_exactly=恰好
+gtnhplanner.solver.rule_at_most=至多
+## Names
+gtnhplanner.solver.pin_extent=執行量固定值
+gtnhplanner.solver.pin_target=目標產量
+gtnhplanner.solver.pin_count=固定機器數量
+gtnhplanner.solver.pin_up_to=機器數量上限
+gtnhplanner.solver.pref_least_buying=盡量往上游購買
+gtnhplanner.solver.pref_least_selling=盡量往下游出售
+gtnhplanner.solver.pref_least_flow=最少內部流量
+## Rank reasons
+gtnhplanner.solver.reason_equally_valid=同樣可行
+gtnhplanner.solver.reason_buys_more=購買更多，或在更下游購買
+gtnhplanner.solver.reason_sells_more=出售更多，或在更上游出售
+gtnhplanner.solver.reason_moves_more=移動更多物料
+gtnhplanner.solver.reason_moves_less=移動較少物料
+## Boundary labels
+gtnhplanner.solver.boundary_excess=過剩 %s
+gtnhplanner.solver.boundary_add=新增 %s
+gtnhplanner.solver.boundary_flow=%s
+gtnhplanner.solver.boundary_nothing=沒有資源通過邊界
+
+## NEI config
+nei.options.gtnhplanner = "GTNH Planner";
+nei.options.gtnhplanner.item_columns=物品欄數
+nei.options.gtnhplanner.item_columns.tip=NEI 物品面板的欄數（最少 6 欄）
+nei.options.gtnhplanner.burnable_override=顯示可燃物設定
+nei.options.gtnhplanner.burnable_override.0=關閉
+nei.options.gtnhplanner.burnable_override.1=開啟
+nei.options.gtnhplanner.burnable_override.tip=在配方設定中顯示或隱藏可燃物覆寫選項（當配方有多種輸出而部分物品未顯示時可能有幫助）
+nei.options.keys.gtnhplanner=GTNH Planner
+nei.options.keys.gtnhplanner.undo=復原
+nei.options.keys.gtnhplanner.redo=重做
+nei.options.keys.gtnhplanner.redo_alt=重做（替代按鍵）
+
+## Summary panel
+gtnhplanner.summary.title.summary=總覽
+gtnhplanner.summary.title.outputs=輸出
+gtnhplanner.summary.title.inputs=輸入
+gtnhplanner.summary.title.choices=選項
+gtnhplanner.summary.title.properties=屬性
+gtnhplanner.summary.title.machine_counts=機器數量
+gtnhplanner.summary.title.messages=求解器訊息
+gtnhplanner.summary.title.help=說明
+gtnhplanner.summary.mode.title=總覽模式
+gtnhplanner.summary.mode.switch_hint=點擊以切換
+gtnhplanner.summary.mode.cycles=執行次數
+gtnhplanner.summary.mode.throughput=產量
+gtnhplanner.summary.mode.cycles.short=C
+gtnhplanner.summary.mode.throughput.short=T
+gtnhplanner.summary.rate.title=產量單位
+gtnhplanner.summary.rate.second=S
+gtnhplanner.summary.rate.minute=M
+gtnhplanner.summary.rate.hour=H
+gtnhplanner.summary.rate.day=D
+gtnhplanner.summary.rate.second.suffix=/s
+gtnhplanner.summary.rate.minute.suffix=/m
+gtnhplanner.summary.rate.hour.suffix=/h
+gtnhplanner.summary.rate.day.suffix=/d
+gtnhplanner.summary.totals.cycles=操作次數：%s，耗時：%d t（%s 秒/次）
+gtnhplanner.summary.totals.throughput=操作次數：%s，週期：%s 秒
+gtnhplanner.summary.help.zoom=[滾輪] 縮放
+gtnhplanner.summary.help.move=[按住左鍵拖曳] 移動節點
+gtnhplanner.summary.help.nei=[R/U] 開啟 NEI
+gtnhplanner.summary.help.add_recipe=[NEI 介面中的 +] 新增配方
+
+key.neiflowchart.open=開啟規劃器
+key.categories.neiflowchart=GTNH Planner
+key.gtnhplanner.minimap=顯示或隱藏小地圖
+key.gtnhplanner.minimapZoomIn=小地圖：放大
+key.gtnhplanner.minimapZoomOut=小地圖：縮小
+key.gtnhplanner.minimapUp=小地圖：向上平移
+key.gtnhplanner.minimapDown=小地圖：向下平移
+key.gtnhplanner.minimapLeft=小地圖：向左平移
+key.gtnhplanner.minimapRight=小地圖：向右平移
+key.gtnhplanner.minimapRecentre=小地圖：回到主畫面視角
+key.gtnhplanner.ar=在世界中顯示或隱藏規劃圖
+key.gtnhplanner.link=將規劃卡片放到視線所指的方塊上
+key.gtnhplanner.pinList=顯示或隱藏固定值清單
+key.gtnhplanner.taskShow=切換任務位置的顯示時機
+key.gtnhplanner.rotate=旋轉機器（潛行時；放置時可直接使用）
+key.gtnhplanner.pickUp=收起已放置的機器（潛行時）
+key.gtnhplanner.remove=移除已放置的機器（潛行時）
+key.gtnhplanner.focus=看著機器時聚焦卡片（潛行時）
+key.gtnhplanner.labels=在機器上顯示標籤（潛行時）
