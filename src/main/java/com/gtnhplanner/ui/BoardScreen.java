@@ -7,7 +7,6 @@ import java.util.function.Supplier;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.StatCollector;
 
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.widget.IWidget;
@@ -139,22 +138,14 @@ public final class BoardScreen extends ModularScreen {
             named(
                 parts,
                 "arrange",
-                key(
-                    canvas::arrangeLabel,
-                    () -> true,
-                    "Auto-arrange the plan (press again to stop)",
-                    fit("Arrange"),
-                    canvas::arrange)),
-            () -> canvas.arranging() ? fit("Arranging 100%", "Stopping") : fit("Arrange"),
-            () -> canvas.arranging() ? tight("Stopping", "100%") : tight("Arrange"));
+                key(canvas::arrangeLabel, () -> true, tr("arrange_tip"), fit(tr("arrange")), canvas::arrange)),
+            () -> canvas.arranging() ? fit(tr("arranging_full"), tr("stopping")) : fit(tr("arrange")),
+            () -> canvas.arranging() ? tight(tr("stopping"), "100%") : tight(tr("arrange")));
         toolbar.key(
             2,
-            named(
-                parts,
-                "fit",
-                key(() -> "Fit", () -> true, "Zoom to fit the whole plan", fit("Fit"), canvas::frameAll)),
-            fit("Fit"),
-            tight("Fit"));
+            named(parts, "fit", key(() -> tr("fit"), () -> true, tr("fit_tip"), fit(tr("fit")), canvas::frameAll)),
+            fit(tr("fit")),
+            tight(tr("fit")));
         toolbar.key(
             3,
             named(
@@ -163,7 +154,7 @@ public final class BoardScreen extends ModularScreen {
                 key(
                     session::rateKeyLabel,
                     () -> true,
-                    "Rate unit: per tick, second, minute or hour, or EU for the energy each item cost",
+                    tr("rate_unit_tip"),
                     fit("/t", "/s", "/min", "/hr", "EU"),
                     () -> session.stepRateKey(1),
                     session::stepRateKey)),
@@ -175,14 +166,14 @@ public final class BoardScreen extends ModularScreen {
                 parts,
                 "power",
                 key(
-                    () -> session.powerKey() == BoardSession.PowerKey.EU ? "EU/t" : "Amps",
+                    () -> session.powerKey() == BoardSession.PowerKey.EU ? "EU/t" : tr("amps"),
                     () -> true,
-                    "Show power as EU/t, or as amps at each machine's tier",
-                    fit("EU/t", "Amps"),
+                    tr("power_tip"),
+                    fit("EU/t", tr("amps")),
                     session::togglePowerKey,
                     step -> session.togglePowerKey())),
-            fit("EU/t", "Amps"),
-            tight("EU/t", "Amps"));
+            fit("EU/t", tr("amps")),
+            tight("EU/t", tr("amps")));
         // Peak or average power is the overview's own key, on its machines' heading. At the far right, a group of its
         // own: the annotations key opens the empty board's menu under it (sticky note, box, arrow), what it adds
         // landing
@@ -365,7 +356,7 @@ public final class BoardScreen extends ModularScreen {
      */
     private static ButtonWidget<?> accountKey(final ModularPanel panel, final BoardSession session,
         final java.util.Map<String, IWidget> parts) {
-        final ButtonWidget<?> button = key(() -> "", () -> true, "Account: sign in, or sign out", 18, () -> {
+        final ButtonWidget<?> button = key(() -> "", () -> true, tr("account_tip"), 18, () -> {
             if (!com.gtnhplanner.library.Account.signedIn()) {
                 com.gtnhplanner.ui.library.AccountForms.signIn(panel, () -> {});
                 return;
@@ -381,7 +372,7 @@ public final class BoardScreen extends ModularScreen {
                     () -> {}));
             rows.add(
                 com.gtnhplanner.ui.popup.PickList.Entry.of(
-                    "Sign out",
+                    tr("sign_out"),
                     () -> com.gtnhplanner.ui.library.AccountForms
                         .signOut(text -> session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.INFO, text))));
             final IWidget self = parts.get("account");
@@ -606,22 +597,21 @@ public final class BoardScreen extends ModularScreen {
     /** Every gesture on the board, in one list. */
     private static void showHelp(final ModularPanel panel) {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = new ArrayList<>();
-        final String[][] tips = { { "R or U over an item", "Show its recipes or uses in NEI; + adds a recipe" },
-            { "Drag an item out of NEI", "Click the board to add a drawer for it" },
-            { "Click an item in NEI's list", "Its recipes (left-click) or uses (right-click)" },
-            { "Click a port", "Its recipes (left) or uses (right) in NEI; adding one wires it to the port" },
-            { "Drag a port", "Drop on a card to wire it, or on empty board to add a drawer" },
-            { "Right-click a wire", "Add a drawer on it, or delete it" }, { "Middle-click a rate", "Clear the rate" },
-            { "Right-click empty board", "Add a sticky note, a box or an arrow" },
-            { "Click a sticky note", "Write on it (Esc or a click elsewhere when done); drag it anywhere to move it" },
-            { "Click a card or drawer", "Select it (Shift-click adds to the selection)" },
-            { "Drag the board", "Pan (Shift-drag selects a box)" }, { "Drag a selected card", "Move the selection" },
-            { "Ctrl+A", "Select everything" }, { "Delete", "Delete the selection (Esc deselects)" },
-            { "Wheel", PlannerSettings.scrollChangesValues() ? "Zoom; over a value, change it" : "Zoom" },
-            { "WASD or arrows", "Pan (+/- or Page Up/Down zoom)" },
-            { "Ctrl+C, Ctrl+X, Ctrl+V", "Copy, cut, paste the selection and its wires" },
-            { "Ctrl+Z, Ctrl+Shift+Z", "Undo, redo" },
-            { "Double-click an overview row", "Show the cards that make or use it" } };
+        final String[][] tips = { { tr("help_item_nei"), tr("help_item_nei_detail") },
+            { tr("help_drag_nei"), tr("help_drag_nei_detail") }, { tr("help_click_nei"), tr("help_click_nei_detail") },
+            { tr("help_click_port"), tr("help_click_port_detail") },
+            { tr("help_drag_port"), tr("help_drag_port_detail") },
+            { tr("help_right_wire"), tr("help_right_wire_detail") },
+            { tr("help_middle_rate"), tr("help_middle_rate_detail") },
+            { tr("help_right_board"), tr("help_right_board_detail") },
+            { tr("help_click_note"), tr("help_click_note_detail") },
+            { tr("help_click_card"), tr("help_click_card_detail") },
+            { tr("help_drag_board"), tr("help_drag_board_detail") },
+            { tr("help_drag_card"), tr("help_drag_card_detail") }, { "Ctrl+A", tr("help_select_all") },
+            { tr("help_delete_key"), tr("help_delete_detail") },
+            { tr("help_wheel"), PlannerSettings.scrollChangesValues() ? tr("help_wheel_values") : tr("help_zoom") },
+            { tr("help_wasd"), tr("help_wasd_detail") }, { "Ctrl+C, Ctrl+X, Ctrl+V", tr("help_clipboard") },
+            { "Ctrl+Z, Ctrl+Shift+Z", tr("help_undo") }, { tr("help_overview"), tr("help_overview_detail") } };
         for (final String[] tip : tips)
             rows.add(new com.gtnhplanner.ui.popup.PickList.Entry(null, tip[0], tip[1], Hyb.INK, false, () -> {}));
         com.cleanroommc.modularui.screen.ModularPanel p = com.gtnhplanner.ui.popup.PickList
@@ -729,7 +719,7 @@ public final class BoardScreen extends ModularScreen {
     }
 
     private static String tr(final String key) {
-        return StatCollector.translateToLocal("gtnhplanner.ui." + key);
+        return UiText.tr(key);
     }
 
     /** A key's width for the widest label it shows: the same padding either side of every label. */

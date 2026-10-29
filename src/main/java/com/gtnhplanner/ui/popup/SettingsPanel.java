@@ -20,6 +20,7 @@ import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -29,7 +30,7 @@ import com.gtnhplanner.ui.world.PlannerKeys;
  * The planner's settings (the top bar's gear): a box in the middle of the screen in the card's look, its sections down
  * the left and the chosen one's settings on the right, each with the control that fits it: a switch, a row of
  * choices, a slider, the minimap's corner. A change saves at once; the wheel over a control steps it, as on the cards
- * (unless "Scroll changes values" is off).
+ * (unless tr("settings.scroll_values") is off).
  */
 public final class SettingsPanel extends Widget<SettingsPanel> implements Interactable {
 
@@ -149,7 +150,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             label,
             hint,
             Kind.SWITCH,
-            new String[] { "Off", "On" },
+            new String[] { tr("settings.off"), tr("settings.on") },
             () -> get.getAsBoolean() ? 1 : 0,
             i -> set.accept(i == 1));
     }
@@ -190,6 +191,16 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         }
     }
 
+    private static String tr(final String key) {
+        return UiText.tr(key);
+    }
+
+    private static String[] options(final String prefix, final String[] source) {
+        final String[] translated = new String[source.length];
+        for (int i = 0; i < source.length; i++) translated[i] = tr(prefix + "." + i);
+        return translated;
+    }
+
     private static List<Section> sections() {
         final List<Section> out = new ArrayList<>();
 
@@ -201,21 +212,21 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             zoomedOut[i] = PlannerSettings.ZOOMED_OUT_MIN + i * PlannerSettings.ZOOMED_OUT_STEP + "%";
         out.add(
             new Section(
-                "Board",
+                tr("settings.board"),
                 List.of(
                     choice(
-                        "Size",
-                        "of the planner",
-                        PlannerSettings.SIZE_NAMES,
+                        tr("settings.size"),
+                        tr("settings.of_planner"),
+                        options("settings.size_option", PlannerSettings.SIZE_NAMES),
                         PlannerSettings::size,
-                        SettingsPanel::setSize).about("Sets how big the planner is."),
+                        SettingsPanel::setSize).about(tr("settings.size_tip")),
                     toggle(
-                        "Names when zoomed out",
+                        tr("settings.zoomed_names"),
                         null,
                         PlannerSettings::zoomedOutNames,
-                        PlannerSettings::setZoomedOutNames).about("Names each card when you zoom far out."),
+                        PlannerSettings::setZoomedOutNames).about(tr("settings.zoomed_names_tip")),
                     new Row(
-                        "Zoomed-out view",
+                        tr("settings.zoomed_view"),
                         null,
                         Kind.SLIDER,
                         zoomedOut,
@@ -223,25 +234,25 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                             / PlannerSettings.ZOOMED_OUT_STEP,
                         i -> PlannerSettings
                             .setZoomedOutPercent(PlannerSettings.ZOOMED_OUT_MIN + i * PlannerSettings.ZOOMED_OUT_STEP))
-                                .about("Cards turn simple below this zoom."),
+                                .about(tr("settings.zoomed_view_tip")),
                     toggle(
-                        "Problem outlines",
+                        tr("settings.problem_outlines"),
                         null,
                         PlannerSettings::problemOutlines,
-                        PlannerSettings::setProblemOutlines).about("Draws a card's edge in its bar's colour."),
+                        PlannerSettings::setProblemOutlines).about(tr("settings.problem_outlines_tip")),
                     toggle(
-                        "Scroll changes values",
+                        tr("settings.scroll_values"),
                         null,
                         PlannerSettings::scrollChangesValues,
-                        PlannerSettings::setScrollChangesValues).about("Scroll over a number or chip to change it."),
+                        PlannerSettings::setScrollChangesValues).about(tr("settings.scroll_values_tip")),
                     new Row(
-                        "See-through",
+                        tr("settings.see_through"),
                         null,
                         Kind.SLIDER,
                         seeThrough,
                         () -> PlannerSettings.seeThrough() / PlannerSettings.SEE_THROUGH_STEP,
                         i -> PlannerSettings.setSeeThrough(i * PlannerSettings.SEE_THROUGH_STEP))
-                            .about("Fades the board so the game shows through."))));
+                            .about(tr("settings.see_through_tip")))));
 
         final String[] mapSeeThrough = new String[PlannerSettings.MINIMAP_SEE_THROUGH_MAX
             / PlannerSettings.MINIMAP_SEE_THROUGH_STEP + 1];
@@ -251,30 +262,30 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < zooms.length; i++) zooms[i] = Math.round(PlannerSettings.MINIMAP_ZOOMS[i] * 100) + "%";
         final PlannerSettings.Corner[] corners = PlannerSettings.Corner.values();
         final String[] cornerNames = new String[corners.length];
-        for (int i = 0; i < corners.length; i++) cornerNames[i] = corners[i].label;
+        for (int i = 0; i < corners.length; i++) cornerNames[i] = tr("settings.corner." + i);
         out.add(
             new Section(
-                "Minimap",
+                tr("settings.minimap"),
                 List.of(
                     toggle(
-                        "Show the minimap",
+                        tr("settings.show_minimap"),
                         key(PlannerKeys.MINIMAP),
                         PlannerSettings::minimap,
                         PlannerSettings::setMinimap),
                     choice(
-                        "Size",
+                        tr("settings.size"),
                         null,
-                        PlannerSettings.MINIMAP_SIZE_NAMES,
+                        options("settings.minimap_size_option", PlannerSettings.MINIMAP_SIZE_NAMES),
                         PlannerSettings::minimapSizeIndex,
                         PlannerSettings::setMinimapSizeIndex),
                     choice(
-                        "Shape",
+                        tr("settings.shape"),
                         null,
-                        new String[] { "Circle", "Square" },
+                        new String[] { tr("settings.circle"), tr("settings.square") },
                         () -> PlannerSettings.minimapCircle() ? 0 : 1,
                         i -> PlannerSettings.setMinimapCircle(i == 0)),
                     new Row(
-                        "Position",
+                        tr("settings.position"),
                         null,
                         Kind.CORNER,
                         cornerNames,
@@ -282,7 +293,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                             .ordinal(),
                         i -> PlannerSettings.setMinimapCorner(corners[i])),
                     new Row(
-                        "Zoom",
+                        tr("settings.zoom"),
                         key(PlannerKeys.ZOOM_OUT) == null || key(PlannerKeys.ZOOM_IN) == null ? null
                             : key(PlannerKeys.ZOOM_OUT) + " " + key(PlannerKeys.ZOOM_IN),
                         Kind.SLIDER,
@@ -290,12 +301,12 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
                         PlannerSettings::minimapZoomIndex,
                         PlannerSettings::setMinimapZoomIndex),
                     toggle(
-                        "Centre on the machine you look at",
+                        tr("settings.minimap_follow"),
                         null,
                         PlannerSettings::minimapFollows,
                         PlannerSettings::setMinimapFollows),
                     new Row(
-                        "See-through",
+                        tr("settings.see_through"),
                         null,
                         Kind.SLIDER,
                         mapSeeThrough,
@@ -304,26 +315,26 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
 
         out.add(
             new Section(
-                "Sound",
+                tr("settings.sound"),
                 List.of(
                     choice(
-                        "Sounds",
+                        tr("settings.sounds"),
                         null,
-                        PlannerSettings.SOUND_NAMES,
+                        options("settings.sound_option", PlannerSettings.SOUND_NAMES),
                         PlannerSettings::soundIndex,
-                        PlannerSettings::setSoundIndex).about("Sets how loud the clicks are."))));
+                        PlannerSettings::setSoundIndex).about(tr("settings.sounds_tip")))));
 
         out.add(
             new Section(
-                "Pin list",
+                tr("settings.pin_list"),
                 List.of(
                     toggle(
-                        "Show the pin list",
+                        tr("settings.show_pin_list"),
                         key(PlannerKeys.PIN_LIST),
                         PlannerSettings::pinList,
                         PlannerSettings::setPinList),
                     new Row(
-                        "Position",
+                        tr("settings.position"),
                         null,
                         Kind.CORNER,
                         cornerNames,
@@ -335,85 +346,95 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         for (int i = 0; i < ranges.length; i++) ranges[i] = Integer.toString(PlannerSettings.AR_RANGES[i]);
         out.add(
             new Section(
-                "In the world",
+                tr("settings.in_world"),
                 List.of(
                     toggle(
-                        "Show the plan over the world",
+                        tr("settings.show_plan_world"),
                         PlannerKeys.label(PlannerKeys.AR),
                         PlannerSettings::arLens,
-                        PlannerSettings::setArLens).about("Shows or hides everything below."),
+                        PlannerSettings::setArLens).about(tr("settings.show_plan_world_tip")),
                     toggle(
-                        "Cards",
+                        tr("settings.cards"),
                         PlannerKeys.held(PlannerKeys.FOCUS),
                         PlannerSettings::arFocus,
-                        PlannerSettings::setArFocus).about("Shows a machine's card when you look at it."),
+                        PlannerSettings::setArFocus).about(tr("settings.cards_tip")),
                     toggle(
-                        "Machine labels",
+                        tr("settings.machine_labels"),
                         PlannerKeys.held(PlannerKeys.LABELS),
                         PlannerSettings::arLabels,
-                        PlannerSettings::setArLabels).about("Labels each machine with its name and power."),
+                        PlannerSettings::setArLabels).about(tr("settings.machine_labels_tip")),
                     choice(
-                        "Wire labels",
+                        tr("settings.wire_labels"),
                         null,
-                        PlannerSettings.AR_WIRE_LABEL_NAMES,
+                        options("settings.wire_label_option", PlannerSettings.AR_WIRE_LABEL_NAMES),
                         PlannerSettings::arWireLabels,
-                        PlannerSettings::setArWireLabels).about("Shows what each wire carries."),
+                        PlannerSettings::setArWireLabels).about(tr("settings.wire_labels_tip")),
                     choice(
-                        "Machines",
+                        tr("settings.machines"),
                         null,
-                        PlannerSettings.AR_GHOST_NAMES,
+                        options("settings.machine_display_option", PlannerSettings.AR_GHOST_NAMES),
                         PlannerSettings::arGhosts,
-                        PlannerSettings::setArGhosts).about("Sets how placed machines are drawn."),
-                    toggle("Keys list", null, PlannerSettings::arKeys, PlannerSettings::setArKeys)
-                        .about("Shows the key hints by the minimap."),
-                    choice("Range", "blocks", ranges, PlannerSettings::arRangeIndex, PlannerSettings::setArRangeIndex)
-                        .about("Hides machines farther away than this."))));
+                        PlannerSettings::setArGhosts).about(tr("settings.machines_tip")),
+                    toggle(tr("settings.keys_list"), null, PlannerSettings::arKeys, PlannerSettings::setArKeys)
+                        .about(tr("settings.keys_list_tip")),
+                    choice(
+                        tr("settings.range"),
+                        tr("settings.blocks"),
+                        ranges,
+                        PlannerSettings::arRangeIndex,
+                        PlannerSettings::setArRangeIndex).about(tr("settings.range_tip")))));
 
         final String[] near = new String[PlannerSettings.TASK_DISTANCES.length];
         for (int i = 0; i < near.length; i++) near[i] = Integer.toString(PlannerSettings.TASK_DISTANCES[i]);
         out.add(
             new Section(
-                "Task locations",
+                tr("settings.task_locations"),
                 List.of(
                     choice(
-                        "Locations",
+                        tr("settings.locations"),
                         key(PlannerKeys.TASK_SHOW),
-                        PlannerSettings.TASK_SHOW_NAMES,
+                        options("settings.task_show_option", PlannerSettings.TASK_SHOW_NAMES),
                         PlannerSettings::taskShow,
-                        PlannerSettings::setTaskShow).about("What shows when you haven't pressed Show."),
+                        PlannerSettings::setTaskShow).about(tr("settings.locations_tip")),
                     choice(
-                        "Distance",
-                        "blocks",
+                        tr("settings.distance"),
+                        tr("settings.blocks"),
                         near,
                         PlannerSettings::taskDistanceIndex,
-                        PlannerSettings::setTaskDistanceIndex).about("Sets how close you must be for When near."),
-                    toggle("Beam", null, PlannerSettings::taskBeam, PlannerSettings::setTaskBeam)
-                        .about("Stands a beam on each location."),
-                    toggle("Label", null, PlannerSettings::taskLabel, PlannerSettings::setTaskLabel)
-                        .about("Names each location with its distance."))));
+                        PlannerSettings::setTaskDistanceIndex).about(tr("settings.distance_tip")),
+                    toggle(tr("settings.beam"), null, PlannerSettings::taskBeam, PlannerSettings::setTaskBeam)
+                        .about(tr("settings.beam_tip")),
+                    toggle(tr("settings.label"), null, PlannerSettings::taskLabel, PlannerSettings::setTaskLabel)
+                        .about(tr("settings.label_tip")))));
 
         out.add(
             new Section(
-                "Controls",
+                tr("settings.controls"),
                 List.of(
                     new Row(
-                        "Controls and shortcuts",
+                        tr("settings.controls_shortcuts"),
                         null,
                         Kind.BUTTON,
-                        new String[] { "Open" },
+                        new String[] { tr("settings.open") },
                         () -> 0,
-                        i -> com.gtnhplanner.ui.BoardScreen.openControls()).about("Opens the list of keys."),
-                    new Row("Key bindings", null, Kind.BUTTON, new String[] { "Open" }, () -> 0, i -> {
-                        final Minecraft mc = Minecraft.getMinecraft();
-                        mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
-                    }).about("Opens Minecraft's controls."),
+                        i -> com.gtnhplanner.ui.BoardScreen.openControls()).about(tr("settings.controls_tip")),
                     new Row(
-                        "The tour",
+                        tr("settings.key_bindings"),
                         null,
                         Kind.BUTTON,
-                        new String[] { "Take it" },
+                        new String[] { tr("settings.open") },
                         () -> 0,
-                        i -> com.gtnhplanner.ui.tutorial.Tutorial.start()).about("Walks you through the planner."))));
+                        i -> {
+                            final Minecraft mc = Minecraft.getMinecraft();
+                            mc.displayGuiScreen(new GuiControls(mc.currentScreen, mc.gameSettings));
+                        }).about(tr("settings.key_bindings_tip")),
+                    new Row(
+                        tr("settings.tour"),
+                        null,
+                        Kind.BUTTON,
+                        new String[] { tr("settings.take_it") },
+                        () -> 0,
+                        i -> com.gtnhplanner.ui.tutorial.Tutorial.start()).about(tr("settings.tour_tip")))));
         return out;
     }
 
@@ -492,7 +513,8 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
     /** Whether the showing section has a picture of what it changes, and the board has room for it. */
     private boolean previewing() {
         final String name = section().name();
-        return (name.equals("In the world") || name.equals("Minimap")) && PlannerScale.width() >= W + PREVIEW_W + 8;
+        return (name.equals(tr("settings.in_world")) || name.equals(tr("settings.minimap")))
+            && PlannerScale.width() >= W + PREVIEW_W + 8;
     }
 
     /** The box's width: its settings, and a picture beside them when the section has one. */
@@ -635,7 +657,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
         final List<Row> rows = section().rows();
 
         // The title, and the key that closes the box.
-        Hyb.text("Settings", 10, (TITLE - 8) / 2f + 1, Hyb.INK);
+        Hyb.text(tr("settings.title"), 10, (TITLE - 8) / 2f + 1, Hyb.INK);
         final int[] close = closeRect();
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);
@@ -694,7 +716,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             Hyb.rect(W, TITLE + 1, 1, h - TITLE - 2, CardPaint.HAIR);
             final int px = W + 8, py = TITLE + PAD + 2, pw = PREVIEW_W - 16, ph = h - TITLE - 2 * PAD - 4;
             if (section().name()
-                .equals("Minimap")) SettingsPreview.minimap(px, py, pw, ph);
+                .equals(tr("settings.minimap"))) SettingsPreview.minimap(px, py, pw, ph);
             else SettingsPreview.world(px, py, pw, ph);
         }
     }
@@ -860,7 +882,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             }
             return true;
         }
-        // With "Scroll changes values" off a row takes no wheel.
+        // With tr("settings.scroll_values") off a row takes no wheel.
         if (!PlannerSettings.scrollChangesValues()) return true;
         final List<Row> rows = section().rows();
         for (int i = 0; i < rows.size(); i++) {
@@ -891,7 +913,7 @@ public final class SettingsPanel extends Widget<SettingsPanel> implements Intera
             case CHOICE, CORNER -> {
                 // The Sounds row clicks at its new loudness.
                 if (row.label()
-                    .equals("Sounds")) Hyb.click();
+                    .equals(tr("settings.sounds"))) Hyb.click();
                 else Sfx.TICK.play(up ? 1.12f : 0.9f);
             }
             case BUTTON -> {}

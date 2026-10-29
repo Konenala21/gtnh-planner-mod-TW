@@ -30,6 +30,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.flowchart.Waypoints;
 import com.gtnhplanner.layout.WireRouter;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardLayout;
 import com.gtnhplanner.ui.card.CardModel;
 import com.gtnhplanner.ui.card.CardPaint;
@@ -2995,8 +2996,9 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     /** The Arrange key's label: how far an arrange under way has got. */
     public String arrangeLabel() {
-        if (arrangeJob == null) return "Arrange";
-        return arrangeCancelled ? "Stopping" : "Arranging " + Math.round(arrangeDone() * 100) + "%";
+        if (arrangeJob == null) return UiText.tr("arrange");
+        return arrangeCancelled ? UiText.tr("stopping")
+            : UiText.tr("arranging") + " " + Math.round(arrangeDone() * 100) + "%";
     }
 
     /** How far an arrange under way has got, 0 to 1, never going back. */

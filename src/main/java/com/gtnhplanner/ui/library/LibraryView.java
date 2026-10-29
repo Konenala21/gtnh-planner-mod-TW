@@ -30,6 +30,7 @@ import com.gtnhplanner.importer.game.FactoryFlowImport;
 import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.LibraryFeed;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.popup.Tip;
@@ -39,7 +40,8 @@ import com.gtnhplanner.ui.theme.Hyb;
 /**
  * Factory Flow's public setups in the planner, as the website's Library shows them: a search with the website's
  * syntax ({@code #tag}, {@code @name}), sort, tier and pack version, the setups as tiles, and the one picked in a pane
- * beside them with what it makes and needs. "Open as new plan" brings it in as a plan tab. It takes the board's place
+ * beside them with what it makes and needs. tr("library.open_new") brings it in as a plan tab. It takes the board's
+ * place
  * while it is open.
  */
 public final class LibraryView extends ParentWidget<LibraryView> implements Interactable {
@@ -48,10 +50,15 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
     private static final int TILE_BG = 0xFF24262B, TILE_HOT = 0xFF2E3036, TILE_EDGE = 0xFF3A3C43;
     private static final int EU_INK = 0xFFE7C35A, CYAN = 0xFF22D3EE;
 
-    private static final String[][] SORTS = { { "top", "Top voted" }, { "active", "Recently active" },
-        { "new", "Newest" }, { "downloads", "Most downloaded" }, { "machines", "Most machines" },
-        { "power", "Highest power" }, { "lowPower", "Lowest power" }, { "tier", "Highest tier" },
-        { "commented", "Latest comment" } };
+    private static String tr(final String key) {
+        return UiText.tr(key);
+    }
+
+    private static final String[][] SORTS = { { "top", tr("library.top_voted") },
+        { "active", tr("library.recently_active") }, { "new", tr("library.newest") },
+        { "downloads", tr("library.most_downloaded") }, { "machines", tr("library.most_machines") },
+        { "power", tr("library.highest_power") }, { "lowPower", tr("library.lowest_power") },
+        { "tier", tr("library.highest_tier") }, { "commented", tr("library.latest_comment") } };
     private static final String[] TIERS = { "ULV", "LV", "MV", "HV", "EV", "IV", "LuV", "ZPM", "UV", "UHV", "UEV",
         "UIV", "UMV", "UXV", "MAX" };
 
@@ -124,7 +131,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         this.showOpened = showOpened;
         searchField = new TextFieldWidget()
             .value(new StringValue.Dynamic(() -> searchText, s -> searchText = s == null ? "" : s))
-            .hintText("Find a plan");
+            .hintText(tr("library.find_plan"));
         child(searchField);
     }
 
@@ -221,7 +228,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             mine = toMine;
             searchText = mine ? mineSearch : publicSearch;
             searchField.setText(searchText);
-            searchField.hintText(mine ? "Find a plan" : "Search setups (#tag, @name)");
+            searchField.hintText(mine ? tr("library.find_plan") : tr("library.search_setups"));
             scroll = 0;
         }
         if (shelf != to) scroll = 0;
@@ -342,17 +349,21 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             .size() - shared;
         final String publicCount = feed.total() < 0 ? "..." : Fmt.compact(feed.total());
         // The long names when the header has room for them and a search box; else the short ones.
-        final boolean roomy = PAD + shelfW("MY PLANS", Integer.toString(own))
+        final boolean roomy = PAD + shelfW(tr("library.my_plans"), Integer.toString(own))
             + 6
-            + (hasShared() ? shelfW("SHARED WITH ME", Integer.toString(shared)) + 6 : 0)
-            + shelfW("COMMUNITY", publicCount)
+            + (hasShared() ? shelfW(tr("library.shared_with_me"), Integer.toString(shared)) + 6 : 0)
+            + shelfW(tr("library.community"), publicCount)
             + 12
             + 100
             + 30 <= w;
-        x = shelfTab(x, "MY PLANS", Integer.toString(own), Shelf.MINE, hover) + 6;
-        if (hasShared())
-            x = shelfTab(x, roomy ? "SHARED WITH ME" : "SHARED", Integer.toString(shared), Shelf.SHARED, hover) + 6;
-        x = shelfTab(x, "COMMUNITY", publicCount, Shelf.PUBLIC, hover) + 12;
+        x = shelfTab(x, tr("library.my_plans"), Integer.toString(own), Shelf.MINE, hover) + 6;
+        if (hasShared()) x = shelfTab(
+            x,
+            roomy ? tr("library.shared_with_me") : tr("library.shared"),
+            Integer.toString(shared),
+            Shelf.SHARED,
+            hover) + 6;
+        x = shelfTab(x, tr("library.community"), publicCount, Shelf.PUBLIC, hover) + 12;
         // Right to left: close, then the public list's version, tier and sort.
         int right = w - PAD;
         right = closeKey(right, 4, Kind.CLOSE, hover) - 8;
@@ -367,21 +378,24 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         right = key(
             right,
             q.gameVersion()
-                .isEmpty() ? "Any version" : q.gameVersion(),
+                .isEmpty() ? tr("library.any_version") : q.gameVersion(),
             Kind.VERSION,
             hover) - 4;
-        right = key(right, q.maxTierIndex() < 0 ? "Any tier" : "Up to " + TIERS[q.maxTierIndex()], Kind.TIER, hover)
-            - 4;
+        right = key(
+            right,
+            q.maxTierIndex() < 0 ? tr("library.any_tier") : "Up to " + TIERS[q.maxTierIndex()],
+            Kind.TIER,
+            hover) - 4;
         right = key(right, sortLabel(q.sort()), Kind.SORT, hover) - 8;
         // The search takes the room left between them, less a filter chip's when one shows.
-        final int chipRoom = q.mine() ? Hyb.width("My posts") + 24
+        final int chipRoom = q.mine() ? Hyb.width(tr("library.my_posts")) + 24
             : makingLabel != null && !q.makes()
                 .isEmpty() ? Math.min(160, Hyb.width("Makes " + makingLabel) + 24) : 0;
         final int fieldW = Math.max(80, Math.min(300, right - x - chipRoom));
         searchField.pos(x, 5)
             .size(fieldW, 14);
         if (q.mine()) {
-            final String chip = "My posts";
+            final String chip = tr("library.my_posts");
             final int cx = x + fieldW + 6, chipW = Hyb.width(chip) + 16;
             final boolean hot = hover != null && hover.kind() == Kind.MINE_CLEAR;
             Hyb.rect(cx, 5, chipW, 14, hot ? 0xFF3A4A52 : 0xFF2C3036);
@@ -402,7 +416,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
 
     /** The player's own posts to the library, as a filter: a key on the public shelf while signed in. */
     private int myPostsKey(final int right, final boolean on, final Hit hover) {
-        final String label = "My posts";
+        final String label = tr("library.my_posts");
         final int kw = Hyb.width(label) + 12, x = right - kw;
         final boolean hot = hover != null && hover.kind() == Kind.MY_POSTS;
         Hyb.bevel(x, 4, kw, 16, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
@@ -446,7 +460,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         int y = top + PAD - scroll;
         if (setups.isEmpty()) {
             final String msg = feed.error() != null ? "Couldn't reach Community: " + feed.error()
-                : feed.loading() || !feed.started() ? "Loading shared plans..." : "No setups match.";
+                : feed.loading() || !feed.started() ? tr("library.loading_shared") : tr("library.no_matches");
             final float cx = (PAD + gridRight()) / 2f, cy = top + (h - top) / 2f - 10;
             Hyb.textCentered(msg, cx, cy, feed.error() != null ? Hyb.AMBER_INK : Hyb.MUTED);
             if (feed.error() != null) retryKey(cx, cy + 14, hover);
@@ -462,7 +476,8 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int rows = (setups.size() + cols - 1) / cols;
         int end = y + rows * (TILE_H + GAP);
         if (feed.loading() || feed.error() != null) {
-            final String msg = feed.error() != null ? "Couldn't load more: " + feed.error() : "Loading more...";
+            final String msg = feed.error() != null ? "Couldn't load more: " + feed.error()
+                : tr("library.loading_more");
             Hyb.textCentered(msg, (PAD + gridRight()) / 2f, end + 4, feed.error() != null ? Hyb.AMBER_INK : Hyb.MUTED);
             if (feed.error() != null) retryKey((PAD + gridRight()) / 2f, end + 18, hover);
             end += 36;
@@ -475,7 +490,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
     }
 
     private void retryKey(final float cx, final float y, final Hit hover) {
-        final String label = "Try again";
+        final String label = tr("library.try_again");
         final int kw = Hyb.width(label) + 12, x = Math.round(cx - kw / 2f);
         final boolean hot = hover != null && hover.kind() == Kind.RETRY;
         Hyb.bevel(x, y, kw, 16, hot ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
@@ -636,7 +651,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             n++;
         }
         if (n == 0) Hyb.textCentered(
-            sharedShelf && f.isEmpty() ? "Nothing shared with you yet" : "No plan by that name.",
+            sharedShelf && f.isEmpty() ? tr("library.nothing_shared") : tr("library.no_name_match"),
             (PAD + gridRight()) / 2f,
             top + (h - top) / 2f,
             Hyb.MUTED);
@@ -651,7 +666,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final boolean hot = hover != null && hover.kind() == Kind.NEW_TILE;
         Hyb.dashed(x, y, w, TILE_H, hot ? CYAN : 0xFF4A4C54, 4, 3);
         if (hot) Hyb.rect(x + 1, y + 1, w - 2, TILE_H - 2, 0x1422D3EE);
-        Hyb.textCentered("+ New plan", x + w / 2f, y + TILE_H / 2f - 4, hot ? CYAN : 0xFF9FD9E6);
+        Hyb.textCentered(tr("library.new_plan_button"), x + w / 2f, y + TILE_H / 2f - 4, hot ? CYAN : 0xFF9FD9E6);
         hits.add(new Hit(Kind.NEW_TILE, x, y, x + w, y + TILE_H, null));
     }
 
@@ -673,7 +688,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         if (tasks) com.gtnhplanner.ui.task.TaskLook.checklist(x + 34, y + 6, com.gtnhplanner.ui.task.TaskLook.TINT);
         int nameRight = x + w - 6;
         if (g.isOpen()) {
-            final String chip = current ? "SHOWING" : "OPEN";
+            final String chip = current ? tr("library.showing") : tr("library.open_badge");
             final int cw = Hyb.width(chip) + 6;
             nameRight -= cw + 4;
             Hyb.rect(nameRight + 4, y + 5, cw, 10, current ? 0xFF1E4A52 : 0xFF353942);
@@ -687,7 +702,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final String size = tasks ? count + (count == 1 ? " task" : " tasks")
             : cards + (cards == 1 ? " card" : " cards") + " · " + drawers + (drawers == 1 ? " drawer" : " drawers");
         Hyb.text(Hyb.fit(size, x + w - 6 - (x + 34)), x + 34, y + 17, 0xFF8A8C94);
-        final String when = g.getLastOpen() > 0 ? "last open " + agoMs(g.getLastOpen()) : "not opened yet";
+        final String when = g.getLastOpen() > 0 ? "last open " + agoMs(g.getLastOpen()) : tr("library.not_opened");
         Hyb.text(when, x + 6, y + TILE_H - 13, Hyb.MUTED);
         // A plan someone shared with the player says whose it is.
         final com.gtnhplanner.cloud.session.CloudSession cloud = com.gtnhplanner.cloud.session.CloudSession.current();
@@ -726,25 +741,25 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             .get(slot);
         final int sx = getArea().x + hit.x0() + 8, sy = getArea().y + hit.y0() + 20;
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Open", () -> openPlan(slot)));
+        rows.add(PickList.Entry.of(tr("library.open"), () -> openPlan(slot)));
         rows.add(
             PickList.Entry.of(
-                "Rename",
+                tr("library.rename"),
                 () -> Popup.open(
                     getPanel(),
                     com.gtnhplanner.ui.popup.TextPopup
-                        .create("Plan name", g.getName(), name -> session.renameSlot(slot, name)),
+                        .create(tr("library.plan_name"), g.getName(), name -> session.renameSlot(slot, name)),
                     sx,
                     sy)));
         rows.add(
             new PickList.Entry(
                 null,
-                "Copy plan code",
-                "to paste or share",
+                tr("library.copy_code"),
+                tr("library.paste_share"),
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
-        rows.add(PickList.Entry.of("Make a copy", () -> {
+        rows.add(PickList.Entry.of(tr("library.make_copy"), () -> {
             session.copySlot(slot);
             close.run();
         }));
@@ -752,7 +767,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         rows.add(
             new PickList.Entry(
                 null,
-                session.shared(g) ? "Leave plan" : "Delete plan",
+                session.shared(g) ? tr("library.leave_plan") : tr("library.delete_plan"),
                 "",
                 Hyb.RED_INK,
                 false,
@@ -821,7 +836,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int by = py + ph - 26;
         final boolean busy = s.id()
             .equals(opening);
-        final String openLabel = busy ? "Opening..." : "Open as new plan";
+        final String openLabel = busy ? tr("library.opening") : tr("library.open_new");
         final int ow = pw - 16;
         final boolean openHot = hover != null && hover.kind() == Kind.OPEN;
         Hyb.rect(px + 8, by, ow, 18, openHot && !busy ? 0xFF38E1F5 : CYAN);
@@ -833,26 +848,26 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         int rowTop = by;
         if (s.mine()) {
             rowTop = by - 21;
-            Hyb.text("Your post", px + 8, rowTop + 4, Hyb.MUTED);
+            Hyb.text(tr("library.your_post"), px + 8, rowTop + 4, Hyb.MUTED);
             final boolean takingDown = s.id()
                 .equals(deleting);
             final int kx = paneKey(
                 px + pw - 8,
                 rowTop,
-                takingDown ? "Deleting..." : "Delete",
+                takingDown ? tr("library.deleting") : tr("library.delete"),
                 Kind.DELETE,
                 s,
                 hover,
                 Hyb.RED_INK) - 4;
-            paneKey(kx, rowTop, "Edit", Kind.EDIT, s, hover, Hyb.INK);
+            paneKey(kx, rowTop, tr("library.edit"), Kind.EDIT, s, hover, Hyb.INK);
         }
         if (openError != null) {
             Hyb.text(Hyb.fit(openError, pw - 16), px + 8, rowTop - 12, Hyb.AMBER_INK);
         }
         // What it makes and needs, then the description, in what room is left above the buttons.
         final int bottom = rowTop - (openError != null ? 16 : 6);
-        y = resources("MAKES", s.outputs(), px + 8, y, pw - 16, bottom, z, Hyb.PRODUCT_INK);
-        y = resources("NEEDS", s.needs(), px + 8, y, pw - 16, bottom, z, Hyb.SOURCE_INK);
+        y = resources(tr("library.makes"), s.outputs(), px + 8, y, pw - 16, bottom, z, Hyb.PRODUCT_INK);
+        y = resources(tr("library.needs"), s.needs(), px + 8, y, pw - 16, bottom, z, Hyb.SOURCE_INK);
         if (!s.description()
             .isBlank() && y + 12 < bottom) {
             for (final String line : wrap(s.description(), pw - 16, (bottom - y - 2) / 10)) {
@@ -875,9 +890,10 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
 
     /** EU/t, machines, cards, votes, downloads: a label over each number, side by side. */
     private int numbers(final CommunityApi.Setup s, final int x, final int y, final int w) {
-        final String[][] cells = { { "EU/T", s.euPerTick() > 0 ? Fmt.power(s.euPerTick()) : "0" },
-            { "MACHINES", Fmt.compact(s.machines()) }, { "VOTES", Integer.toString(s.upvotes() - s.downvotes()) },
-            { "DOWNLOADS", Fmt.compact(s.downloads()) } };
+        final String[][] cells = { { tr("library.eu_per_tick"), s.euPerTick() > 0 ? Fmt.power(s.euPerTick()) : "0" },
+            { tr("library.machines"), Fmt.compact(s.machines()) },
+            { tr("library.votes"), Integer.toString(s.upvotes() - s.downvotes()) },
+            { tr("library.downloads"), Fmt.compact(s.downloads()) } };
         final int cw = w / cells.length;
         for (int i = 0; i < cells.length; i++) {
             final int cx = x + i * cw;
@@ -969,7 +985,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                 rows.add(
                     new PickList.Entry(
                         null,
-                        "Any tier",
+                        tr("library.any_tier"),
                         "",
                         Hyb.INK,
                         q.maxTierIndex() < 0,
@@ -993,7 +1009,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                 rows.add(
                     new PickList.Entry(
                         null,
-                        "Any version",
+                        tr("library.any_version"),
                         "",
                         Hyb.INK,
                         q.gameVersion()
@@ -1036,10 +1052,24 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
     private void setupMenu(final CommunityApi.Setup s, final Hit hit) {
         final int sx = getArea().x + hit.x0() + 8, sy = getArea().y + hit.y0() + 20;
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Open as new plan", () -> open(s)));
+        rows.add(PickList.Entry.of(tr("library.open_new"), () -> open(s)));
         if (s.mine()) {
-            rows.add(new PickList.Entry(null, "Edit...", "title, about, icon", Hyb.INK, false, () -> editPost(s)));
-            rows.add(new PickList.Entry(null, "Delete...", "", Hyb.RED_INK, false, () -> confirmDeletePost(s, sx, sy)));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    tr("library.edit_more"),
+                    tr("library.edit_about"),
+                    Hyb.INK,
+                    false,
+                    () -> editPost(s)));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    tr("library.delete_more"),
+                    "",
+                    Hyb.RED_INK,
+                    false,
+                    () -> confirmDeletePost(s, sx, sy)));
         }
         Popup.open(getPanel(), PickList.popup("gtnhplanner_setup", null, rows, false, 150), sx, sy);
     }
@@ -1072,8 +1102,8 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
     /** Asks before taking a post of the player's own down. */
     private void confirmDeletePost(final CommunityApi.Setup s, final int x, final int y) {
         final List<PickList.Entry> rows = List.of(
-            new PickList.Entry(null, "Delete it", "", Hyb.RED_INK, false, () -> deletePost(s)),
-            PickList.Entry.of("Keep it", () -> {}));
+            new PickList.Entry(null, tr("library.delete_it"), "", Hyb.RED_INK, false, () -> deletePost(s)),
+            PickList.Entry.of(tr("library.keep_it"), () -> {}));
         Popup.open(
             getPanel(),
             PickList.popup(
@@ -1214,29 +1244,28 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                     ? List.of(s.name(), "§7Double-click to open as a new plan", "§7Right-click to edit or delete it")
                     : List.of(s.name(), "§7Double-click to open as a new plan");
             }
-            case OPEN -> List.of("Open as a new plan");
-            case EDIT -> List.of("Change its title, description and icon");
-            case DELETE -> List.of("Take it out of Community for good");
+            case OPEN -> List.of(tr("library.open_new_tip"));
+            case EDIT -> List.of(tr("library.edit_tip"));
+            case DELETE -> List.of(tr("library.delete_tip"));
             case TAG -> List.of("Show plans tagged #" + hit.data());
             case AUTHOR -> List.of("Show plans by " + hit.data());
-            case TIER_BADGE -> List.of("Show plans up to this tier");
-            case CLOSE -> List.of("Back to the board (Esc)");
-            case SORT -> List.of("Sort");
-            case TIER -> List.of("Filter by highest tier");
-            case VERSION -> List.of("Filter by pack version");
-            case MAKES_CLEAR -> List.of("Clear this filter");
-            case SHELF -> hit.data() == Shelf.MINE ? List.of("My plans: every plan of yours, open or closed")
-                : hit.data() == Shelf.SHARED ? List.of("Shared with me: plans other players shared with your account")
-                    : List.of("Setups other players posted to Community");
+            case TIER_BADGE -> List.of(tr("library.tier_tip"));
+            case CLOSE -> List.of(tr("library.back_tip"));
+            case SORT -> List.of(tr("library.sort"));
+            case TIER -> List.of(tr("library.filter_tier"));
+            case VERSION -> List.of(tr("library.filter_version"));
+            case MAKES_CLEAR -> List.of(tr("library.clear_filter"));
+            case SHELF -> hit.data() == Shelf.MINE ? List.of(tr("library.mine_tip"))
+                : hit.data() == Shelf.SHARED ? List.of(tr("library.shared_tip")) : List.of(tr("library.community_tip"));
             case MY_TILE -> List.of(
                 Plan.getInstance()
                     .getGraphs()
                     .get((Integer) hit.data())
                     .getName(),
                 "§7Right-click to rename, copy, post or delete");
-            case NEW_TILE -> List.of("New plan");
-            case MY_POSTS -> List.of("Show only the setups you posted");
-            case MINE_CLEAR -> List.of("Clear this filter");
+            case NEW_TILE -> List.of(tr("library.new_plan"));
+            case MY_POSTS -> List.of(tr("library.my_posts_tip"));
+            case MINE_CLEAR -> List.of(tr("library.clear_filter"));
             default -> List.of();
         };
     }
