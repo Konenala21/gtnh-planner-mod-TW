@@ -19,7 +19,7 @@ import com.gtnhplanner.ui.theme.Hyb;
 public final class UpdateOffer extends Widget<UpdateOffer> implements Interactable {
 
     private static final int W = 280, H = 94, PAD = 10, KEY_H = 18;
-    private static final String OPEN = "Open the release page", LATER = "Not now";
+    private static final String OPEN = UiText.tr("audit.open_release_page"), LATER = UiText.tr("audit.not_now");
 
     /** Offered this game already: once is enough, whatever the answer. */
     private static boolean offered;

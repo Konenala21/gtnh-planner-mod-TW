@@ -160,17 +160,18 @@ public final class TaskLook {
 
     /** "5 days", "1 day" or UiText.tr("tasklook.under_a_day"). */
     public static String span(final int days) {
-        return days < 1 ? UiText.tr("tasklook.under_a_day") : days + (days == 1 ? " day" : " days");
+        return days < 1 ? UiText.tr("tasklook.under_a_day")
+            : String.format(UiText.tr(days == 1 ? "audit.one_day" : "audit.days"), days);
     }
 
     /** "In Doing for 5 days": the tooltip's line. */
     public static String inColumn(final Tasks.Task t) {
-        return "In " + name(t.status()) + " for " + span(inColumnDays(t));
+        return String.format(UiText.tr("audit.in_column"), name(t.status()), span(inColumnDays(t)));
     }
 
     /** "In Doing 5 days": the task box's line. */
     public static String inColumnShort(final Tasks.Task t) {
-        return "In " + name(t.status()) + " " + span(inColumnDays(t));
+        return String.format(UiText.tr("audit.in_column_short"), name(t.status()), span(inColumnDays(t)));
     }
 
     // endregion

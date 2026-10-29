@@ -18,7 +18,7 @@ import com.gtnhplanner.ui.theme.Hyb;
 public final class IncomingOffer extends Widget<IncomingOffer> implements Interactable {
 
     private static final int W = 280, H = 70, PAD = 10, KEY_H = 18;
-    private static final String OPEN = "Open", LATER = "Not now";
+    private static final String OPEN = UiText.tr("audit.open_plan"), LATER = UiText.tr("audit.not_now");
 
     private final WebsiteInbox.Pending pending;
 

@@ -558,7 +558,7 @@ public final class AccountForms {
         String subtitle() {
             if (posted) return UiText.tr("account.everyone_can_find_it_in_community");
             return update ? UiText.tr("account.with_the_plan_as_it_is_now_its_votes_stay")
-                : "As " + Account.username() + ", for everyone to find";
+                : String.format(UiText.tr("audit.post_as_user"), Account.username());
         }
 
         @Override

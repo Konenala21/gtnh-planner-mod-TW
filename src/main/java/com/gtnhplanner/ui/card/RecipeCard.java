@@ -2282,10 +2282,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 final com.gtnhplanner.power.PowerSetting.Condition when = s.enabledWhen();
                 final com.gtnhplanner.power.PowerSetting other = source.setting(when.settingId());
                 tip.muted(
-                    "Only used when " + (other == null ? when.settingId() : other.label())
-                        + " is "
-                        + optionLabel(other, when.equals())
-                        + ".");
+                    String.format(
+                        UiText.tr("audit.only_used_when"),
+                        other == null ? when.settingId() : other.label(),
+                        optionLabel(other, when.equals())));
             }
         } else if (c.type() != SettingControls.Type.READING) {
             tip.action(Tip.Input.LEFT, switch (c.type()) {
@@ -3058,10 +3058,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         Popup.open(
             session.panel(),
             NumberPopup.create(
-                (rule == com.gtnhplanner.data.flowchart.PinRule.EXACT ? UiText.tr("card.exactly") : "Up to")
-                    + " how many "
-                    + (crop() ? "crops" : "machines"),
-                crop() ? "crops" : "machines",
+                String.format(
+                    UiText.tr("audit.pin_how_many"),
+                    rule == com.gtnhplanner.data.flowchart.PinRule.EXACT ? UiText.tr("card.exactly")
+                        : UiText.tr("audit.up_to"),
+                    UiText.tr(crop() ? "audit.crops" : "audit.machines")),
+                UiText.tr(crop() ? "audit.crops" : "audit.machines"),
                 UiText.tr("cardtail.empty_lets_the_plan_decide"),
                 c.pinned() ? c.set() : 0,
                 0,

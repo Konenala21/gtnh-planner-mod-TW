@@ -57,7 +57,7 @@ public final class CardFace {
         final UpToReadout upTo = rule == PinRule.UP_TO ? readout : null;
         final double value = upTo != null ? Math.max(0, upTo.reached()) : solved;
         final String note = pinned ? ""
-            : unset ? CardPaint.SET_COUNT
+            : unset ? UiText.tr("audit.set_count")
                 : crop
                     ? Math.round(value) == 1 ? UiText.tr("cardface.crop_planted") : UiText.tr("cardface.crops_planted")
                     : "";

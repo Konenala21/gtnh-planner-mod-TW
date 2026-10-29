@@ -6,6 +6,7 @@ import net.minecraft.client.settings.KeyBinding;
 import org.lwjgl.input.Keyboard;
 
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 
 import cpw.mods.fml.client.registry.ClientRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -187,7 +188,10 @@ public final class PlannerKeys {
         while (TASK_SHOW.isPressed()) {
             PlannerSettings.setTaskShow((PlannerSettings.taskShow() + 1) % PlannerSettings.TASK_SHOW_NAMES.length);
             com.gtnhplanner.ui.sound.Sfx.TOGGLE_ON.play();
-            WorldView.say("Task locations: " + PlannerSettings.TASK_SHOW_NAMES[PlannerSettings.taskShow()]);
+            WorldView.say(
+                String.format(
+                    UiText.tr("audit.task_locations_setting"),
+                    UiText.tr("settings.task_show_option." + PlannerSettings.taskShow())));
         }
         // Placing a machine takes [ and ] for its size.
         if (!PlannerSettings.minimap() || LinkPicker.active()) {

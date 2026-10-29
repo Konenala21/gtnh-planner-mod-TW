@@ -1309,12 +1309,13 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         /** "You, 3d ago", "ann, 5m ago": who made it and when. */
         private String made(final Tasks.Task t) {
             final String when = TaskLook.ago(t.createdAt());
-            final String by = TaskLook.mine(t.createdBy()) ? "You"
+            final String by = TaskLook.mine(t.createdBy()) ? UiText.tr("audit.you")
                 : t.createdBy() == null ? null : TaskLook.nameOf(graph(), t.createdBy());
             String s = by == null ? "" : by;
             if (!when.isEmpty()) s = s.isEmpty() ? when : s + ", " + when;
-            if (t.status() == Tasks.Status.DONE && t.doneAt() != null) s += ". Done " + TaskLook.ago(t.doneAt());
-            return s.isEmpty() ? "Not known" : s;
+            if (t.status() == Tasks.Status.DONE && t.doneAt() != null)
+                s += String.format(UiText.tr("audit.done_ago"), TaskLook.ago(t.doneAt()));
+            return s.isEmpty() ? UiText.tr("audit.not_known") : s;
         }
 
         /** The status as a picker: its dot, its name and a caret, a menu of the four on a click. */

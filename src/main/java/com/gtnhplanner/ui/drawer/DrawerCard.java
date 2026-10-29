@@ -423,10 +423,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                     tip.muted(UiText.tr("drawer.its_makers_put_in_what_its_users_take_out"));
                 if (!m.linked) tip.note(UiText.tr("drawer.unconnected"), com.gtnhplanner.ui.popup.Tip.WARN);
                 if (m.shortfall != null) tip.note(
-                    "Reaches only " + m.rate(m.shortfall.reachable(), unit)
-                        + " of its "
-                        + m.rate(m.shortfall.target(), unit)
-                        + " target",
+                    String.format(
+                        UiText.tr("audit.drawer_shortfall"),
+                        m.rate(m.shortfall.reachable(), unit),
+                        m.rate(m.shortfall.target(), unit)),
                     Hyb.RED_INK);
                 yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("drawer.wire_to_a_card"))
                     .action(com.gtnhplanner.ui.popup.Tip.Input.KEY, UiText.tr("drawer.r_u"));
@@ -442,13 +442,12 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             case EXACTLY -> UiText.tr("drawer.the_plan_passes_exactly_the_rate_through_it");
             case AT_MOST -> UiText.tr("drawer.the_plan_passes_no_more_than_the_rate_through_it");
         };
-        final String flow = kind == Drawer.Kind.SOURCE ? "draws from it" : "puts in it";
-        return switch (rule) {
-            case ANY -> "No target: the plan " + flow + " whatever it needs.";
-            case AT_LEAST -> "The plan " + flow + " at least the rate.";
-            case EXACTLY -> "The plan " + flow + " exactly the rate.";
-            case AT_MOST -> "The plan " + flow + " no more than the rate.";
-        };
+        final String direction = kind == Drawer.Kind.SOURCE ? "source" : "product";
+        return UiText.tr(
+            "audit.drawer_rule_" + direction
+                + "_"
+                + rule.name()
+                    .toLowerCase(java.util.Locale.ROOT));
     }
 
     static String kindName(final Drawer.Kind kind) {

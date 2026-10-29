@@ -16,6 +16,7 @@ import org.lwjgl.opengl.GL11;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.theme.Hyb;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -162,14 +163,15 @@ public final class WorldView {
             mc.displayGuiScreen(null);
             final Node n = shown();
             if (n != null && WorldLinks.countIn(n, mc.theWorld.provider.dimensionId) == 0) {
-                note = "Its blocks are in another dimension";
+                note = UiText.tr("audit.blocks_other_dimension");
                 noteColor = Hyb.AMBER_INK;
                 noteUntil = System.currentTimeMillis() + 4000;
             }
             final com.gtnhplanner.data.flowchart.Tasks.Place p = shownPlace();
             if (p != null && p.dim() != mc.theWorld.provider.dimensionId) {
                 note = p.dimName()
-                    .isEmpty() ? "That spot is in another dimension" : "That spot is in " + p.dimName();
+                    .isEmpty() ? UiText.tr("audit.spot_other_dimension")
+                        : String.format(UiText.tr("audit.spot_dimension"), p.dimName());
                 noteColor = Hyb.AMBER_INK;
                 noteUntil = System.currentTimeMillis() + 4000;
             }

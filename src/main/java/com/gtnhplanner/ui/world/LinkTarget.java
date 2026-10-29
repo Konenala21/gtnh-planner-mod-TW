@@ -15,6 +15,7 @@ import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.ui.Planner;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.theme.Hyb;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -103,7 +104,7 @@ public final class LinkTarget {
         if (b == null) return;
         if (holds(card)) {
             WorldLinks.unlink(graph, card, b.dim(), b.x(), b.y(), b.z());
-            WorldView.say("Removed " + WorldView.cardName(card) + " from the world");
+            WorldView.say(String.format(UiText.tr("audit.removed_from_world"), WorldView.cardName(card)));
         } else {
             // A card placed: the plan over the world comes on, to show it there.
             if (!PlannerSettings.arLens()) PlannerSettings.setArLens(true);
@@ -123,9 +124,12 @@ public final class LinkTarget {
                 eye == null ? 0 : WorldLinks.facingToward(eye.rotationYaw),
                 false);
             WorldView.say(
-                "Placed " + WorldView.cardName(card)
-                    + " here"
-                    + (was == null || was.node() == card ? "" : ". Taken from " + WorldView.cardName(was.node())));
+                was == null || was.node() == card
+                    ? String.format(UiText.tr("audit.placed_here"), WorldView.cardName(card))
+                    : String.format(
+                        UiText.tr("audit.placed_taken"),
+                        WorldView.cardName(card),
+                        WorldView.cardName(was.node())));
         }
         Hyb.click();
         cancel();

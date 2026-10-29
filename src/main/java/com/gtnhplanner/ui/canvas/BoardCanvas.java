@@ -2007,10 +2007,12 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
                 : bearers.size() < 2 ? com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.nowhere_else_to_put_it"))
                     .titleColor(0xFFF87171)
                     .muted(
-                        "Only the " + bearers.get(0)
-                            .machine()
-                            + (c.line()
-                                .importing() ? " can take it in." : " can ship it out."))
+                        String.format(
+                            UiText.tr(
+                                c.line()
+                                    .importing() ? "audit.only_machine_takes" : "audit.only_machine_ships"),
+                            bearers.get(0)
+                                .machine()))
                     .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("canvas.let_go_it_stays_here"))
                     : com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.hand_it_to_another_machine"))
                         .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("canvas.drop_on_a_green_card"))
