@@ -240,3 +240,33 @@ key.gtnhplanner.pickUp=收起已放置的機器（潛行時）
 key.gtnhplanner.remove=移除已放置的機器（潛行時）
 key.gtnhplanner.focus=看著機器時聚焦卡片（潛行時）
 key.gtnhplanner.labels=在機器上顯示標籤（潛行時）
+
+## Board UI
+gtnhplanner.ui.non_recipe=非配方機器
+gtnhplanner.ui.non_recipe_tip=非配方機器：發電機、渦輪機、鍋爐、反應爐
+gtnhplanner.ui.undo_tip=復原（Ctrl+Z）
+gtnhplanner.ui.redo_tip=重做（Ctrl+Shift+Z 或 Ctrl+Y）
+gtnhplanner.ui.annotate_tip=新增便條、方框或箭頭
+gtnhplanner.ui.plans=規劃
+gtnhplanner.ui.plans_tip=規劃：你的規劃、與你分享的規劃，以及社群規劃
+gtnhplanner.ui.share=分享
+gtnhplanner.ui.share_tip=分享：邀請他人共同編輯此規劃，或傳送副本
+gtnhplanner.ui.feedback_tip=意見回饋：回報錯誤、分享點子或尋求協助
+gtnhplanner.ui.settings=設定
+gtnhplanner.ui.help_tip=說明：導覽與所有操作方式
+gtnhplanner.ui.sign_in=登入
+gtnhplanner.ui.sign_in_invite=登入後才能邀請其他玩家
+
+## Board menus
+gtnhplanner.ui.invite_people=邀請其他玩家...
+gtnhplanner.ui.sign_in_short=登入
+gtnhplanner.ui.copy_plan_link=複製規劃連結
+gtnhplanner.ui.copy_plan_code=複製規劃代碼
+gtnhplanner.ui.share_chat=分享到遊戲聊天
+gtnhplanner.ui.export_plan=匯出規劃檔
+gtnhplanner.ui.screenshot=截圖...
+gtnhplanner.ui.open_website=在網站開啟
+gtnhplanner.ui.take_tour=開始導覽
+gtnhplanner.ui.tour_duration=3 分鐘
+gtnhplanner.ui.controls=操作與快捷鍵
+gtnhplanner.ui.board_help_title=規劃板操作說明

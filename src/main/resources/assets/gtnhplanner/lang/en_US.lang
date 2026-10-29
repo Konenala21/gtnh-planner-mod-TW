@@ -240,3 +240,33 @@ key.gtnhplanner.pickUp=Pick up a placed machine (with sneak)
 key.gtnhplanner.remove=Remove a placed machine (with sneak)
 key.gtnhplanner.focus=Card when you look at a machine (with sneak)
 key.gtnhplanner.labels=Labels on machines (with sneak)
+
+## Board UI
+gtnhplanner.ui.non_recipe=Non-recipe
+gtnhplanner.ui.non_recipe_tip=Non-recipe machines: generators, turbines, boilers, reactors
+gtnhplanner.ui.undo_tip=Undo (Ctrl+Z)
+gtnhplanner.ui.redo_tip=Redo (Ctrl+Shift+Z or Ctrl+Y)
+gtnhplanner.ui.annotate_tip=Add a sticky note, box or arrow
+gtnhplanner.ui.plans=Plans
+gtnhplanner.ui.plans_tip=Plans: your plans, the ones shared with you, and Community
+gtnhplanner.ui.share=Share
+gtnhplanner.ui.share_tip=Share: invite people to edit this plan with you, or send a copy
+gtnhplanner.ui.feedback_tip=Feedback: report a bug, share an idea, or ask for help
+gtnhplanner.ui.settings=Settings
+gtnhplanner.ui.help_tip=Help: the tour, and every control
+gtnhplanner.ui.sign_in=Sign in
+gtnhplanner.ui.sign_in_invite=Sign in to invite people
+
+## Board menus
+gtnhplanner.ui.invite_people=Invite people...
+gtnhplanner.ui.sign_in_short=sign in
+gtnhplanner.ui.copy_plan_link=Copy plan link
+gtnhplanner.ui.copy_plan_code=Copy plan code
+gtnhplanner.ui.share_chat=Share in game chat
+gtnhplanner.ui.export_plan=Export plan file
+gtnhplanner.ui.screenshot=Screenshot...
+gtnhplanner.ui.open_website=Open on website
+gtnhplanner.ui.take_tour=Take the tour
+gtnhplanner.ui.tour_duration=3 minutes
+gtnhplanner.ui.controls=Controls and shortcuts
+gtnhplanner.ui.board_help_title=HOW THE BOARD WORKS
