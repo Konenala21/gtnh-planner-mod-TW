@@ -1,6 +1,7 @@
 package com.gtnhplanner.ui.group;
 
 import com.gtnhplanner.data.flowchart.BoardGroup;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardLayout;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteColors;
@@ -110,7 +111,7 @@ public final class GroupPaint {
             .isEmpty()
             && s.outputs()
                 .isEmpty())
-            Hyb.text("Nothing goes in or out.", TEXT, top + (ROW - 6) / 2f, 0.75f, Hyb.MUTED);
+            Hyb.text(UiText.tr("audit.nothing_flows"), TEXT, top + (ROW - 6) / 2f, 0.75f, Hyb.MUTED);
         for (int i = 0; i < s.inputs()
             .size(); i++)
             flow(

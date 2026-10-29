@@ -13,9 +13,9 @@ import com.gtnhplanner.ui.theme.Hyb;
  */
 final class TourOffer extends Widget<TourOffer> implements Interactable {
 
-    private static final String[] LINES = { "New to GTNH Planner?", "A quick tour shows you around",
-        "in about three minutes." };
-    private static final String TAKE = "Take the tour", SKIP = "Not now";
+    private static final String[] LINES = { UiText.tr("audit.tour_new"), UiText.tr("audit.tour_intro"),
+        UiText.tr("audit.tour_duration") };
+    private static final String TAKE = UiText.tr("audit.tour_take"), SKIP = UiText.tr("audit.tour_skip");
     /** The tour's note: its fill and gold. */
     private static final int FILL = 0xFF222327, GOLD = 0xFFFFD257, PAD = 9, LINE = 11, KEY_H = 15;
 

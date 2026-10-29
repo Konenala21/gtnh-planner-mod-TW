@@ -1079,8 +1079,10 @@ public final class BoardScreen extends ModularScreen {
             + ", "
             + b.z()
             + (b.item() == null ? ""
-                : ", in front of the " + b.item()
-                    .getDisplayName());
+                : ", " + String.format(
+                    UiText.tr("audit.link_in_front"),
+                    b.item()
+                        .getDisplayName()));
         final String how = tr("boardextra.click_a_card_in_this_plan_or_another_tabs_plans_esc_cancels");
         final String note = com.gtnhplanner.ui.world.LinkTarget.note();
         final int w = Math.max(Math.max(Hyb.width(what) + 24, Hyb.width(how) + 24), Hyb.width(note) + 24) + 8;
@@ -1208,9 +1210,7 @@ public final class BoardScreen extends ModularScreen {
         for (final BoardSession.SpareBearer b : found.bearers()) {
             if (b == here) continue;
             if (others.length() > 0) others.append(", ");
-            others.append(b.name())
-                .append(" at ")
-                .append(b.machine());
+            others.append(String.format(UiText.tr("audit.also_at"), b.name(), b.machine()));
         }
         return tip.muted(
             (view.output() ? tr("boardextra.could_also_ship_out_as") : tr("boardextra.could_also_come_in_as")) + others
@@ -1235,10 +1235,12 @@ public final class BoardScreen extends ModularScreen {
             final boolean set = model != null && session.portTarget(model.node, view.output(), view.index()) != null;
             return Tip.of(set ? tr("boardextra.exactly") : tr("boardextra.any"))
                 .muted(
-                    set ? "Set: the machine runs so this "
-                        + (view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes"))
-                        + " exactly its rate."
-                        : tr("boardextra.the_plan_decides_this") + (view.output() ? "output's" : "input's") + " rate.")
+                    set ? String.format(
+                        UiText.tr("audit.port_rule_set"),
+                        view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes"))
+                        : String.format(
+                            UiText.tr("audit.port_rule_auto"),
+                            view.output() ? tr("boardextra.output") : tr("boardextra.input")))
                 .action(
                     Tip.Input.LEFT,
                     set ? tr("boardextra.let_the_plan_decide") : tr("boardextra.set_it_to_what_it_is_now"));
@@ -1252,9 +1254,9 @@ public final class BoardScreen extends ModularScreen {
                     view.output() ? tr("boardextra.gives") : tr("boardextra.takes"),
                     Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()))
                 .muted(
-                    "Set it and the machine runs so this "
-                        + (view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes"))
-                        + " exactly that.")
+                    String.format(
+                        UiText.tr("audit.port_rate_set"),
+                        view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes")))
                 .action(Tip.Input.LEFT, set != null ? tr("boardextra.change_its_rate") : tr("boardextra.set_its_rate"))
                 .action(Tip.Input.WHEEL, tr("boardextra.1_ctrl_10_shift_100"))
                 .action(Tip.Input.MIDDLE, tr("boardextra.clear"))
@@ -1292,9 +1294,11 @@ public final class BoardScreen extends ModularScreen {
         final com.gtnhplanner.data.flowchart.Node node = slot.hasChoices() ? session.graph().nodes.get(slot.node())
             : null;
         if (node != null) tip.muted(
-            "Takes any of " + node.inputs.get(slot.index)
-                .getAlternatives()
-                .size() + " items.");
+            String.format(
+                UiText.tr("audit.alternative_count"),
+                node.inputs.get(slot.index)
+                    .getAlternatives()
+                    .size()));
         tip.action(Tip.Input.LEFT, tr("boardextra.recipes_what_makes_it"))
             .action(Tip.Input.RIGHT, tr("boardextra.uses_what_uses_it"));
         if (node != null) tip.action(Tip.Input.WHEEL, tr("boardextra.change_item"));

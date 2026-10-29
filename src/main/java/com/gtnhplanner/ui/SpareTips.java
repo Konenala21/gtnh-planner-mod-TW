@@ -37,7 +37,8 @@ final class SpareTips {
             final BoardSession.SpareBearer b = line.bearers()
                 .get(i);
             final String rate = SpareBar.rate(b, shares[i], session.rateUnit());
-            final String where = Hyb.fit(b.name() + " at " + b.machine(), LINE_W - Hyb.width(rate + " "));
+            final String where = Hyb
+                .fit(String.format(UiText.tr("audit.also_at"), b.name(), b.machine()), LINE_W - Hyb.width(rate + " "));
             tip.icon(b.item(), b.fluid(), Resources.isPower(b.resourceKey()), "*" + rate + "* " + where);
         }
         tip.gap();
@@ -47,9 +48,11 @@ final class SpareTips {
                 in ? UiText.tr("spare.you_choose_which_machine_takes_it_in")
                     : UiText.tr("spare.you_choose_which_machine_ships_it_out"));
         else tip.say(
-            "Only the " + line.bearers()
-                .get(0)
-                .machine() + (in ? " can take it in." : " can ship it out."),
+            String.format(
+                UiText.tr(in ? "audit.only_machine_takes" : "audit.only_machine_ships"),
+                line.bearers()
+                    .get(0)
+                    .machine()),
             Tip.SUBTLE);
         if (action != null) tip.action(Tip.Input.LEFT, action);
         if (drag) tip.action(Tip.Input.DRAG, UiText.tr("spare.hand_it_to_another_card"));
@@ -65,7 +68,8 @@ final class SpareTips {
         final boolean in = !view.output();
         final Tip tip = head(in, session.pinsBehind(List.of(node)));
         final String rate = com.gtnhplanner.ui.theme.Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid());
-        final String where = Hyb.fit(view.name() + " at " + machine, LINE_W - Hyb.width(rate + " "));
+        final String where = Hyb
+            .fit(String.format(UiText.tr("audit.also_at"), view.name(), machine), LINE_W - Hyb.width(rate + " "));
         tip.icon(view.item(), view.fluid(), false, "*" + rate + "* " + where);
         return tip.gap()
             .say(
@@ -89,7 +93,8 @@ final class SpareTips {
                 final BoardSession.Pin pin = pins.get(i);
                 tip.icon(pin.item(), pin.fluid(), pin.eu(), pin.text());
             }
-            if (pins.size() > PINS_SHOWN) tip.say("and " + (pins.size() - PINS_SHOWN) + " more", Tip.SUBTLE);
+            if (pins.size() > PINS_SHOWN)
+                tip.say(String.format(UiText.tr("audit.and_more"), pins.size() - PINS_SHOWN), Tip.SUBTLE);
             tip.gap();
         }
         tip.say(

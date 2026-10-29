@@ -14,6 +14,7 @@ import org.lwjgl.opengl.GL11;
 import com.gtnhplanner.data.flowchart.Graph;
 import com.gtnhplanner.data.flowchart.Plan;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -159,8 +160,8 @@ public final class Minimap {
         GL11.glColor4f(1, 1, 1, 1);
         frame(x0, y0, size, circle);
         if (snap == null) {
-            Hyb.textCentered("Open the planner once", x0 + size / 2f, y0 + size / 2f - 9, Hyb.MUTED);
-            Hyb.textCentered("to see your plan here", x0 + size / 2f, y0 + size / 2f + 1, Hyb.MUTED);
+            Hyb.textCentered(UiText.tr("audit.open_planner_once"), x0 + size / 2f, y0 + size / 2f - 9, Hyb.MUTED);
+            Hyb.textCentered(UiText.tr("audit.see_plan_here"), x0 + size / 2f, y0 + size / 2f + 1, Hyb.MUTED);
             GL11.glPopMatrix();
             return;
         }

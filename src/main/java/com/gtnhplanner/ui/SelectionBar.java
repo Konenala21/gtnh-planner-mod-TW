@@ -51,7 +51,7 @@ final class SelectionBar extends Widget<SelectionBar> implements Interactable {
     private int tight;
 
     private String label(final int cards) {
-        return tight > 0 ? "Combine " + cards : "Combine " + cards + " into one machine";
+        return String.format(UiText.tr(tight > 0 ? "audit.combine_short" : "audit.combine_full"), cards);
     }
 
     private int combineW(final List<UUID> cards) {

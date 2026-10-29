@@ -777,6 +777,6 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
             session.slots()
                 .get(t.slot())
                 .getName(),
-            "§7Middle-click to close, right-click for more");
+            UiText.tr("audit.tab_more"));
     }
 }

@@ -9,6 +9,7 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.theme.Hyb;
 
@@ -67,7 +68,7 @@ final class PictureView extends Widget<PictureView> implements Interactable {
             EDGE + 2,
             EDGE + ph + 5,
             Hyb.MUTED);
-        Hyb.textRight("Click to close", EDGE + pw - 2, EDGE + ph + 5, 0xFF6A6C74);
+        Hyb.textRight(UiText.tr("audit.click_to_close"), EDGE + pw - 2, EDGE + ph + 5, 0xFF6A6C74);
     }
 
     @Override

@@ -7,6 +7,7 @@ import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.client.UpdateCheck;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -79,9 +80,17 @@ public final class UpdateOffer extends Widget<UpdateOffer> implements Interactab
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final int mx = isHovering() ? getContext().getAbsMouseX() - getArea().x : -1,
             my = isHovering() ? getContext().getAbsMouseY() - getArea().y : -1;
-        Hyb.text(Hyb.fit("GTNH Planner " + release.tag() + " is out", W - 2 * PAD), PAD, PAD, Hyb.INK);
-        Hyb.text(Hyb.fit("You have " + UpdateCheck.current() + ".", W - 2 * PAD), PAD, PAD + 14, Hyb.MUTED);
-        Hyb.text("The new jar is on its release page.", PAD, PAD + 26, Hyb.MUTED);
+        Hyb.text(
+            Hyb.fit(String.format(UiText.tr("audit.update_available"), release.tag()), W - 2 * PAD),
+            PAD,
+            PAD,
+            Hyb.INK);
+        Hyb.text(
+            Hyb.fit(String.format(UiText.tr("audit.current_version"), UpdateCheck.current()), W - 2 * PAD),
+            PAD,
+            PAD + 14,
+            Hyb.MUTED);
+        Hyb.text(UiText.tr("audit.update_release_page"), PAD, PAD + 26, Hyb.MUTED);
         final int[] later = laterRect(), open = openRect();
         final boolean laterHot = in(later, mx, my), openHot = in(open, mx, my);
         Hyb.bevel(

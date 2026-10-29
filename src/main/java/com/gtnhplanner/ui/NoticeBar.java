@@ -134,7 +134,7 @@ final class NoticeBar extends Widget<NoticeBar> implements Interactable {
         }
         if (notices.size() > MAX_ROWS) {
             Hyb.rect(0, y, w, ROW - 1, 0xE0181A1F);
-            Hyb.text("+" + (notices.size() - MAX_ROWS) + " more", LEFT, y + 3, Hyb.MUTED);
+            Hyb.text(String.format(UiText.tr("audit.more_notices"), notices.size() - MAX_ROWS), LEFT, y + 3, Hyb.MUTED);
         }
     }
 

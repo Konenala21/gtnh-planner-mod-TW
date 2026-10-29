@@ -18,6 +18,7 @@ import com.gtnhplanner.data.flowchart.TaskEdits;
 import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.Resources;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardDefaults;
 import com.gtnhplanner.ui.quest.QuestBook;
 import com.gtnhplanner.ui.sound.Sfx;
@@ -106,7 +107,9 @@ public final class TaskQuests {
         final boolean opened = QuestBook.pick(id -> add(board, taskId, id), () -> comeBack(board, taskId));
         if (!opened) {
             Sfx.DENY.play();
-            session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.WARN, "The quest book would not open");
+            session.flash(
+                com.gtnhplanner.data.flowchart.balancer.Severity.WARN,
+                UiText.tr("audit.quest_book_would_not_open"));
         }
     }
 

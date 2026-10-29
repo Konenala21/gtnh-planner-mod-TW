@@ -1435,7 +1435,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             final boolean draw) {
             final List<Tasks.Task> waiting = TaskEdits.blocking(graph(), t.id());
             if (waiting.isEmpty()) {
-                if (draw) Hyb.text("Nothing waits on it.", x, y + 1, FAINT);
+                if (draw) Hyb.text(UiText.tr("audit.nothing_waits"), x, y + 1, FAINT);
                 return y + LINE;
             }
             int at = y;
@@ -1949,7 +1949,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             }
             case Tasks.LOCATION -> tip.action(Tip.Input.LEFT, UiText.tr("task.show_where_it_is"));
             case Tasks.PICTURE -> tip.action(Tip.Input.LEFT, UiText.tr("task.see_it_big"));
-            case Tasks.QUEST -> tip.action(Tip.Input.LEFT, "Open it in the quest book");
+            case Tasks.QUEST -> tip.action(Tip.Input.LEFT, UiText.tr("audit.open_quest_book"));
             default -> tip.action(Tip.Input.LEFT, UiText.tr("task.change_the_words"));
         }
         if (!s.loose()) tip.action(Tip.Input.DRAG, UiText.tr("task.move_it"));

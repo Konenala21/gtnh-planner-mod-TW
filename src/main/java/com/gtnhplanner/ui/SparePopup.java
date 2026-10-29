@@ -18,7 +18,7 @@ public final class SparePopup extends Widget<SparePopup> implements Interactable
 
     private static final int SLIDER_W = 190, PAD = 6, LINK_H = 9;
     private static final float SMALL = 0.75f;
-    private static final String DRAWER = "or put a drawer here";
+    private static final String DRAWER = UiText.tr("audit.or_put_drawer");
 
     private final BoardSession session;
     /** The leftover, by key: the solve gives it a new object each time, so it is looked up on every draw. */

@@ -40,7 +40,7 @@ public record Notice(Severity severity, String text, List<UUID> focus, @Nullable
 
     /** The key's words. */
     public String keyLabel() {
-        return action != null && actionLabel != null ? actionLabel : "Show me";
+        return action != null && actionLabel != null ? actionLabel : UiText.tr("audit.show_me");
     }
 
     /** An alarm's chip ("DEAD LOOP"); null for any other notice. */

@@ -2138,7 +2138,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             case MACHINES -> countTip(m);
             case RULE -> ruleTip();
             case FOOT -> footTip();
-            case CIRCUIT -> Tip.of("Circuit " + m.circuit.getItemDamage());
+            case CIRCUIT -> Tip.of(UiText.tr("audit.circuit_prefix") + " " + m.circuit.getItemDamage());
             default -> {
                 // Far out the card answers with its reveal panel; close in, the body says nothing.
                 yield null;

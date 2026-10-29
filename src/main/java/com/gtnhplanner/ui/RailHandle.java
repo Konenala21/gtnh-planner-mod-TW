@@ -113,8 +113,8 @@ final class RailHandle extends Widget<RailHandle> implements Interactable, IDrag
 
     /** Its tip, read by the board's tooltips. */
     Tip tip() {
-        return Tip.of("Overview width")
-            .action(Tip.Input.DRAG, "Resize")
-            .action(Tip.Input.LEFT, "Default (double-click)");
+        return Tip.of(UiText.tr("audit.overview_width"))
+            .action(Tip.Input.DRAG, UiText.tr("audit.resize"))
+            .action(Tip.Input.LEFT, UiText.tr("audit.default_double_click"));
     }
 }

@@ -74,7 +74,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     /** The line under the mouse: a faint gold, as a spare's lines have it. */
     private static final int HOVER = 0x1AE8B34A;
     private static final int TOGGLE_W = 30, PIN_W = 12;
-    /** The machine count field: a drawer's rate box, "Set" while it has none. */
+    /** The machine count field: a drawer's rate box, UiText.tr("audit.set") while it has none. */
     private static final int COUNT_W = 38;
     private static final int INTERNAL_INK = 0xFFD4D4D4;
 
@@ -950,7 +950,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         return node + (input ? "<" : ">") + index;
     }
 
-    /** A line nothing sets yet: the rule key on Any and a "Set" box, as a port's on the card. */
+    /** A line nothing sets yet: the rule key on Any and a UiText.tr("audit.set") box, as a port's on the card. */
     private void lineControls(final BoardSession.TotalLine line, final int y, final int w, final Hit hover) {
         final int bx = w - 6 - BOX_W, rx = bx - 2 - RULE_W, h = 11;
         final boolean hot = hover != null && hover.kind() == Kind.LINE_SET && hover.data() == line;
@@ -970,7 +970,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         Hyb.rect(bx, y, BOX_W, h, hot ? Hyb.GOLD : 0xFF5A5E68);
         Hyb.rect(bx + 1, y + 1, BOX_W - 2, h - 2, hot ? 0xFF15171C : 0xFF0F1114);
         Hyb.rect(bx + 1, y + 1, BOX_W - 2, 1, 0xB3000000);
-        Hyb.textCentered("Set", bx + BOX_W / 2f, y + 2, 0xFF6F737C);
+        Hyb.textCentered(UiText.tr("audit.set"), bx + BOX_W / 2f, y + 2, 0xFF6F737C);
     }
 
     private String lineEditKey(final BoardSession.TotalLine line) {
@@ -1057,7 +1057,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final Double wheeled = session.wheeledRate(d.drawer.getId());
         final double target = wheeled != null ? wheeled : d.target;
         final boolean empty = wheeled != null ? wheeled <= 0 : d.rule == Drawer.Rule.ANY || d.target <= 0;
-        if (empty) Hyb.textCentered("Set", bx + BOX_W / 2f, y + 2, 0xFF6F737C);
+        if (empty) Hyb.textCentered(UiText.tr("audit.set"), bx + BOX_W / 2f, y + 2, 0xFF6F737C);
         else {
             final Fmt.RateUnit unit = session.rateUnit();
             // In the line's own unit, as the number beside it; centred in the box, as on the board.
@@ -1244,7 +1244,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     y + 3,
                     set ? Hyb.GOLD : Hyb.MUTED);
                 if (card != null) hits.add(new Hit(Kind.MACHINE_RULE, keyX, y, keyX + RULE_W, y + ROW_H, m));
-                // The count field: being typed into; or the set count in gold, or "Set".
+                // The count field: being typed into; or the set count in gold, or UiText.tr("audit.set").
                 if (edit.editing("count:" + m.nodeId())) edit.drawBox(fieldX, y + 1, COUNT_W, 11, y + 3);
                 else {
                     Hyb.rect(fieldX, y + 1, COUNT_W, 11, countHot ? Hyb.GOLD : 0xFF5A5E68);
@@ -1255,7 +1255,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                         fieldX + COUNT_W / 2f,
                         y + 3,
                         Hyb.GOLD);
-                    else Hyb.textCentered("Set", fieldX + COUNT_W / 2f, y + 3, 0xFF6F737C);
+                    else Hyb.textCentered(UiText.tr("audit.set"), fieldX + COUNT_W / 2f, y + 3, 0xFF6F737C);
                 }
                 if (card != null) hits.add(new Hit(Kind.COUNT, fieldX, y, fieldX + COUNT_W, y + ROW_H, m));
                 // What it draws, grey beside the tier (the unit dropped when there is no room for it).
@@ -1765,31 +1765,35 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             case LINE_SET -> {
                 final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
                 final List<OpenPort> open = openPorts(line, inputs.contains(line));
-                final String side = inputs.contains(line) ? "input" : "output";
-                yield open.size()
-                    == 1 ? List.of(UiText.tr("overview.rate_the_plan_decides"), hint + "Sets the " + open.get(0)
-                        .machine() + "'s " + side + ", as on its card",
+                final String side = UiText.tr(inputs.contains(line) ? "audit.input" : "audit.output");
+                yield open.size() == 1
+                    ? List.of(
+                        UiText.tr("overview.rate_the_plan_decides"),
+                        hint + String.format(
+                            UiText.tr("audit.overview_sets_port"),
+                            open.get(0)
+                                .machine(),
+                            side),
                         hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3"),
                         hint + UiText.tr("overview.wheel_up_or_down_ctrl_x10_shift_x100"))
-                        : List.of(
-                            UiText.tr("overview.rate_the_plan_decides"),
-                            hint + "Makes a drawer for it, wired to the "
-                                + open.size()
-                                + " "
-                                + side
-                                + "s waiting for it",
-                            hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3"));
+                    : List.of(
+                        UiText.tr("overview.rate_the_plan_decides"),
+                        hint + String.format(UiText.tr("audit.overview_makes_drawer"), open.size(), side),
+                        hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3"));
             }
             case PORT_RULE, PORT_RATE -> {
                 final PortPin p = (PortPin) hit.data();
-                final String side = p.output() ? "output" : "input";
+                final String side = UiText.tr(p.output() ? "audit.output" : "audit.input");
                 yield hit.kind() == Kind.PORT_RULE
                     ? List.of(
-                        "Set on the " + p.machine() + "'s " + side,
-                        hint + "The machine runs so this " + side + (p.output() ? " gives" : " takes") + " exactly it",
-                        hint + "Click or middle click: let the plan decide")
+                        String.format(UiText.tr("audit.overview_set_port"), p.machine(), side),
+                        hint + String.format(
+                            UiText.tr("audit.overview_exact_port"),
+                            side,
+                            UiText.tr(p.output() ? "audit.gives" : "audit.takes")),
+                        hint + UiText.tr("audit.overview_auto_click"))
                     : List.of(
-                        "Rate set on the " + p.machine() + "'s " + side,
+                        String.format(UiText.tr("audit.overview_rate_port"), p.machine(), side),
                         hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3_middle_click_clear"),
                         hint + UiText.tr("overview.wheel_up_or_down_ctrl_x10_shift_x100"));
             }
@@ -1830,24 +1834,26 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 hint + UiText.tr("overview.wheel_one_more_or_fewer_ctrl_x10_shift_x4"));
             case MACHINE_RULE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
-                final String set = com.gtnhplanner.ui.card.CardFace.setText(m.set()) + (crop(m) ? " crops" : "");
+                final String set = com.gtnhplanner.ui.card.CardFace.setText(m.set())
+                    + (crop(m) ? UiText.tr("audit.crop_suffix") : "");
                 yield switch (m.rule()) {
                     case UP_TO -> List.of(
                         UiText.tr("overview.up_to"),
-                        hint + "Never more than " + set,
+                        hint + String.format(UiText.tr("audit.never_more"), set),
                         hint + UiText.tr("overview.click_make_it_exact"),
                         hint + UiText.tr("overview.middle_click_let_the_plan_decide"));
                     case EXACT -> List.of(
                         UiText.tr("overview.exactly"),
-                        hint + "Exactly " + set,
+                        hint + String.format(UiText.tr("audit.exactly_count"), set),
                         hint + UiText.tr("overview.click_let_the_plan_decide"),
                         hint + UiText.tr("overview.middle_click_let_the_plan_decide"));
                     case ANY -> List.of(
                         UiText.tr("overview.any"),
                         hint + UiText.tr("overview.the_plan_decides_how_many"),
-                        hint + "Click: up to "
-                            + (long) com.gtnhplanner.ui.card.CardFace.ruleCount(0, count(m))
-                            + (crop(m) ? " crops" : ""));
+                        hint + String.format(
+                            UiText.tr("audit.click_up_to"),
+                            (long) com.gtnhplanner.ui.card.CardFace.ruleCount(0, count(m)),
+                            crop(m) ? UiText.tr("audit.crop_suffix") : ""));
                 };
             }
             case SPARE -> {
@@ -1875,14 +1881,16 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 lines.add(m.name());
                 // An Up to card: what runs of what is set, and why when it runs short.
                 if (m.rule() == PinRule.UP_TO && !crop(m)) lines.add(
-                    hint + Fmt.machines(m.machines())
-                        + " of "
-                        + com.gtnhplanner.ui.card.CardFace.setText(m.set())
-                        + " machines");
+                    hint + String.format(
+                        UiText.tr("audit.machine_of_set"),
+                        Fmt.machines(m.machines()),
+                        com.gtnhplanner.ui.card.CardFace.setText(m.set())));
                 else lines.add(
-                    hint + Fmt.machines(m.machines())
-                        + " machines"
-                        + (m.rule() == PinRule.EXACT ? " (exactly)" : m.rule() == PinRule.UP_TO ? " (up to)" : ""));
+                    hint + String.format(
+                        UiText.tr("audit.machine_count"),
+                        Fmt.machines(m.machines()),
+                        m.rule() == PinRule.EXACT ? UiText.tr("audit.exact_suffix")
+                            : m.rule() == PinRule.UP_TO ? UiText.tr("audit.up_to_suffix") : ""));
                 if (m.rule() == PinRule.UP_TO && m.upTo() != null
                     && m.upTo()
                         .reason() != null)
@@ -1894,8 +1902,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                             + com.gtnhplanner.ui.card.CardFace.sentence(m.upTo()));
                 lines.add(
                     hint + (Double.isNaN(m.steamPerSecond()) ? Fmt.power(m.euPerTick()) + " EU/t "
-                        : Fmt.compact(m.steamPerSecond()) + " L/s steam ")
-                        + (session.peakPower() ? "peak" : "average"));
+                        : Fmt.compact(m.steamPerSecond()) + UiText.tr("audit.steam_suffix") + " ")
+                        + UiText.tr(session.peakPower() ? "audit.peak" : "audit.average"));
                 lines.add(hint + UiText.tr("overview.click_or_middle_click_go_to_the_card"));
                 yield lines;
             }

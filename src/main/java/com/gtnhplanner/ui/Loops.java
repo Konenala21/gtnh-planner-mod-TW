@@ -89,7 +89,7 @@ public final class Loops {
      */
     public static String sentence(final UpToLoop.Kind kind, final int cards) {
         final boolean dead = kind == UpToLoop.Kind.DEAD_LOOP;
-        if (cards == 1) return "This machine " + (dead ? "starves" : "clogs") + " itself in a downward spiral.";
-        return "These machines " + (dead ? "starve" : "clog") + " each other in a downward spiral.";
+        if (cards == 1) return UiText.tr(dead ? "audit.dead_loop_one" : "audit.clog_loop_one");
+        return UiText.tr(dead ? "audit.dead_loop_many" : "audit.clog_loop_many");
     }
 }

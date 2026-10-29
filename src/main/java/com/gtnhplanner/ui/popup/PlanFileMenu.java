@@ -54,8 +54,8 @@ public final class PlanFileMenu {
             new PickList.Entry(
                 null,
                 f.name(),
-                (f.picture() ? UiText.tr("planfile.picture") : UiText.tr("planfile.plan_file"))
-                    + " " + com.gtnhplanner.ui.task.TaskLook.ago(
+                (f.picture() ? UiText.tr("planfile.picture") : UiText.tr("planfile.plan_file")) + " "
+                    + com.gtnhplanner.ui.task.TaskLook.ago(
                         java.time.Instant.ofEpochMilli(f.modified())
                             .toString()),
                 Hyb.INK,

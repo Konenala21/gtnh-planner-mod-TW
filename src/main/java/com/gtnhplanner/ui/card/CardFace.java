@@ -219,7 +219,11 @@ public final class CardFace {
             final String n = cardName.apply(id);
             upstream.add(n == null ? UiText.tr("cardface.a_card") : n);
         }
-        final String word = loop != null ? loopWord(loop) : reason == null ? "" : reason.name();
+        final String word = loop != null ? loopWord(loop)
+            : reason == null ? ""
+                : UiText.tr(
+                    "audit.reason_" + reason.name()
+                        .toLowerCase(Locale.ROOT));
         final int room = FOOT_TEXT - (word.isEmpty() ? 0 : width.applyAsInt(word) + FOOT_GAP)
             - width.applyAsInt(frac)
             - FOOT_GAP;
@@ -228,16 +232,18 @@ public final class CardFace {
         final UpToReason says = loop == UpToLoop.Kind.CLOG_LOCK ? UpToReason.CLOGGED : reason;
         final List<String> lines = says == null ? List.of() : switch (says) {
             case FULL -> List.of(UiText.tr("cardface.nothing_wants_more"));
-            case BOTTLENECK -> wants != null ? List.of("the line wants " + m, "wants " + m)
+            case BOTTLENECK -> wants != null
+                ? List.of(String.format(UiText.tr("audit.line_wants"), m), String.format(UiText.tr("audit.wants"), m))
                 : List.of(UiText.tr("cardface.the_line_wants_more"));
-            case STARVED -> resource != null ? List.of("short of " + resource, UiText.tr("cardface.short_of_an_input"))
+            case STARVED -> resource != null
+                ? List.of(String.format(UiText.tr("audit.short_of"), resource), UiText.tr("cardface.short_of_an_input"))
                 : List.of(UiText.tr("cardface.short_of_an_input"));
             case CLOGGED -> resource != null ? List.of(
-                resource + " has nowhere to go",
-                "nowhere for " + resource,
+                String.format(UiText.tr("audit.nowhere_go"), resource),
+                String.format(UiText.tr("audit.nowhere_for"), resource),
                 UiText.tr("cardface.an_output_backs_up")) : List.of(UiText.tr("cardface.an_output_backs_up"));
-            case UNUSED -> resource != null
-                ? List.of("nothing takes " + resource, UiText.tr("cardface.nothing_takes_it"))
+            case UNUSED -> resource != null ? List
+                .of(String.format(UiText.tr("audit.nothing_takes"), resource), UiText.tr("cardface.nothing_takes_it"))
                 : List.of(UiText.tr("cardface.nothing_takes_it"));
             case LIMITED -> List.of(UiText.tr("cardface.the_plan_holds_it_back"), UiText.tr("cardface.held_back"));
         };
@@ -255,16 +261,20 @@ public final class CardFace {
 
     private static Foot forcedFoot(final double set, final List<Forced> forced, final ToIntFunction<String> width) {
         final Forced first = forced.get(0);
-        final String keep = set == 1 ? "to keep it running" : "to keep all " + Fmt.machines(set) + " running";
+        final String keep = set == 1 ? UiText.tr("audit.keep_running")
+            : String.format(UiText.tr("audit.keep_all_running"), Fmt.machines(set));
         final String word = UiText.tr("cardface.forced_in");
         final int room = FOOT_TEXT - width.applyAsInt(word) - FOOT_GAP;
         final int more = forced.size() - 1;
-        final List<String> lines = forced.size() == 1 ? List
-            .of(first.rate() + " of " + first.name() + " " + keep, first.rate() + " of " + first.name(), first.rate())
+        final List<String> lines = forced.size() == 1
+            ? List.of(
+                String.format(UiText.tr("audit.forced_amount_keep"), first.rate(), first.name(), keep),
+                String.format(UiText.tr("audit.forced_amount"), first.rate(), first.name()),
+                first.rate())
             : List.of(
-                first.rate() + " of " + first.name() + " and " + more + " more",
-                first.name() + " and " + more + " more",
-                forced.size() + " inputs");
+                String.format(UiText.tr("audit.forced_more"), first.rate(), first.name(), more),
+                String.format(UiText.tr("audit.name_more"), first.name(), more),
+                String.format(UiText.tr("audit.input_count"), forced.size()));
         final List<String> each = new ArrayList<>();
         for (final Forced f : forced) each.add(f.rate() + " " + f.name());
         return new Foot(
@@ -415,11 +425,11 @@ public final class CardFace {
 
     /** The title of the bar's tip: how many run of how many. */
     public static String footTitle(final Facts f) {
-        if (f.forced()) return "Exactly " + Fmt.machines(f.capacity()) + " running";
+        if (f.forced()) return String.format(UiText.tr("audit.exact_running"), Fmt.machines(f.capacity()));
         if (f.running() <= NOTHING) return UiText.tr("cardface.none_running");
         if (f.running() >= f.capacity() - 0.000001) return f.capacity() == 1 ? UiText.tr("cardface.running_flat_out")
-            : "All " + Fmt.machines(f.capacity()) + " running";
-        return Fmt.machines(f.running()) + " of " + Fmt.machines(f.capacity()) + " running";
+            : String.format(UiText.tr("audit.all_running"), Fmt.machines(f.capacity()));
+        return String.format(UiText.tr("audit.part_running"), Fmt.machines(f.running()), Fmt.machines(f.capacity()));
     }
 
     /** How busy an Up to card's machines are, in percent of the count. */
@@ -433,11 +443,9 @@ public final class CardFace {
 
     /** A reason's word in a sentence or the overview's tip ("Starved"); FULL is the quiet case. */
     public static String word(final UpToReason reason) {
-        return reason.name()
-            .charAt(0)
-            + reason.name()
-                .substring(1)
-                .toLowerCase(Locale.ROOT);
+        return UiText.tr(
+            "audit.reason_" + reason.name()
+                .toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -454,7 +462,8 @@ public final class CardFace {
         if (upTo == null || upTo.reason() == null) return null;
         return switch (upTo.reason()) {
             case FULL -> UiText.tr("cardface.every_machine_runs_flat_out");
-            case BOTTLENECK -> upTo.wants() != null ? "The plan would use " + Fmt.machines(upTo.wants()) + "."
+            case BOTTLENECK -> upTo.wants() != null
+                ? String.format(UiText.tr("audit.plan_would_use"), Fmt.machines(upTo.wants()))
                 : UiText.tr("cardface.the_plan_would_use_more");
             case STARVED -> UiText.tr("cardface.an_input_is_short");
             case CLOGGED -> UiText.tr("cardface.an_output_has_nowhere_to_go");
@@ -475,19 +484,19 @@ public final class CardFace {
             final String n = name.apply(id);
             final UpToReason why = reason.apply(id);
             final String sentence;
-            if (rule.apply(id) == PinRule.EXACT) sentence = "The " + n + " is set exactly.";
-            else if (why != null && why != UpToReason.FULL && why != UpToReason.BOTTLENECK) sentence = "The " + n
-                + " is "
-                + why.name()
-                    .toLowerCase(Locale.ROOT)
-                + ".";
-            else sentence = "The " + n + " is full.";
+            if (rule.apply(id) == PinRule.EXACT) sentence = String.format(UiText.tr("audit.machine_exact"), n);
+            else if (why != null && why != UpToReason.FULL && why != UpToReason.BOTTLENECK) sentence = String.format(
+                UiText.tr("audit.machine_reason"),
+                n,
+                UiText.tr(
+                    "audit.reason_" + why.name()
+                        .toLowerCase(Locale.ROOT)));
+            else sentence = String.format(UiText.tr("audit.machine_full"), n);
             out.append(' ')
                 .append(sentence);
         }
-        for (final UUID id : drawers) out.append(" The ")
-            .append(drawerName.apply(id))
-            .append(" drawer's rate holds it back.");
+        for (final UUID id : drawers) out.append(' ')
+            .append(String.format(UiText.tr("audit.drawer_holds_back"), drawerName.apply(id)));
         return out.toString();
     }
 

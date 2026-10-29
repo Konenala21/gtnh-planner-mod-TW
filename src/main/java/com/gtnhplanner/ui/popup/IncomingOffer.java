@@ -6,6 +6,7 @@ import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.client.WebsiteInbox;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.sound.Sfx;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -67,7 +68,7 @@ public final class IncomingOffer extends Widget<IncomingOffer> implements Intera
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final int mx = isHovering() ? getContext().getAbsMouseX() - getArea().x : -1,
             my = isHovering() ? getContext().getAbsMouseY() - getArea().y : -1;
-        Hyb.text(Hyb.fit("Open the plan from the website?", W - 2 * PAD), PAD, PAD, Hyb.INK);
+        Hyb.text(Hyb.fit(UiText.tr("audit.open_website_plan"), W - 2 * PAD), PAD, PAD, Hyb.INK);
         Hyb.text(
             Hyb.fit(
                 pending.arrival()

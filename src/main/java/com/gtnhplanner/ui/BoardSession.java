@@ -1540,7 +1540,7 @@ public final class BoardSession {
             .size();
         int boards = 1;
         for (final Graph g : plan.getGraphs()) if (Tasks.TASKS.equals(g.getPrimaryView())) boards++;
-        final Graph board = new Graph("Task board " + boards);
+        final Graph board = new Graph(String.format(UiText.tr("audit.task_board_name"), boards));
         board.setPrimaryView(Tasks.TASKS);
         plan.getGraphs()
             .add(board);
@@ -1887,7 +1887,7 @@ public final class BoardSession {
         final int size = plan.getGraphs()
             .size();
         plan.getGraphs()
-            .add(new Graph("Plan " + (size + 1)));
+            .add(new Graph(String.format(UiText.tr("audit.default_plan_name"), size + 1)));
         plan.setActiveIndex(size);
         PlanAPI.save();
         Sfx.PAGE.play();
@@ -1920,7 +1920,7 @@ public final class BoardSession {
         follow();
         PlanAPI.save();
         Sfx.NOTE_CRUMPLE.play();
-        flash(Severity.INFO, (leaving ? "Left '" : "Deleted '") + name + "'");
+        flash(Severity.INFO, String.format(UiText.tr(leaving ? "audit.left_plan" : "audit.deleted_plan"), name));
     }
 
     /** Whether a plan is a cloud plan someone else shared with the player: theirs to leave, never to delete. */
@@ -1949,7 +1949,7 @@ public final class BoardSession {
             return;
         }
         for (final Node n : copy.getNodes()) n.worldLinks.clear();
-        copy.setName(from.getName() + " copy");
+        copy.setName(String.format(UiText.tr("audit.copy_name"), from.getName()));
         plan.getGraphs()
             .add(copy);
         plan.setActiveIndex(
@@ -1958,7 +1958,7 @@ public final class BoardSession {
         follow();
         PlanAPI.save();
         Sfx.PAGE.play();
-        flash(Severity.INFO, "Made a copy of '" + from.getName() + "'");
+        flash(Severity.INFO, String.format(UiText.tr("audit.made_copy"), from.getName()));
     }
 
     /** Closes a plan's tab; the plan stays in the library's My plans. */
@@ -2005,7 +2005,7 @@ public final class BoardSession {
             panel,
             com.gtnhplanner.ui.popup.PickList.popup(
                 "gtnhplanner_delete",
-                leave ? "Leave '" + name + "'?" : "Delete '" + name + "' for good?",
+                String.format(UiText.tr(leave ? "audit.confirm_leave" : "audit.confirm_delete"), name),
                 rows,
                 false,
                 150),
@@ -3552,7 +3552,7 @@ public final class BoardSession {
         final Graph own = PlanAPI.importFromClipboard();
         if (own != null) {
             com.gtnhplanner.importer.game.FactoryFlowImport.addAsSlot(own);
-            flash(Severity.INFO, "Pasted '" + own.getName() + "'");
+            flash(Severity.INFO, String.format(UiText.tr("audit.pasted_plan"), own.getName()));
             Sfx.SWEEP.play();
             return;
         }
@@ -3564,7 +3564,9 @@ public final class BoardSession {
                 .size();
             final String name = result.graph()
                 .getName();
-            flash(missing == 0 ? Severity.INFO : Severity.WARN, "Imported '" + name + "': " + report.summary());
+            flash(
+                missing == 0 ? Severity.INFO : Severity.WARN,
+                String.format(UiText.tr("audit.imported_plan"), name, report.summary()));
             Sfx.SWEEP.play();
         } catch (final RuntimeException e) {
             flash(Severity.WARN, UiText.tr("session.the_clipboard_does_not_hold_a_plan_link_or_code"));
@@ -3579,8 +3581,10 @@ public final class BoardSession {
         PlanAPI.copyToClipboard(slots().get(index));
         flash(
             Severity.INFO,
-            "Copied '" + slots().get(index)
-                .getName() + "' to the clipboard");
+            String.format(
+                UiText.tr("audit.copied_plan"),
+                slots().get(index)
+                    .getName()));
     }
 
     /** Shares a slot's plan in the game's chat, as a line everyone on the server can open. */
@@ -3593,7 +3597,7 @@ public final class BoardSession {
             Sfx.DENY.play();
             return;
         }
-        flash(Severity.INFO, "Shared '" + graph.getName() + "' in chat");
+        flash(Severity.INFO, String.format(UiText.tr("audit.shared_in_chat"), graph.getName()));
     }
 
     /**
@@ -3641,7 +3645,7 @@ public final class BoardSession {
         final String link = websiteLink();
         if (link == null) return;
         net.minecraft.client.gui.GuiScreen.setClipboardString(link);
-        flash(Severity.INFO, "Copied the link to '" + graph.getName() + "'");
+        flash(Severity.INFO, String.format(UiText.tr("audit.copied_link"), graph.getName()));
     }
 
     /** Opens the open plan on the website in the player's browser, as a new plan there. */
@@ -3653,7 +3657,7 @@ public final class BoardSession {
             Sfx.DENY.play();
             return;
         }
-        flash(Severity.INFO, "Opening '" + graph.getName() + "' in your browser");
+        flash(Severity.INFO, String.format(UiText.tr("audit.opening_browser"), graph.getName()));
     }
 
     /**
@@ -3687,7 +3691,7 @@ public final class BoardSession {
             Sfx.DENY.play();
             return;
         }
-        flash(Severity.INFO, "Saved gtnhplanner/exports/" + file.getName());
+        flash(Severity.INFO, String.format(UiText.tr("audit.saved_export"), file.getName()));
     }
 
     /** A plan's name as a file name: what no file system takes left out, never empty. */
@@ -3758,7 +3762,8 @@ public final class BoardSession {
             for (final DrawerReadout.Shortfall s : shortfalls()) {
                 final DrawerModel d = drawerModels.get(s.drawer());
                 final boolean supply = d != null && d.kind == Drawer.Kind.SOURCE;
-                final String label = "The " + (d == null ? "" : d.label + " ") + (supply ? "supply" : "drawer");
+                final String label = d == null ? UiText.tr("audit.the_drawer")
+                    : String.format(UiText.tr(supply ? "audit.named_supply" : "audit.named_drawer"), d.label);
                 final List<UUID> focus = new ArrayList<>();
                 focus.add(s.drawer());
                 focus.addAll(s.limitingNodes());
@@ -3767,32 +3772,29 @@ public final class BoardSession {
                     : d.rate(s.reachable(), rateUnit);
                 final String target = d == null ? Fmt.rate(s.target(), rateUnit, false) : d.rate(s.target(), rateUnit);
                 // Plain sentences: what the drawer asks for, and what the plan does instead.
-                final String asks = s.rule() == Drawer.Rule.EXACTLY ? "exactly " : "";
+                final String askedRate = s.rule() == Drawer.Rule.EXACTLY
+                    ? String.format(UiText.tr("audit.exactly_rate"), target)
+                    : target;
                 final String text;
                 // Short of its rate: what it gets, then what holds it back (the cards at their counts, the drawers).
-                if (s.reachable() < s.target()) text = label + " gets "
-                    + reach
-                    + " of "
-                    + target
-                    + "."
-                    + CardFace.holders(
+                if (s.reachable() < s.target())
+                    text = String.format(UiText.tr("audit.shortfall_reaches"), label, reach, target) + CardFace.holders(
                         s.limitingNodes(),
                         s.limitingDrawers(),
                         id -> cards.get(id) == null ? "machine" : cards.get(id).machineName,
                         this::rule,
                         id -> upTo(id) == null ? null : upTo(id).reason(),
                         id -> drawerModels.get(id) == null ? "other" : drawerModels.get(id).label);
-                else if (s.reachable() > s.target()) text = label + " allows at most "
-                    + target
-                    + ", but the plan "
-                    + (supply ? "needs " : "makes ")
-                    + reach;
-                else text = label + (supply ? " should give " : " wants ")
-                    + asks
-                    + target
-                    + ", but the plan can only "
-                    + (supply ? "use " : "make ")
-                    + reach;
+                else if (s.reachable() > s.target()) text = String.format(
+                    UiText.tr(supply ? "audit.supply_above_target" : "audit.drawer_above_target"),
+                    label,
+                    target,
+                    reach);
+                else text = String.format(
+                    UiText.tr(supply ? "audit.supply_below_target" : "audit.drawer_below_target"),
+                    label,
+                    askedRate,
+                    reach);
                 out.add(new Notice(Severity.WARN, text, focus));
             }
             for (final Note note : result.notes()) {
@@ -3804,12 +3806,12 @@ public final class BoardSession {
                 else if (m == SolverMessage.DRAWER_NOT_CONNECTED) out.add(
                     new Notice(
                         Severity.WARN,
-                        "The " + note.args()[0] + " drawer has a rate, but nothing is wired to it",
+                        String.format(UiText.tr("audit.drawer_unwired"), note.args()[0]),
                         idsIn(note)));
                 else if (m == SolverMessage.DRAWER_WIRED_IGNORED) out.add(
                     new Notice(
                         Severity.WARN,
-                        "The " + note.args()[0] + " drawer's rate does nothing: the ports it's on are wired",
+                        String.format(UiText.tr("audit.drawer_wired_ignored"), note.args()[0]),
                         idsIn(note)));
                 else if (m == SolverMessage.CHOICE_NO_LONGER_FITS || m == SolverMessage.CHOICE_NEEDS_MORE_GATES)
                     out.add(
@@ -3840,14 +3842,8 @@ public final class BoardSession {
         final double target = a[3] instanceof final Number n ? n.doubleValue() : 0;
         return new Notice(
             Severity.WARN,
-            "The " + named(note).args()[0]
-                + " makes "
-                + Fmt.rate(made, rateUnit, fluid)
-                + " of "
-                + what
-                + ", more than its "
-                + Fmt.rate(target, rateUnit, fluid)
-                + " target, because another of its outputs needs more",
+            String.format(UiText.tr("audit.overshoot_target"), named(note).args()[0],
+                Fmt.rate(made, rateUnit, fluid), what, Fmt.rate(target, rateUnit, fluid)),
             idsIn(note));
     }
 
@@ -3873,7 +3869,7 @@ public final class BoardSession {
             }
             return new Notice(
                 Severity.ERROR,
-                "The pinned counts on " + String.join(" and ", names) + " can't all be met at once: unpin one",
+                String.format(UiText.tr("audit.pinned_conflict"), String.join(", ", names)),
                 ids);
         }
         if (note.containsMessage(SolverMessage.MACHINES_CANNOT_RUN)) return new Notice(
