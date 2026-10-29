@@ -31,6 +31,7 @@ import com.gtnhplanner.cloud.session.LiveDoc;
 import com.gtnhplanner.library.Account;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.live.Peers;
 import com.gtnhplanner.ui.sound.Sfx;
@@ -63,7 +64,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{1,24}");
 
     private static final ExecutorService NET = Executors.newSingleThreadExecutor(r -> {
-        final Thread t = new Thread(r, "GTNH Planner sharing");
+        final Thread t = new Thread(r, UiText.tr("share.gtnh_planner_sharing"));
         t.setDaemon(true);
         return t;
     });
@@ -133,7 +134,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
         final String[] text = { "" };
         field = new TextFieldWidget().value(new StringValue.Dynamic(() -> text[0], s -> text[0] = s == null ? "" : s));
         field.setMaxLength(24)
-            .hintText("Type a name")
+            .hintText(UiText.tr("share.type_a_name"))
             .pos(PAD, fieldY)
             .size(boxW - 2 * PAD, FIELD_H);
         field.setEnabled(owns());
@@ -187,7 +188,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
     private <T> void call(final Call<T> work, final Consumer<T> done, final Consumer<String> failed) {
         final String token = Account.token();
         if (token == null) {
-            failed.accept("Sign in to share");
+            failed.accept(UiText.tr("share.sign_in_to_share"));
             return;
         }
         NET.execute(() -> {
@@ -197,8 +198,8 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
                     if (isValid()) done.accept(answer);
                 });
             } catch (final IOException | RuntimeException e) {
-                GtnhPlanner.LOG.debug("Sharing: a call failed", e);
-                final String why = e instanceof final CloudApi.Refused r ? refused(r) : "Your account could not be reached";
+                GtnhPlanner.LOG.debug(UiText.tr("share.sharing_a_call_failed"), e);
+                final String why = e instanceof final CloudApi.Refused r ? refused(r) : UiText.tr("share.your_account_could_not_be_reached");
                 onClient(() -> {
                     if (isValid()) failed.accept(why);
                 });
@@ -218,10 +219,11 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
 
     /** What the site said no with, as one plain line. */
     private static String refused(final CloudApi.Refused r) {
-        if (r.status == 401) return "Your sign-in ran out";
-        if (r.status == 429) return "Too many tries so wait a moment";
+        if (r.status == 401) return UiText.tr("share.your_sign_in_ran_out");
+        if (r.status == 429) return UiText.tr("share.too_many_tries_so_wait_a_moment");
         final String said = r.getMessage();
-        if (said == null || said.isBlank() || said.startsWith("the site answered")) return "That did not work";
+        if (said == null || said.isBlank() || said.startsWith("the site answered"))
+            return UiText.tr("share.that_did_not_work");
         final String line = Character.toUpperCase(said.charAt(0)) + said.substring(1);
         return line.endsWith(".") ? line.substring(0, line.length() - 1) : line;
     }
@@ -275,7 +277,7 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
 
     private void add(final String id, final String username) {
         if (doc.creating()) {
-            error = "The plan is still being made in your account";
+            error = UiText.tr("share.the_plan_is_still_being_made_in_your_account");
             return;
         }
         if (!busy.add(id)) return;
@@ -403,22 +405,23 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
         final String me = Account.userId();
         final boolean owns = owns();
 
-        Hyb.text("Plan together", PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
+        Hyb.text(UiText.tr("share.plan_together"), PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
         final int[] close = { boxW - 4 - 14, (TITLE - 14) / 2, 14, 14 };
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);
         cross(close[0] + close[2] / 2f, close[1] + close[3] / 2f, closeHot ? Hyb.INK : Hyb.MUTED);
         hits.add(new Hit(Kind.CLOSE, close[0], close[1], close[0] + close[2], close[1] + close[3], null));
         Hyb.rect(1, TITLE, boxW - 2, 1, CardPaint.HAIR);
-        final String says = owns ? "People you add can edit this plan with you" : "Only the owner can add people";
+        final String says = owns ? UiText.tr("share.people_you_add_can_edit_this_plan_with_you")
+            : UiText.tr("share.only_the_owner_can_add_people");
         Hyb.text(
-            Hyb.width(says) <= boxW - 2 * PAD ? says : owns ? "People you add can edit it" : says,
+            Hyb.width(says) <= boxW - 2 * PAD ? says : owns ? UiText.tr("share.people_you_add_can_edit_it") : says,
             PAD,
             TITLE + 8,
             Hyb.MUTED);
 
         // Who can edit it: the owner, then the members.
-        Hyb.text("WHO CAN EDIT", PAD, PEOPLE_Y - LABEL + 2, LABEL_INK);
+        Hyb.text(UiText.tr("share.who_can_edit"), PAD, PEOPLE_Y - LABEL + 2, LABEL_INK);
         final List<LiveClient.Member> people = new ArrayList<>();
         if (owner != null) people.add(owner);
         for (final LiveClient.Member m : members) if (owner == null || !owner.id()
@@ -431,26 +434,27 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
                 .equals(m.id()), mine = m.id()
                     .equals(me);
             person(m.username() + (mine ? " (you)" : ""), m.username(), m.id(), y, mx, my);
-            if (isOwner) Hyb.textRight("Owner", boxW - PAD, y + 4, Hyb.MUTED);
+            if (isOwner) Hyb.textRight(UiText.tr("share.owner"), boxW - PAD, y + 4, Hyb.MUTED);
             else if (busy.contains(m.id())) Hyb.textRight("...", boxW - PAD, y + 4, Hyb.MUTED);
-            else if (owns) key("Remove", Kind.REMOVE, m.id(), y, mx, my);
-            else if (mine) key("Leave", Kind.LEAVE, m.id(), y, mx, my);
+            else if (owns) key(UiText.tr("share.remove"), Kind.REMOVE, m.id(), y, mx, my);
+            else if (mine) key(UiText.tr("share.leave"), Kind.LEAVE, m.id(), y, mx, my);
         }
-        if (people.isEmpty()) Hyb.text("Looking...", PAD, PEOPLE_Y + 4, Hyb.MUTED);
+        if (people.isEmpty()) Hyb.text(UiText.tr("share.looking"), PAD, PEOPLE_Y + 4, Hyb.MUTED);
 
         if (owns) {
             // The signed-in players in this game.
-            Hyb.text("IN THIS GAME", PAD, gameY - LABEL + 2, LABEL_INK);
+            Hyb.text(UiText.tr("share.in_this_game"), PAD, gameY - LABEL + 2, LABEL_INK);
             // Asked again only when the player says so: the service limits how often.
             if (inGame != null) {
-                final String again = "Look again";
+                final String again = UiText.tr("share.look_again");
                 final int ax = boxW - PAD - Hyb.width(again), ay = gameY - LABEL + 2;
                 final boolean hot = mx >= ax && mx < boxW - PAD && my >= ay - 2 && my < ay + 9;
                 Hyb.text(again, ax, ay, hot ? 0xFFFFFFFF : 0xFF9FD9E6);
                 hits.add(new Hit(Kind.LOOK_AGAIN, ax, ay - 2, boxW - PAD, ay + 9, null));
             }
-            if (inGame == null) Hyb.text("Looking for players...", PAD, gameY + 4, Hyb.MUTED);
-            else if (inGame.isEmpty()) Hyb.text("Nobody else here is signed in", PAD, gameY + 4, Hyb.MUTED);
+            if (inGame == null) Hyb.text(UiText.tr("share.looking_for_players"), PAD, gameY + 4, Hyb.MUTED);
+            else if (inGame.isEmpty())
+                Hyb.text(UiText.tr("share.nobody_else_here_is_signed_in"), PAD, gameY + 4, Hyb.MUTED);
             else {
                 gameScroll = clampScroll(gameScroll, inGame.size(), gameRows);
                 for (int i = 0; i < gameRows && i + gameScroll < inGame.size(); i++) {
@@ -467,10 +471,10 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
             }
 
             // Every account, by the start of its name.
-            Hyb.text("FIND AN ACCOUNT", PAD, fieldY - LABEL + 2, LABEL_INK);
-            if (searching && found.isEmpty()) Hyb.text("Searching...", PAD, foundY + 4, Hyb.MUTED);
+            Hyb.text(UiText.tr("share.find_an_account"), PAD, fieldY - LABEL + 2, LABEL_INK);
+            if (searching && found.isEmpty()) Hyb.text(UiText.tr("share.searching"), PAD, foundY + 4, Hyb.MUTED);
             else if (found.isEmpty() && !searched.isEmpty() && searched.equals(typed))
-                Hyb.text("No one by that name", PAD, foundY + 4, Hyb.MUTED);
+                Hyb.text(UiText.tr("share.no_one_by_that_name"), PAD, foundY + 4, Hyb.MUTED);
             foundScroll = clampScroll(foundScroll, found.size(), foundRows);
             for (int i = 0; i < foundRows && i + foundScroll < found.size(); i++) {
                 final CloudApi.Account a = found.get(i + foundScroll);
@@ -480,8 +484,11 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
             }
         }
         // What went wrong, in one line: the site's own words when they fit, never cut.
-        if (error != null)
-            Hyb.text(Hyb.width(error) <= boxW - 2 * PAD ? error : "That did not work", PAD, boxH - 14, Hyb.AMBER_INK);
+        if (error != null) Hyb.text(
+            Hyb.width(error) <= boxW - 2 * PAD ? error : UiText.tr("share.that_did_not_work"),
+            PAD,
+            boxH - 14,
+            Hyb.AMBER_INK);
     }
 
     /** A person's row: lit under the mouse, their face and what they are called. Returns where the label ends. */
@@ -495,9 +502,9 @@ public final class SharePanel extends ParentWidget<SharePanel> implements Intera
 
     /** A row's Add key, or that they are in already, or on their way. */
     private void addKey(final String id, final String username, final int y, final int mx, final int my) {
-        if (isMember(id)) Hyb.textRight("Can edit", boxW - PAD, y + 4, Hyb.MUTED);
-        else if (busy.contains(id)) Hyb.textRight("Adding...", boxW - PAD, y + 4, Hyb.MUTED);
-        else key("Add", Kind.ADD, new String[] { id, username }, y, mx, my);
+        if (isMember(id)) Hyb.textRight(UiText.tr("share.can_edit"), boxW - PAD, y + 4, Hyb.MUTED);
+        else if (busy.contains(id)) Hyb.textRight(UiText.tr("share.adding"), boxW - PAD, y + 4, Hyb.MUTED);
+        else key(UiText.tr("share.add"), Kind.ADD, new String[] { id, username }, y, mx, my);
     }
 
     /** A small key at a row's right end. */

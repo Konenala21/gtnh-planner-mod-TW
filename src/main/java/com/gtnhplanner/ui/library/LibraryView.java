@@ -383,14 +383,14 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             hover) - 4;
         right = key(
             right,
-            q.maxTierIndex() < 0 ? tr("library.any_tier") : "Up to " + TIERS[q.maxTierIndex()],
+            q.maxTierIndex() < 0 ? tr("library.any_tier") : UiText.tr("librarytail.up_to") + TIERS[q.maxTierIndex()],
             Kind.TIER,
             hover) - 4;
         right = key(right, sortLabel(q.sort()), Kind.SORT, hover) - 8;
         // The search takes the room left between them, less a filter chip's when one shows.
         final int chipRoom = q.mine() ? Hyb.width(tr("library.my_posts")) + 24
             : makingLabel != null && !q.makes()
-                .isEmpty() ? Math.min(160, Hyb.width("Makes " + makingLabel) + 24) : 0;
+                .isEmpty() ? Math.min(160, Hyb.width(UiText.tr("librarytail.makes") + makingLabel) + 24) : 0;
         final int fieldW = Math.max(80, Math.min(300, right - x - chipRoom));
         searchField.pos(x, 5)
             .size(fieldW, 14);
@@ -404,7 +404,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             hits.add(new Hit(Kind.MINE_CLEAR, cx, 5, cx + chipW, 19, null));
         } else if (makingLabel != null && !q.makes()
             .isEmpty()) {
-                final String chip = Hyb.fit("Makes " + makingLabel, right - x - fieldW - 26);
+                final String chip = Hyb.fit(UiText.tr("librarytail.makes") + makingLabel, right - x - fieldW - 26);
                 final int cx = x + fieldW + 6, chipW = Hyb.width(chip) + 16;
                 final boolean hot = hover != null && hover.kind() == Kind.MAKES_CLEAR;
                 Hyb.rect(cx, 5, chipW, 14, hot ? 0xFF3A4A52 : 0xFF2C3036);
@@ -459,7 +459,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int cols = columns(), tw = tileW();
         int y = top + PAD - scroll;
         if (setups.isEmpty()) {
-            final String msg = feed.error() != null ? "Couldn't reach Community: " + feed.error()
+            final String msg = feed.error() != null ? UiText.tr("librarytail.couldn_t_reach_community") + feed.error()
                 : feed.loading() || !feed.started() ? tr("library.loading_shared") : tr("library.no_matches");
             final float cx = (PAD + gridRight()) / 2f, cy = top + (h - top) / 2f - 10;
             Hyb.textCentered(msg, cx, cy, feed.error() != null ? Hyb.AMBER_INK : Hyb.MUTED);
@@ -476,7 +476,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final int rows = (setups.size() + cols - 1) / cols;
         int end = y + rows * (TILE_H + GAP);
         if (feed.loading() || feed.error() != null) {
-            final String msg = feed.error() != null ? "Couldn't load more: " + feed.error()
+            final String msg = feed.error() != null ? UiText.tr("librarytail.couldn_t_load_more") + feed.error()
                 : tr("library.loading_more");
             Hyb.textCentered(msg, (PAD + gridRight()) / 2f, end + 4, feed.error() != null ? Hyb.AMBER_INK : Hyb.MUTED);
             if (feed.error() != null) retryKey((PAD + gridRight()) / 2f, end + 18, hover);
@@ -519,7 +519,12 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         // The numbers: machines and EU/t at the left, votes and downloads at the right.
         final int ry = y + TILE_H - 13;
         int sx = x + 6;
-        sx = stat(sx, ry, Fmt.compact(s.machines()) + (s.machines() == 1 ? " machine" : " machines"), Hyb.MUTED) + 8;
+        sx = stat(
+            sx,
+            ry,
+            Fmt.compact(s.machines())
+                + (s.machines() == 1 ? UiText.tr("librarytail.machine") : UiText.tr("librarytail.machines")),
+            Hyb.MUTED) + 8;
         if (s.euPerTick() > 0) stat(sx, ry, Fmt.power(s.euPerTick()) + " EU/t", EU_INK);
         int rx = x + w - 6;
         rx = statRight(rx, ry, Fmt.compact(s.downloads()), Glyph.DOWN) - 7;
@@ -699,8 +704,8 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             .size(), drawers = g.getDrawers()
                 .size();
         final int count = g.tasks.size();
-        final String size = tasks ? count + (count == 1 ? " task" : " tasks")
-            : cards + (cards == 1 ? " card" : " cards") + " · " + drawers + (drawers == 1 ? " drawer" : " drawers");
+        final String size = tasks ? count + (count == 1 ? UiText.tr("librarytail.task") : UiText.tr("librarytail.tasks"))
+            : cards + (cards == 1 ? UiText.tr("librarytail.card") : UiText.tr("librarytail.cards")) + " · " + drawers + (drawers == 1 ? UiText.tr("librarytail.drawer") : UiText.tr("librarytail.drawers"));
         Hyb.text(Hyb.fit(size, x + w - 6 - (x + 34)), x + 34, y + 17, 0xFF8A8C94);
         final String when = g.getLastOpen() > 0 ? "last open " + agoMs(g.getLastOpen()) : tr("library.not_opened");
         Hyb.text(when, x + 6, y + TILE_H - 13, Hyb.MUTED);
@@ -708,7 +713,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         final com.gtnhplanner.cloud.session.CloudSession cloud = com.gtnhplanner.cloud.session.CloudSession.current();
         final String by = cloud == null ? null : cloud.sharedBy(g);
         if (by != null) Hyb.textRight(
-            Hyb.fit("shared by " + by, w / 2),
+            Hyb.fit(UiText.tr("librarytail.shared_by") + by, w / 2),
             x + w - 6,
             y + TILE_H - 13,
             0xFF9FD9E6);
@@ -795,7 +800,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             y += 10;
         }
         final String who = s.author()
-            .isEmpty() ? "" : "by " + s.author();
+            .isEmpty() ? "" : UiText.tr("librarytail.by") + s.author();
         if (!who.isEmpty()) {
             Hyb.text(Hyb.fit(who, tr - tx), tx, y + 1, 0xFF8A8C94);
             hits.add(new Hit(Kind.AUTHOR, tx, y, tx + Hyb.width(who), y + 10, s.author()));
@@ -995,7 +1000,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                     rows.add(
                         new PickList.Entry(
                             null,
-                            "Up to " + TIERS[i],
+                            UiText.tr("librarytail.up_to") + TIERS[i],
                             "",
                             Hyb.tier(TIERS[i])
                                 .bg(),
@@ -1129,7 +1134,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             session.flash(Severity.INFO, "Took '" + s.name() + "' out of Community");
         }, why -> {
             deleting = null;
-            openError = "Couldn't delete it: " + why;
+            openError = UiText.tr("librarytail.couldn_t_delete_it") + why;
         });
     }
 
@@ -1185,7 +1190,8 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                     java.nio.file.Files.createDirectories(dir);
                     java.nio.file.Files.writeString(dir.resolve(s.id() + ".json"), d.planJson());
                 } catch (final java.io.IOException | RuntimeException e) {
-                    com.gtnhplanner.GtnhPlanner.LOG.info("Library: could not keep the download", e);
+                    com.gtnhplanner.GtnhPlanner.LOG
+                        .info(UiText.tr("librarytail.library_could_not_keep_the_download"), e);
                 }
             }
             try {
@@ -1208,12 +1214,13 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                         + r.report()
                             .summary());
             } catch (final RuntimeException e) {
-                openError = "Couldn't read that plan: " + e.getMessage();
-                com.gtnhplanner.GtnhPlanner.LOG.info("Library: could not import setup {}", s.id(), e);
+                openError = UiText.tr("librarytail.couldn_t_read_that_plan") + e.getMessage();
+                com.gtnhplanner.GtnhPlanner.LOG
+                    .info(UiText.tr("librarytail.library_could_not_import_setup"), s.id(), e);
             }
         }, why -> {
             opening = null;
-            openError = "Couldn't download it: " + why;
+            openError = UiText.tr("librarytail.couldn_t_download_it") + why;
         });
     }
 
@@ -1241,14 +1248,17 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             case TILE -> {
                 final CommunityApi.Setup s = (CommunityApi.Setup) hit.data();
                 yield s.mine()
-                    ? List.of(s.name(), "§7Double-click to open as a new plan", "§7Right-click to edit or delete it")
-                    : List.of(s.name(), "§7Double-click to open as a new plan");
+                    ? List.of(
+                        s.name(),
+                        UiText.tr("librarytail.7double_click_to_open_as_a_new_plan"),
+                        UiText.tr("librarytail.7right_click_to_edit_or_delete_it"))
+                    : List.of(s.name(), UiText.tr("librarytail.7double_click_to_open_as_a_new_plan"));
             }
             case OPEN -> List.of(tr("library.open_new_tip"));
             case EDIT -> List.of(tr("library.edit_tip"));
             case DELETE -> List.of(tr("library.delete_tip"));
-            case TAG -> List.of("Show plans tagged #" + hit.data());
-            case AUTHOR -> List.of("Show plans by " + hit.data());
+            case TAG -> List.of(UiText.tr("librarytail.show_plans_tagged") + hit.data());
+            case AUTHOR -> List.of(UiText.tr("librarytail.show_plans_by") + hit.data());
             case TIER_BADGE -> List.of(tr("library.tier_tip"));
             case CLOSE -> List.of(tr("library.back_tip"));
             case SORT -> List.of(tr("library.sort"));
@@ -1262,7 +1272,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
                     .getGraphs()
                     .get((Integer) hit.data())
                     .getName(),
-                "§7Right-click to rename, copy, post or delete");
+                UiText.tr("librarytail.7right_click_to_rename_copy_post_or_delete"));
             case NEW_TILE -> List.of(tr("library.new_plan"));
             case MY_POSTS -> List.of(tr("library.my_posts_tip"));
             case MINE_CLEAR -> List.of(tr("library.clear_filter"));
@@ -1309,10 +1319,10 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
         try {
             final Duration d = Duration.between(OffsetDateTime.parse(iso), OffsetDateTime.now());
             final long m = Math.max(0, d.toMinutes());
-            if (m < 60) return m + "m ago";
-            if (m < 60 * 24) return m / 60 + "h ago";
-            if (m < 60 * 24 * 60) return m / (60 * 24) + "d ago";
-            return m / (60 * 24 * 30) + "mo ago";
+            if (m < 60) return m + UiText.tr("librarytail.m_ago");
+            if (m < 60 * 24) return m / 60 + UiText.tr("librarytail.h_ago");
+            if (m < 60 * 24 * 60) return m / (60 * 24) + UiText.tr("librarytail.d_ago");
+            return m / (60 * 24 * 30) + UiText.tr("librarytail.mo_ago");
         } catch (final RuntimeException e) {
             return "";
         }

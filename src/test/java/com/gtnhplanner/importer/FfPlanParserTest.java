@@ -24,6 +24,70 @@ import com.gtnhplanner.importer.FfPlan.FfStorage;
 class FfPlanParserTest {
 
     @Test
+    void keepsTheFluidExtractorFromIssue497Plan() {
+        // The reported plan has no handler list on the recipe, but the card names its handler.
+        final FfPlan plan = FfPlanParser.parse("""
+            {
+              "schemaVersion": 1,
+              "name": "Diesel Distillery",
+              "solveMode": true,
+              "recipes": [{
+                "id": "gtnhplanner:e2336b50-ea08-45a3-be85-a7705f6d3fdf",
+                "name": "Oil",
+                "kind": "gregtech_machine",
+                "machineType": "Basic Fluid Extractor",
+                "minimumTier": "LV",
+                "durationTicks": 20,
+                "eut": 30,
+                "inputs": [{"kind": "item", "id": "cropsnh:materialleaf@10", "amount": 1,
+                  "displayName": "Oil Berry"}],
+                "outputs": [{"kind": "fluid", "id": "oil", "amount": 100,
+                  "displayName": "Oil"}]
+              }],
+              "nodes": [{
+                "id": "e2336b50-ea08-45a3-be85-a7705f6d3fdf",
+                "recipeId": "gtnhplanner:e2336b50-ea08-45a3-be85-a7705f6d3fdf",
+                "machineCount": 1.3333333333333333,
+                "parallel": 1,
+                "overclockTier": "LV",
+                "machineHandlerId": "fluid-extractor",
+                "enabled": true,
+                "position": {"x": -606, "y": 50}
+              }]
+            }
+            """);
+        assertEquals(
+            1,
+            plan.recipes()
+                .size());
+        assertEquals(
+            1,
+            plan.nodes()
+                .size());
+        final FfRecipe recipe = plan.recipes()
+            .getFirst();
+        final FfNode node = plan.nodes()
+            .getFirst();
+        assertEquals("Basic Fluid Extractor", recipe.machineType());
+        assertEquals(
+            "Oil Berry",
+            recipe.inputs()
+                .getFirst()
+                .displayName());
+        assertEquals(
+            "oil",
+            recipe.outputs()
+                .getFirst()
+                .id());
+        assertEquals("fluid-extractor", node.machineHandlerId());
+        final FfSettings.Mapped mapped = FfSettings.map(node, recipe, 30, true, true);
+        assertEquals(
+            "fluid-extractor",
+            mapped.machine()
+                .handlerId());
+    }
+
+    @Test
     void readsTheSmallReactorPlan() {
         final FfPlan plan = FfPlanParser.parse(FakeGame.fixture("high-amperage-reactor.json"));
         assertEquals("Benzene", plan.name());

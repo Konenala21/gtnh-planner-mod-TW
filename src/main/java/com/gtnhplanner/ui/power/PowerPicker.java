@@ -24,6 +24,7 @@ import com.gtnhplanner.power.PowerSearch;
 import com.gtnhplanner.power.PowerSource;
 import com.gtnhplanner.power.game.PowerPorts;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.StructureArt;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
@@ -96,7 +97,7 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
             if (!next.equals(query)) scroll = 0;
             query = next;
         }))
-            .hintText("Machine, fuel, or product...");
+            .hintText(UiText.tr("powerpicker.machine_fuel_or_product_prompt"));
         child(searchField);
     }
 
@@ -187,12 +188,22 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
     private void drawHeader(final int x, final int y, final int w, final Hit hover) {
         Hyb.rect(x, y + HEAD_H - 2, w, 2, SHEET_EDGE);
         bolt(x + 8, y + 7, AMBER);
-        Hyb.text("NON-RECIPE MACHINES", x + 20, y + 9, Hyb.INK);
+        Hyb.text(UiText.tr("powerpicker.non_recipe_machines"), x + 20, y + 9, Hyb.INK);
         int right = x + w - 6;
         right = closeKey(right, y + 4, hover) - 8;
-        right = key(right, y + 4, tierFilter == null ? "All tiers" : tierFilter, Kind.TIER, hover) - 4;
-        right = key(right, y + 4, groupFilter == null ? "All types" : groupFilter.title, Kind.GROUP, hover) - 8;
-        final int left = x + 20 + Hyb.width("NON-RECIPE MACHINES") + 12;
+        right = key(
+            right,
+            y + 4,
+            tierFilter == null ? UiText.tr("powerpicker.all_tiers") : tierFilter,
+            Kind.TIER,
+            hover) - 4;
+        right = key(
+            right,
+            y + 4,
+            groupFilter == null ? UiText.tr("powerpicker.all_types") : groupFilter.title,
+            Kind.GROUP,
+            hover) - 8;
+        final int left = x + 20 + Hyb.width(UiText.tr("powerpicker.non_recipe_machines")) + 12;
         final int fieldW = Math.max(60, Math.min(220, right - left));
         searchField.pos(right - fieldW, y + 5)
             .size(fieldW, 14);
@@ -243,7 +254,7 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
     private int drawResults(final List<PowerSearch.Hit> found, final int x0, final int y0, final int width,
         final float z, final Hit hover) {
         if (found.isEmpty()) {
-            Hyb.text("No machine burns, makes or is named that.", x0, y0 + 4, Hyb.MUTED);
+            Hyb.text(UiText.tr("powerpicker.no_machine_burns_makes_or_is_named_that"), x0, y0 + 4, Hyb.MUTED);
             return y0 + 16;
         }
         final int cols = columns(width);
@@ -295,7 +306,7 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
         }
         if (hit.via() != null) {
             final String via = (hit.via()
-                .takes() ? "Takes " : "Makes ") + hit.via()
+                .takes() ? UiText.tr("powerpicker.takes_prefix") : UiText.tr("powerpicker.makes_prefix")) + hit.via()
                     .name();
             Hyb.text(Hyb.fit(via, w - 8), x + 4, y + ROW_H + 1, CYAN);
         }
@@ -372,7 +383,8 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
         if (hit.via() != null) Hyb.text(
             Hyb.fit(
                 (hit.via()
-                    .takes() ? "Takes " : "Makes ") + hit.via()
+                    .takes() ? UiText.tr("powerpicker.takes_prefix") : UiText.tr("powerpicker.makes_prefix"))
+                    + hit.via()
                         .name(),
                 PREVIEW_W - 12),
             x + 6,
@@ -578,7 +590,14 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
 
     private void groupMenu(final Hit at) {
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(new PickList.Entry(null, "All types", "", Hyb.INK, groupFilter == null, () -> filterGroup(null)));
+        rows.add(
+            new PickList.Entry(
+                null,
+                UiText.tr("powerpicker.all_types"),
+                "",
+                Hyb.INK,
+                groupFilter == null,
+                () -> filterGroup(null)));
         for (final PowerGroup group : PowerGroup.values()) rows.add(
             new PickList.Entry(
                 null,
@@ -598,7 +617,14 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
 
     private void tierMenu(final Hit at) {
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(new PickList.Entry(null, "All tiers", "", Hyb.INK, tierFilter == null, () -> filterTier(null)));
+        rows.add(
+            new PickList.Entry(
+                null,
+                UiText.tr("powerpicker.all_tiers"),
+                "",
+                Hyb.INK,
+                tierFilter == null,
+                () -> filterTier(null)));
         for (final String tier : TIERS) {
             boolean any = false;
             for (final PowerSource s : PowerRegistry.sources()) any |= tier.equals(s.unlock());
@@ -648,14 +674,14 @@ public final class PowerPicker extends ParentWidget<PowerPicker> implements Inte
                     .muted(s.blurb());
                 if (h.via() != null) tip.row(
                     h.via()
-                        .takes() ? "Takes" : "Makes",
+                        .takes() ? UiText.tr("powerpicker.takes") : UiText.tr("powerpicker.makes"),
                     h.via()
                         .name());
-                yield tip.action(Tip.Input.LEFT, "Add to the plan");
+                yield tip.action(Tip.Input.LEFT, UiText.tr("powerpicker.add_to_the_plan"));
             }
-            case GROUP -> Tip.of("Filter by type");
-            case TIER -> Tip.of("Filter by unlock tier");
-            case CLOSE -> Tip.of("Close (Esc)");
+            case GROUP -> Tip.of(UiText.tr("powerpicker.filter_by_type"));
+            case TIER -> Tip.of(UiText.tr("powerpicker.filter_by_unlock_tier"));
+            case CLOSE -> Tip.of(UiText.tr("powerpicker.close_esc"));
             default -> null;
         };
     }

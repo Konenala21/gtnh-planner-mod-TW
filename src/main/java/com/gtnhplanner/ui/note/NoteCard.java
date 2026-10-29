@@ -21,6 +21,7 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.cleanroommc.modularui.widget.sizer.Area;
 import com.gtnhplanner.data.flowchart.Note;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.note.DrawingGrips.Grip;
 import com.gtnhplanner.ui.popup.PickList;
@@ -332,7 +333,7 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
             }
         }
         if (text.isEmpty() && !editing) {
-            Hyb.text("Double-click to write", PAD, TEXT_TOP, s, 0x90000000 | ink & 0xFFFFFF, false);
+            Hyb.text(UiText.tr("note.double_click_to_write"), PAD, TEXT_TOP, s, 0x90000000 | ink & 0xFFFFFF, false);
         } else {
             for (int i = 0; i < lay.lines()
                 .size(); i++) {
@@ -439,27 +440,27 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
             final Grip grip = DrawingGrips.at(self, self.getWidth(), self.getHeight(), localX(), localY());
             if (grip == null) return null;
             return switch (grip) {
-                case TAIL, HEAD -> Tip.of("Arrow end")
-                    .action(Tip.Input.DRAG, "Reshape");
+                case TAIL, HEAD -> Tip.of(UiText.tr("note.arrow_end"))
+                    .action(Tip.Input.DRAG, UiText.tr("note.reshape"));
                 case BODY -> Tip.of(capital(kindWord(self)))
-                    .action(Tip.Input.DRAG, "Move")
-                    .action(Tip.Input.RIGHT, "Colour, style, delete");
-                default -> Tip.of("Resize")
-                    .action(Tip.Input.DRAG, "Drag the corner or edge");
+                    .action(Tip.Input.DRAG, UiText.tr("note.move"))
+                    .action(Tip.Input.RIGHT, UiText.tr("note.colour_style_delete"));
+                default -> Tip.of(UiText.tr("note.resize"))
+                    .action(Tip.Input.DRAG, UiText.tr("note.drag_the_corner_or_edge"));
             };
         }
         final Part part = partUnderMouse();
         if (part == null) return null;
         return switch (part) {
-            case DELETE -> Tip.of("Delete note");
-            case SMALLER -> Tip.of("Smaller text");
-            case BIGGER -> Tip.of("Bigger text");
-            case RESIZE -> Tip.of("Resize")
-                .action(Tip.Input.DRAG, "Drag the corner or an edge");
-            case BODY -> Tip.of("Sticky note")
-                .action(Tip.Input.LEFT, "Click: write")
-                .action(Tip.Input.DRAG, "Move")
-                .action(Tip.Input.RIGHT, "Colour, text size, delete");
+            case DELETE -> Tip.of(UiText.tr("note.delete_note"));
+            case SMALLER -> Tip.of(UiText.tr("note.smaller_text"));
+            case BIGGER -> Tip.of(UiText.tr("note.bigger_text"));
+            case RESIZE -> Tip.of(UiText.tr("note.resize"))
+                .action(Tip.Input.DRAG, UiText.tr("note.drag_the_corner_or_an_edge"));
+            case BODY -> Tip.of(UiText.tr("note.sticky_note"))
+                .action(Tip.Input.LEFT, UiText.tr("note.click_write"))
+                .action(Tip.Input.DRAG, UiText.tr("note.move"))
+                .action(Tip.Input.RIGHT, UiText.tr("note.colour_text_size_delete"));
         };
     }
 
@@ -573,15 +574,29 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
         if (n == null || board == null) return;
         final List<PickList.Entry> rows = new ArrayList<>();
         if (n.isDrawing()) {
-            rows.add(PickList.Entry.of("Colour...", () -> onLive(board, NoteCard::openColours)));
+            rows.add(PickList.Entry.of(UiText.tr("note.colour_prompt"), () -> onLive(board, NoteCard::openColours)));
             if (Note.ARROW.equals(n.kind())) {
                 rows.add(
-                    PickList.Entry.of("Thickness...", () -> onLive(board, c -> c.openChoices("Thickness", THICKNESS))));
-                rows.add(PickList.Entry.of("Heads...", () -> onLive(board, c -> c.openChoices("Heads", HEADS))));
+                    PickList.Entry.of(
+                        UiText.tr("note.thickness_prompt"),
+                        () -> onLive(board, c -> c.openChoices(UiText.tr("note.thickness"), THICKNESS))));
+                rows.add(
+                    PickList.Entry.of(
+                        UiText.tr("note.heads_prompt"),
+                        () -> onLive(board, c -> c.openChoices(UiText.tr("note.heads"), HEADS))));
             } else {
-                rows.add(PickList.Entry.of("Fill...", () -> onLive(board, c -> c.openChoices("Fill", FILL))));
-                rows.add(PickList.Entry.of("Border...", () -> onLive(board, c -> c.openChoices("Border", BORDER))));
-                rows.add(PickList.Entry.of("Marks...", () -> onLive(board, c -> c.openChoices("Marks", MARKS))));
+                rows.add(
+                    PickList.Entry.of(
+                        UiText.tr("note.fill_prompt"),
+                        () -> onLive(board, c -> c.openChoices(UiText.tr("note.fill"), FILL))));
+                rows.add(
+                    PickList.Entry.of(
+                        UiText.tr("note.border_prompt"),
+                        () -> onLive(board, c -> c.openChoices(UiText.tr("note.border"), BORDER))));
+                rows.add(
+                    PickList.Entry.of(
+                        UiText.tr("note.marks_prompt"),
+                        () -> onLive(board, c -> c.openChoices(UiText.tr("note.marks"), MARKS))));
             }
             rows.add(
                 new PickList.Entry(
@@ -598,12 +613,25 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
                 getContext().getAbsMouseY());
             return;
         }
-        rows.add(PickList.Entry.of("Write on it", () -> onLive(board, NoteCard::startEditing)));
-        rows.add(PickList.Entry.of("Colour...", () -> onLive(board, NoteCard::openColours)));
+        rows.add(PickList.Entry.of(UiText.tr("note.write_on_it"), () -> onLive(board, NoteCard::startEditing)));
+        rows.add(PickList.Entry.of(UiText.tr("note.colour_prompt"), () -> onLive(board, NoteCard::openColours)));
         rows.add(
-            new PickList.Entry(null, "Bigger text", n.fontSizeOrDefault() + " px", Hyb.INK, false, () -> stepFont(1)));
-        rows.add(PickList.Entry.of("Smaller text", () -> stepFont(-1)));
-        rows.add(new PickList.Entry(null, "Delete note", "", Hyb.RED_INK, false, () -> session.deleteNote(noteId)));
+            new PickList.Entry(
+                null,
+                UiText.tr("note.bigger_text"),
+                n.fontSizeOrDefault() + " px",
+                Hyb.INK,
+                false,
+                () -> stepFont(1)));
+        rows.add(PickList.Entry.of(UiText.tr("note.smaller_text"), () -> stepFont(-1)));
+        rows.add(
+            new PickList.Entry(
+                null,
+                UiText.tr("note.delete_note"),
+                "",
+                Hyb.RED_INK,
+                false,
+                () -> session.deleteNote(noteId)));
         Popup.open(
             session.panel(),
             PickList.popup("gtnhplanner_note", null, rows, false, 140),
@@ -637,25 +665,31 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
 
     private static final Choices FILL = new Choices(
         Style.FILL,
-        List.of(new Choice("Tint", "tint"), new Choice("Solid", "solid"), new Choice("None", "none")));
+        List.of(
+            new Choice(UiText.tr("note.tint"), "tint"),
+            new Choice(UiText.tr("note.solid"), "solid"),
+            new Choice(UiText.tr("note.none"), "none")));
     private static final Choices BORDER = new Choices(
         Style.BORDER,
-        List.of(new Choice("Solid", "solid"), new Choice("Dashed", "dashed")));
+        List.of(new Choice(UiText.tr("note.solid"), "solid"), new Choice(UiText.tr("note.dashed"), "dashed")));
     private static final Choices MARKS = new Choices(
         Style.MARKS,
         List.of(
-            new Choice("None", "none"),
-            new Choice("Dots", "dots"),
-            new Choice("Grid", "grid"),
-            new Choice("Graph", "graph"),
-            new Choice("Ruled", "ruled"),
-            new Choice("Hatch", "hatch")));
+            new Choice(UiText.tr("note.none"), "none"),
+            new Choice(UiText.tr("note.dots"), "dots"),
+            new Choice(UiText.tr("note.grid"), "grid"),
+            new Choice(UiText.tr("note.graph"), "graph"),
+            new Choice(UiText.tr("note.ruled"), "ruled"),
+            new Choice(UiText.tr("note.hatch"), "hatch")));
     private static final Choices THICKNESS = new Choices(
         Style.THICKNESS,
-        List.of(new Choice("Thin", "1"), new Choice("Normal", "2"), new Choice("Thick", "4")));
+        List.of(
+            new Choice(UiText.tr("note.thin"), "1"),
+            new Choice(UiText.tr("note.normal"), "2"),
+            new Choice(UiText.tr("note.thick"), "4")));
     private static final Choices HEADS = new Choices(
         Style.HEADS,
-        List.of(new Choice("One end", "end"), new Choice("Both ends", "both")));
+        List.of(new Choice(UiText.tr("note.one_end"), "end"), new Choice(UiText.tr("note.both_ends"), "both")));
 
     /** What the note has now for a style, as the value a choice sets. */
     private static String current(final Note n, final Style style) {
@@ -721,7 +755,8 @@ public final class NoteCard extends Widget<NoteCard> implements Interactable, ID
             }));
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_note_colour", "Colour", rows, false, 120, NoteColors.MENU.size()),
+            PickList
+                .popup("gtnhplanner_note_colour", UiText.tr("note.colour"), rows, false, 120, NoteColors.MENU.size()),
             getContext().getAbsMouseX(),
             getContext().getAbsMouseY());
     }

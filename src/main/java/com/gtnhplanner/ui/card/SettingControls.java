@@ -13,6 +13,7 @@ import com.gtnhplanner.data.RecipeContext;
 import com.gtnhplanner.data.SettingDef;
 import com.gtnhplanner.power.PowerSetting;
 import com.gtnhplanner.power.PowerSource;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.gt.GtCoils;
 
 /**
@@ -57,7 +58,8 @@ public final class SettingControls {
         "eut_increase_per_oc",
         "duration_decrease_per_oc");
     private static final Set<String> HEAT = Set.of("heat_oc", "recipe_heat", "heat_discount", "heat_discount_mult");
-    private static final String[] GROUPS = { "MACHINE", "OVERCLOCKING", "HEAT" };
+    private static final String[] GROUPS = { UiText.tr("settingcontrols.machine"),
+        UiText.tr("settingcontrols.overclocking"), UiText.tr("settingcontrols.heat") };
 
     private SettingControls() {}
 
@@ -107,11 +109,21 @@ public final class SettingControls {
         // What the recipe decides of the machine, read-only: the Dangote Distillus runs in its recipe's mode.
         final String mode = m.web == null ? null
             : com.gtnhplanner.machines.web.DangoteDistillus.mode(m.web.effectiveRecipe());
-        if (mode != null)
-            out.add(new Control("reading:mode", "SETTINGS", "Mode", mode, null, false, true, Type.READING, false));
+        if (mode != null) out.add(
+            new Control(
+                "reading:mode",
+                UiText.tr("settingcontrols.settings"),
+                UiText.tr("settingcontrols.mode"),
+                mode,
+                null,
+                false,
+                true,
+                Type.READING,
+                false));
         for (final com.gtnhplanner.machines.game.MachineModels.Setting s : com.gtnhplanner.machines.game.MachineModels
             .settings(m.node)) {
-            final String group = crop ? com.gtnhplanner.machines.game.CropCards.group(s.key()) : "SETTINGS";
+            final String group = crop ? com.gtnhplanner.machines.game.CropCards.group(s.key())
+                : UiText.tr("settingcontrols.settings");
             // The farm's slots, read-only, close the units it shares them between.
             if (crop && com.gtnhplanner.machines.game.CropCards.FARM_UNITS.equals(group)
                 && out.stream()
@@ -122,7 +134,7 @@ public final class SettingControls {
                     new Control(
                         "reading:slots",
                         group,
-                        "Upgrade slots",
+                        UiText.tr("settingcontrols.upgrade_slots"),
                         com.gtnhplanner.machines.game.CropCards.slots(m.node),
                         null,
                         false,
@@ -148,14 +160,15 @@ public final class SettingControls {
         if (com.gtnhplanner.machines.game.MachineModels.isModelled(m.node) || m.web != null) return out;
         for (final String group : GROUPS) {
             // The coil first, at the top of the machine's settings.
-            if ("MACHINE".equals(group) && m.usesHeat) {
+            if (UiText.tr("settingcontrols.machine")
+                .equals(group) && m.usesHeat) {
                 final GtCoils.Coil coil = m.coilHeat > 0 ? GtCoils.forHeat(m.coilHeat) : null;
                 out.add(
                     new Control(
                         "machine_heat",
                         group,
-                        "Coil",
-                        coil == null ? "None" : RecipeCard.shortCoilName(coil.name()),
+                        UiText.tr("settingcontrols.coil"),
+                        coil == null ? UiText.tr("settingcontrols.none") : RecipeCard.shortCoilName(coil.name()),
                         coil == null ? null : coil.stack(),
                         coilTooCold(m),
                         true,
@@ -169,7 +182,8 @@ public final class SettingControls {
                         : d.options != null && !d.options.isEmpty() ? Type.CHOICE : null;
                 if (type == null) continue;
                 final String value = switch (type) {
-                    case TOGGLE -> CardDefaults.boolSetting(cfg, d.key) ? "On" : "Off";
+                    case TOGGLE -> CardDefaults.boolSetting(cfg, d.key) ? UiText.tr("settingcontrols.on")
+                        : UiText.tr("settingcontrols.off");
                     case NUMBER -> Integer.toString(CardDefaults.intSetting(cfg, d.key));
                     default -> CardDefaults.stringSetting(cfg, d.key);
                 };
@@ -180,7 +194,8 @@ public final class SettingControls {
     }
 
     private static String groupOf(final String key) {
-        return OVERCLOCKING.contains(key) ? "OVERCLOCKING" : HEAT.contains(key) ? "HEAT" : "MACHINE";
+        return OVERCLOCKING.contains(key) ? UiText.tr("settingcontrols.overclocking")
+            : HEAT.contains(key) ? UiText.tr("settingcontrols.heat") : UiText.tr("settingcontrols.machine");
     }
 
     private static List<Control> power(final CardModel m) {
@@ -199,7 +214,7 @@ public final class SettingControls {
                 out.add(
                     new Control(
                         "power:" + s.id(),
-                        "SETTINGS",
+                        UiText.tr("settingcontrols.settings"),
                         caption,
                         PowerTiles.shown(s, m.node.powerSettings),
                         null,
@@ -211,7 +226,7 @@ public final class SettingControls {
                 new Control(
                     "reading:" + t.stat()
                         .label(),
-                    "READINGS",
+                    UiText.tr("settingcontrols.readings"),
                     t.stat()
                         .label(),
                     t.stat()

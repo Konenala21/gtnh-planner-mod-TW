@@ -21,6 +21,7 @@ import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.provider.GTKeys;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.gt.GtCoils;
 import com.gtnhplanner.ui.gt.GtMachines;
@@ -418,16 +419,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final List<PickList.Entry> rows = new ArrayList<>();
         for (final com.gtnhplanner.data.flowchart.PinRule rule : com.gtnhplanner.data.flowchart.PinRule.values())
             rows.add(new PickList.Entry(null, rule.label, switch (rule) {
-            case ANY -> "the plan picks";
-            case UP_TO -> "what you have";
-            case EXACT -> "no matter what";
+            case ANY -> UiText.tr("card.the_plan_picks");
+            case UP_TO -> UiText.tr("card.what_you_have");
+            case EXACT -> UiText.tr("card.no_matter_what");
             },
                 Hyb.INK,
                 rule == c.rule(),
                 () -> { if (rule != c.rule()) session.setRule(node, rule, CardFace.ruleCount(c.set(), c.value())); }));
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_count_rule", "MACHINE COUNT", rows, false, 160),
+            PickList.popup("gtnhplanner_count_rule", UiText.tr("card.machine_count"), rows, false, 160),
             screenX(r[0]),
             screenY(r[1] + r[3] + 2));
     }
@@ -439,29 +440,31 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final String times = (crop() ? "" : "×");
         if (c.pinned()) {
             tip = Tip.of(c.rule().label + " " + c.setText())
-                .row("Running", c.run())
+                .row(UiText.tr("card.running"), c.run())
                 .row(c.rule().label, times + c.setText());
             if (c.rule() == com.gtnhplanner.data.flowchart.PinRule.UP_TO && c.set() > 0)
-                tip.row("Usage", CardFace.usage(c.value(), c.set()));
+                tip.row(UiText.tr("card.usage"), CardFace.usage(c.value(), c.set()));
         } else {
-            tip = Tip.of(crop() ? "Crops planted" : "Required machines")
-                .row("Calculated", c.run());
+            tip = Tip.of(crop() ? UiText.tr("card.crops_planted") : UiText.tr("card.required_machines"))
+                .row(UiText.tr("card.calculated"), c.run());
             final double whole = Math.ceil(c.value() - 1e-9);
-            if (!crop() && c.value() > 0 && whole != c.value()) tip.row("Whole machines", "×" + (long) whole)
-                .row("Average utilization", Fmt.compact(100 * c.value() / whole) + "%");
+            if (!crop() && c.value() > 0 && whole != c.value())
+                tip.row(UiText.tr("card.whole_machines"), "×" + (long) whole)
+                    .row(UiText.tr("card.average_utilization"), Fmt.compact(100 * c.value() / whole) + "%");
         }
         if (crop()) tip.row(
-            com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Industrial Farms" : "Crop Managers",
+            com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? UiText.tr("card.industrial_farms")
+                : UiText.tr("card.crop_managers"),
             "×" + Fmt.machines(builds()));
         if (c.pinned()) tip.muted(c.title());
         else if (c.value() <= 0) tip.muted(
-            m.isPower() ? "Not sized yet: set a machine count, or set a rate on its EU drawer."
-                : crop() ? "No rate or set count in the plan needs this crop yet."
-                    : "No rate or set count in the plan needs this machine yet.");
-        if (shared()) tip.muted("The total for all its recipes, which share the machines.");
-        tip.action(Tip.Input.LEFT, c.pinned() ? "Type a count" : "Set a count")
-            .action(Tip.Input.WHEEL, c.pinned() ? "+1 / -1" : "Up to what runs");
-        if (c.pinned()) tip.action(Tip.Input.MIDDLE, "Let the plan decide");
+            m.isPower() ? UiText.tr("card.not_sized_yet_set_a_machine_count_or_set_a_rate_on_its_eu_drawer")
+                : crop() ? UiText.tr("card.no_rate_or_set_count_in_the_plan_needs_this_crop_yet")
+                    : UiText.tr("card.no_rate_or_set_count_in_the_plan_needs_this_machine_yet"));
+        if (shared()) tip.muted(UiText.tr("card.the_total_for_all_its_recipes_which_share_the_machines"));
+        tip.action(Tip.Input.LEFT, c.pinned() ? UiText.tr("card.type_a_count") : UiText.tr("card.set_a_count"))
+            .action(Tip.Input.WHEEL, c.pinned() ? "+1 / -1" : UiText.tr("card.up_to_what_runs"));
+        if (c.pinned()) tip.action(Tip.Input.MIDDLE, UiText.tr("card.let_the_plan_decide"));
         return tip;
     }
 
@@ -471,11 +474,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final Tip tip = Tip.of(c.rule().label)
             .muted(
                 c.rule() == com.gtnhplanner.data.flowchart.PinRule.EXACT
-                    ? c.ruleFixed() ? "A custom rate always runs at its dial."
-                        : "Always this many. A gap comes in or goes out forced."
-                    : "As many as the plan lets it run. Never more.");
-        if (!c.ruleFixed()) tip.action(Tip.Input.LEFT, "Any, Up to, Exactly");
-        return tip.action(Tip.Input.MIDDLE, "Let the plan decide");
+                    ? c.ruleFixed() ? UiText.tr("card.a_custom_rate_always_runs_at_its_dial")
+                        : UiText.tr("card.always_this_many_a_gap_comes_in_or_goes_out_forced")
+                    : UiText.tr("card.as_many_as_the_plan_lets_it_run_never_more"));
+        if (!c.ruleFixed()) tip.action(Tip.Input.LEFT, UiText.tr("card.any_up_to_exactly"));
+        return tip.action(Tip.Input.MIDDLE, UiText.tr("card.let_the_plan_decide"));
     }
 
     /** The bar's tip: how much runs, the reason in full, and where to act. */
@@ -485,44 +488,49 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final CardFace.Facts facts = f.facts();
         final Tip tip = Tip.of(CardFace.footTitle(facts));
         if (facts.forced()) {
-            for (final String line : facts.forcedIn()) tip.row("Forced in", line, Hyb.AMBER_INK);
-            return tip.muted("Set it to Up to and it runs what its inputs allow.");
+            for (final String line : facts.forcedIn()) tip.row(UiText.tr("card.forced_in"), line, Hyb.AMBER_INK);
+            return tip.muted(UiText.tr("card.set_it_to_up_to_and_it_runs_what_its_inputs_allow"));
         }
-        tip.row("Usage", CardFace.usage(facts.running(), facts.capacity()));
+        tip.row(UiText.tr("card.usage"), CardFace.usage(facts.running(), facts.capacity()));
         // A ring: what it is short of or backs up with, and that the ring stops itself.
         if (facts.loop() != null) {
             final boolean dead = facts.loop() == com.gtnhplanner.data.flowchart.balancer.UpToLoop.Kind.DEAD_LOOP;
-            if (facts.resource() != null) tip.row(dead ? "Short of" : "Backs up", facts.resource(), Hyb.AMBER_INK);
-            for (final String n : facts.tied()) tip.row(dead ? "Also short of" : "Also backs up", n, Hyb.AMBER_INK);
+            if (facts.resource() != null) tip
+                .row(dead ? UiText.tr("card.short_of") : UiText.tr("card.backs_up"), facts.resource(), Hyb.AMBER_INK);
+            for (final String n : facts.tied())
+                tip.row(dead ? UiText.tr("card.also_short_of") : UiText.tr("card.also_backs_up"), n, Hyb.AMBER_INK);
             return tip.muted(CardFace.loopNote(facts.loop()));
         }
-        if (facts.reason() == null) return tip.muted("Why it runs less was not worked out in time.");
+        if (facts.reason() == null) return tip.muted(UiText.tr("card.why_it_runs_less_was_not_worked_out_in_time"));
         switch (facts.reason()) {
-            case FULL -> tip.muted("Nothing around it would use more.");
+            case FULL -> tip.muted(UiText.tr("card.nothing_around_it_would_use_more"));
             case BOTTLENECK -> {
-                if (facts.wants() != null) tip.row("Wants", "×" + Fmt.machines(facts.wants()), Hyb.RED_INK)
-                    .note(
-                        Fmt.machines(facts.wants() - facts.capacity()) + " more here would let the line run faster.",
-                        Hyb.RED_INK);
+                if (facts.wants() != null)
+                    tip.row(UiText.tr("card.wants"), "×" + Fmt.machines(facts.wants()), Hyb.RED_INK)
+                        .note(
+                            Fmt.machines(facts.wants() - facts.capacity())
+                                + UiText.tr("card.more_here_would_let_the_line_run_faster"),
+                            Hyb.RED_INK);
             }
             case STARVED -> {
-                if (facts.resource() != null) tip.row("Short of", facts.resource(), Hyb.AMBER_INK);
-                for (final String n : facts.tied()) tip.row("Also short of", n, Hyb.AMBER_INK);
-                for (final String n : facts.upstream()) tip.row("Full upstream", n);
+                if (facts.resource() != null) tip.row(UiText.tr("card.short_of"), facts.resource(), Hyb.AMBER_INK);
+                for (final String n : facts.tied()) tip.row(UiText.tr("card.also_short_of"), n, Hyb.AMBER_INK);
+                for (final String n : facts.upstream()) tip.row(UiText.tr("card.full_upstream"), n);
                 tip.muted(
                     facts.upstream()
-                        .isEmpty() ? "More of this input would let it run faster." : "Build more upstream first.");
+                        .isEmpty() ? UiText.tr("card.more_of_this_input_would_let_it_run_faster")
+                            : UiText.tr("card.build_more_upstream_first"));
             }
             case CLOGGED -> {
-                if (facts.resource() != null) tip.row("Backs up", facts.resource(), Hyb.AMBER_INK);
-                for (final String n : facts.tied()) tip.row("Also backs up", n, Hyb.AMBER_INK);
-                tip.muted("What takes it is full. Add machines after it or a drawer.");
+                if (facts.resource() != null) tip.row(UiText.tr("card.backs_up"), facts.resource(), Hyb.AMBER_INK);
+                for (final String n : facts.tied()) tip.row(UiText.tr("card.also_backs_up"), n, Hyb.AMBER_INK);
+                tip.muted(UiText.tr("card.what_takes_it_is_full_add_machines_after_it_or_a_drawer"));
             }
             case UNUSED -> {
-                if (facts.resource() != null) tip.row("Nothing takes", facts.resource(), Hyb.AMBER_INK);
-                tip.muted("Wire its output or give it a rate.");
+                if (facts.resource() != null) tip.row(UiText.tr("card.nothing_takes"), facts.resource(), Hyb.AMBER_INK);
+                tip.muted(UiText.tr("card.wire_its_output_or_give_it_a_rate"));
             }
-            case LIMITED -> tip.muted("Another count or rate in the plan holds it back.");
+            case LIMITED -> tip.muted(UiText.tr("card.another_count_or_rate_in_the_plan_holds_it_back"));
         }
         return tip;
     }
@@ -598,9 +606,9 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final int[] r = pickRect();
         Hyb.rect(r[0], r[1], r[2], r[3], hot ? 0x26FFFFFF : 0x14FFFFFF);
         Hyb.dashed(r[0], r[1], r[2], r[3], hot ? Hyb.GOLD : 0xFF6A6D78);
-        final String label = "PICK A CROP";
+        final String label = UiText.tr("card.pick_a_crop");
         Hyb.text(label, r[0] + (r[2] - Hyb.width(label)) / 2f, r[1] + (r[3] - 8) / 2f, hot ? Hyb.GOLD : Hyb.MUTED);
-        final String hint = "what this farm plants";
+        final String hint = UiText.tr("card.what_this_farm_plants");
         Hyb.text(hint, r[0] + (r[2] - Hyb.width(hint)) / 2f, r[1] + r[3] + 6, 0xFF6A6D78);
     }
 
@@ -840,14 +848,14 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             Hyb.dashed(r[0], r[1], r[2], r[3], inHand || hot ? Hyb.GOLD : 0xFF6A6D78);
             // A fluid tank takes cells and fluids only.
             final boolean tank = com.gtnhplanner.power.FluidTank.is(model.node);
-            final String label = tank ? supply ? "GIVE CELL/FLUID" : "TAKE CELL/FLUID"
-                : supply ? "SUPPLY ANY" : "DRAIN ANY";
+            final String label = tank ? supply ? UiText.tr("card.give_cell_fluid") : UiText.tr("card.take_cell_fluid")
+                : supply ? UiText.tr("card.supply_any") : UiText.tr("card.drain_any");
             Hyb.text(
                 label,
                 r[0] + (r[2] - Hyb.width(label)) / 2f,
                 r[1] + (r[3] - 8) / 2f,
                 inHand ? Hyb.GOLD : Hyb.MUTED);
-            final String hint = supply ? "feeds an input" : "takes an output";
+            final String hint = supply ? UiText.tr("card.feeds_an_input") : UiText.tr("card.takes_an_output");
             Hyb.text(hint, r[0] + (r[2] - Hyb.width(hint)) / 2f, r[1] + r[3] + 6, 0xFF6A6D78);
         }
     }
@@ -1319,7 +1327,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             : null;
         if (ports.isEmpty() && shared()) {
             final int y = layout.railsY(section);
-            final String none = output ? "No output" : "No input";
+            final String none = output ? UiText.tr("card.no_output") : UiText.tr("card.no_input");
             Hyb.text(none, crisp(x + (w - Hyb.width(none)) / 2f), y + 12, 0xB39A9CA4);
             return;
         }
@@ -1492,7 +1500,7 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         // The share: what part of the machine's time, then its own machines.
         final double total = machinesTotal();
         final String pct = total > 0 ? Math.round(100 * m.machines / total) + "%" : "0%";
-        final String word = m.machines <= 0 ? "UNUSED" : "×" + Fmt.machines(m.machines);
+        final String word = m.machines <= 0 ? UiText.tr("card.unused") : "×" + Fmt.machines(m.machines);
         final int wordColor = Hyb.MUTED;
         final int tx = CardLayout.IN_RAIL_X + 4;
         CardPaint.hair(y);
@@ -1568,7 +1576,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     /**
      * What the machine draws, one more row after its inputs (plans do not wire machine power): the bolt, the power
      * large
-     * (the amps, by the board's power key), "Power" small; TIER! in red when the tier is too low to run it.
+     * (the amps, by the board's power key), UiText.tr("card.power") small; TIER! in red when the tier is too low to run
+     * it.
      */
     private void drawPowerRow(final CardModel m, final boolean hover) {
         final int y = layout.powerRowY;
@@ -1580,17 +1589,18 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             final net.minecraftforge.fluids.FluidStack steam = net.minecraftforge.fluids.FluidRegistry
                 .getFluidStack("steam", 1000);
             if (steam != null) Hyb.fluid(steam, CardLayout.iconX(false), y + CardLayout.ICON_Y, CardLayout.ICON, 0);
-            CardPaint.words(Fmt.compact(steamTotal()), " L/s", "Steam", Hyb.INK, false, y);
+            CardPaint.words(Fmt.compact(steamTotal()), " L/s", UiText.tr("card.steam"), Hyb.INK, false, y);
             return;
         }
         euIcon(CardLayout.iconX(false), y + CardLayout.ICON_Y, CardLayout.ICON);
         final double eu = powerTotal();
         final int tierIdx = CardDefaults.tierIndex(m.tier);
         final boolean amps = session.powerKey() == BoardSession.PowerKey.AMPS && m.gregtech && tierIdx >= 0;
-        if (anyTierTooLow()) CardPaint.words("TIER!", "", "Power", Hyb.RED_INK, false, y);
-        else if (amps)
-            CardPaint.words(Fmt.compact(eu / (8L << (2 * tierIdx))), "A " + m.tier, "Power", Hyb.INK, false, y);
-        else CardPaint.words(Fmt.power(eu), " EU/t", "Power", eu <= 0 ? 0xFFA8AFBB : Hyb.INK, false, y);
+        if (anyTierTooLow())
+            CardPaint.words(UiText.tr("card.tier"), "", UiText.tr("card.power"), Hyb.RED_INK, false, y);
+        else if (amps) CardPaint
+            .words(Fmt.compact(eu / (8L << (2 * tierIdx))), "A " + m.tier, UiText.tr("card.power"), Hyb.INK, false, y);
+        else CardPaint.words(Fmt.power(eu), " EU/t", UiText.tr("card.power"), eu <= 0 ? 0xFFA8AFBB : Hyb.INK, false, y);
     }
 
     /**
@@ -2058,16 +2068,16 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (m.isPower()) return powerTip(part);
         return switch (part) {
             case PLACE -> placeTip();
-            case ACTIONS -> Tip.of("Card actions")
-                .action(Tip.Input.LEFT, "Clone, add a recipe, settings, delete");
+            case ACTIONS -> Tip.of(UiText.tr("card.card_actions"))
+                .action(Tip.Input.LEFT, UiText.tr("card.clone_add_a_recipe_settings_delete"));
             case SECTION -> {
                 final int[] key = sectionKeyAt(localX(), localY());
                 if (key == null) yield null;
                 yield switch (key[1]) {
-                    case 0 -> Tip.of("Move this recipe up");
-                    case 1 -> Tip.of("Move this recipe down");
-                    default -> Tip.of("Remove this recipe from the card")
-                        .muted("Its wires are removed too.");
+                    case 0 -> Tip.of(UiText.tr("card.move_this_recipe_up"));
+                    case 1 -> Tip.of(UiText.tr("card.move_this_recipe_down"));
+                    default -> Tip.of(UiText.tr("card.remove_this_recipe_from_the_card"))
+                        .muted(UiText.tr("card.its_wires_are_removed_too"));
                 };
             }
             case MACHINE -> {
@@ -2076,53 +2086,53 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
                         bee() && m.machineStack != null ? m.machineStack.getDisplayName()
-                            : m.multiblock ? "Multiblock" : "Machine");
+                            : m.multiblock ? UiText.tr("card.multiblock") : UiText.tr("card.machine"));
                 countRows(tip);
-                if (shared()) tip.row("Recipes", Integer.toString(models.size()));
-                if (m.gregtech && !m.steam()) tip.row("Configured tier", m.tier);
-                tip.row("Time per operation", Fmt.compact(m.durationTicks / 20.0) + " s");
-                if (m.steam()) tip.row("Steam per machine", Fmt.compact(m.steamPerTick * 20) + " L/s");
-                else tip.row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
-                if (m.parallels > 1) tip.row("Parallel operations", Integer.toString(m.parallels));
-                if (shared()) tip.muted("One machine runs these recipes in turns.");
+                if (shared()) tip.row(UiText.tr("card.recipes"), Integer.toString(models.size()));
+                if (m.gregtech && !m.steam()) tip.row(UiText.tr("card.configured_tier"), m.tier);
+                tip.row(UiText.tr("card.time_per_operation"), Fmt.compact(m.durationTicks / 20.0) + " s");
+                if (m.steam()) tip.row(UiText.tr("card.steam_per_machine"), Fmt.compact(m.steamPerTick * 20) + " L/s");
+                else tip.row(UiText.tr("card.draw_per_machine"), Fmt.power(m.euPerTick) + " EU/t");
+                if (m.parallels > 1) tip.row(UiText.tr("card.parallel_operations"), Integer.toString(m.parallels));
+                if (shared()) tip.muted(UiText.tr("card.one_machine_runs_these_recipes_in_turns"));
                 if (machineChoices().size() > 1)
-                    tip.action(Tip.Input.LEFT, shared() ? "Machines that run them all" : "Machines that run it")
-                        .action(Tip.Input.WHEEL, "Next machine");
+                    tip.action(Tip.Input.LEFT, shared() ? UiText.tr("card.machines_that_run_them_all") : UiText.tr("card.machines_that_run_it"))
+                        .action(Tip.Input.WHEEL, UiText.tr("card.next_machine"));
                 yield tip;
             }
             case TIER -> {
                 if (crop()) yield Tip
                     .of(
-                        com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? "Seed bed tier"
-                            : "Crop Manager tier")
-                    .row("Configured tier", com.gtnhplanner.machines.game.CropCards.tierName(m.node))
+                        com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack) ? UiText.tr("card.seed_bed_tier")
+                            : UiText.tr("card.crop_manager_tier"))
+                    .row(UiText.tr("card.configured_tier"), com.gtnhplanner.machines.game.CropCards.tierName(m.node))
                     .row(
-                        "Crops per machine",
+                        UiText.tr("card.crops_per_machine"),
                         Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
-                    .action(Tip.Input.LEFT, "Up")
-                    .action(Tip.Input.RIGHT, "Down")
-                    .action(Tip.Input.WHEEL, "Step");
-                final Tip tip = Tip.of("Voltage tier")
-                    .row("Configured tier", m.tier);
+                    .action(Tip.Input.LEFT, UiText.tr("card.up"))
+                    .action(Tip.Input.RIGHT, UiText.tr("card.down"))
+                    .action(Tip.Input.WHEEL, UiText.tr("card.step"));
+                final Tip tip = Tip.of(UiText.tr("card.voltage_tier"))
+                    .row(UiText.tr("card.configured_tier"), m.tier);
                 if (m.node.properties.get(GTKeys.EU_PER_TICK) instanceof final Number eu && eu.longValue() > 0)
-                    tip.row("Recipe tier", CardDefaults.TIERS[CardDefaults.recipeTier(eu.longValue())]);
-                tip.row("Time per operation", Fmt.compact(m.durationTicks / 20.0) + " s")
-                    .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
-                if (m.tierTooLow()) tip.note("Below the recipe's tier: it cannot run.", Hyb.RED_INK);
-                yield tip.action(Tip.Input.LEFT, "Up")
-                    .action(Tip.Input.RIGHT, "Down")
-                    .action(Tip.Input.WHEEL, "Step");
+                    tip.row(UiText.tr("card.recipe_tier"), CardDefaults.TIERS[CardDefaults.recipeTier(eu.longValue())]);
+                tip.row(UiText.tr("card.time_per_operation"), Fmt.compact(m.durationTicks / 20.0) + " s")
+                    .row(UiText.tr("card.draw_per_machine"), Fmt.power(m.euPerTick) + " EU/t");
+                if (m.tierTooLow()) tip.note(UiText.tr("card.below_the_recipe_s_tier_it_cannot_run"), Hyb.RED_INK);
+                yield tip.action(Tip.Input.LEFT, UiText.tr("card.up"))
+                    .action(Tip.Input.RIGHT, UiText.tr("card.down"))
+                    .action(Tip.Input.WHEEL, UiText.tr("card.step"));
             }
-            case AMPS -> Tip.of("Energy hatch amps")
-                .row("Amps", Fmt.compact(m.amps) + "A");
-            case POWER -> m.steam() ? Tip.of("Steam")
-                .row("Steam per machine", Fmt.compact(m.steamPerTick * 20) + " L/s")
-                .row("Steam for this card", Fmt.compact(steamTotal()) + " L/s")
-                .muted("Not wired in plans.")
-                : Tip.of("Power")
-                    .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t")
-                .row("Demand for this card", Fmt.power(session.power(m)) + " EU/t")
-                .muted("Not wired in plans.");
+            case AMPS -> Tip.of(UiText.tr("card.energy_hatch_amps"))
+                .row(UiText.tr("card.amps"), Fmt.compact(m.amps) + "A");
+            case POWER -> m.steam() ? Tip.of(UiText.tr("card.steam"))
+                .row(UiText.tr("card.steam_per_machine"), Fmt.compact(m.steamPerTick * 20) + " L/s")
+                .row(UiText.tr("card.steam_for_this_card"), Fmt.compact(steamTotal()) + " L/s")
+                .muted(UiText.tr("card.not_wired_in_plans"))
+                : Tip.of(UiText.tr("card.power"))
+                    .row(UiText.tr("card.draw_per_machine"), Fmt.power(m.euPerTick) + " EU/t")
+                .row(UiText.tr("card.demand_for_this_card"), Fmt.power(session.power(m)) + " EU/t")
+                .muted(UiText.tr("card.not_wired_in_plans"));
             case SETTINGS -> settingsTip();
             case CHIP -> chipTip();
             case MACHINES -> countTip(m);
@@ -2141,43 +2151,47 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     private Tip customRateTip() {
         final com.gtnhplanner.data.flowchart.Node n = model.node;
         final String key = com.gtnhplanner.power.CustomRate.resource(n);
-        final Tip tip = Tip.of("Custom Rate");
-        if (key == null) return tip.muted("Wire any port to this and it adopts that resource.");
+        final Tip tip = Tip.of(UiText.tr("card.custom_rate"));
+        if (key == null) return tip.muted(UiText.tr("card.wire_any_port_to_this_and_it_adopts_that_resource"));
         final String name = com.gtnhplanner.ui.Resources.name(key);
         final String rate = com.gtnhplanner.power.sources.Helpers.formatAmount(com.gtnhplanner.power.CustomRate.rate(n))
             + " "
             + com.gtnhplanner.power.CustomRate.unit(key);
-        return (com.gtnhplanner.power.CustomRate.supply(n) ? tip.sub("Supplies " + name)
-            .muted("Makes " + name + " at the dialed rate for anything that asks.")
-            : tip.sub("Requests " + name)
-                .muted("Constantly drains " + name + " at the dialed rate.")).row("Dialed rate", rate)
-                    .row(pinned() ? "Exactly" : "Calculated", "×" + Fmt.machines(machinesTotal()));
+        return (com.gtnhplanner.power.CustomRate.supply(n) ? tip.sub(UiText.tr("card.supplies") + " " + name)
+            .muted(UiText.tr("card.makes") + " " + name + UiText.tr("card.at_the_dialed_rate_for_anything_that_asks"))
+            : tip.sub(UiText.tr("card.requests") + " " + name)
+                .muted(UiText.tr("card.constantly_drains") + " " + name + UiText.tr("card.at_the_dialed_rate")))
+                    .row(UiText.tr("card.dialed_rate"), rate)
+                    .row(
+                        pinned() ? UiText.tr("card.exactly") : UiText.tr("card.calculated"),
+                        "×" + Fmt.machines(machinesTotal()));
     }
 
     /** The count's rows in a name's tip: what runs (or what the plan needs), and what is set under its rule. */
     private void countRows(final Tip tip) {
         final CardFace.Count c = face();
-        tip.row(c.pinned() ? "Running machines" : "Required machines", c.run());
+        tip.row(c.pinned() ? UiText.tr("card.running_machines") : UiText.tr("card.required_machines"), c.run());
         if (c.pinned()) tip.row(c.rule().label, "×" + c.setText());
     }
 
     /** The fluid tank's name: what it empties or fills, and how much a cell holds. */
     private Tip tankTip() {
         final com.gtnhplanner.data.flowchart.Node n = model.node;
-        final Tip tip = Tip.of("Fluid Tank");
+        final Tip tip = Tip.of(UiText.tr("card.fluid_tank"));
         final com.gtnhplanner.power.FluidTank.Pair p = com.gtnhplanner.power.FluidTank
             .pair(com.gtnhplanner.power.FluidTank.cell(n));
-        if (p == null)
-            return tip.muted("Wire a cell or a fluid to it: it empties cells, or fills them, free and instant.");
+        if (p == null) return tip
+            .muted(UiText.tr("card.wire_a_cell_or_a_fluid_to_it_it_empties_cells_or_fills_them_free_and_instant"));
         final String cell = p.cell()
             .getDisplayName();
-        return (com.gtnhplanner.power.FluidTank.emptying(n) ? tip.sub("Empties " + cell) : tip.sub("Fills " + cell))
-            .muted("Free and instant: as much as the plan needs.")
-            .row(
-                "Holds",
-                Fmt.compact(p.fluid().amount) + " L of "
-                    + p.fluid()
-                        .getLocalizedName());
+        return (com.gtnhplanner.power.FluidTank.emptying(n) ? tip.sub(UiText.tr("card.empties") + " " + cell)
+            : tip.sub(UiText.tr("card.fills") + " " + cell))
+                .muted(UiText.tr("card.free_and_instant_as_much_as_the_plan_needs"))
+                .row(
+                    UiText.tr("card.holds"),
+                    Fmt.compact(p.fluid().amount) + " L of "
+                        + p.fluid()
+                            .getLocalizedName());
     }
 
     private Tip powerTip(final Part part) {
@@ -2187,42 +2201,49 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final double each = pm == null ? 0 : pm.euPerTick();
         return switch (part) {
             case PLACE -> placeTip();
-            case ACTIONS -> Tip.of("Card actions")
-                .action(Tip.Input.LEFT, "Clone, delete");
-            case PICK -> Tip.of("Pick a crop")
-                .muted("Click to pick what this farm plants.");
+            case ACTIONS -> Tip.of(UiText.tr("card.card_actions"))
+                .action(Tip.Input.LEFT, UiText.tr("card.clone_delete"));
+            case PICK -> Tip.of(UiText.tr("card.pick_a_crop"))
+                .muted(UiText.tr("card.click_to_pick_what_this_farm_plants"));
             case MACHINE -> {
                 if (com.gtnhplanner.power.CustomRate.is(m.node)) yield customRateTip();
                 if (emptyCropFarm()) yield Tip.of(m.machineName)
-                    .muted("Pick a crop to start producing.")
-                    .action(Tip.Input.LEFT, "Pick a crop");
+                    .muted(UiText.tr("card.pick_a_crop_to_start_producing"))
+                    .action(Tip.Input.LEFT, UiText.tr("card.pick_a_crop"));
                 if (com.gtnhplanner.power.FluidTank.is(m.node)) yield tankTip();
                 final Tip tip = Tip.of(m.machineName)
                     .sub(
-                        "Non-recipe machine"
+                        UiText.tr("card.non_recipe_machine")
                             + (source != null ? ", " + source.group().title.toLowerCase(java.util.Locale.ROOT) : ""));
                 if (source != null) tip.muted(source.blurb());
-                if (source == null)
-                    tip.note("Unknown machine: this version of GTNH Planner doesn't have it.", Hyb.RED_INK);
-                tip.row(each < 0 ? "Draws per machine" : "Makes per machine", Fmt.power(Math.abs(each)) + " EU/t");
+                if (source == null) tip
+                    .note(UiText.tr("card.unknown_machine_this_version_of_gtnh_planner_doesn_t_have_it"), Hyb.RED_INK);
+                tip.row(
+                    each < 0 ? UiText.tr("card.draws_per_machine") : UiText.tr("card.makes_per_machine"),
+                    Fmt.power(Math.abs(each)) + " EU/t");
                 if (!com.gtnhplanner.power.FluidTank.is(m.node)) countRows(tip);
-                if (source != null && source.unlock() != null) tip.row("Unlocks at", source.unlock());
+                if (source != null && source.unlock() != null) tip.row(UiText.tr("card.unlocks_at"), source.unlock());
                 yield tip;
             }
-            case TIER -> Tip.of("Tier")
-                .row("Configured tier", powerTier() == null ? "" : powerTier().value(m.node.powerSettings.get("tier")))
-                .row("Makes per machine", Fmt.power(each) + " EU/t")
-                .action(Tip.Input.LEFT, "Up")
-                .action(Tip.Input.RIGHT, "Down")
-                .action(Tip.Input.WHEEL, "Step");
+            case TIER -> Tip.of(UiText.tr("card.tier"))
+                .row(
+                    UiText.tr("card.configured_tier"),
+                    powerTier() == null ? "" : powerTier().value(m.node.powerSettings.get("tier")))
+                .row(UiText.tr("card.makes_per_machine"), Fmt.power(each) + " EU/t")
+                .action(Tip.Input.LEFT, UiText.tr("card.up"))
+                .action(Tip.Input.RIGHT, UiText.tr("card.down"))
+                .action(Tip.Input.WHEEL, UiText.tr("card.step"));
             case SETTINGS -> settingsTip();
             case CHIP -> chipTip();
-            case POWER -> Tip.of(each < 0 ? "Power drawn" : "Power made")
-                .row(each < 0 ? "Draws per machine" : "Makes per machine", Fmt.power(Math.abs(each)) + " EU/t")
-                .row("All its machines", Fmt.power(Math.abs(each) * machinesTotal()) + " EU/t")
+            case POWER -> Tip.of(each < 0 ? UiText.tr("card.power_drawn") : UiText.tr("card.power_made"))
+                .row(
+                    each < 0 ? UiText.tr("card.draws_per_machine") : UiText.tr("card.makes_per_machine"),
+                    Fmt.power(Math.abs(each)) + " EU/t")
+                .row(UiText.tr("card.all_its_machines"), Fmt.power(Math.abs(each) * machinesTotal()) + " EU/t")
                 .muted(
-                    each < 0 ? "Added to the plan's power use."
-                        : "To size it, wire its EU output to a drawer and set a rate, or set a machine count.");
+                    each < 0 ? UiText.tr("card.added_to_the_plan_s_power_use")
+                        : UiText.tr(
+                            "card.to_size_it_wire_its_eu_output_to_a_drawer_and_set_a_rate_or_set_a_machine_count"));
             case MACHINES -> countTip(m);
             case RULE -> ruleTip();
             case FOOT -> footTip();
@@ -2232,10 +2253,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
 
     /** The gear key's tooltip: what it opens, and what stops the recipe. */
     private Tip settingsTip() {
-        final Tip tip = Tip.of("Machine settings")
-            .muted("Pin a setting there to show it on the card.");
-        if (coilTooCold()) tip.note("The coil is too cold for this recipe: it cannot run.", Hyb.RED_INK);
-        return tip.action(Tip.Input.LEFT, "Open");
+        final Tip tip = Tip.of(UiText.tr("cardtail.machine_settings"))
+            .muted(UiText.tr("cardtail.pin_a_setting_there_to_show_it_on_the_card"));
+        if (coilTooCold())
+            tip.note(UiText.tr("cardtail.the_coil_is_too_cold_for_this_recipe_it_cannot_run"), Hyb.RED_INK);
+        return tip.action(Tip.Input.LEFT, UiText.tr("cardtail.open"));
     }
 
     /** A pinned setting's chip: what it is set to, why it is moot, how to change it. */
@@ -2244,10 +2266,12 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         if (i < 0) return null;
         final SettingControls.Control c = layout.chips.get(i);
         final Tip tip = Tip.of(c.label())
-            .row(c.type() == SettingControls.Type.READING ? "Reads" : "Set to", c.value());
+            .row(
+                c.type() == SettingControls.Type.READING ? UiText.tr("cardtail.reads") : UiText.tr("cardtail.set_to"),
+                c.value());
         if (c.type() == SettingControls.Type.COIL && model.recipeHeat > 0)
-            tip.row("Recipe needs", model.recipeHeat + " K");
-        if (c.warn()) tip.note("Too cold for this recipe: it cannot run.", Hyb.RED_INK);
+            tip.row(UiText.tr("cardtail.recipe_needs"), model.recipeHeat + " K");
+        if (c.warn()) tip.note(UiText.tr("cardtail.too_cold_for_this_recipe_it_cannot_run"), Hyb.RED_INK);
         if (!c.enabled()) {
             final com.gtnhplanner.power.PowerSource source = model.power == null ? null : model.power.source();
             final com.gtnhplanner.power.PowerSetting s = source == null ? null
@@ -2265,14 +2289,17 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             }
         } else if (c.type() != SettingControls.Type.READING) {
             tip.action(Tip.Input.LEFT, switch (c.type()) {
-                case TOGGLE -> "Switch";
-                case NUMBER -> "Type a value";
-                default -> "Choose";
+                case TOGGLE -> UiText.tr("cardtail.switch");
+                case NUMBER -> UiText.tr("cardtail.type_a_value");
+                default -> UiText.tr("cardtail.choose");
             })
-                .action(Tip.Input.RIGHT, c.type() == SettingControls.Type.TOGGLE ? "Switch" : "Step back")
-                .action(Tip.Input.WHEEL, "Step");
+                .action(
+                    Tip.Input.RIGHT,
+                    c.type() == SettingControls.Type.TOGGLE ? UiText.tr("cardtail.switch")
+                        : UiText.tr("cardtail.step_back"))
+                .action(Tip.Input.WHEEL, UiText.tr("card.step"));
         }
-        return tip.muted("Pinned to the card: unpin it in the settings.");
+        return tip.muted(UiText.tr("cardtail.pinned_to_the_card_unpin_it_in_the_settings"));
     }
 
     /** An option's label for a setting's stored key (the key itself for anything but a select). */
@@ -2738,25 +2765,26 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         rows.add(
             new PickList.Entry(
                 null,
-                placed() ? "Place again in the world" : "Place in the world",
+                placed() ? UiText.tr("cardtail.place_again_in_the_world") : UiText.tr("cardtail.place_in_the_world"),
                 "",
                 Hyb.INK,
                 false,
                 this::placeInWorld));
         if (placed()) rows.add(
-            PickList.Entry
-                .of("Remove from the world", () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
+            PickList.Entry.of(
+                UiText.tr("cardtail.remove_from_the_world"),
+                () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
         rows.add(
             new PickList.Entry(
                 null,
-                listed ? "Unpin from the screen" : "Pin to the screen",
+                listed ? UiText.tr("cardtail.unpin_from_the_screen") : UiText.tr("cardtail.pin_to_the_screen"),
                 "",
                 Hyb.INK,
                 false,
                 () -> session.togglePinList(nodeId)));
         rows.add(
             PickList.Entry.of(
-                "Add to a task",
+                UiText.tr("cardtail.add_to_a_task"),
                 () -> com.gtnhplanner.ui.task.TaskActions
                     .addMenu(session, session.panel(), List.of(nodeId), screenX, screenY)));
         Popup.open(session.panel(), PickList.popup("gtnhplanner_place", null, rows, false, 150), screenX, screenY);
@@ -2813,19 +2841,21 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final boolean farm = com.gtnhplanner.machines.game.CropCards.isFarm(m.machineStack);
         final CardFace.Count c = face();
         final Tip tip = Tip.of(m.machineName)
-            .sub(farm ? "Multiblock" : "Machine")
-            .row("Crops planted", Fmt.machines(c.value()));
+            .sub(farm ? UiText.tr("card.multiblock") : UiText.tr("card.machine"))
+            .row(UiText.tr("card.crops_planted"), Fmt.machines(c.value()));
         if (c.pinned()) tip.row(c.rule().label, c.setText());
         tip.row(
-            "Crops per machine",
+            UiText.tr("card.crops_per_machine"),
             Integer.toString(com.gtnhplanner.machines.game.CropCards.cropsPerHarvester(m.node)))
             .row(
-                farm ? "Industrial Farms" : "Crop Managers",
+                farm ? UiText.tr("card.industrial_farms") : UiText.tr("card.crop_managers"),
                 "×" + com.gtnhplanner.machines.game.CropCards.harvesters(m.node, crops))
-            .row("Harvest every", Fmt.compact(m.durationTicks / 20.0) + " s")
-            .row("Draw", Fmt.power(com.gtnhplanner.machines.game.CropCards.drawEut(m.node, crops)) + " EU/t");
-        if (machineChoices().size() > 1) tip.action(Tip.Input.LEFT, "Machines that harvest it")
-            .action(Tip.Input.WHEEL, "Next machine");
+            .row(UiText.tr("cardtail.harvest_every"), Fmt.compact(m.durationTicks / 20.0) + " s")
+            .row(
+                UiText.tr("cardtail.draw"),
+                Fmt.power(com.gtnhplanner.machines.game.CropCards.drawEut(m.node, crops)) + " EU/t");
+        if (machineChoices().size() > 1) tip.action(Tip.Input.LEFT, UiText.tr("cardtail.machines_that_harvest_it"))
+            .action(Tip.Input.WHEEL, UiText.tr("card.next_machine"));
         return tip;
     }
 
@@ -2834,25 +2864,28 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         final Tip tip = Tip.of(headName(m))
             .sub("In the " + m.machineName + "'s spawner");
         countRows(tip);
-        if (m.gregtech) tip.row("Configured tier", m.tier);
-        tip.row("Time per kill", Fmt.compact(m.durationTicks / 20.0) + " s")
-            .row("Draw per machine", Fmt.power(m.euPerTick) + " EU/t");
+        if (m.gregtech) tip.row(UiText.tr("card.configured_tier"), m.tier);
+        tip.row(UiText.tr("cardtail.time_per_kill"), Fmt.compact(m.durationTicks / 20.0) + " s")
+            .row(UiText.tr("card.draw_per_machine"), Fmt.power(m.euPerTick) + " EU/t");
         final String gated = com.gtnhplanner.machines.game.EecCards.gated(m.node);
-        if (!gated.isEmpty()) tip.muted("Never drops here: " + gated + ".");
-        return tip.action(Tip.Input.LEFT, "Put in another mob");
+        if (!gated.isEmpty()) tip.muted(UiText.tr("cardtail.never_drops_here") + gated + ".");
+        return tip.action(Tip.Input.LEFT, UiText.tr("cardtail.put_in_another_mob"));
     }
 
     private Tip placeTip() {
-        Tip tip = Tip.of(placed() ? "Placed in the world" : listed() ? "Pinned to the screen" : "Pin");
+        Tip tip = Tip.of(
+            placed() ? UiText.tr("cardtail.placed_in_the_world")
+                : listed() ? UiText.tr("cardtail.pinned_to_the_screen") : UiText.tr("cardtail.pin"));
         if (placed()) {
             final int[] at = model.node.worldLinks.get(0);
-            tip = tip.sub("On the block at " + at[1] + ", " + at[2] + ", " + at[3]);
+            tip = tip.sub(UiText.tr("cardtail.on_the_block_at") + at[1] + ", " + at[2] + ", " + at[3]);
         }
-        if (placed() && listed()) tip = tip.sub("On your pin list while playing");
-        if (!pinnedAnywhere()) return tip.sub("Place it in the world, or list it on screen while playing")
-            .action(Tip.Input.LEFT, "Choose");
-        return tip.action(Tip.Input.LEFT, "Choose")
-            .action(Tip.Input.RIGHT, "Unpin it everywhere");
+        if (placed() && listed()) tip = tip.sub(UiText.tr("cardtail.on_your_pin_list_while_playing"));
+        if (!pinnedAnywhere())
+            return tip.sub(UiText.tr("cardtail.place_it_in_the_world_or_list_it_on_screen_while_playing"))
+                .action(Tip.Input.LEFT, UiText.tr("cardtail.choose"));
+        return tip.action(Tip.Input.LEFT, UiText.tr("cardtail.choose"))
+            .action(Tip.Input.RIGHT, UiText.tr("cardtail.unpin_it_everywhere"));
     }
 
     private void openActions() {
@@ -2863,29 +2896,39 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
     private void openActionsAt(final int sx, final int sy) {
         final Node node = model.node;
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Clone node", () -> session.cloneNode(node)));
+        rows.add(PickList.Entry.of(UiText.tr("cardtail.clone_node"), () -> session.cloneNode(node)));
         // What it runs on: a crusher's mob, a crop card's crop.
-        if (eec()) rows.add(PickList.Entry.of("Put in another mob", () -> RecipePicks.mobs(session, node, sx, sy)));
-        if (crop()) rows.add(PickList.Entry.of("Pick another crop", () -> RecipePicks.crops(session, node, sx, sy)));
+        if (eec()) rows.add(
+            PickList.Entry.of(UiText.tr("cardtail.put_in_another_mob"), () -> RecipePicks.mobs(session, node, sx, sy)));
+        if (crop()) rows.add(
+            PickList.Entry.of(UiText.tr("cardtail.pick_another_crop"), () -> RecipePicks.crops(session, node, sx, sy)));
         // Into a task, with every card selected with it: a machine thing each.
         final List<UUID> taskCards = session.isSelected(nodeId) ? session.cardsIn(session.selection())
             : List.of(nodeId);
         rows.add(
             PickList.Entry.of(
-                "Add to a task",
+                UiText.tr("cardtail.add_to_a_task"),
                 () -> com.gtnhplanner.ui.task.TaskActions.addMenu(session, session.panel(), taskCards, sx, sy)));
         // Its place in the world, once it has one.
         if (placed()) {
             rows.add(
-                PickList.Entry
-                    .of("Show in the world", () -> com.gtnhplanner.ui.world.WorldView.show(session.graph(), node.id)));
+                PickList.Entry.of(
+                    UiText.tr("cardtail.show_in_the_world"),
+                    () -> com.gtnhplanner.ui.world.WorldView.show(session.graph(), node.id)));
             rows.add(
                 PickList.Entry.of(
-                    "Remove from the world",
+                    UiText.tr("cardtail.remove_from_the_world"),
                     () -> com.gtnhplanner.ui.world.WorldLinks.clear(session.graph(), node)));
         }
         rows.add(PickList.Entry.rule());
-        rows.add(new PickList.Entry(null, "Delete node", "", Hyb.RED_INK, false, () -> session.delete(node)));
+        rows.add(
+            new PickList.Entry(
+                null,
+                UiText.tr("cardtail.delete_node"),
+                "",
+                Hyb.RED_INK,
+                false,
+                () -> session.delete(node)));
         Popup.open(session.panel(), PickList.popup("gtnhplanner_actions", null, rows, false, 150), sx, sy);
     }
 
@@ -2895,18 +2938,20 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             String detail = "";
             if (model.gregtech || com.gtnhplanner.machines.game.AutoWorkbench.is(machine)) {
                 final GtMachines.Kind kind = GtMachines.of(machine);
-                if (kind != null) detail = kind.multiblock() ? "Multiblock"
-                    : kind.steam() ? "Steam" : isSingle(machine) ? "Single block, tier by the chip" : "";
+                if (kind != null) detail = kind.multiblock() ? UiText.tr("card.multiblock")
+                    : kind.steam() ? UiText.tr("card.steam")
+                        : isSingle(machine) ? UiText.tr("cardtail.single_block_tier_by_the_chip") : "";
             }
             final boolean farm = com.gtnhplanner.machines.game.CropCards.isFarm(machine);
-            if (crop()) detail = farm ? "Multiblock, seed bed by the chip" : "Single block, tier by the chip";
+            if (crop()) detail = farm ? UiText.tr("cardtail.multiblock_seed_bed_by_the_chip")
+                : UiText.tr("cardtail.single_block_tier_by_the_chip");
             final boolean current = crop() ? farm == com.gtnhplanner.machines.game.CropCards.isFarm(model.machineStack)
                 : bee()
                     ? com.gtnhplanner.machines.game.BeeCards.housingOf(machine)
                         == com.gtnhplanner.machines.game.BeeCards.housingOf(model.machineStack)
                     : ItemStack.areItemStacksEqual(machine, model.machineStack)
                         || isSingle(machine) && isSingle(model.machineStack);
-            final String name = crop() && !farm ? "Crop Manager" : machine.getDisplayName();
+            final String name = crop() && !farm ? UiText.tr("cardtail.crop_manager") : machine.getDisplayName();
             rows.add(new PickList.Entry(machine, name, detail, Hyb.INK, current, () -> {
                 if (!current) {
                     com.gtnhplanner.ui.sound.Sfx.ADJUST.play();
@@ -2918,9 +2963,10 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
             session.panel(),
             PickList.popup(
                 "gtnhplanner_machines",
-                crop() ? "MACHINES THAT HARVEST THIS CROP"
-                    : bee() ? "MACHINES THAT KEEP THIS BEE"
-                        : shared() ? "MACHINES THAT RUN EVERY RECIPE ON THIS CARD" : "MACHINES THAT RUN THIS RECIPE",
+                crop() ? UiText.tr("cardtail.machines_that_harvest_this_crop")
+                    : bee() ? UiText.tr("cardtail.machines_that_keep_this_bee")
+                        : shared() ? UiText.tr("cardtail.machines_that_run_every_recipe_on_this_card")
+                            : UiText.tr("cardtail.machines_that_run_this_recipe"),
                 rows,
                 rows.size() > 8,
                 240),
@@ -2968,8 +3014,8 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         Popup.open(
             session.panel(),
             NumberPopup.create(
-                "Energy hatch amps",
-                "amps, 1 or more",
+                UiText.tr("card.energy_hatch_amps"),
+                UiText.tr("cardtail.amps_1_or_more"),
                 model.amps,
                 1,
                 PowerPanel.MAX_AMPS,
@@ -3012,10 +3058,11 @@ public final class RecipeCard extends ParentWidget<RecipeCard> implements Intera
         Popup.open(
             session.panel(),
             NumberPopup.create(
-                (rule == com.gtnhplanner.data.flowchart.PinRule.EXACT ? "Exactly" : "Up to") + " how many "
+                (rule == com.gtnhplanner.data.flowchart.PinRule.EXACT ? UiText.tr("card.exactly") : "Up to")
+                    + " how many "
                     + (crop() ? "crops" : "machines"),
                 crop() ? "crops" : "machines",
-                "Empty lets the plan decide",
+                UiText.tr("cardtail.empty_lets_the_plan_decide"),
                 c.pinned() ? c.set() : 0,
                 0,
                 100_000,

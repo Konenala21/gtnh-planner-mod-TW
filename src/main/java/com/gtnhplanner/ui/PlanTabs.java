@@ -218,8 +218,8 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     /** Where someone has the plan open. */
     private static String where(final Peers.Face f) {
-        if (f.inGame() && f.inBrowser()) return "In game and in a browser";
-        return f.inGame() ? "In game" : "In a browser";
+        if (f.inGame() && f.inBrowser()) return UiText.tr("tabs.in_game_and_in_a_browser");
+        return f.inGame() ? UiText.tr("tabs.in_game") : UiText.tr("tabs.in_a_browser");
     }
 
     // endregion
@@ -235,18 +235,18 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
 
     private static String statusText(final CloudSession s) {
         return switch (s.status()) {
-            case LIVE -> "Live";
-            case CONNECTING -> "Connecting";
-            case OFFLINE -> s.editsWaiting() ? "Offline: edits kept" : "Offline";
+            case LIVE -> UiText.tr("tabs.live");
+            case CONNECTING -> UiText.tr("tabs.connecting");
+            case OFFLINE -> s.editsWaiting() ? UiText.tr("tabs.offline_edits_kept") : UiText.tr("tabs.offline");
         };
     }
 
     private static String statusTip(final CloudSession s) {
         return switch (s.status()) {
-            case LIVE -> "Every edit is saved to your account";
-            case CONNECTING -> "Reaching your account";
-            case OFFLINE -> s.editsWaiting() ? "Your edits are kept here until you are back online"
-                : "Not connected to your account";
+            case LIVE -> UiText.tr("tabs.every_edit_is_saved_to_your_account");
+            case CONNECTING -> UiText.tr("tabs.reaching_your_account");
+            case OFFLINE -> s.editsWaiting() ? UiText.tr("tabs.your_edits_are_kept_here_until_you_are_back_online")
+                : UiText.tr("tabs.not_connected_to_your_account");
         };
     }
 
@@ -654,24 +654,44 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final int sx = getArea().x + Math.max(0, t.x()), sy = getArea().y + getArea().height + 2;
         if (t.slot() < 0) {
             final List<PickList.Entry> rows = new ArrayList<>();
-            rows.add(new PickList.Entry(null, "New plan", "", Hyb.INK, false, session::addSlot));
-            rows.add(
-                new PickList.Entry(null, "New task board", "a plan of tasks", Hyb.INK, false, session::addTaskBoard));
-            rows.add(new PickList.Entry(null, "Open a plan...", "My plans", Hyb.INK, false, session::openMyPlans));
-            rows.add(new PickList.Entry(null, "Paste plan", "a plan link or code", Hyb.INK, false, session::pastePlan));
+            rows.add(new PickList.Entry(null, UiText.tr("tabs.new_plan"), "", Hyb.INK, false, session::addSlot));
             rows.add(
                 new PickList.Entry(
                     null,
-                    "Open plan file...",
-                    "saved plans and pictures",
+                    UiText.tr("tabs.new_task_board"),
+                    UiText.tr("tabs.a_plan_of_tasks"),
+                    Hyb.INK,
+                    false,
+                    session::addTaskBoard));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    UiText.tr("tabs.open_a_plan"),
+                    UiText.tr("tabs.my_plans"),
+                    Hyb.INK,
+                    false,
+                    session::openMyPlans));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    UiText.tr("tabs.paste_plan"),
+                    UiText.tr("tabs.a_plan_link_or_code"),
+                    Hyb.INK,
+                    false,
+                    session::pastePlan));
+            rows.add(
+                new PickList.Entry(
+                    null,
+                    UiText.tr("tabs.open_plan_file"),
+                    UiText.tr("tabs.saved_plans_and_pictures"),
                     Hyb.INK,
                     false,
                     () -> com.gtnhplanner.ui.popup.PlanFileMenu.open(session, getPanel(), sx, sy)));
             rows.add(
                 new PickList.Entry(
                     null,
-                    "Browse Community",
-                    "plans others posted",
+                    UiText.tr("tabs.browse_community"),
+                    UiText.tr("tabs.plans_others_posted"),
                     Hyb.INK,
                     false,
                     session::openLibrary));
@@ -696,36 +716,36 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         final List<PickList.Entry> rows = new ArrayList<>();
         rows.add(
             PickList.Entry.of(
-                "Rename",
+                UiText.tr("tabs.rename"),
                 () -> Popup.open(
                     getPanel(),
-                    TextPopup.create("Plan name", g.getName(), name -> session.renameSlot(slot, name)),
+                    TextPopup.create(UiText.tr("tabs.plan_name"), g.getName(), name -> session.renameSlot(slot, name)),
                     sx,
                     sy)));
         rows.add(
             new PickList.Entry(
                 null,
-                "Copy plan code",
-                "to paste or share",
+                UiText.tr("tabs.copy_plan_code"),
+                UiText.tr("tabs.to_paste_or_share"),
                 Hyb.INK,
                 false,
                 () -> session.copyPlan(slot)));
-        rows.add(PickList.Entry.of("Make a copy", () -> session.copySlot(slot)));
+        rows.add(PickList.Entry.of(UiText.tr("tabs.make_a_copy"), () -> session.copySlot(slot)));
         rows.addAll(com.gtnhplanner.ui.library.AccountForms.shareRows(getPanel(), session, g));
         if (canClose()) {
             rows.add(
                 new PickList.Entry(
                     null,
-                    "Close tab",
-                    "kept in My plans",
+                    UiText.tr("tabs.close_tab"),
+                    UiText.tr("tabs.kept_in_my_plans"),
                     Hyb.INK,
                     false,
                     () -> session.closeSlot(slot)));
             rows.add(
                 new PickList.Entry(
                     null,
-                    "Close other tabs",
-                    "kept in My plans",
+                    UiText.tr("tabs.close_other_tabs"),
+                    UiText.tr("tabs.kept_in_my_plans"),
                     Hyb.INK,
                     false,
                     () -> session.closeOtherSlots(slot)));
@@ -733,7 +753,7 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         rows.add(
             new PickList.Entry(
                 null,
-                session.shared(g) ? "Leave plan" : "Delete plan",
+                session.shared(g) ? UiText.tr("tabs.leave_plan") : UiText.tr("tabs.delete_plan"),
                 "",
                 Hyb.RED_INK,
                 false,
@@ -751,8 +771,8 @@ final class PlanTabs extends Widget<PlanTabs> implements Interactable {
         if (face != null) return face;
         final Tab t = tabAtMouse();
         if (t == null) return null;
-        if (t.slot() < 0) return List.of("New plan, or open an existing one");
-        if (onClose(t)) return List.of("Close tab (the plan is kept in My plans)");
+        if (t.slot() < 0) return List.of(UiText.tr("tabs.new_plan_or_open_an_existing_one"));
+        if (onClose(t)) return List.of(UiText.tr("tabs.close_tab_the_plan_is_kept_in_my_plans"));
         return List.of(
             session.slots()
                 .get(t.slot())

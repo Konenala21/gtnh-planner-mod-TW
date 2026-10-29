@@ -18,6 +18,7 @@ import com.cleanroommc.modularui.widget.Widget;
 import com.cleanroommc.modularui.widget.sizer.Area;
 import com.gtnhplanner.data.flowchart.Drawer;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.popup.NumberPopup;
 import com.gtnhplanner.ui.popup.PickList;
@@ -42,7 +43,8 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     /** The row's middle, level with the port a drawer is made for when it is placed beside a card. */
     public static final int ANCHOR_Y = DrawerPaint.BAR + com.gtnhplanner.ui.card.CardLayout.BOX_H / 2;
     /** The rule menu's rows that turn a product into trash, and trash back into a product. */
-    public static final String TO_TRASH = "Void it (trash)", TO_PRODUCT = "Keep it (product)";
+    public static final String TO_TRASH = UiText.tr("drawer.void_it_trash"),
+        TO_PRODUCT = UiText.tr("drawer.keep_it_product");
 
     public enum Part {
         DELETE,
@@ -303,7 +305,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             "×",
             null,
             "",
-            "Voided",
+            UiText.tr("drawer.voided"),
             hover == Part.RULE,
             false,
             false,
@@ -354,10 +356,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
 
     public static String ruleLabel(final Drawer.Rule rule) {
         return switch (rule) {
-            case ANY -> "~ Any";
-            case AT_LEAST -> "≥ At least";
-            case EXACTLY -> "= Exactly";
-            case AT_MOST -> "≤ At most";
+            case ANY -> UiText.tr("drawer.any");
+            case AT_LEAST -> UiText.tr("drawer.at_least");
+            case EXACTLY -> UiText.tr("drawer.exactly");
+            case AT_MOST -> UiText.tr("drawer.at_most");
         };
     }
 
@@ -385,46 +387,49 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
         final Fmt.RateUnit unit = session.rateUnit();
         final DrawerModel m = model;
         return switch (part) {
-            case DELETE -> com.gtnhplanner.ui.popup.Tip.of("Delete this drawer")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Delete");
+            case DELETE -> com.gtnhplanner.ui.popup.Tip.of(UiText.tr("drawer.delete_this_drawer"))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("drawer.delete"));
             case BAR -> com.gtnhplanner.ui.popup.Tip.of(m.label)
                 .sub(kindName(m.kind))
-                .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Move")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Select");
-            case RULE -> m.kind == Drawer.Kind.TRASH ? com.gtnhplanner.ui.popup.Tip.of("Trash")
-                .muted("It voids what comes in: it leaves the plan without being one of its outputs.")
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Keep it instead")
-                : com.gtnhplanner.ui.popup.Tip.of("Rule")
+                .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("drawer.move"))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("drawer.select"));
+            case RULE -> m.kind == Drawer.Kind.TRASH ? com.gtnhplanner.ui.popup.Tip.of(UiText.tr("drawer.trash"))
+                .muted(UiText.tr("drawer.it_voids_what_comes_in_it_leaves_the_plan_without_being_one_of_its_outputs"))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("drawer.keep_it_instead"))
+                : com.gtnhplanner.ui.popup.Tip.of(UiText.tr("drawer.rule"))
                     .sub(ruleLabel(m.rule))
                     .muted(ruleMeaning(m.kind, m.rule))
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Pick")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "Next")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Clear");
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("drawer.pick"))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, UiText.tr("drawer.next"))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, UiText.tr("drawer.clear"));
             case RATE -> {
                 final com.gtnhplanner.ui.popup.Tip tip = com.gtnhplanner.ui.popup.Tip
-                    .of(m.rule == Drawer.Rule.ANY ? "No rate yet" : "Target rate");
+                    .of(m.rule == Drawer.Rule.ANY ? UiText.tr("drawer.no_rate_yet") : UiText.tr("drawer.target_rate"));
                 if (m.rule != Drawer.Rule.ANY) tip.row(ruleLabel(m.rule), m.rate(m.target, unit));
-                if (m.shortfall != null) tip.row("Reaches", m.rate(m.shortfall.reachable(), unit), Hyb.RED_INK);
-                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Type (2.5k, 1/3)")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, "+1, Ctrl 10, Shift 100")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Clear");
+                if (m.shortfall != null)
+                    tip.row(UiText.tr("drawer.reaches"), m.rate(m.shortfall.reachable(), unit), Hyb.RED_INK);
+                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("drawer.type_2_5k_1_3"))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.WHEEL, UiText.tr("drawer.1_ctrl_10_shift_100"))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, UiText.tr("drawer.clear"));
             }
             default -> {
                 final com.gtnhplanner.ui.popup.Tip tip = com.gtnhplanner.ui.popup.Tip.of(m.label)
                     .sub(kindName(m.kind))
                     .row(
-                        m.kind == Drawer.Kind.SOURCE ? "Supplies" : m.kind == Drawer.Kind.BUFFER ? "Passes" : "Takes",
+                        m.kind == Drawer.Kind.SOURCE ? UiText.tr("drawer.supplies")
+                            : m.kind == Drawer.Kind.BUFFER ? UiText.tr("drawer.passes") : UiText.tr("drawer.takes"),
                         m.rate(m.rate, unit));
-                if (m.kind == Drawer.Kind.BUFFER) tip.muted("Its makers put in what its users take out.");
-                if (!m.linked) tip.note("Unconnected", com.gtnhplanner.ui.popup.Tip.WARN);
+                if (m.kind == Drawer.Kind.BUFFER)
+                    tip.muted(UiText.tr("drawer.its_makers_put_in_what_its_users_take_out"));
+                if (!m.linked) tip.note(UiText.tr("drawer.unconnected"), com.gtnhplanner.ui.popup.Tip.WARN);
                 if (m.shortfall != null) tip.note(
                     "Reaches only " + m.rate(m.shortfall.reachable(), unit)
                         + " of its "
                         + m.rate(m.shortfall.target(), unit)
                         + " target",
                     Hyb.RED_INK);
-                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Wire to a card")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.KEY, "R, U");
+                yield tip.action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("drawer.wire_to_a_card"))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.KEY, UiText.tr("drawer.r_u"));
             }
         };
     }
@@ -432,10 +437,10 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
     /** What a rule asks of the plan, in a sentence. */
     private static String ruleMeaning(final Drawer.Kind kind, final Drawer.Rule rule) {
         if (kind == Drawer.Kind.BUFFER) return switch (rule) {
-            case ANY -> "No target: the plan passes whatever its users take.";
-            case AT_LEAST -> "The plan passes at least the rate through it.";
-            case EXACTLY -> "The plan passes exactly the rate through it.";
-            case AT_MOST -> "The plan passes no more than the rate through it.";
+            case ANY -> UiText.tr("drawer.no_target_the_plan_passes_whatever_its_users_take");
+            case AT_LEAST -> UiText.tr("drawer.the_plan_passes_at_least_the_rate_through_it");
+            case EXACTLY -> UiText.tr("drawer.the_plan_passes_exactly_the_rate_through_it");
+            case AT_MOST -> UiText.tr("drawer.the_plan_passes_no_more_than_the_rate_through_it");
         };
         final String flow = kind == Drawer.Kind.SOURCE ? "draws from it" : "puts in it";
         return switch (rule) {
@@ -448,11 +453,11 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
 
     static String kindName(final Drawer.Kind kind) {
         return switch (kind) {
-            case SOURCE -> "Source";
-            case PRODUCT -> "Product";
-            case BYPRODUCT -> "Product";
-            case TRASH -> "Trash";
-            case BUFFER -> "Buffer";
+            case SOURCE -> UiText.tr("drawer.source");
+            case PRODUCT -> UiText.tr("drawer.product");
+            case BYPRODUCT -> UiText.tr("drawer.product");
+            case TRASH -> UiText.tr("drawer.trash");
+            case BUFFER -> UiText.tr("drawer.buffer");
         };
     }
 
@@ -503,7 +508,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
                     rows.add(
                         new PickList.Entry(
                             null,
-                            "Delete drawer",
+                            UiText.tr("drawer.delete_drawer"),
                             "",
                             Hyb.RED_INK,
                             false,
@@ -634,7 +639,7 @@ public final class DrawerCard extends Widget<DrawerCard> implements Interactable
             NumberPopup.create(
                 "Rate in " + model.suffix(unit, true) + " (empty: no rule)",
                 "2.5k, 1/3",
-                "Type 2.5k, 1M or 1/3",
+                UiText.tr("drawer.type_2_5k_1m_or_1_3"),
                 current,
                 0,
                 Double.MAX_VALUE,

@@ -26,6 +26,7 @@ import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.Posting;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.Resources;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.popup.PickList;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -92,23 +93,23 @@ public final class AccountForms {
         if (plan.getPostId() == null) return List.of(
             new PickList.Entry(
                 null,
-                "Post a copy to Community...",
-                "for other players",
+                UiText.tr("account.post_a_copy_to_community"),
+                UiText.tr("account.for_other_players"),
                 Hyb.INK,
                 false,
                 () -> post(parent, session, plan, false, null, null)));
         return List.of(
             new PickList.Entry(
                 null,
-                "Update in Community...",
-                "with the plan as it is",
+                UiText.tr("account.update_in_community"),
+                UiText.tr("account.with_the_plan_as_it_is"),
                 Hyb.INK,
                 false,
                 () -> post(parent, session, plan, false, null, null)),
             new PickList.Entry(
                 null,
-                "Post a new copy to Community...",
-                "a post of its own",
+                UiText.tr("account.post_a_new_copy_to_community"),
+                UiText.tr("account.a_post_of_its_own"),
                 Hyb.INK,
                 false,
                 () -> post(parent, session, plan, true, null, null)));
@@ -305,8 +306,8 @@ public final class AccountForms {
             super(popup);
             this.then = then;
             final String last = Account.lastUsername();
-            username = field("Username", last == null ? "" : last, 44);
-            password = new PasswordField("Password").onEnter(this::submit);
+            username = field(UiText.tr("account.username"), last == null ? "" : last, 44);
+            password = new PasswordField(UiText.tr("account.password")).onEnter(this::submit);
             password.pos(PAD, 78)
                 .size(W - 2 * PAD, FIELD_H);
             child(password);
@@ -331,38 +332,40 @@ public final class AccountForms {
 
         @Override
         String title() {
-            return create ? "Create an account" : "Sign in";
+            return create ? UiText.tr("account.create_an_account") : UiText.tr("account.sign_in");
         }
 
         @Override
         String subtitle() {
-            return create ? "To share plans with other players" : "To share plans and edit your posts";
+            return create ? UiText.tr("account.to_share_plans_with_other_players")
+                : UiText.tr("account.to_share_plans_and_edit_your_posts");
         }
 
         @Override
         void labels() {
-            Hyb.text("USERNAME", PAD, 34, 0xFF7A7C84);
-            Hyb.text("PASSWORD", PAD, 68, 0xFF7A7C84);
+            Hyb.text(UiText.tr("account.username_heading"), PAD, 34, 0xFF7A7C84);
+            Hyb.text(UiText.tr("account.password_heading"), PAD, 68, 0xFF7A7C84);
         }
 
         @Override
         String note() {
-            return create ? "3-24 letters, digits, - or _; password 6+" : null;
+            return create ? UiText.tr("account.3_24_letters_digits_or_password_6") : null;
         }
 
         @Override
         String button() {
-            return create ? "Create account" : "Sign in";
+            return create ? UiText.tr("account.create_account") : UiText.tr("account.sign_in");
         }
 
         @Override
         String busyButton() {
-            return create ? "Creating..." : "Signing in...";
+            return create ? UiText.tr("account.creating") : UiText.tr("account.signing_in");
         }
 
         @Override
         String link() {
-            return create ? "Have an account? Sign in" : "No account yet? Create one";
+            return create ? UiText.tr("account.have_an_account_sign_in")
+                : UiText.tr("account.no_account_yet_create_one");
         }
 
         @Override
@@ -377,7 +380,7 @@ public final class AccountForms {
             final String name = username.getText()
                 .trim(), pass = password.text();
             if (name.isEmpty() || pass.isEmpty()) {
-                error = "Type your username and password";
+                error = UiText.tr("account.type_your_username_and_password");
                 return;
             }
             busy = true;
@@ -413,10 +416,10 @@ public final class AccountForms {
             super(popup);
             fullDescription = initialDescription;
             icon = initialIcon;
-            title = field("Title", initialTitle, 44);
+            title = field(UiText.tr("account.title"), initialTitle, 44);
             title.pos(PAD + SLOT + 4, 44)
                 .size(W - 2 * PAD - SLOT - 4, FIELD_H);
-            description = field("A line about it (optional)", oneLine(initialDescription), 78);
+            description = field(UiText.tr("account.a_line_about_it_optional"), oneLine(initialDescription), 78);
         }
 
         /** What could be picked as the icon. */
@@ -429,8 +432,8 @@ public final class AccountForms {
 
         @Override
         void labels() {
-            Hyb.text("ICON AND TITLE", PAD, 34, 0xFF7A7C84);
-            Hyb.text("ABOUT IT", PAD, 68, 0xFF7A7C84);
+            Hyb.text(UiText.tr("account.icon_and_title"), PAD, 34, 0xFF7A7C84);
+            Hyb.text(UiText.tr("account.about_it"), PAD, 68, 0xFF7A7C84);
             final boolean hot = !busy && over(PAD, 44, SLOT, SLOT);
             Hyb.rect(PAD, 44, SLOT, SLOT, hot ? CYAN : 0xFF4A4C54);
             Hyb.rect(PAD + 1, 45, SLOT - 2, SLOT - 2, 0xFF1B1D21);
@@ -464,10 +467,11 @@ public final class AccountForms {
             return super.onMousePressed(mouseButton);
         }
 
-        /** The choices as a list under the slot, "No icon" first when there is one. */
+        /** The choices as a list under the slot, UiText.tr("account.no_icon") first when there is one. */
         private void pickIcon() {
             final List<PickList.Entry> rows = new ArrayList<>();
-            if (icon != null) rows.add(new PickList.Entry(null, "No icon", "", Hyb.MUTED, false, () -> icon = null));
+            if (icon != null) rows
+                .add(new PickList.Entry(null, UiText.tr("account.no_icon"), "", Hyb.MUTED, false, () -> icon = null));
             for (final CommunityApi.Resource r : choices()) {
                 final boolean current = icon != null && icon.kind()
                     .equals(r.kind())
@@ -476,12 +480,12 @@ public final class AccountForms {
                 rows.add(new PickList.Entry(rowIcon(r), r.name(), "", Hyb.INK, current, () -> icon = r));
             }
             if (rows.isEmpty()) {
-                error = "Nothing to pick: the plan has no items or fluids yet";
+                error = UiText.tr("account.nothing_to_pick_the_plan_has_no_items_or_fluids_yet");
                 return;
             }
             Popup.open(
                 getPanel(),
-                PickList.popup("gtnhplanner_post_icon", "Its icon", rows, rows.size() > 10, 170),
+                PickList.popup("gtnhplanner_post_icon", UiText.tr("account.its_icon"), rows, rows.size() > 10, 170),
                 getArea().x + PAD,
                 getArea().y + 44 + SLOT + 2);
         }
@@ -546,14 +550,14 @@ public final class AccountForms {
 
         @Override
         String title() {
-            if (posted) return wasUpdate ? "Updated!" : "Published!";
-            return update ? "Update your post" : "Post to Community";
+            if (posted) return wasUpdate ? UiText.tr("account.updated") : UiText.tr("account.published");
+            return update ? UiText.tr("account.update_your_post") : UiText.tr("account.post_to_community");
         }
 
         @Override
         String subtitle() {
-            if (posted) return "Everyone can find it in Community";
-            return update ? "With the plan as it is now; its votes stay"
+            if (posted) return UiText.tr("account.everyone_can_find_it_in_community");
+            return update ? UiText.tr("account.with_the_plan_as_it_is_now_its_votes_stay")
                 : "As " + Account.username() + ", for everyone to find";
         }
 
@@ -575,20 +579,21 @@ public final class AccountForms {
 
         @Override
         String button() {
-            if (posted) return "Done";
-            return update ? "Update post" : "Publish";
+            if (posted) return UiText.tr("account.done");
+            return update ? UiText.tr("account.update_post") : UiText.tr("account.publish");
         }
 
         @Override
         String busyButton() {
-            return update ? "Updating..." : "Publishing...";
+            return update ? UiText.tr("account.updating") : UiText.tr("account.publishing");
         }
 
         @Override
         @Nullable
         String link() {
             if (posted) return null;
-            return update ? "Publish it as a new one instead" : "Not " + Account.username() + "? Sign out";
+            return update ? UiText.tr("account.publish_it_as_a_new_one_instead")
+                : "Not " + Account.username() + UiText.tr("account.sign_out");
         }
 
         @Override
@@ -612,12 +617,12 @@ public final class AccountForms {
             final Posting.Face f = face();
             if (f.title()
                 .isEmpty()) {
-                error = "Give it a title";
+                error = UiText.tr("account.give_it_a_title");
                 return;
             }
             if (plan.getNodes()
                 .isEmpty()) {
-                error = "Add a recipe first: Community takes no empty plans";
+                error = UiText.tr("account.add_a_recipe_first_community_takes_no_empty_plans");
                 return;
             }
             busy = true;
@@ -673,27 +678,27 @@ public final class AccountForms {
 
         @Override
         String title() {
-            return "Edit your post";
+            return UiText.tr("account.edit_your_post");
         }
 
         @Override
         String subtitle() {
-            return "Its plan, votes and comments stay";
+            return UiText.tr("account.its_plan_votes_and_comments_stay");
         }
 
         @Override
         String button() {
-            return "Save";
+            return UiText.tr("account.save");
         }
 
         @Override
         String busyButton() {
-            return "Saving...";
+            return UiText.tr("account.saving");
         }
 
         @Override
         String link() {
-            return "Cancel";
+            return UiText.tr("account.cancel");
         }
 
         @Override
@@ -707,7 +712,7 @@ public final class AccountForms {
             final Posting.Face f = face();
             if (f.title()
                 .isEmpty()) {
-                error = "Give it a title";
+                error = UiText.tr("account.give_it_a_title");
                 return;
             }
             busy = true;
@@ -756,6 +761,6 @@ public final class AccountForms {
     public static void signOut(final Consumer<String> told) {
         final String who = Account.username();
         Account.signOut();
-        told.accept(who == null ? "Signed out" : "Signed out of " + who);
+        told.accept(who == null ? UiText.tr("account.signed_out") : "Signed out of " + who);
     }
 }

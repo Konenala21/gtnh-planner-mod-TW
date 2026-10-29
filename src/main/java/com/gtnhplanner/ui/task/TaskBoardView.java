@@ -21,6 +21,7 @@ import com.gtnhplanner.data.flowchart.Tasks;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteText;
 import com.gtnhplanner.ui.popup.PickList;
@@ -348,19 +349,19 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     /**
      * The board's header, floating where a plan's toolbar keys do (no band): the task board's name and how many tasks
      * it holds, and (at
-     * the right) New task. Narrow, the counts go first, then the name gives way to "Tasks".
+     * the right) New task. Narrow, the counts go first, then the name gives way to UiText.tr("taskboard.tasks").
      */
     private void drawHeader(final int w, @Nullable final Hit hover) {
         int right = w - EDGE;
-        right = key(right, "New task", Kind.NEW, null, hover) - 6;
+        right = key(right, UiText.tr("taskboard.new_task"), Kind.NEW, null, hover) - 6;
         right = viewSwitch(right, hover) - 8;
         final String name = graph().getName()
-            .isBlank() ? "Tasks" : graph().getName();
-        final String title = Hyb.width(name) + 16 <= right - EDGE ? name : "Tasks";
+            .isBlank() ? UiText.tr("taskboard.tasks") : graph().getName();
+        final String title = Hyb.width(name) + 16 <= right - EDGE ? name : UiText.tr("taskboard.tasks");
         Hyb.text(title, EDGE, EDGE + (KEY_H - 8) / 2f, Hyb.INK);
         final int left = EDGE + Hyb.width(title) + 8;
         final int n = graph().tasks.size();
-        final String counts = n + (n == 1 ? " task" : " tasks");
+        final String counts = n + (n == 1 ? UiText.tr("taskboard.task_suffix") : UiText.tr("taskboard.tasks_suffix"));
         if (left + Hyb.width(counts) <= right - 4) Hyb.text(counts, left, EDGE + (KEY_H - 8) / 2f, Hyb.MUTED);
     }
 
@@ -393,7 +394,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
      * Board and Chain side by side, the one showing lit, right-aligned at {@code right}; returns its left edge.
      */
     private int viewSwitch(final int right, @Nullable final Hit hover) {
-        final String[] names = { "Board", "Chain" }, views = { BOARD, CHAIN };
+        final String[] names = { UiText.tr("taskboard.board"), UiText.tr("taskboard.chain") }, views = { BOARD, CHAIN };
         final boolean chainOn = chainShown();
         int w = 0;
         for (final String n : names) w += Hyb.width(n) + 12;
@@ -554,9 +555,9 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
     /** A board with no tasks says how to make one, each line wrapped to the column. */
     private void drawEmpty(final int x, final int top) {
         final int cx = x + columnW() / 2, width = columnW() - 12;
-        float y = centred("No tasks yet.", cx, top + 14, width, Hyb.MUTED) + 4;
-        y = centred("Press + to add one.", cx, y, width, 0xFF6A6C74);
-        centred("Or add a card from its pin button.", cx, y, width, 0xFF6A6C74);
+        float y = centred(UiText.tr("taskboard.no_tasks_yet"), cx, top + 14, width, Hyb.MUTED) + 4;
+        y = centred(UiText.tr("taskboard.press_to_add_one"), cx, y, width, 0xFF6A6C74);
+        centred(UiText.tr("taskboard.or_add_a_card_from_its_pin_button"), cx, y, width, 0xFF6A6C74);
     }
 
     /** Words centred on {@code cx}, wrapped to {@code width}; returns the y under them. */
@@ -609,17 +610,18 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                     : Tip.of(t.title())
                         .sub(TaskLook.inColumn(t))
                         .row(
-                            "Priority",
+                            UiText.tr("taskboard.priority"),
                             TaskLook.priorityName(t.shownPriority()),
                             TaskLook.priorityColour(t.shownPriority()))
-                        .action(Tip.Input.LEFT, "Open it")
-                        .action(Tip.Input.DRAG, "Move it")
-                        .action(Tip.Input.RIGHT, "More");
+                        .action(Tip.Input.LEFT, UiText.tr("taskboard.open_it"))
+                        .action(Tip.Input.DRAG, UiText.tr("taskboard.move_it"))
+                        .action(Tip.Input.RIGHT, UiText.tr("taskboard.more"));
             }
-            case ADD -> Tip.of("Add a task to " + TaskLook.name((Tasks.Status) hit.data()));
-            case NEW -> Tip.of("Add a task to To do");
-            case VIEW -> CHAIN.equals(hit.data()) ? Tip.of("Show the tasks as chains")
-                .sub("What each task waits on, left to right") : Tip.of("Show the tasks in columns");
+            case ADD -> Tip.of(UiText.tr("taskboard.add_a_task_to") + " " + TaskLook.name((Tasks.Status) hit.data()));
+            case NEW -> Tip.of(UiText.tr("taskboard.add_a_task_to_to_do"));
+            case VIEW -> CHAIN.equals(hit.data()) ? Tip.of(UiText.tr("taskboard.show_the_tasks_as_chains"))
+                .sub(UiText.tr("taskboard.what_each_task_waits_on_left_to_right"))
+                : Tip.of(UiText.tr("taskboard.show_the_tasks_in_columns"));
         };
     }
 
@@ -785,7 +787,14 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         final String id = UUID.randomUUID()
             .toString();
         session.editTasks(
-            () -> TaskEdits.add(session.graph(), id, "New task", status, List.of(), TaskLook.me(), TaskLook.now()));
+            () -> TaskEdits.add(
+                session.graph(),
+                id,
+                UiText.tr("taskboard.new_task"),
+                status,
+                List.of(),
+                TaskLook.me(),
+                TaskLook.now()));
         Sfx.NOTE_STICK.play();
         TaskPanel.open(session, id);
     }
@@ -796,9 +805,9 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
         if (t == null) return;
         Hyb.click();
         final List<PickList.Entry> rows = new ArrayList<>();
-        rows.add(PickList.Entry.of("Open", () -> TaskPanel.open(session, id)));
+        rows.add(PickList.Entry.of(UiText.tr("taskboard.open"), () -> TaskPanel.open(session, id)));
         for (final Tasks.Status s : Tasks.Status.values())
-            if (s != t.status()) rows.add(PickList.Entry.of("Move to " + TaskLook.name(s), () -> {
+            if (s != t.status()) rows.add(PickList.Entry.of(UiText.tr("taskboard.move_to") + " " + TaskLook.name(s), () -> {
                 session.editTasks(
                     () -> TaskEdits.move(
                         session.graph(),
@@ -809,7 +818,7 @@ public final class TaskBoardView extends Widget<TaskBoardView> implements Intera
                         TaskLook.now()));
                 Sfx.DROP.play();
             }));
-        rows.add(new PickList.Entry(null, "Delete task", "", Hyb.RED_INK, false, () -> {
+        rows.add(new PickList.Entry(null, UiText.tr("taskboard.delete_task"), "", Hyb.RED_INK, false, () -> {
             session.editTasks(() -> TaskEdits.remove(session.graph(), id));
             Sfx.NOTE_CRUMPLE.play();
         }));

@@ -15,6 +15,7 @@ import com.gtnhplanner.data.flowchart.balancer.PortRef;
 import com.gtnhplanner.data.flowchart.balancer.UpToLoop;
 import com.gtnhplanner.data.flowchart.balancer.UpToReadout;
 import com.gtnhplanner.data.flowchart.balancer.UpToReason;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.theme.Fmt;
 
 /**
@@ -33,7 +34,8 @@ public final class CardFace {
     /**
      * The count under the machine: {@code run} is what runs, as printed ("×18.2"; a crop's has no times sign);
      * {@code ruleWord} and {@code setText} what is set ("up to", "24"), both empty for Any; {@code note} what Any says
-     * under it instead ("(set count)" while nothing sets this part of the plan, a crop's "crops planted", or nothing).
+     * under it instead ("(set count)" while nothing sets this part of the plan, a crop's
+     * UiText.tr("cardface.crops_planted"), or nothing).
      */
     public record Count(String run, double value, PinRule rule, String ruleWord, boolean ruleFixed, double set,
         String setText, String note, boolean prompt, boolean zero, String title) {
@@ -55,7 +57,10 @@ public final class CardFace {
         final UpToReadout upTo = rule == PinRule.UP_TO ? readout : null;
         final double value = upTo != null ? Math.max(0, upTo.reached()) : solved;
         final String note = pinned ? ""
-            : unset ? CardPaint.SET_COUNT : crop ? Math.round(value) == 1 ? "crop planted" : "crops planted" : "";
+            : unset ? CardPaint.SET_COUNT
+                : crop
+                    ? Math.round(value) == 1 ? UiText.tr("cardface.crop_planted") : UiText.tr("cardface.crops_planted")
+                    : "";
         return new Count(
             (crop ? "" : "×") + Fmt.machines(value),
             value,
@@ -68,9 +73,11 @@ public final class CardFace {
             !pinned && unset,
             upTo != null ? upTo.reached() <= NOTHING : value <= NOTHING,
             switch (rule) {
-            case UP_TO -> "Runs as many as the plan lets it. Never more than you set.";
-            case EXACT -> ruleFixed ? "Runs at its dial." : "Runs exactly this many. A gap shows as a forced flow.";
-            case ANY -> crop ? "How many crops the plan plants." : "How many of this machine the plan needs.";
+            case UP_TO -> UiText.tr("cardface.runs_as_many_as_the_plan_lets_it_never_more_than_you_set");
+            case EXACT -> ruleFixed ? UiText.tr("cardface.runs_at_its_dial")
+                : UiText.tr("cardface.runs_exactly_this_many_a_gap_shows_as_a_forced_flow");
+            case ANY -> crop ? UiText.tr("cardface.how_many_crops_the_plan_plants")
+                : UiText.tr("cardface.how_many_of_this_machine_the_plan_needs");
             });
     }
 
@@ -210,7 +217,7 @@ public final class CardFace {
         final List<String> upstream = new ArrayList<>();
         for (final UUID id : upTo.upstream()) {
             final String n = cardName.apply(id);
-            upstream.add(n == null ? "a card" : n);
+            upstream.add(n == null ? UiText.tr("cardface.a_card") : n);
         }
         final String word = loop != null ? loopWord(loop) : reason == null ? "" : reason.name();
         final int room = FOOT_TEXT - (word.isEmpty() ? 0 : width.applyAsInt(word) + FOOT_GAP)
@@ -220,17 +227,19 @@ public final class CardFace {
         // A clog lock's cards stand still (UNUSED) but say what backs up, as CLOGGED does.
         final UpToReason says = loop == UpToLoop.Kind.CLOG_LOCK ? UpToReason.CLOGGED : reason;
         final List<String> lines = says == null ? List.of() : switch (says) {
-            case FULL -> List.of("nothing wants more");
+            case FULL -> List.of(UiText.tr("cardface.nothing_wants_more"));
             case BOTTLENECK -> wants != null ? List.of("the line wants " + m, "wants " + m)
-                : List.of("the line wants more");
-            case STARVED -> resource != null ? List.of("short of " + resource, "short of an input")
-                : List.of("short of an input");
-            case CLOGGED -> resource != null
-                ? List.of(resource + " has nowhere to go", "nowhere for " + resource, "an output backs up")
-                : List.of("an output backs up");
-            case UNUSED -> resource != null ? List.of("nothing takes " + resource, "nothing takes it")
-                : List.of("nothing takes it");
-            case LIMITED -> List.of("the plan holds it back", "held back");
+                : List.of(UiText.tr("cardface.the_line_wants_more"));
+            case STARVED -> resource != null ? List.of("short of " + resource, UiText.tr("cardface.short_of_an_input"))
+                : List.of(UiText.tr("cardface.short_of_an_input"));
+            case CLOGGED -> resource != null ? List.of(
+                resource + " has nowhere to go",
+                "nowhere for " + resource,
+                UiText.tr("cardface.an_output_backs_up")) : List.of(UiText.tr("cardface.an_output_backs_up"));
+            case UNUSED -> resource != null
+                ? List.of("nothing takes " + resource, UiText.tr("cardface.nothing_takes_it"))
+                : List.of(UiText.tr("cardface.nothing_takes_it"));
+            case LIMITED -> List.of(UiText.tr("cardface.the_plan_holds_it_back"), UiText.tr("cardface.held_back"));
         };
         return new Foot(
             loop != null ? loopBar(loop) : Tone.of(reason),
@@ -247,7 +256,7 @@ public final class CardFace {
     private static Foot forcedFoot(final double set, final List<Forced> forced, final ToIntFunction<String> width) {
         final Forced first = forced.get(0);
         final String keep = set == 1 ? "to keep it running" : "to keep all " + Fmt.machines(set) + " running";
-        final String word = "FORCED IN";
+        final String word = UiText.tr("cardface.forced_in");
         final int room = FOOT_TEXT - width.applyAsInt(word) - FOOT_GAP;
         final int more = forced.size() - 1;
         final List<String> lines = forced.size() == 1 ? List
@@ -357,7 +366,7 @@ public final class CardFace {
      * in place of the reason.
      */
     public static String loopWord(final UpToLoop.Kind kind) {
-        return kind == UpToLoop.Kind.DEAD_LOOP ? "DEAD LOOP" : "CLOG LOCK";
+        return kind == UpToLoop.Kind.DEAD_LOOP ? UiText.tr("cardface.dead_loop") : UiText.tr("cardface.clog_lock");
     }
 
     /**
@@ -369,8 +378,9 @@ public final class CardFace {
 
     /** The note at the foot of the bar's tip on a card in a ring: that the ring stops itself, and where to act. */
     public static String loopNote(final UpToLoop.Kind kind) {
-        return kind == UpToLoop.Kind.DEAD_LOOP ? "This loop starves itself to a stop. Bring this input in from outside."
-            : "This loop clogs itself to a stop. A drawer for this output frees it.";
+        return kind == UpToLoop.Kind.DEAD_LOOP
+            ? UiText.tr("cardface.this_loop_starves_itself_to_a_stop_bring_this_input_in_from_outside")
+            : UiText.tr("cardface.this_loop_clogs_itself_to_a_stop_a_drawer_for_this_output_frees_it");
     }
 
     /** A dead loop wears STARVED's amber, a clog lock CLOGGED's purple. */
@@ -406,9 +416,9 @@ public final class CardFace {
     /** The title of the bar's tip: how many run of how many. */
     public static String footTitle(final Facts f) {
         if (f.forced()) return "Exactly " + Fmt.machines(f.capacity()) + " running";
-        if (f.running() <= NOTHING) return "None running";
-        if (f.running() >= f.capacity() - 0.000001)
-            return f.capacity() == 1 ? "Running flat out" : "All " + Fmt.machines(f.capacity()) + " running";
+        if (f.running() <= NOTHING) return UiText.tr("cardface.none_running");
+        if (f.running() >= f.capacity() - 0.000001) return f.capacity() == 1 ? UiText.tr("cardface.running_flat_out")
+            : "All " + Fmt.machines(f.capacity()) + " running";
         return Fmt.machines(f.running()) + " of " + Fmt.machines(f.capacity()) + " running";
     }
 
@@ -443,13 +453,13 @@ public final class CardFace {
     public static String sentence(@Nullable final UpToReadout upTo) {
         if (upTo == null || upTo.reason() == null) return null;
         return switch (upTo.reason()) {
-            case FULL -> "Every machine runs flat out.";
+            case FULL -> UiText.tr("cardface.every_machine_runs_flat_out");
             case BOTTLENECK -> upTo.wants() != null ? "The plan would use " + Fmt.machines(upTo.wants()) + "."
-                : "The plan would use more.";
-            case STARVED -> "An input is short.";
-            case CLOGGED -> "An output has nowhere to go.";
-            case UNUSED -> "Nothing uses what it makes.";
-            case LIMITED -> "The plan holds it back.";
+                : UiText.tr("cardface.the_plan_would_use_more");
+            case STARVED -> UiText.tr("cardface.an_input_is_short");
+            case CLOGGED -> UiText.tr("cardface.an_output_has_nowhere_to_go");
+            case UNUSED -> UiText.tr("cardface.nothing_uses_what_it_makes");
+            case LIMITED -> UiText.tr("cardface.the_plan_holds_it_back_sentence");
         };
     }
 

@@ -22,6 +22,7 @@ import com.gtnhplanner.library.CommunityApi;
 import com.gtnhplanner.library.Reports;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.canvas.PlanPicture;
 import com.gtnhplanner.ui.card.CardPaint;
@@ -49,7 +50,8 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
     private static final int CONTROL = 0xFF2A2C31, CONTROL_HOVER = 0xFF33363C, CYAN = 0xFF22D3EE, WELL = 0xFF16171A,
         DISCORD = 0xFF8EA1FF;
     private static final int[] MOOD_INK = { 0xFF5EE9B5, 0xFFE7C35A, 0xFFE57373 };
-    private static final String[] KINDS = { "Bug", "Idea", "Help" };
+    private static final String[] KINDS = { UiText.tr("feedback.bug"), UiText.tr("feedback.idea"),
+        UiText.tr("feedback.help") };
 
     private final BoardSession session;
     private final BoardCanvas canvas;
@@ -147,7 +149,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
     }
 
     private int[] discordRect() {
-        final String s = "Open Discord";
+        final String s = UiText.tr("feedback.open_discord");
         return new int[] { W - PAD - Hyb.width(s), PROMPT_Y, Hyb.width(s), 9 };
     }
 
@@ -180,7 +182,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
     public void draw(final ModularGuiContext context, final WidgetThemeEntry<?> widgetTheme) {
         final boolean hovering = isHovering();
         final int mx = hovering ? mouseX() : -1, my = hovering ? mouseY() : -1;
-        Hyb.text("Send feedback", PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
+        Hyb.text(UiText.tr("feedback.send_feedback"), PAD, (TITLE - 8) / 2f + 1, Hyb.INK);
         final int[] close = closeRect();
         final boolean closeHot = in(close, mx, my);
         if (closeHot) Hyb.rect(close[0], close[1], close[2], close[3], CONTROL_HOVER);
@@ -208,15 +210,15 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         }
         // What to write, and for help, the Discord first.
         final String prompt = switch (kind) {
-            case BUG -> crash != null ? "What were you doing when it crashed?"
-                : "What happened, and what did you expect?";
-            case IDEA -> "What would make the planner better?";
-            case HELP -> "Quick questions do well on the Discord.";
+            case BUG -> crash != null ? UiText.tr("feedback.what_were_you_doing_when_it_crashed")
+                : UiText.tr("feedback.what_happened_and_what_did_you_expect");
+            case IDEA -> UiText.tr("feedback.what_would_make_the_planner_better");
+            case HELP -> UiText.tr("feedback.quick_questions_do_well_on_the_discord");
         };
         Hyb.text(prompt, PAD, PROMPT_Y, Hyb.MUTED);
         if (kind == Reports.Kind.HELP) {
             final int[] d = discordRect();
-            Hyb.text("Open Discord", d[0], d[1], in(d, mx, my) ? 0xFFFFFFFF : DISCORD);
+            Hyb.text(UiText.tr("feedback.open_discord"), d[0], d[1], in(d, mx, my) ? 0xFFFFFFFF : DISCORD);
         }
         Hyb.rect(PAD, AREA_Y, W - 2 * PAD, AREA_H, CardPaint.EDGE);
         Hyb.rect(PAD + 1, AREA_Y + 1, W - 2 * PAD - 2, AREA_H - 2, WELL);
@@ -225,7 +227,9 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         for (int i = 0; i < Math.min(2, lines.size()); i++) Hyb.text(lines.get(i), PAD, SENDS_Y + i * 10, 0xFFB8BAC2);
         // Where it goes, and the key.
         Hyb.text(
-            Hyb.fit(error != null ? error : "It becomes a public issue on GitHub.", W - 2 * PAD - 72),
+            Hyb.fit(
+                error != null ? error : UiText.tr("feedback.it_becomes_a_public_issue_on_github"),
+                W - 2 * PAD - 72),
             PAD,
             KEY_Y + 5,
             error != null ? Hyb.AMBER_INK : 0xFF6A6C74);
@@ -233,7 +237,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         final boolean hot = !sending && in(s, mx, my);
         Hyb.rect(s[0], s[1], s[2], s[3], sending ? 0xFF1E6B78 : hot ? 0xFF38E1F5 : CYAN);
         Hyb.rect(s[0], s[1], s[2], 1, 0x66FFFFFF);
-        final String label = sending ? "Sending..." : "Send";
+        final String label = sending ? UiText.tr("feedback.sending") : UiText.tr("feedback.send");
         com.cleanroommc.modularui.drawable.GuiDraw
             .drawText(label, s[0] + (s[2] - Hyb.width(label)) / 2f, s[1] + 5, 1f, 0xFF0B1A1E, false);
     }
@@ -243,10 +247,11 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         final List<String> parts = new ArrayList<>();
         final Graph g = plan();
         if (g != null) parts.add("the open plan '" + g.getName() + "'");
-        parts.add("the game log");
-        if (crash != null) parts.add("the crash report");
+        parts.add(UiText.tr("feedback.the_game_log"));
+        if (crash != null) parts.add(UiText.tr("feedback.the_crash_report"));
         final String last = parts.remove(parts.size() - 1);
-        return "Sent with it: " + (parts.isEmpty() ? last : String.join(", ", parts) + " and " + last) + ".";
+        return UiText.tr("feedback.sent_with_it") + (parts.isEmpty() ? last : String.join(", ", parts) + " and " + last)
+            + ".";
     }
 
     private static List<String> wrap(final String text, final int width) {
@@ -270,9 +275,14 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
     private void drawSent(final int mx, final int my) {
         final int size = FACE * 3;
         face(0, (W - size) / 2, TITLE + 20, true, false, 3);
-        Hyb.textCentered("Thanks! It's sent.", W / 2f, TITLE + 20 + size + 14, Hyb.INK);
-        Hyb.textCentered("Issue #" + sent.number() + " on GitHub", W / 2f, TITLE + 20 + size + 28, Hyb.MUTED);
-        final String[] labels = { "Open it", "Copy link", "Done" };
+        Hyb.textCentered(UiText.tr("feedback.thanks_it_s_sent"), W / 2f, TITLE + 20 + size + 14, Hyb.INK);
+        Hyb.textCentered(
+            UiText.tr("feedback.issue") + sent.number() + UiText.tr("feedback.on_github"),
+            W / 2f,
+            TITLE + 20 + size + 28,
+            Hyb.MUTED);
+        final String[] labels = { UiText.tr("feedback.open_it"), UiText.tr("feedback.copy_link"),
+            UiText.tr("feedback.done") };
         for (int i = 0; i < 3; i++) {
             final int[] k = sentKey(i);
             final boolean hot = in(k, mx, my);
@@ -437,7 +447,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         final String text = words.text()
             .trim();
         String first = text.isEmpty() ? "" : text.split("\n", 2)[0].trim();
-        if (first.isEmpty() && crash != null) first = "The game crashed: " + crash.summary();
+        if (first.isEmpty() && crash != null) first = UiText.tr("feedback.the_game_crashed") + crash.summary();
         if (first.length() > 100) {
             final int cut = first.lastIndexOf(' ', 97);
             first = first.substring(0, cut > 40 ? cut : 97) + "...";
@@ -447,7 +457,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
 
     private void send() {
         if (title().isEmpty()) {
-            error = "Write a line about it first";
+            error = UiText.tr("feedback.write_a_line_about_it_first");
             return;
         }
         error = null;
@@ -486,7 +496,7 @@ public final class FeedbackPanel extends ParentWidget<FeedbackPanel> implements 
         }, why -> {
             sending = false;
             words.unlock();
-            error = "Couldn't send it: " + why;
+            error = UiText.tr("feedback.couldn_t_send_it") + why;
         });
     }
 

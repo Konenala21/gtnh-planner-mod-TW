@@ -1073,7 +1073,7 @@ public final class BoardScreen extends ModularScreen {
     private void drawLinkBanner() {
         final com.gtnhplanner.ui.world.LinkTarget.Block b = com.gtnhplanner.ui.world.LinkTarget.target();
         if (b == null) return;
-        final String what = "Place a card at " + b.x()
+        final String what = tr("boardextra.place_a_card_at") + b.x()
             + ", "
             + b.y()
             + ", "
@@ -1081,7 +1081,7 @@ public final class BoardScreen extends ModularScreen {
             + (b.item() == null ? ""
                 : ", in front of the " + b.item()
                     .getDisplayName());
-        final String how = "Click a card, in this plan or another (tabs, Plans). Esc cancels.";
+        final String how = tr("boardextra.click_a_card_in_this_plan_or_another_tabs_plans_esc_cancels");
         final String note = com.gtnhplanner.ui.world.LinkTarget.note();
         final int w = Math.max(Math.max(Hyb.width(what) + 24, Hyb.width(how) + 24), Hyb.width(note) + 24) + 8;
         final int h = note.isEmpty() ? 30 : 41;
@@ -1149,20 +1149,20 @@ public final class BoardScreen extends ModularScreen {
         } else if (hovered instanceof final RailHandle handle) {
             tip = handle.tip();
         } else if (hovered instanceof final SelectionBar bar) {
-            tip = bar.overGroupKey() ? Tip.of("Group these")
-                .muted("A frame round the selection. Drag things in and out of it.")
+            tip = bar.overGroupKey() ? Tip.of(tr("boardextra.group_these"))
+                .muted(tr("boardextra.a_frame_round_the_selection_drag_things_in_and_out_of_it"))
                 .action(Tip.Input.KEY, "Ctrl+G")
-                : Tip.of("Combine into one shared machine")
-                    .muted("The selected recipes run on one machine and share its settings.");
+                : Tip.of(tr("boardextra.combine_into_one_shared_machine"))
+                    .muted(tr("boardextra.the_selected_recipes_run_on_one_machine_and_share_its_settings"));
         } else if (hovered instanceof final PortSlot slot) {
             tip = portTip(slot);
         } else if (hovered instanceof final com.gtnhplanner.ui.card.SocketSlot socket) {
-            tip = socket.supply ? Tip.of("Supply any")
-                .muted("Supply side: wire a machine input (or a drawer) here, and this card supplies it at the rate you set.")
-                .action(Tip.Input.LEFT, "Drag to a machine's input")
-                : Tip.of("Drain any")
-                    .muted("Request side: wire a machine output (or a drawer) here, and this card drains it at the rate you set.")
-                    .action(Tip.Input.LEFT, "Drag to a machine's output");
+            tip = socket.supply ? Tip.of(tr("boardextra.supply_any"))
+                .muted(tr("boardextra.supply_side_wire_a_machine_input_or_a_drawer_here_and_this_card_supplies_it_at_the_rate_you_set"))
+                .action(Tip.Input.LEFT, tr("boardextra.drag_to_a_machine_s_input"))
+                : Tip.of(tr("boardextra.drain_any"))
+                    .muted(tr("boardextra.request_side_wire_a_machine_output_or_a_drawer_here_and_this_card_drains_it_at_the_rate_you_set"))
+                    .action(Tip.Input.LEFT, tr("boardextra.drag_to_a_machine_s_output"));
         } else if (hovered instanceof final IWidget w && KEY_TIPS.containsKey(w)) {
             tip = Tip.ofLines(java.util.Arrays.asList(KEY_TIPS.get(w).split("\n")));
         } else {
@@ -1191,17 +1191,19 @@ public final class BoardScreen extends ModularScreen {
             session,
             found,
             found.bearers()
-                .size() > 1 ? "Choose who takes it" : null,
+                .size() > 1 ? tr("boardextra.choose_who_takes_it") : null,
             found.bearers()
                 .size() > 1);
-        final Tip tip = Tip.of((view.output() ? "Forced output: " : "Forced input: ") + view.name())
+        final Tip tip = Tip
+            .of((view.output() ? tr("boardextra.forced_output") : tr("boardextra.forced_input")) + view.name())
             .row(
-                view.output() ? "Ships out here" : "Comes in here",
+                view.output() ? tr("boardextra.ships_out_here") : tr("boardextra.comes_in_here"),
                 Fmt.rate(view.extra(), session.rateUnit(), view.isFluid()));
         if (found == null || found.bearers()
             .size() < 2)
-            return tip
-                .muted(view.output() ? "Only this machine can ship it out." : "Only this machine can take it in.");
+            return tip.muted(
+                view.output() ? tr("boardextra.only_this_machine_can_ship_it_out")
+                    : tr("boardextra.only_this_machine_can_take_it_in"));
         final StringBuilder others = new StringBuilder();
         for (final BoardSession.SpareBearer b : found.bearers()) {
             if (b == here) continue;
@@ -1210,9 +1212,11 @@ public final class BoardScreen extends ModularScreen {
                 .append(" at ")
                 .append(b.machine());
         }
-        return tip.muted((view.output() ? "Could also ship out as " : "Could also come in as ") + others + ".")
-            .action(Tip.Input.LEFT, "Choose who takes it")
-            .action(Tip.Input.DRAG, "Hand it to another card");
+        return tip.muted(
+            (view.output() ? tr("boardextra.could_also_ship_out_as") : tr("boardextra.could_also_come_in_as")) + others
+                + ".")
+            .action(Tip.Input.LEFT, tr("boardextra.choose_who_takes_it"))
+            .action(Tip.Input.DRAG, tr("boardextra.hand_it_to_another_card"));
     }
 
     /** A port: what it is, its rate, NEI's own lines about the stack, and what the mouse and keys do with it. */
@@ -1224,31 +1228,37 @@ public final class BoardScreen extends ModularScreen {
         final CardModel giver = session.model(slot.node());
         if (giver != null && com.gtnhplanner.data.provider.FreeInputs.isFree(giver.node, view.output(), view.index()))
             return Tip.of(view.name())
-                .sub("Free input")
-                .muted("Never used up. Nothing to supply.");
+                .sub(tr("boardextra.free_input"))
+                .muted(tr("boardextra.never_used_up_nothing_to_supply"));
         if (slot.overKey()) {
             final CardModel model = session.model(slot.node());
             final boolean set = model != null && session.portTarget(model.node, view.output(), view.index()) != null;
-            return Tip.of(set ? "Exactly" : "Any")
+            return Tip.of(set ? tr("boardextra.exactly") : tr("boardextra.any"))
                 .muted(
-                    set ? "Set: the machine runs so this " + (view.output() ? "output gives" : "input takes")
+                    set ? "Set: the machine runs so this "
+                        + (view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes"))
                         + " exactly its rate."
-                        : "The plan decides this " + (view.output() ? "output's" : "input's") + " rate.")
-                .action(Tip.Input.LEFT, set ? "Let the plan decide" : "Set it to what it is now");
+                        : tr("boardextra.the_plan_decides_this") + (view.output() ? "output's" : "input's") + " rate.")
+                .action(
+                    Tip.Input.LEFT,
+                    set ? tr("boardextra.let_the_plan_decide") : tr("boardextra.set_it_to_what_it_is_now"));
         }
         if (slot.overRate()) {
             final CardModel model = session.model(slot.node());
             final Double set = model == null ? null : session.portTarget(model.node, view.output(), view.index());
             return Tip.of(view.name())
-                .sub(set != null ? "Rate set" : "Rate: the plan decides")
-                .row(view.output() ? "Gives" : "Takes", Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()))
+                .sub(set != null ? tr("boardextra.rate_set") : tr("boardextra.rate_the_plan_decides"))
+                .row(
+                    view.output() ? tr("boardextra.gives") : tr("boardextra.takes"),
+                    Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()))
                 .muted(
-                    "Set it and the machine runs so this " + (view.output() ? "output gives" : "input takes")
+                    "Set it and the machine runs so this "
+                        + (view.output() ? tr("boardextra.output_gives") : tr("boardextra.input_takes"))
                         + " exactly that.")
-                .action(Tip.Input.LEFT, set != null ? "Change its rate" : "Set its rate")
-                .action(Tip.Input.WHEEL, "+1, Ctrl 10, Shift 100")
-                .action(Tip.Input.MIDDLE, "Clear")
-                .action(Tip.Input.DRAG, "Connect");
+                .action(Tip.Input.LEFT, set != null ? tr("boardextra.change_its_rate") : tr("boardextra.set_its_rate"))
+                .action(Tip.Input.WHEEL, tr("boardextra.1_ctrl_10_shift_100"))
+                .action(Tip.Input.MIDDLE, tr("boardextra.clear"))
+                .action(Tip.Input.DRAG, tr("boardextra.connect"));
         }
         // Unwired and running: a forced input or output, told as the overview's are.
         if (RecipeCard.isOpen(view)) {
@@ -1258,15 +1268,17 @@ public final class BoardScreen extends ModularScreen {
         final ItemStack stack = slot.stack();
         final boolean chanced = view.output() && view.chance() < 0.9999f;
         final Tip tip = Tip.of(view.name())
-            .sub(view.output() ? "Output" : "Input")
+            .sub(view.output() ? tr("boardextra.output") : tr("boardextra.input"))
             .row(
-                view.output() ? chanced ? "Average output" : "Produced" : "Consumed",
+                view.output() ? chanced ? tr("boardextra.average_output") : tr("boardextra.produced")
+                    : tr("boardextra.consumed"),
                 Fmt.rate(view.perSecond(), session.rateUnit(), view.isFluid()));
-        if (chanced) tip.row("Chance", Fmt.compact(view.chance() * 100) + "%");
+        if (chanced) tip.row(tr("boardextra.chance"), Fmt.compact(view.chance() * 100) + "%");
         // What each one cost the machine in EU, the rate key's EU reading: said here whatever the key is on.
         final CardModel owner = session.model(slot.node());
         final double each = owner == null ? Double.NaN : session.euEach(owner, view);
-        if (!Double.isNaN(each)) tip.row("Energy", Fmt.brief(each) + Fmt.euEachSuffix(view.isFluid()), Hyb.ENERGY);
+        if (!Double.isNaN(each))
+            tip.row(tr("boardextra.energy"), Fmt.brief(each) + Fmt.euEachSuffix(view.isFluid()), Hyb.ENERGY);
         if (stack != null) {
             // NEI's lines past the name: a formula, a material's notes, the mod. A few at most.
             final List<String> nei = GuiContainerManager.itemDisplayNameMultiline(stack, null, true);
@@ -1283,10 +1295,10 @@ public final class BoardScreen extends ModularScreen {
             "Takes any of " + node.inputs.get(slot.index)
                 .getAlternatives()
                 .size() + " items.");
-        tip.action(Tip.Input.LEFT, "Recipes: what makes it")
-            .action(Tip.Input.RIGHT, "Uses: what uses it");
-        if (node != null) tip.action(Tip.Input.WHEEL, "Change item");
-        return tip.action(Tip.Input.DRAG, "Connect")
-            .action(Tip.Input.KEY, "R, U");
+        tip.action(Tip.Input.LEFT, tr("boardextra.recipes_what_makes_it"))
+            .action(Tip.Input.RIGHT, tr("boardextra.uses_what_uses_it"));
+        if (node != null) tip.action(Tip.Input.WHEEL, tr("boardextra.change_item"));
+        return tip.action(Tip.Input.DRAG, tr("boardextra.connect"))
+            .action(Tip.Input.KEY, tr("boardextra.r_u"));
     }
 }

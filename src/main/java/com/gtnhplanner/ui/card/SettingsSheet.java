@@ -12,6 +12,7 @@ import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnhplanner.ui.BoardSession;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.canvas.BoardCanvas;
 import com.gtnhplanner.ui.popup.Popup;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -29,7 +30,7 @@ public final class SettingsSheet extends Popup {
     /** A section's title: the same for every section, settings or formulas. */
     static final int TITLE = 0xFF8A8D96;
     /** What a machine with nothing to set shows in place of its settings. */
-    static final String NONE = "No settings for this machine.";
+    static final String NONE = UiText.tr("settingssheet.no_settings_for_this_machine");
     /** At most this many settings in one column; more go in two. */
     private static final int ONE_COLUMN = 7;
 
@@ -257,16 +258,16 @@ public final class SettingsSheet extends Popup {
             if (!sheet.formulas.isEmpty()) formulas(sheet.formulas, sheet.formulasX, HEAD, sheet.formulasW);
             if (none) {
                 // Nothing to set: the section says so, and there is nothing to say about setting it.
-                title("Settings", 0, HEAD, sheet.formulasX);
+                title(UiText.tr("settingssheet.settings"), 0, HEAD, sheet.formulasX);
                 Hyb.text(NONE, 8, HEAD + HEADING + 3, Hyb.MUTED);
                 return;
             }
             Hyb.rect(1, fy, sheet.w - 2, 1, CardPaint.HAIR);
             if (sheet.columns == 1) {
-                Hyb.text("Pinned settings show on the card.", 8, fy + 5, 0xFF6E7179);
-                Hyb.text("Click, right-click or scroll to change.", 8, fy + 15, 0xFF6E7179);
+                Hyb.text(UiText.tr("settingssheet.pinned_settings_show_on_the_card"), 8, fy + 5, 0xFF6E7179);
+                Hyb.text(UiText.tr("settingssheet.click_right_click_or_scroll_to_change"), 8, fy + 15, 0xFF6E7179);
             } else Hyb.text(
-                "Pinned settings show on the card. Click, right-click or scroll to change.",
+                UiText.tr("settingssheet.pinned_settings_show_on_the_card_click_right_click_or_scroll_to_change"),
                 8,
                 fy + 5,
                 0xFF6E7179);
@@ -310,7 +311,7 @@ public final class SettingsSheet extends Popup {
 
         /**
          * A section's title at the top of its column (a hairline above it when it sits under another section), in
-         * sentence case: "Settings", "Formulas", "Readings".
+         * sentence case: UiText.tr("settingssheet.settings"), UiText.tr("settingssheet.formulas"), "Readings".
          */
         private static void title(final String text, final int x, final int y, final int w) {
             if (y > HEAD) Hyb.rect(x + 8, y + 1, w - 16, 1, CardPaint.HAIR);
@@ -329,7 +330,7 @@ public final class SettingsSheet extends Popup {
          */
         private void formulas(final List<com.gtnhplanner.machines.FormulaLine> lines, final int x, final int y,
             final int w) {
-            title("Formulas", x, y, w);
+            title(UiText.tr("settingssheet.formulas"), x, y, w);
             final int answersW = answersWidth(lines), answerX = x + w - 8 - answersW;
             int ly = y + HEADING;
             for (int i = 0; i < lines.size(); i++) {
@@ -520,7 +521,8 @@ public final class SettingsSheet extends Popup {
             final boolean live = c.enabled();
             switch (c.type()) {
                 case TOGGLE -> {
-                    final boolean on = "On".equals(c.value());
+                    final boolean on = UiText.tr("settingssheet.on")
+                        .equals(c.value());
                     Hyb.roundRect(x, y + 4, 22, 10, 5, !live ? 0xFF2C2E33 : on ? 0xFF3FAE5C : 0xFF3A3C42);
                     Hyb.roundRect(on ? x + 13 : x + 1, y + 5, 8, 8, 4, live ? 0xFFF2F3F5 : 0xFF6E7179);
                 }

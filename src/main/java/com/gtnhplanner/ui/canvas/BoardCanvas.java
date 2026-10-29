@@ -437,14 +437,14 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         Hyb.rect(0, 0, a.width, a.height, Hyb.seeThrough(Hyb.CANVAS));
         if (cards.isEmpty() && drawers.isEmpty() && notes.isEmpty()) {
             // An empty board says how to start.
-            Hyb.textCentered("Nothing here yet.", a.width / 2f, a.height / 2f - 14, Hyb.MUTED);
+            Hyb.textCentered(UiText.tr("canvas.nothing_here_yet"), a.width / 2f, a.height / 2f - 14, Hyb.MUTED);
             Hyb.textCentered(
-                "Look an item up in NEI (R or U) and press + on a recipe,",
+                UiText.tr("canvas.look_an_item_up_in_nei_r_or_u_and_press_on_a_recipe"),
                 a.width / 2f,
                 a.height / 2f,
                 0xFF6A6C74);
             Hyb.textCentered(
-                "or drag an item out of NEI's list and click here.",
+                UiText.tr("canvas.or_drag_an_item_out_of_nei_s_list_and_click_here"),
                 a.width / 2f,
                 a.height / 2f + 11,
                 0xFF6A6C74);
@@ -595,7 +595,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     private void presenceFailed(final RuntimeException e) {
         if (presenceFailed) return;
         presenceFailed = true;
-        com.gtnhplanner.GtnhPlanner.LOG.error("Presence on the board failed", e);
+        com.gtnhplanner.GtnhPlanner.LOG.error(UiText.tr("canvas.presence_on_the_board_failed"), e);
     }
 
     /**
@@ -1718,9 +1718,9 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             com.gtnhplanner.ui.Resources.name(wire.resource()),
             "§7" + (wire.perSecond() > 0
                 ? com.gtnhplanner.ui.theme.Fmt.rate(wire.perSecond(), session.rateUnit(), fluid)
-                : "nothing flows yet"),
-            "§8Right click: add a drawer here, or delete it",
-            "§8Double-click: pin a dot to steer it");
+                : UiText.tr("canvas.nothing_flows_yet")),
+            UiText.tr("canvas.8right_click_add_a_drawer_here_or_delete_it"),
+            UiText.tr("canvas.8double_click_pin_a_dot_to_steer_it"));
     }
 
     // region Carrying a leftover
@@ -2001,19 +2001,20 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         // Nowhere else could take it: said plainly, so carrying it about is not a puzzle.
         final List<com.gtnhplanner.ui.BoardSession.SpareBearer> bearers = c.line()
             .bearers();
-        final com.gtnhplanner.ui.popup.Tip tip = carryTarget >= 0 ? com.gtnhplanner.ui.popup.Tip.of("Move it here")
-            .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Let go")
-            : bearers.size() < 2 ? com.gtnhplanner.ui.popup.Tip.of("Nowhere else to put it")
-                .titleColor(0xFFF87171)
-                .muted(
-                    "Only the " + bearers.get(0)
-                        .machine()
-                        + (c.line()
-                            .importing() ? " can take it in." : " can ship it out."))
-                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Let go: it stays here")
-                : com.gtnhplanner.ui.popup.Tip.of("Hand it to another machine")
-                    .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Drop on a green card")
-                    .wheelAnyway("Change amount");
+        final com.gtnhplanner.ui.popup.Tip tip = carryTarget
+            >= 0 ? com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.move_it_here"))
+                .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("canvas.let_go"))
+                : bearers.size() < 2 ? com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.nowhere_else_to_put_it"))
+                    .titleColor(0xFFF87171)
+                    .muted(
+                        "Only the " + bearers.get(0)
+                            .machine()
+                            + (c.line()
+                                .importing() ? " can take it in." : " can ship it out."))
+                    .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("canvas.let_go_it_stays_here"))
+                    : com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.hand_it_to_another_machine"))
+                        .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("canvas.drop_on_a_green_card"))
+                        .wheelAnyway(UiText.tr("canvas.change_amount"));
         final float tx = fn.x + dx + (c.output() ? CardLayout.W + 6 : rx - 6 - tip.width() * s);
         final float ty = fn.y + dy + rowY;
         org.lwjgl.opengl.GL11.glPushMatrix();
@@ -2356,7 +2357,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             com.gtnhplanner.ui.popup.NumberPopup.create(
                 p.name() + " rate in " + (p.isFluid() ? "L" : "") + unit.suffix + " (empty: the plan decides)",
                 "2.5k, 1/3",
-                "Type 2.5k, 1M or 1/3",
+                UiText.tr("canvas.type_2_5k_1m_or_1_3"),
                 set == null ? 0 : set * unit.perSecond,
                 0,
                 Double.MAX_VALUE,
@@ -2382,7 +2383,8 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         if (com.gtnhplanner.ui.Planner.lookUp(stack.copy(), uses)) return;
         session.disarmLookup();
         final Node n = card.model().node;
-        final String none = (uses ? "Nothing uses " : "Nothing makes ") + stack.getDisplayName();
+        final String none = (uses ? UiText.tr("canvas.nothing_uses") : UiText.tr("canvas.nothing_makes"))
+            + stack.getDisplayName();
         Popup.open(
             getPanel(),
             PickList.popup(
@@ -2484,7 +2486,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         if (verdict == Verdict.DEAD && !portDrag.socket()) {
             // Said by the mouse, at the board's text size whatever the zoom.
             final float s = 1 / graph().getZoom();
-            Hyb.text("Drawer already exists", mouseX + 8 * s, mouseY + 6 * s, s, WIRE_NO);
+            Hyb.text(UiText.tr("canvas.drawer_already_exists"), mouseX + 8 * s, mouseY + 6 * s, s, WIRE_NO);
         }
     }
 
@@ -2705,7 +2707,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         rows.add(
             new PickList.Entry(
                 stack,
-                "Add as a product",
+                UiText.tr("canvas.add_as_a_product"),
                 "",
                 Hyb.PRODUCT_INK,
                 false,
@@ -2714,7 +2716,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         rows.add(
             new PickList.Entry(
                 stack,
-                "Add as a source",
+                UiText.tr("canvas.add_as_a_source"),
                 "",
                 Hyb.SOURCE_INK,
                 false,
@@ -2984,7 +2986,7 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
 
     private static final java.util.concurrent.ExecutorService ARRANGER = java.util.concurrent.Executors
         .newSingleThreadExecutor(r -> {
-            final Thread t = new Thread(r, "GTNH Planner arrange");
+            final Thread t = new Thread(r, UiText.tr("canvas.gtnh_planner_arrange"));
             t.setDaemon(true);
             return t;
         });
@@ -3323,21 +3325,27 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
             final Edge edge = wire.edge();
             rows.add(
                 PickList.Entry.of(
-                    "Add a product here (takes the surplus)",
+                    UiText.tr("canvas.add_a_product_here_takes_the_surplus"),
                     () -> session.addDrawerOnEdge(edge, Drawer.Kind.PRODUCT, px, py)));
             rows.add(
                 PickList.Entry.of(
-                    "Add a source here (brings in more)",
+                    UiText.tr("canvas.add_a_source_here_brings_in_more"),
                     () -> session.addDrawerOnEdge(edge, Drawer.Kind.SOURCE, px, py)));
             rows.add(
-                new PickList.Entry(null, "Delete wire", "", Hyb.RED_INK, false, () -> session.deleteEdge(edge.id)));
+                new PickList.Entry(
+                    null,
+                    UiText.tr("canvas.delete_wire"),
+                    "",
+                    Hyb.RED_INK,
+                    false,
+                    () -> session.deleteEdge(edge.id)));
         } else {
             final Drawer drawer = wire.drawer();
             final Drawer.Link link = wire.link();
             rows.add(
                 new PickList.Entry(
                     null,
-                    "Delete wire",
+                    UiText.tr("canvas.delete_wire"),
                     "",
                     Hyb.RED_INK,
                     false,
@@ -3380,14 +3388,17 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
         final List<UUID> taskCards = session.cardsIn(session.selection());
         if (!taskCards.isEmpty()) rows.add(
             PickList.Entry.of(
-                "Add to a task",
+                UiText.tr("canvas.add_to_a_task"),
                 () -> com.gtnhplanner.ui.task.TaskActions.addMenu(session, getPanel(), taskCards, sx, sy)));
-        rows.add(PickList.Entry.of("Add sticky note", () -> addNoteAt(wx, wy)));
+        rows.add(PickList.Entry.of(UiText.tr("canvas.add_sticky_note"), () -> addNoteAt(wx, wy)));
         rows.add(
-            PickList.Entry.of("Add box", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.BOX, wx, wy)));
+            PickList.Entry.of(
+                UiText.tr("canvas.add_box"),
+                () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.BOX, wx, wy)));
         rows.add(
-            PickList.Entry
-                .of("Add arrow", () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.ARROW, wx, wy)));
+            PickList.Entry.of(
+                UiText.tr("canvas.add_arrow"),
+                () -> session.addDrawing(com.gtnhplanner.data.flowchart.Note.ARROW, wx, wy)));
         Popup.open(getPanel(), PickList.popup("gtnhplanner_board_menu", null, rows, false, 140), sx, sy);
     }
 
@@ -3868,10 +3879,10 @@ public final class BoardCanvas extends ParentWidget<BoardCanvas>
     @Nullable
     public com.gtnhplanner.ui.popup.Tip dotTip() {
         if (hoveredDot() == null) return null;
-        return com.gtnhplanner.ui.popup.Tip.of("Steering dot")
-            .muted("The wire passes through it.")
-            .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, "Steer the wire")
-            .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, "Remove it (double-click)");
+        return com.gtnhplanner.ui.popup.Tip.of(UiText.tr("canvas.steering_dot"))
+            .muted(UiText.tr("canvas.the_wire_passes_through_it"))
+            .action(com.gtnhplanner.ui.popup.Tip.Input.DRAG, UiText.tr("canvas.steer_the_wire"))
+            .action(com.gtnhplanner.ui.popup.Tip.Input.LEFT, UiText.tr("canvas.remove_it_double_click"));
     }
 
     // endregion

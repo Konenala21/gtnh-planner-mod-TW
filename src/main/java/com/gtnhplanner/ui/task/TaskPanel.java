@@ -27,6 +27,7 @@ import com.gtnhplanner.library.Account;
 import com.gtnhplanner.ui.BoardScreen;
 import com.gtnhplanner.ui.BoardSession;
 import com.gtnhplanner.ui.PlannerScale;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardPaint;
 import com.gtnhplanner.ui.note.NoteText;
 import com.gtnhplanner.ui.popup.PickList;
@@ -135,16 +136,16 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         titleScale = (k + 1) / (float) k;
         size(boxW, boxH);
 
-        comment = new TextArea("Write a comment").maxLength(TaskEdits.COMMENT_MAX);
+        comment = new TextArea(UiText.tr("task.write_a_comment")).maxLength(TaskEdits.COMMENT_MAX);
         child(
             comment.pos(mainX + 1, boxH - FOOT + 8)
                 .size(commentW() - 2, 22));
 
-        title = new TextArea("Name this task").scale(titleScale)
+        title = new TextArea(UiText.tr("task.name_this_task")).scale(titleScale)
             .singleLine()
             .maxLength(TaskEdits.TITLE_MAX)
             .onDone(this::setTitle);
-        notes = new TextArea("Add notes").maxLength(TaskEdits.TEXT_MAX)
+        notes = new TextArea(UiText.tr("task.add_notes")).maxLength(TaskEdits.TEXT_MAX)
             .onDone(this::setText);
         page = new Page();
         page.child(title);
@@ -397,8 +398,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             Sfx.DENY.play();
             session.flash(
                 com.gtnhplanner.data.flowchart.balancer.Severity.WARN,
-                TaskQuests.available() ? "That quest is not in this quest book"
-                    : "There is no quest book in this game");
+                TaskQuests.available() ? UiText.tr("task.that_quest_is_not_in_this_quest_book")
+                    : UiText.tr("task.there_is_no_quest_book_in_this_game"));
             return;
         }
         Hyb.click();
@@ -408,7 +409,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     private void showPlace(final Tasks.Place p) {
         if (!TaskThings.inThisWorld(p)) {
             Sfx.DENY.play();
-            session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.WARN, "That spot is in another world");
+            session.flash(
+                com.gtnhplanner.data.flowchart.balancer.Severity.WARN,
+                UiText.tr("task.that_spot_is_in_another_world"));
             return;
         }
         Hyb.click();
@@ -422,7 +425,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         if (p == null) return;
         Hyb.click();
         net.minecraft.client.gui.GuiScreen.setClipboardString(TaskEdits.coordinates(p));
-        session.flash(com.gtnhplanner.data.flowchart.balancer.Severity.INFO, "Copied " + TaskEdits.coordinates(p));
+        session.flash(
+            com.gtnhplanner.data.flowchart.balancer.Severity.INFO,
+            UiText.tr("task.copied") + TaskEdits.coordinates(p));
     }
 
     /** Shows a placed card's machine in the world. */
@@ -433,7 +438,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
     }
 
     private void rewrite(final Tasks.Item item) {
-        Popup.open(session.panel(), TextPopup.create("Change the words", item.text(), text -> {
+        Popup.open(session.panel(), TextPopup.create(UiText.tr("task.change_the_words"), item.text(), text -> {
             if (text == null || text.isBlank()) return;
             final Tasks.Item now = TaskEdits.item(session.graph(), item.id());
             if (now != null && !text.strip()
@@ -445,13 +450,14 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final Tasks.Place p = item.place();
         Popup.open(
             session.panel(),
-            TextPopup.create("Name this spot", p == null || p.label() == null ? "" : p.label(), text -> {
-                final Tasks.Item now = TaskEdits.item(session.graph(), item.id());
-                if (now != null) {
-                    final Tasks.Item next = TaskEdits.withLabel(now, text);
-                    if (!next.equals(now)) putItem(next);
-                }
-            }),
+            TextPopup
+                .create(UiText.tr("task.name_this_spot"), p == null || p.label() == null ? "" : p.label(), text -> {
+                    final Tasks.Item now = TaskEdits.item(session.graph(), item.id());
+                    if (now != null) {
+                        final Tasks.Item next = TaskEdits.withLabel(now, text);
+                        if (!next.equals(now)) putItem(next);
+                    }
+                }),
             getContext().getAbsMouseX(),
             getContext().getAbsMouseY());
     }
@@ -525,7 +531,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final float ty = (BAR - 8) / 2f;
         TaskLook.dot(PAD, ty + 1, 6, TaskLook.colour(t.status()));
         final String board = graph().getName()
-            .isBlank() ? "Task board" : graph().getName();
+            .isBlank() ? UiText.tr("task.task_board") : graph().getName();
         final String where = board + "  /  " + TaskLook.name(t.status());
         Hyb.text(Hyb.width(where) <= boxW - PAD - 40 ? where : TaskLook.name(t.status()), PAD + 11, ty, DIM);
         final int cx = boxW - 20, cy = (BAR - 14) / 2;
@@ -549,10 +555,16 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             .isBlank();
         Hyb.rect(kx, ky, 62, KEY_H, any ? postHot ? 0xFF38E1F5 : CYAN : postHot ? CONTROL_HOVER : CONTROL);
         if (any) Hyb.rect(kx, ky, 62, 1, 0x66FFFFFF);
-        Hyb.text("Comment", kx + (62 - Hyb.width("Comment")) / 2f, ky + 4, 1f, any ? 0xFF0B1A1E : DIM, false);
+        Hyb.text(
+            UiText.tr("task.comment"),
+            kx + (62 - Hyb.width(UiText.tr("task.comment"))) / 2f,
+            ky + 4,
+            1f,
+            any ? 0xFF0B1A1E : DIM,
+            false);
         hits.add(new Hit(Kind.POST, kx, ky, kx + 62, ky + KEY_H, null));
         if (wide) {
-            final String del = "Delete task";
+            final String del = UiText.tr("task.delete_task");
             final int dw = Hyb.width(del) + 12, dx = sideX + sideW - dw, dy = fy + 11;
             Hyb.bevel(
                 dx,
@@ -734,7 +746,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             } else drawSide(t, hover, sideX, titleY, sideW);
 
             // Notes.
-            label("Notes", null, y);
+            label(UiText.tr("task.notes"), null, y);
             final boolean writing = notes.isFocused();
             Hyb.rect(mainX, notesY, mainW, notesH, writing ? 0xFF3E7F8C : CardPaint.EDGE);
             Hyb.rect(mainX + 1, notesY + 1, mainW - 2, notesH - 2, WELL);
@@ -769,11 +781,12 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             int done = 0;
             for (final TaskThings.Shown s : things) if (s.item()
                 .done()) done++;
-            label("Things", things.isEmpty() ? null : done + "/" + things.size(), top);
+            label(UiText.tr("task.things"), things.isEmpty() ? null : done + "/" + things.size(), top);
             if (!things.isEmpty()) {
                 // How far along: a thin bar after the count.
                 final String n = done + "/" + things.size();
-                final int bx = mainX + Hyb.width("Things") + 5 + Hyb.width(n) + 8, bw = mainX + mainW - bx;
+                final int bx = mainX + Hyb.width(UiText.tr("task.things")) + 5 + Hyb.width(n) + 8,
+                    bw = mainX + mainW - bx;
                 if (bw > 16) {
                     Hyb.rect(bx, top + 4, bw, 3, 0xFF2C2E34);
                     Hyb.rect(bx, top + 4, Math.round(bw * done / (float) things.size()), 3, Hyb.OK_INK);
@@ -797,16 +810,17 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             if (carrying && dropY < 0) dropY = y;
             if (carrying) Hyb.rect(mainX, dropY - 1, mainW, 2, CYAN);
             if (things.isEmpty()) {
-                Hyb.text("Nothing on it yet.", mainX + 2, y + 2, FAINT);
+                Hyb.text(UiText.tr("task.nothing_on_it_yet"), mainX + 2, y + 2, FAINT);
                 y += 14;
             }
             // The keys that add things: where you stand, a screenshot and a quest, while in a world.
             y += 4;
             if (net.minecraft.client.Minecraft.getMinecraft().theWorld != null) {
                 final List<AddKey> keys = new ArrayList<>();
-                keys.add(new AddKey("Add my location", Kind.ADD_HERE, Icons::pin));
-                keys.add(new AddKey("Add a screenshot", Kind.ADD_SHOT, Icons::camera));
-                if (TaskQuests.available()) keys.add(new AddKey("Add a quest", Kind.ADD_QUEST, Icons::book));
+                keys.add(new AddKey(UiText.tr("task.add_my_location"), Kind.ADD_HERE, Icons::pin));
+                keys.add(new AddKey(UiText.tr("task.add_a_screenshot"), Kind.ADD_SHOT, Icons::camera));
+                if (TaskQuests.available())
+                    keys.add(new AddKey(UiText.tr("task.add_a_quest"), Kind.ADD_QUEST, Icons::book));
                 int x = mainX;
                 for (final AddKey k : keys) {
                     final String label = k.label();
@@ -818,7 +832,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 }
                 y += KEY_H + 6;
             }
-            final NoteText hint = NoteText.of("Add machines from a card's pin button.", mainW, Hyb::width);
+            final NoteText hint = NoteText
+                .of(UiText.tr("task.add_machines_from_a_card_s_pin_button"), mainW, Hyb::width);
             for (int i = 0; i < hint.lines()
                 .size(); i++) {
                 Hyb.text(hint.shown(i), mainX, y + 1, FAINT);
@@ -898,7 +913,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
 
         private int showKeyW(final TaskThings.Shown s) {
-            return Tasks.LOCATION.equals(s.kind()) ? Hyb.width("Show") + 10 + Icons.SIZE + 3 : 16;
+            return Tasks.LOCATION.equals(s.kind()) ? Hyb.width(UiText.tr("task.show")) + 10 + Icons.SIZE + 3 : 16;
         }
 
         /** A spot's Copy key: its x y z to the clipboard, wherever the spot is. */
@@ -974,7 +989,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 Hyb.bevel(kx, ky, kw, KEY_H, on ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
                 if (Tasks.LOCATION.equals(s.kind())) {
                     Icons.pin(kx + 5, ky + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
-                    Hyb.text("Show", kx + 5 + Icons.SIZE + 3, ky + 4, Hyb.INK);
+                    Hyb.text(UiText.tr("task.show"), kx + 5 + Icons.SIZE + 3, ky + 4, Hyb.INK);
                 } else Icons.pin(kx + (kw - Icons.SIZE) / 2, ky + (KEY_H - 1 - Icons.SIZE) / 2, CYAN);
                 pageHits.add(new Hit(Kind.SHOW, kx, ky, kx + kw, ky + KEY_H, id));
             }
@@ -983,7 +998,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 final int kx = right - COPY_W, ky = y + (h - KEY_H) / 2;
                 final boolean on = is(hover, Kind.COPY, id);
                 Hyb.bevel(kx, ky, COPY_W, KEY_H, on ? Hyb.KEY_HOVER : Hyb.KEY, Hyb.KEY_HI, Hyb.KEY_LO, 0, 1);
-                Hyb.textCentered("Copy", kx + COPY_W / 2f, ky + 4, Hyb.INK);
+                Hyb.textCentered(UiText.tr("task.copy"), kx + COPY_W / 2f, ky + 4, Hyb.INK);
                 pageHits.add(new Hit(Kind.COPY, kx, ky, kx + COPY_W, ky + KEY_H, id));
             }
         }
@@ -1048,10 +1063,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
         private int drawComments(@Nullable final Hit hover, final int top) {
             final List<Tasks.Comment> comments = TaskEdits.comments(graph(), taskId);
-            label("Comments", comments.isEmpty() ? null : Integer.toString(comments.size()), top);
+            label(UiText.tr("task.comments"), comments.isEmpty() ? null : Integer.toString(comments.size()), top);
             int y = top + LABEL;
             if (comments.isEmpty()) {
-                Hyb.text("No comments yet.", mainX + 2, y + 2, FAINT);
+                Hyb.text(UiText.tr("task.no_comments_yet"), mainX + 2, y + 2, FAINT);
                 return y + 14;
             }
             final int tx = mainX + TaskLook.FACE + 6, tw = mainX + mainW - tx;
@@ -1064,11 +1079,11 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     .equals(hover.data());
                 TaskLook.face(graph(), c.by(), mainX, y);
                 final String who = c.byName()
-                    .isEmpty() ? "Someone" : c.byName();
+                    .isEmpty() ? UiText.tr("task.someone") : c.byName();
                 Hyb.text(who, tx, y + 2, Hyb.INK);
                 Hyb.text(TaskLook.ago(c.at()), tx + Hyb.width(who) + 6, y + 2, FAINT);
                 if (TaskLook.mine(c.by()) && rowHot) {
-                    final String del = "Delete";
+                    final String del = UiText.tr("task.delete");
                     final int dx = mainX + mainW - Hyb.width(del) - 2;
                     final boolean on = is(hover, Kind.COMMENT_DELETE, c.id());
                     Hyb.text(del, dx, y + 2, on ? 0xFFFF8080 : Hyb.RED_INK);
@@ -1111,30 +1126,66 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 // Three groups, a hairline between each: the task's state; what it waits on and unblocks; quiet facts.
                 final int fx0 = x + SIDE_PAD;
                 int at = y + SIDE_PAD + 2;
-                at = item("Status", fx0, at, inner, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
-                at = item("Priority", fx0, at, inner, draw, (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
-                at = item("People", fx0, at, inner, draw, (fx, fy, fw) -> people(t, hover, fx, fy, fw, true, draw));
+                at = item(
+                    UiText.tr("task.status"),
+                    fx0,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                at = item(
+                    UiText.tr("task.priority"),
+                    fx0,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
+                at = item(
+                    UiText.tr("task.people"),
+                    fx0,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> people(t, hover, fx, fy, fw, true, draw));
                 at = divider(x, at, w, draw);
-                at = item("Waiting on", fx0, at, inner, draw, (fx, fy, fw) -> blockedBy(t, hover, fx, fy, fw, draw));
-                at = item("Unblocks", fx0, at, inner, draw, (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
+                at = item(
+                    UiText.tr("task.waiting_on"),
+                    fx0,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> blockedBy(t, hover, fx, fy, fw, draw));
+                at = item(
+                    UiText.tr("task.unblocks"),
+                    fx0,
+                    at,
+                    inner,
+                    draw,
+                    (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
                 at = divider(x, at, w, draw);
-                at = fact("Board", boardName(), fx0, at, inner, draw);
-                at = fact("Made", made(t), fx0, at, inner, draw);
-                at = fact("Time", TaskLook.inColumnShort(t), fx0, at, inner, draw);
+                at = fact(UiText.tr("task.board"), boardName(), fx0, at, inner, draw);
+                at = fact(UiText.tr("task.made"), made(t), fx0, at, inner, draw);
+                at = fact(UiText.tr("task.time"), TaskLook.inColumnShort(t), fx0, at, inner, draw);
                 h = at - 6 + SIDE_PAD - y;
             } else {
                 final int half = (inner - 12) / 2, lx = x + SIDE_PAD, rx = lx + half + 12;
                 int at = y + SIDE_PAD + 2;
-                final int a0 = item("Status", lx, at, half, draw, (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
+                final int a0 = item(
+                    UiText.tr("task.status"),
+                    lx,
+                    at,
+                    half,
+                    draw,
+                    (fx, fy, fw) -> status(t, hover, fx, fy, fw, draw));
                 final int a = item(
-                    "Priority",
+                    UiText.tr("task.priority"),
                     lx,
                     a0,
                     half,
                     draw,
                     (fx, fy, fw) -> priority(t, hover, fx, fy, fw, draw));
                 final int b = item(
-                    "People",
+                    UiText.tr("task.people"),
                     rx,
                     at,
                     half,
@@ -1144,16 +1195,22 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 // What it waits on and what it unblocks, side by side.
                 final int c0 = at;
                 final int c = item(
-                    "Waiting on",
+                    UiText.tr("task.waiting_on"),
                     lx,
                     c0,
                     half,
                     draw,
                     (fx, fy, fw) -> blockedBy(t, hover, fx, fy, fw, draw));
-                final int d = item("Unblocks", rx, c0, half, draw, (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
+                final int d = item(
+                    UiText.tr("task.unblocks"),
+                    rx,
+                    c0,
+                    half,
+                    draw,
+                    (fx, fy, fw) -> blocks(t, hover, fx, fy, fw, draw));
                 at = divider(x, Math.max(c, d), w, draw) - 3;
                 // The board and who made it, Delete task at the line's end.
-                final String del = "Delete task";
+                final String del = UiText.tr("task.delete_task");
                 final int dw = Hyb.width(del) + 12, dx = x + w - SIDE_PAD - dw;
                 final List<String> info = parts(boardName() + TaskThings.SEP + madeBy(t), dx - 8 - lx);
                 if (draw) {
@@ -1235,7 +1292,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
 
         private String boardName() {
             return graph().getName()
-                .isBlank() ? "Task board" : graph().getName();
+                .isBlank() ? UiText.tr("task.task_board") : graph().getName();
         }
 
         /** "made by you 3d ago", "made by ann 5m ago": who made it and when, as a part of a line. */
@@ -1399,8 +1456,8 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 if (draw) {
                     final int fw = TaskLook.face(graph(), id, x, at);
                     final String name = TaskLook.mine(id) ? "You" : TaskLook.nameOf(graph(), id);
-                    final String shown = Hyb.width(name == null ? "Someone" : name) <= w - fw - 4
-                        ? name == null ? "Someone" : name
+                    final String shown = Hyb.width(name == null ? UiText.tr("task.someone") : name) <= w - fw - 4
+                        ? name == null ? UiText.tr("task.someone") : name
                         : TaskLook.initials(name);
                     Hyb.text(shown, x + fw + 4, at + 2, Hyb.INK);
                 }
@@ -1425,10 +1482,10 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             if (me == null) {
                 if (t.assignees()
                     .isEmpty()) {
-                    if (draw) Hyb.text("No one yet.", x, at + 1, FAINT);
+                    if (draw) Hyb.text(UiText.tr("task.no_one_yet"), x, at + 1, FAINT);
                     at += LINE + 2;
                 }
-                final NoteText s = NoteText.of("Sign in to assign", w, Hyb::width);
+                final NoteText s = NoteText.of(UiText.tr("task.sign_in_to_assign"), w, Hyb::width);
                 if (draw) {
                     final boolean hot = is(hover, Kind.SIGN_IN);
                     for (int i = 0; i < s.lines()
@@ -1448,9 +1505,9 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             }
             final boolean shared = !TaskLook.people(graph())
                 .isEmpty();
-            final String s = shared ? "Assign"
+            final String s = shared ? UiText.tr("task.assign")
                 : t.assignees()
-                    .contains(me) ? "Unassign me" : "Assign me";
+                    .contains(me) ? UiText.tr("task.unassign_me") : UiText.tr("task.assign_me");
             final int kw = Math.min(w, Hyb.width(s) + 12);
             if (draw) {
                 Hyb.bevel(
@@ -1611,29 +1668,30 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         final List<PickList.Entry> rows = new ArrayList<>();
         switch (s.kind()) {
             case Tasks.MACHINE -> {
-                if (!s.gone()) rows.add(PickList.Entry.of("Show on its plan", () -> act(s)));
+                if (!s.gone()) rows.add(PickList.Entry.of(UiText.tr("task.show_on_its_plan"), () -> act(s)));
                 if (s.node() != null && !s.node().worldLinks.isEmpty())
-                    rows.add(PickList.Entry.of("Show in the world", () -> showPlaced(s)));
+                    rows.add(PickList.Entry.of(UiText.tr("task.show_in_the_world"), () -> showPlaced(s)));
             }
             case Tasks.LOCATION -> {
                 if (TaskThings.inThisWorld(
                     s.item()
                         .place()))
-                    rows.add(PickList.Entry.of("Show where it is", () -> act(s)));
-                rows.add(PickList.Entry.of("Copy where it is", () -> copyPlace(s)));
-                rows.add(PickList.Entry.of("Name it", () -> rename(s.item())));
+                    rows.add(PickList.Entry.of(UiText.tr("task.show_where_it_is"), () -> act(s)));
+                rows.add(PickList.Entry.of(UiText.tr("task.copy_where_it_is"), () -> copyPlace(s)));
+                rows.add(PickList.Entry.of(UiText.tr("task.name_it"), () -> rename(s.item())));
             }
-            case Tasks.PICTURE -> rows.add(PickList.Entry.of("See it big", () -> act(s)));
-            case Tasks.QUEST -> rows.add(PickList.Entry.of("Open in the quest book", () -> act(s)));
-            default -> rows.add(PickList.Entry.of("Change the words", () -> act(s)));
+            case Tasks.PICTURE -> rows.add(PickList.Entry.of(UiText.tr("task.see_it_big"), () -> act(s)));
+            case Tasks.QUEST -> rows.add(PickList.Entry.of(UiText.tr("task.open_in_the_quest_book"), () -> act(s)));
+            default -> rows.add(PickList.Entry.of(UiText.tr("task.change_the_words"), () -> act(s)));
         }
         rows.add(
             PickList.Entry.of(
                 s.item()
-                    .done() ? "Mark not done" : "Mark done",
+                    .done() ? UiText.tr("task.mark_not_done") : UiText.tr("task.mark_done"),
                 () -> toggle(s)));
         rows.add(PickList.Entry.rule());
-        rows.add(new PickList.Entry(null, "Take it off the task", "", Hyb.RED_INK, false, () -> takeOff(s)));
+        rows.add(
+            new PickList.Entry(null, UiText.tr("task.take_it_off_the_task"), "", Hyb.RED_INK, false, () -> takeOff(s)));
         Popup.open(
             session.panel(),
             PickList.popup("gtnhplanner_task_thing", null, rows, false, 140),
@@ -1723,7 +1781,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     null,
                     p.id()
                         .equals(me) ? p.name() + " (you)" : p.name(),
-                    on ? "On it" : "",
+                    on ? UiText.tr("task.on_it") : "",
                     Hyb.INK,
                     on,
                     () -> {
@@ -1739,7 +1797,7 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         }
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_task_people", "Who is on it", rows, rows.size() > 8, 150),
+            PickList.popup("gtnhplanner_task_people", UiText.tr("task.who_is_on_it"), rows, rows.size() > 8, 150),
             getArea().x + key.x0(),
             getArea().y + BAR + key.y1() - page.scroll + 2);
     }
@@ -1772,26 +1830,26 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                 new PickList.Entry(
                     null,
                     TaskLook.fitWords(o.title(), 180),
-                    loops ? "waits on this" : "",
+                    loops ? UiText.tr("task.waits_on_this") : "",
                     loops ? FAINT : Hyb.INK,
                     false,
                     () -> addBlocker(o.id()),
                     TaskLook.colour(o.status())));
         }
         if (rows.isEmpty()) {
-            refuse("There is no other task to wait on.");
+            refuse(UiText.tr("task.there_is_no_other_task_to_wait_on"));
             return;
         }
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_task_blocker", "Waiting on", rows, rows.size() > 8, 160),
+            PickList.popup("gtnhplanner_task_blocker", UiText.tr("task.waiting_on"), rows, rows.size() > 8, 160),
             getArea().x + under.x0(),
             getArea().y + BAR + under.y1() - page.scroll + 2);
     }
 
     private void addBlocker(final String blocker) {
         if (TaskEdits.wouldLoop(graph(), taskId, blocker)) {
-            refuse("That task already waits on this one.");
+            refuse(UiText.tr("task.that_task_already_waits_on_this_one"));
             return;
         }
         final boolean[] added = new boolean[1];
@@ -1816,19 +1874,20 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
             : Tip.of(o.title())
                 .sub(TaskLook.inColumn(o))
                 .muted(how)
-                .action(Tip.Input.LEFT, "Open it");
+                .action(Tip.Input.LEFT, UiText.tr("task.open_it"));
     }
 
     /** Asks before deleting the task: its things and comments go with it. */
     private void confirmDelete(final int x, final int y) {
         Hyb.click();
-        final List<PickList.Entry> rows = List.of(new PickList.Entry(null, "Delete it", "", Hyb.RED_INK, false, () -> {
-            edit(() -> TaskEdits.remove(session.graph(), taskId));
-            Sfx.NOTE_CRUMPLE.play();
-        }), PickList.Entry.of("Keep it", () -> {}));
+        final List<PickList.Entry> rows = List
+            .of(new PickList.Entry(null, UiText.tr("task.delete_it"), "", Hyb.RED_INK, false, () -> {
+                edit(() -> TaskEdits.remove(session.graph(), taskId));
+                Sfx.NOTE_CRUMPLE.play();
+            }), PickList.Entry.of(UiText.tr("task.keep_it"), () -> {}));
         Popup.open(
             session.panel(),
-            PickList.popup("gtnhplanner_task_delete", "Delete this task for good?", rows, false, 150),
+            PickList.popup("gtnhplanner_task_delete", UiText.tr("task.delete_this_task_for_good"), rows, false, 150),
             getArea().x + x,
             getArea().y + y - 64);
     }
@@ -1845,35 +1904,35 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
         if (hit == null) return null;
         final TaskThings.Shown s = hit.data() instanceof final String id ? page.shown.get(id) : null;
         return switch (hit.kind()) {
-            case CLOSE -> Tip.of("Close (Esc)");
-            case STATUS -> Tip.of("Move it to another column");
-            case PRIORITY -> Tip.of("How pressing it is");
-            case ASSIGN -> Tip.of(hit.data() != null ? "Choose who is on it" : "Put yourself on it or take yourself off");
-            case SIGN_IN -> Tip.of("Sign in to your account");
+            case CLOSE -> Tip.of(UiText.tr("task.close_esc"));
+            case STATUS -> Tip.of(UiText.tr("task.move_it_to_another_column"));
+            case PRIORITY -> Tip.of(UiText.tr("task.how_pressing_it_is"));
+            case ASSIGN -> Tip.of(hit.data() != null ? UiText.tr("task.choose_who_is_on_it") : UiText.tr("task.put_yourself_on_it_or_take_yourself_off"));
+            case SIGN_IN -> Tip.of(UiText.tr("task.sign_in_to_your_account"));
             case BOX -> s == null ? null
                 : Tip.of(
                     s.item()
-                        .done() ? "Not done after all" : "Tick it off");
+                        .done() ? UiText.tr("task.not_done_after_all") : UiText.tr("task.tick_it_off"));
             case THING -> s == null ? null : thingTip(s);
             case SHOW -> s == null ? null
-                : Tip.of(Tasks.LOCATION.equals(s.kind()) ? "Show where it is" : "Show it in the world")
-                    .sub("The planner closes and a beam marks the spot");
-            case COPY -> Tip.of("Copy where it is")
-                .sub("Its x y z, to paste in the game");
-            case THING_DELETE -> Tip.of("Take it off the task");
-            case ADD_HERE -> Tip.of("Add the spot you stand on");
-            case ADD_SHOT -> Tip.of("Add a screenshot of the world")
-                .sub("The planner steps aside for the shot and comes back");
-            case ADD_QUEST -> Tip.of("Add a quest from your quest book")
-                .sub("Click a quest in the book to add it");
+                : Tip.of(Tasks.LOCATION.equals(s.kind()) ? UiText.tr("task.show_where_it_is") : UiText.tr("task.show_it_in_the_world"))
+                    .sub(UiText.tr("task.the_planner_closes_and_a_beam_marks_the_spot"));
+            case COPY -> Tip.of(UiText.tr("task.copy_where_it_is"))
+                .sub(UiText.tr("task.its_x_y_z_to_paste_in_the_game"));
+            case THING_DELETE -> Tip.of(UiText.tr("task.take_it_off_the_task"));
+            case ADD_HERE -> Tip.of(UiText.tr("task.add_the_spot_you_stand_on"));
+            case ADD_SHOT -> Tip.of(UiText.tr("task.add_a_screenshot_of_the_world"))
+                .sub(UiText.tr("task.the_planner_steps_aside_for_the_shot_and_comes_back"));
+            case ADD_QUEST -> Tip.of(UiText.tr("task.add_a_quest_from_your_quest_book"))
+                .sub(UiText.tr("task.click_a_quest_in_the_book_to_add_it"));
             case COMMENT -> null;
-            case COMMENT_DELETE -> Tip.of("Delete your comment");
-            case POST -> Tip.of("Add your comment");
-            case DELETE -> Tip.of("Delete this task with its things and comments");
-            case BLOCKER -> otherTip((String) hit.data(), "This task waits on it");
-            case BLOCKS -> otherTip((String) hit.data(), "It waits on this task");
-            case UNBLOCK -> Tip.of("It waits on this no more");
-            case ADD_BLOCKER -> Tip.of("Add a task it waits on");
+            case COMMENT_DELETE -> Tip.of(UiText.tr("task.delete_your_comment"));
+            case POST -> Tip.of(UiText.tr("task.add_your_comment"));
+            case DELETE -> Tip.of(UiText.tr("task.delete_this_task_with_its_things_and_comments"));
+            case BLOCKER -> otherTip((String) hit.data(), UiText.tr("task.this_task_waits_on_it"));
+            case BLOCKS -> otherTip((String) hit.data(), UiText.tr("task.it_waits_on_this_task"));
+            case UNBLOCK -> Tip.of(UiText.tr("task.it_waits_on_this_no_more"));
+            case ADD_BLOCKER -> Tip.of(UiText.tr("task.add_a_task_it_waits_on"));
         };
     }
 
@@ -1886,15 +1945,15 @@ public final class TaskPanel extends ParentWidget<TaskPanel> implements Interact
                     .replace(TaskThings.SEP, ", "));
         switch (s.kind()) {
             case Tasks.MACHINE -> {
-                if (!s.gone()) tip.action(Tip.Input.LEFT, "Show it on its plan");
+                if (!s.gone()) tip.action(Tip.Input.LEFT, UiText.tr("task.show_it_on_its_plan"));
             }
-            case Tasks.LOCATION -> tip.action(Tip.Input.LEFT, "Show where it is");
-            case Tasks.PICTURE -> tip.action(Tip.Input.LEFT, "See it big");
+            case Tasks.LOCATION -> tip.action(Tip.Input.LEFT, UiText.tr("task.show_where_it_is"));
+            case Tasks.PICTURE -> tip.action(Tip.Input.LEFT, UiText.tr("task.see_it_big"));
             case Tasks.QUEST -> tip.action(Tip.Input.LEFT, "Open it in the quest book");
-            default -> tip.action(Tip.Input.LEFT, "Change the words");
+            default -> tip.action(Tip.Input.LEFT, UiText.tr("task.change_the_words"));
         }
-        if (!s.loose()) tip.action(Tip.Input.DRAG, "Move it");
-        return tip.action(Tip.Input.RIGHT, "More");
+        if (!s.loose()) tip.action(Tip.Input.DRAG, UiText.tr("task.move_it"));
+        return tip.action(Tip.Input.RIGHT, UiText.tr("task.more"));
     }
 
     @Override

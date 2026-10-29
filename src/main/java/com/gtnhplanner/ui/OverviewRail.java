@@ -140,6 +140,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     private final TextFieldWidget filterField;
     /** The sections folded to their bars, and whether the overview is open: as the player last left them. */
     private final Set<String> folded = new HashSet<>(PlannerSettings.overviewFolded());
+
+    private static String foldKey(final String title) {
+        if (title.equals(UiText.tr("overview.inputs"))) return "INPUTS";
+        if (title.equals(UiText.tr("overview.outputs"))) return "OUTPUTS";
+        if (title.equals(UiText.tr("overview.internal"))) return "INTERNAL";
+        if (title.equals(UiText.tr("overview.machines"))) return "MACHINES";
+        return title;
+    }
+
     private final List<Hit> hits = new ArrayList<>();
     /** The player's fold, and whether they opened it while the planner had folded it (it stays open then). */
     private boolean open = PlannerSettings.overviewOpen();
@@ -161,7 +170,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         width(this::currentWidth, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
         filterField = new TextFieldWidget()
             .value(new StringValue.Dynamic(() -> filter, s -> filter = s == null ? "" : s))
-            .hintText("Filter resources...")
+            .hintText(UiText.tr("overview.filter_resources"))
             .pos(4, FILTER_Y)
             .height(FILTER_H)
             .width(() -> currentWidth() - 8, com.cleanroommc.modularui.widget.sizer.Unit.Measure.PIXEL);
@@ -330,7 +339,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
         // Heading: the title and the fold key.
         Hyb.rect(0, 0, w - 1, HEAD_H, Hyb.seeThrough(0xFF2A2D33, RAIL_FLOOR));
-        Hyb.text("OVERVIEW", 6, 5, Hyb.MUTED);
+        Hyb.text(UiText.tr("overview.overview"), 6, 5, Hyb.MUTED);
         final int fx = w - 4 - 14;
         Hyb.bevel(
             fx,
@@ -414,9 +423,39 @@ final class OverviewRail extends ParentWidget<OverviewRail>
     /** The list under the heading and filter, from {@code y}: every section in turn. Returns where it ends. */
     private int list(final BoardSession.Totals t, int y, final int w, final float z, final Hit hover) {
         final Set<String> keys = new HashSet<>();
-        y = resources("INPUTS", t.inputs(), y, w, z, Hyb.SOURCE_INK, "-", "Nothing missing.", hover, keys);
-        y = resources("OUTPUTS", t.outputs(), y, w, z, Hyb.PRODUCT_INK, "+", "Nothing coming out yet.", hover, keys);
-        y = resources("INTERNAL", t.internal(), y, w, z, INTERNAL_INK, "", "Nothing internal.", hover, keys);
+        y = resources(
+            UiText.tr("overview.inputs"),
+            t.inputs(),
+            y,
+            w,
+            z,
+            Hyb.SOURCE_INK,
+            "-",
+            UiText.tr("overview.nothing_missing"),
+            hover,
+            keys);
+        y = resources(
+            UiText.tr("overview.outputs"),
+            t.outputs(),
+            y,
+            w,
+            z,
+            Hyb.PRODUCT_INK,
+            "+",
+            UiText.tr("overview.nothing_coming_out_yet"),
+            hover,
+            keys);
+        y = resources(
+            UiText.tr("overview.internal"),
+            t.internal(),
+            y,
+            w,
+            z,
+            INTERNAL_INK,
+            "",
+            UiText.tr("overview.nothing_internal"),
+            hover,
+            keys);
         // A folded section keeps its sliders (a bar in hand among them keeps its place).
         for (final BoardSession.SpareLine line : session.spares())
             if (folded.contains(line.importing() ? "INPUTS" : "OUTPUTS")) keys.add(line.key());
@@ -511,7 +550,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         GL11.glPushMatrix();
         GL11.glTranslatef(3, 20, 0);
         GL11.glRotatef(90, 0, 0, 1);
-        Hyb.text("OVERVIEW", 0, -9, Hyb.MUTED);
+        Hyb.text(UiText.tr("overview.overview"), 0, -9, Hyb.MUTED);
         GL11.glPopMatrix();
         hits.add(new Hit(Kind.FOLD, 0, 0, W_FOLDED, h, null));
         lastHits.clear();
@@ -530,7 +569,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     private int section(final String title, final int count, final int shown, final int y, final int w, final int ink,
         final Hit hover) {
-        final boolean isFolded = folded.contains(title);
+        final boolean isFolded = folded.contains(foldKey(title));
         if (hover != null && hover.kind() == Kind.SECTION && title.equals(hover.data()))
             Hyb.rect(0, y, w - 1, SECTION_H, 0xFF30333A);
         else Hyb.rect(0, y, w - 1, SECTION_H, Hyb.seeThrough(0xFF2A2D33, RAIL_FLOOR));
@@ -588,7 +627,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final float z, final int ink, final String sign, final String empty, final Hit hover, final Set<String> keys) {
         // What the plan's spares carry is theirs: a line left with nothing but that (and no drawer) is not listed here.
         // A line at 0 (an unwired port's resource, or a drawer's) always is, so it can be set from here.
-        final boolean internal = title.equals("INTERNAL"), sources = title.equals("INPUTS");
+        final boolean internal = title.equals(UiText.tr("overview.internal")),
+            sources = title.equals(UiText.tr("overview.inputs"));
         final Map<String, Double> spared = internal ? Map.of() : spared(sources);
         final List<BoardSession.TotalLine> kept = new ArrayList<>();
         final Map<BoardSession.TotalLine, Double> amounts = new HashMap<>();
@@ -609,10 +649,10 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         // Every section's numbers in one column, left of where the drawer controls sit (empty on internal lines).
         final int rateRight = w - 6 - CONTROLS_W - 3;
         // The unit every rate below is in, at the header's end.
-        if (!folded.contains(title)) unitAtBar(y, w);
-        if (folded.contains(title)) return y + GAP;
+        if (!folded.contains(foldKey(title))) unitAtBar(y, w);
+        if (folded.contains(foldKey(title))) return y + GAP;
         if (shown.isEmpty() && groups.isEmpty()) {
-            Hyb.text(kept.isEmpty() ? empty : "No matches.", 8, y + 3, 0xFF6A6C74);
+            Hyb.text(kept.isEmpty() ? empty : UiText.tr("overview.no_matches"), 8, y + 3, 0xFF6A6C74);
             return y + ROW_H + GAP;
         }
         final Fmt.RateUnit unit = session.rateUnit();
@@ -685,7 +725,8 @@ final class OverviewRail extends ParentWidget<OverviewRail>
 
     /**
      * The plan's spares with a choice of place in one direction ({@code importing}: those brought in, under INPUTS;
-     * else surpluses, under OUTPUTS), each a block of its own after the section's lines: a slim header ("Spare", Split,
+     * else surpluses, under OUTPUTS), each a block of its own after the section's lines: a slim header
+     * (UiText.tr("overview.spare"), Split,
      * Auto) and a line per place with a bar of its share where the drawer controls sit ({@link SpareBar}). Hovering a
      * place lights it on the board (and peeks there when it is off view). {@code keys} gathers the spares drawn.
      */
@@ -1056,7 +1097,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         }
         final Map<String, List<BoardSession.MachineLine>> groups = machineGroups.groups();
         final int whole = machineGroups.whole(), shown = machineGroups.shown();
-        y = section("MACHINES", whole, shown, y, w, Hyb.INK, hover);
+        y = section(UiText.tr("overview.machines"), whole, shown, y, w, Hyb.INK, hover);
         // Peak / average, at the right of the section heading.
         final int px = w - 6 - TOGGLE_W;
         final boolean peakHot = hover != null && hover.kind() == Kind.PEAK;
@@ -1070,7 +1111,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             Hyb.KEY_LO,
             0,
             1);
-        final String peak = session.peakPower() ? "Peak" : "Avg";
+        final String peak = session.peakPower() ? UiText.tr("overview.peak") : UiText.tr("overview.avg");
         Hyb.textCentered(peak, px + TOGGLE_W / 2f, y - SECTION_H + 2, Hyb.INK);
         // Ahead of the heading's own hit, which spans the bar: the first hit under the mouse takes the click, and the
         // key's is on top (behind the heading, a click on the key folded the section).
@@ -1087,10 +1128,10 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         if (t.euMade() > 0) {
             // With generators on the board: what they make, and what is left (what the machines use is in the bar).
             final double net = t.euMade() - t.euPerTick();
-            Hyb.text("Made", 8, y + 3, Hyb.MUTED);
+            Hyb.text(UiText.tr("overview.made"), 8, y + 3, Hyb.MUTED);
             Hyb.textRight(Fmt.power(t.euMade()) + " EU/t", w - 6, y + 3, 0xFFFCD34D);
             y += ROW_H;
-            Hyb.text("Net", 8, y + 3, Hyb.MUTED);
+            Hyb.text(UiText.tr("overview.net"), 8, y + 3, Hyb.MUTED);
             Hyb.textRight(
                 (net >= 0 ? "+" : "-") + Fmt.power(Math.abs(net)) + " EU/t",
                 w - 6,
@@ -1101,7 +1142,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         if (groups.isEmpty()) {
             Hyb.text(
                 t.machines()
-                    .isEmpty() ? "No machines yet." : "No matches.",
+                    .isEmpty() ? UiText.tr("overview.no_machines_yet") : UiText.tr("overview.no_matches"),
                 8,
                 y + 3,
                 0xFF6A6C74);
@@ -1430,7 +1471,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
             }
             case SECTION -> {
                 final String title = (String) hit.data();
-                if (!folded.remove(title)) folded.add(title);
+                if (!folded.remove(foldKey(title))) folded.add(foldKey(title));
                 PlannerSettings.setOverviewFolded(folded);
             }
             case RULE -> {
@@ -1670,13 +1711,15 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                         .situation(
                             session,
                             line,
-                            !choice ? null : line.importing() ? "Bring it all in here" : "Ship it all out here",
+                            !choice ? null
+                                : line.importing() ? UiText.tr("overview.bring_it_all_in_here")
+                                    : UiText.tr("overview.ship_it_all_out_here"),
                             false)
-                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Go to its card");
+                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, UiText.tr("overview.go_to_its_card"));
                 }
                 case FILL -> {
-                    return SpareTips.situation(session, line, "Fill the bar to here", false)
-                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, "Go to its card");
+                    return SpareTips.situation(session, line, UiText.tr("overview.fill_the_bar_to_here"), false)
+                        .action(com.gtnhplanner.ui.popup.Tip.Input.MIDDLE, UiText.tr("overview.go_to_its_card"));
                 }
                 default -> {}
             }
@@ -1694,47 +1737,48 @@ final class OverviewRail extends ParentWidget<OverviewRail>
         final String hint = "§7";
         final Fmt.RateUnit unit = session.rateUnit();
         return switch (hit.kind()) {
-            case FOLD -> List.of(isOpen() ? "Fold the overview" : "Open the overview");
+            case FOLD -> List
+                .of(isOpen() ? UiText.tr("overview.fold_the_overview") : UiText.tr("overview.open_the_overview"));
             case SCROLLBAR -> null;
             case ADD -> List.of(
-                inputs.contains(hit.data()) ? "Add a source drawer for it" : "Add a product drawer for it",
-                hint + "Connected to every unwired port of it");
-            case SECTION -> List.of(hint + "Click: fold or unfold");
+                inputs.contains(hit.data()) ? UiText.tr("overview.add_a_source_drawer_for_it")
+                    : UiText.tr("overview.add_a_product_drawer_for_it"),
+                hint + UiText.tr("overview.connected_to_every_unwired_port_of_it"));
+            case SECTION -> List.of(hint + UiText.tr("overview.click_fold_or_unfold"));
             case RESOURCE -> {
                 final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
                 yield List.of(
                     line.label(),
                     hint + Fmt.rate(railAmount(line), unit, line.isFluid()),
-                    hint + "Middle click: go to the cards that make or use it",
-                    hint + "Right-click: find public plans that make it",
-                    hint + "R, U: its recipes and uses in NEI");
+                    hint + UiText.tr("overview.middle_click_go_to_the_cards_that_make_or_use_it"),
+                    hint + UiText.tr("overview.right_click_find_public_plans_that_make_it"),
+                    hint + UiText.tr("overview.r_u_its_recipes_and_uses_in_nei"));
             }
             case RULE -> List.of(
-                "Rule",
-                hint + "Click: choose  Right-click: previous  Middle click: clear",
-                hint + "Wheel: next or previous");
+                UiText.tr("overview.rule"),
+                hint + UiText.tr("overview.click_choose_right_click_previous_middle_click_clear"),
+                hint + UiText.tr("overview.wheel_next_or_previous"));
             case RATE -> List.of(
-                "Rate",
-                hint + "Click: type it (2.5k, 1M, 1/3)  Middle click: clear",
-                hint + "Wheel: up or down (Ctrl x10, Shift x100)");
+                UiText.tr("overview.rate"),
+                hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3_middle_click_clear"),
+                hint + UiText.tr("overview.wheel_up_or_down_ctrl_x10_shift_x100"));
             case LINE_SET -> {
                 final BoardSession.TotalLine line = (BoardSession.TotalLine) hit.data();
                 final List<OpenPort> open = openPorts(line, inputs.contains(line));
                 final String side = inputs.contains(line) ? "input" : "output";
-                yield open.size() == 1 ? List.of(
-                    "Rate: the plan decides",
-                    hint + "Sets the "
-                        + open.get(0)
-                            .machine()
-                        + "'s "
-                        + side
-                        + ", as on its card",
-                    hint + "Click: type it (2.5k, 1M, 1/3)",
-                    hint + "Wheel: up or down (Ctrl x10, Shift x100)")
-                    : List.of(
-                        "Rate: the plan decides",
-                        hint + "Makes a drawer for it, wired to the " + open.size() + " " + side + "s waiting for it",
-                        hint + "Click: type it (2.5k, 1M, 1/3)");
+                yield open.size()
+                    == 1 ? List.of(UiText.tr("overview.rate_the_plan_decides"), hint + "Sets the " + open.get(0)
+                        .machine() + "'s " + side + ", as on its card",
+                        hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3"),
+                        hint + UiText.tr("overview.wheel_up_or_down_ctrl_x10_shift_x100"))
+                        : List.of(
+                            UiText.tr("overview.rate_the_plan_decides"),
+                            hint + "Makes a drawer for it, wired to the "
+                                + open.size()
+                                + " "
+                                + side
+                                + "s waiting for it",
+                            hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3"));
             }
             case PORT_RULE, PORT_RATE -> {
                 final PortPin p = (PortPin) hit.data();
@@ -1746,54 +1790,61 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                         hint + "Click or middle click: let the plan decide")
                     : List.of(
                         "Rate set on the " + p.machine() + "'s " + side,
-                        hint + "Click: type it (2.5k, 1M, 1/3)  Middle click: clear",
-                        hint + "Wheel: up or down (Ctrl x10, Shift x100)");
+                        hint + UiText.tr("overview.click_type_it_2_5k_1m_1_3_middle_click_clear"),
+                        hint + UiText.tr("overview.wheel_up_or_down_ctrl_x10_shift_x100"));
             }
             case PEAK -> List.of(
-                session.peakPower() ? "Peak power: every machine running at once"
-                    : "Average power: machines running only as much as the plan needs");
-            case GROUP -> List.of((String) hit.data(), hint + "Click or middle click: go to its cards one by one");
+                session.peakPower() ? UiText.tr("overview.peak_power_every_machine_running_at_once")
+                    : UiText.tr("overview.average_power_machines_running_only_as_much_as_the_plan_needs"));
+            case GROUP -> List
+                .of((String) hit.data(), hint + UiText.tr("overview.click_or_middle_click_go_to_its_cards_one_by_one"));
             case PIN -> {
                 final com.gtnhplanner.ui.card.RecipeCard card = cardOf(
                     ((BoardSession.MachineLine) hit.data()).nodeId());
                 yield card != null && card.pinnedAnywhere()
-                    ? List.of("Pin", hint + "Click: choose", hint + "Right-click: unpin it everywhere")
-                    : List.of("Pin", hint + "Click: place it in the world, or list it on screen while playing");
+                    ? List.of(
+                        UiText.tr("overview.pin"),
+                        hint + UiText.tr("overview.click_choose"),
+                        hint + UiText.tr("overview.right_click_unpin_it_everywhere"))
+                    : List.of(
+                        UiText.tr("overview.pin"),
+                        hint + UiText.tr("overview.click_place_it_in_the_world_or_list_it_on_screen_while_playing"));
             }
             case COUNT -> List.of(
-                crop((BoardSession.MachineLine) hit.data()) ? "Crops planted" : "Machine count",
-                hint + "Click: type a count",
-                hint + "Wheel: one more or fewer (below one lets the plan decide)",
-                hint + "Middle click: let the plan decide");
+                crop((BoardSession.MachineLine) hit.data()) ? UiText.tr("overview.crops_planted")
+                    : UiText.tr("overview.machine_count"),
+                hint + UiText.tr("overview.click_type_a_count"),
+                hint + UiText.tr("overview.wheel_one_more_or_fewer_below_one_lets_the_plan_decide"),
+                hint + UiText.tr("overview.middle_click_let_the_plan_decide"));
             case TIER_CHIP -> {
                 final com.gtnhplanner.ui.card.CardModel card = session
                     .model(((BoardSession.MachineLine) hit.data()).nodeId());
                 yield List.of(
-                    card != null && card.gregtech ? "Voltage tier" : "Tier",
-                    hint + "Click: up  Right-click: down",
-                    hint + "Wheel: up or down");
+                    card != null && card.gregtech ? UiText.tr("overview.voltage_tier") : UiText.tr("overview.tier"),
+                    hint + UiText.tr("overview.click_up_right_click_down"),
+                    hint + UiText.tr("overview.wheel_up_or_down"));
             }
             case AMPS_CHIP -> List.of(
-                "Energy hatch amps",
-                hint + "Click: type them  Right-click: one fewer",
-                hint + "Wheel: one more or fewer (Ctrl x10, Shift x4)");
+                UiText.tr("overview.energy_hatch_amps"),
+                hint + UiText.tr("overview.click_type_them_right_click_one_fewer"),
+                hint + UiText.tr("overview.wheel_one_more_or_fewer_ctrl_x10_shift_x4"));
             case MACHINE_RULE -> {
                 final BoardSession.MachineLine m = (BoardSession.MachineLine) hit.data();
                 final String set = com.gtnhplanner.ui.card.CardFace.setText(m.set()) + (crop(m) ? " crops" : "");
                 yield switch (m.rule()) {
                     case UP_TO -> List.of(
-                        "Up to",
+                        UiText.tr("overview.up_to"),
                         hint + "Never more than " + set,
-                        hint + "Click: make it exact",
-                        hint + "Middle click: let the plan decide");
+                        hint + UiText.tr("overview.click_make_it_exact"),
+                        hint + UiText.tr("overview.middle_click_let_the_plan_decide"));
                     case EXACT -> List.of(
-                        "Exactly",
+                        UiText.tr("overview.exactly"),
                         hint + "Exactly " + set,
-                        hint + "Click: let the plan decide",
-                        hint + "Middle click: let the plan decide");
+                        hint + UiText.tr("overview.click_let_the_plan_decide"),
+                        hint + UiText.tr("overview.middle_click_let_the_plan_decide"));
                     case ANY -> List.of(
-                        "Any",
-                        hint + "The plan decides how many",
+                        UiText.tr("overview.any"),
+                        hint + UiText.tr("overview.the_plan_decides_how_many"),
                         hint + "Click: up to "
                             + (long) com.gtnhplanner.ui.card.CardFace.ruleCount(0, count(m))
                             + (crop(m) ? " crops" : ""));
@@ -1804,11 +1855,14 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                 final BoardSession.SpareLine line = (BoardSession.SpareLine) hit.data();
                 if (at == null) yield null;
                 yield switch (at.kind()) {
-                    case AUTO -> List.of("Auto", hint + "Click: back to the plan's own pick");
-                    case SPLIT -> List.of("Split", hint + "Click: share it evenly between them");
+                    case AUTO -> List
+                        .of(UiText.tr("overview.auto"), hint + UiText.tr("overview.click_back_to_the_plan_s_own_pick"));
+                    case SPLIT -> List.of(
+                        UiText.tr("overview.split"),
+                        hint + UiText.tr("overview.click_share_it_evenly_between_them"));
                     // The tip itself is the leftover's story (hoverTip); this says what it waits on.
                     case HEAD, ROW, FILL -> List.of(
-                        "Spare",
+                        UiText.tr("overview.spare"),
                         line.key(),
                         at.kind()
                             .name(),
@@ -1842,7 +1896,7 @@ final class OverviewRail extends ParentWidget<OverviewRail>
                     hint + (Double.isNaN(m.steamPerSecond()) ? Fmt.power(m.euPerTick()) + " EU/t "
                         : Fmt.compact(m.steamPerSecond()) + " L/s steam ")
                         + (session.peakPower() ? "peak" : "average"));
-                lines.add(hint + "Click or middle click: go to the card");
+                lines.add(hint + UiText.tr("overview.click_or_middle_click_go_to_the_card"));
                 yield lines;
             }
         };

@@ -1446,13 +1446,13 @@ public final class BoardSession {
         final Graph target = planOf(link, graph);
         if (target == null) {
             Sfx.DENY.play();
-            flash(Severity.WARN, "That plan is gone");
+            flash(Severity.WARN, UiText.tr("session.that_plan_is_gone"));
             return;
         }
         final UUID node = com.gtnhplanner.cloud.map.PlanIds.uuid(link.node());
         if (!target.nodes.containsKey(node)) {
             Sfx.DENY.play();
-            flash(Severity.WARN, "That card is gone");
+            flash(Severity.WARN, UiText.tr("session.that_card_is_gone"));
             return;
         }
         if (target != graph) {
@@ -1563,7 +1563,7 @@ public final class BoardSession {
         final int i = slots().indexOf(board);
         if (i < 0 || TaskEdits.task(board, taskId) == null) {
             Sfx.DENY.play();
-            flash(Severity.WARN, "That task is gone");
+            flash(Severity.WARN, UiText.tr("session.that_task_is_gone"));
             return;
         }
         switchSlot(i);
@@ -1944,8 +1944,8 @@ public final class BoardSession {
             copy = com.gtnhplanner.data.flowchart.Serializer
                 .decode(com.gtnhplanner.data.flowchart.Serializer.encode(from));
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not copy '{}'", from.getName(), e);
-            flash(Severity.ERROR, "That plan could not be copied");
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_copy"), from.getName(), e);
+            flash(Severity.ERROR, UiText.tr("session.that_plan_could_not_be_copied"));
             return;
         }
         for (final Node n : copy.getNodes()) n.worldLinks.clear();
@@ -1995,12 +1995,12 @@ public final class BoardSession {
         final List<com.gtnhplanner.ui.popup.PickList.Entry> rows = List.of(
             new com.gtnhplanner.ui.popup.PickList.Entry(
                 null,
-                leave ? "Leave it" : "Delete it",
+                leave ? UiText.tr("session.leave_it") : UiText.tr("session.delete_it"),
                 "",
                 Hyb.RED_INK,
                 false,
                 () -> deleteSlot(index)),
-            com.gtnhplanner.ui.popup.PickList.Entry.of("Keep it", () -> {}));
+            com.gtnhplanner.ui.popup.PickList.Entry.of(UiText.tr("session.keep_it"), () -> {}));
         com.gtnhplanner.ui.popup.Popup.open(
             panel,
             com.gtnhplanner.ui.popup.PickList.popup(
@@ -2203,7 +2203,7 @@ public final class BoardSession {
                 if (old != null) graph.removeGroup(old.getId());
             }
             g = new com.gtnhplanner.data.flowchart.MachineGroup();
-            g.setHeader("Shared machine");
+            g.setHeader(UiText.tr("session.shared_machine"));
             for (final UUID s : sections) g.addSection(s);
             g.setMachineCapacity(capacity);
             g.setPinned(pinned && capacity > 0);
@@ -2726,7 +2726,7 @@ public final class BoardSession {
             for (final Node copy : copies) graph.addNode(copy);
             if (shared == null) return;
             final com.gtnhplanner.data.flowchart.MachineGroup g = new com.gtnhplanner.data.flowchart.MachineGroup();
-            g.setHeader("Shared machine");
+            g.setHeader(UiText.tr("session.shared_machine"));
             for (final Node copy : copies) g.addSection(copy.id);
             g.setMachineCapacity(shared.getMachineCapacity());
             g.setPinned(shared.isPinned());
@@ -2812,13 +2812,13 @@ public final class BoardSession {
         try {
             solver.request(graph.solveVersion(), () -> SolveInput.of(graph, BalanceMode.AUTO, null));
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not snapshot the plan for solving", e);
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_snapshot_the_plan_for_solving"), e);
         }
         final SolveService.Result latest = solver.latest();
         final boolean answered = latest != null && latest != lastResult;
         if (answered) {
             lastResult = latest;
-            if (latest.error() != null) GtnhPlanner.LOG.warn("Solve failed", latest.error());
+            if (latest.error() != null) GtnhPlanner.LOG.warn(UiText.tr("session.solve_failed"), latest.error());
             result = latest.balance();
         } else if (graph.version() == seenVersion) {
             return;
@@ -2840,7 +2840,7 @@ public final class BoardSession {
                         (output, index) -> wired.contains(portKey(node.id, output, index)),
                         (output, index) -> extras.getOrDefault(portKey(node.id, output, index), 0.0)));
             } catch (final RuntimeException e) {
-                GtnhPlanner.LOG.warn("Card for {} failed", node.machineName, e);
+                GtnhPlanner.LOG.warn(UiText.tr("session.card_for_failed"), node.machineName, e);
             }
         }
         final Map<UUID, DrawerModel> nextDrawers = new LinkedHashMap<>();
@@ -3534,7 +3534,7 @@ public final class BoardSession {
         }
         final CloudSession cloud = CloudSession.current();
         if (cloud != null) cloud.refreshList();
-        flash(Severity.INFO, "That plan is on its way: try again in a moment");
+        flash(Severity.INFO, UiText.tr("session.that_plan_is_on_its_way_try_again_in_a_moment"));
         return false;
     }
 
@@ -3545,7 +3545,7 @@ public final class BoardSession {
     public void pastePlan() {
         final String text = net.minecraft.client.gui.GuiScreen.getClipboardString();
         if (text == null || text.isBlank()) {
-            flash(Severity.WARN, "The clipboard is empty: copy a plan link or code first");
+            flash(Severity.WARN, UiText.tr("session.the_clipboard_is_empty_copy_a_plan_link_or_code_first"));
             Sfx.DENY.play();
             return;
         }
@@ -3567,9 +3567,9 @@ public final class BoardSession {
             flash(missing == 0 ? Severity.INFO : Severity.WARN, "Imported '" + name + "': " + report.summary());
             Sfx.SWEEP.play();
         } catch (final RuntimeException e) {
-            flash(Severity.WARN, "The clipboard does not hold a plan link or code");
+            flash(Severity.WARN, UiText.tr("session.the_clipboard_does_not_hold_a_plan_link_or_code"));
             Sfx.DENY.play();
-            com.gtnhplanner.GtnhPlanner.LOG.info("Paste plan failed", e);
+            com.gtnhplanner.GtnhPlanner.LOG.info(UiText.tr("session.paste_plan_failed"), e);
         }
     }
 
@@ -3616,7 +3616,7 @@ public final class BoardSession {
         try {
             return websiteJson().toString();
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not write the plan into its picture", e);
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_write_the_plan_into_its_picture"), e);
             return null;
         }
     }
@@ -3629,8 +3629,8 @@ public final class BoardSession {
                 com.gtnhplanner.library.CommunityApi.site(),
                 com.gtnhplanner.importer.FfPlanCode.encode(websiteJson().toString()));
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not write the plan out", e);
-            flash(Severity.WARN, "Couldn't write the plan out");
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_write_the_plan_out"), e);
+            flash(Severity.WARN, UiText.tr("session.couldn_t_write_the_plan_out"));
             Sfx.DENY.play();
             return null;
         }
@@ -3649,7 +3649,7 @@ public final class BoardSession {
         final String link = websiteLink();
         if (link == null) return;
         if (!com.gtnhplanner.client.Browser.open(link)) {
-            flash(Severity.WARN, "This plan is too big for a link. Use Export plan file");
+            flash(Severity.WARN, UiText.tr("session.this_plan_is_too_big_for_a_link_use_export_plan_file"));
             Sfx.DENY.play();
             return;
         }
@@ -3667,8 +3667,8 @@ public final class BoardSession {
                 .create()
                 .toJson(websiteJson());
         } catch (final RuntimeException e) {
-            GtnhPlanner.LOG.warn("Could not write the plan out", e);
-            flash(Severity.WARN, "Couldn't write the plan out");
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_write_the_plan_out"), e);
+            flash(Severity.WARN, UiText.tr("session.couldn_t_write_the_plan_out"));
             Sfx.DENY.play();
             return;
         }
@@ -3682,8 +3682,8 @@ public final class BoardSession {
             java.nio.file.Files.createDirectories(dir.toPath());
             java.nio.file.Files.write(file.toPath(), json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (final java.io.IOException e) {
-            GtnhPlanner.LOG.warn("Could not save the plan file", e);
-            flash(Severity.WARN, "Couldn't save the plan file");
+            GtnhPlanner.LOG.warn(UiText.tr("session.could_not_save_the_plan_file"), e);
+            flash(Severity.WARN, UiText.tr("session.couldn_t_save_the_plan_file"));
             Sfx.DENY.play();
             return;
         }
@@ -3743,7 +3743,7 @@ public final class BoardSession {
                     if (nothingToSolveFor) out.add(
                         new Notice(
                             Severity.INFO,
-                            "Nothing to calculate yet: set a rate on a drawer, or set a machine count",
+                            UiText.tr("session.nothing_to_calculate_yet_set_a_rate_on_a_drawer_or_set_a_machine_count"),
                             List.of()));
                 }
             }
@@ -3815,7 +3815,8 @@ public final class BoardSession {
                     out.add(
                         new Notice(
                             Severity.WARN,
-                            "Your saved choice no longer fits this plan, so the planner's own answer is shown",
+                            UiText.tr(
+                                "session.your_saved_choice_no_longer_fits_this_plan_so_the_planner_s_own_answer_is_shown"),
                             List.of()));
                 else if (note.severity() == Severity.ERROR && m != SolverMessage.EMPTY_GRAPH) out.add(failure(note));
             }
@@ -3875,19 +3876,22 @@ public final class BoardSession {
                 "The pinned counts on " + String.join(" and ", names) + " can't all be met at once: unpin one",
                 ids);
         }
-        if (note.containsMessage(SolverMessage.MACHINES_CANNOT_RUN))
-            return new Notice(Severity.ERROR, "Some machines can't run with these rates and pinned counts", List.of());
+        if (note.containsMessage(SolverMessage.MACHINES_CANNOT_RUN)) return new Notice(
+            Severity.ERROR,
+            UiText.tr("session.some_machines_can_t_run_with_these_rates_and_pinned_counts"),
+            List.of());
         if (note.containsMessage(SolverMessage.SOLVER_UNSATISFIABLE)
             || note.containsMessage(SolverMessage.SOLVER_NO_SOLUTION)
             || note.containsMessage(SolverMessage.SOLVER_BUDGET)
             || note.containsMessage(SolverMessage.STAGE_FAILED))
             return new Notice(
                 Severity.ERROR,
-                "There's no way to meet all these rates and pinned counts: change a rate or unpin a count",
+                UiText.tr(
+                    "session.there_s_no_way_to_meet_all_these_rates_and_pinned_counts_change_a_rate_or_unpin_a_count"),
                 List.of());
         return new Notice(
             Severity.ERROR,
-            "The planner couldn't solve this plan (the details are in the log)",
+            UiText.tr("session.the_planner_couldn_t_solve_this_plan_the_details_are_in_the_log"),
             List.of());
     }
 

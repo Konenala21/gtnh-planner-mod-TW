@@ -5,6 +5,7 @@ import com.gtnhplanner.data.MachineConfig;
 import com.gtnhplanner.data.effect.EffectResult;
 import com.gtnhplanner.data.flowchart.Node;
 import com.gtnhplanner.data.provider.GTKeys;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.popup.Tip;
 import com.gtnhplanner.ui.theme.Fmt;
 import com.gtnhplanner.ui.theme.Hyb;
@@ -131,7 +132,7 @@ final class PowerPanel {
         Tip.beginPanel();
         Tip.chrome(x, y, w, h);
         int ty = y + PAD;
-        Hyb.text("Power input", left, ty, Tip.TITLE);
+        Hyb.text(UiText.tr("power.power_input"), left, ty, Tip.TITLE);
         ty += 12;
         // 4A x [EV] = 8,192 EU/t ........ 2 [EV] hatches (2A each)
         sentence(
@@ -152,10 +153,12 @@ final class PowerPanel {
         Hyb.rect(left, ty, cw, 1, Tip.RULE);
         ty += 4;
         final Run now = f.now();
-        final String[][] stats = { { "Overclocks", overclockText(f) },
-            { "Parallels", Integer.toString(now.parallels()) }, { "Time / recipe", seconds(now.duration()) },
-            { "Recipes / second", Fmt.compact(now.runsPerSecond()) },
-            { "EU / recipe", Fmt.power(now.eut() * now.duration()) }, { "Draw", Fmt.power(now.eut()) + " EU/t" } };
+        final String[][] stats = { { UiText.tr("power.overclocks"), overclockText(f) },
+            { UiText.tr("power.parallels"), Integer.toString(now.parallels()) },
+            { UiText.tr("power.time_recipe"), seconds(now.duration()) },
+            { UiText.tr("power.recipes_second"), Fmt.compact(now.runsPerSecond()) },
+            { UiText.tr("power.eu_recipe"), Fmt.power(now.eut() * now.duration()) },
+            { UiText.tr("power.draw"), Fmt.power(now.eut()) + " EU/t" } };
         final int colW = (cw - 12) / 2;
         for (int i = 0; i < stats.length; i++) {
             final int cx = left + (i % 2) * (colW + 12), cy = ty + (i / 2) * 11;
@@ -166,12 +169,12 @@ final class PowerPanel {
         Hyb.rect(left, ty, cw, 1, Tip.RULE);
         ty += 5;
         if (f.nextAmps() == null) {
-            Hyb.text("Next improvement", left, ty, Tip.TITLE);
-            Hyb.textRight("none: more amps buy nothing", right, ty, Tip.SUBTLE);
+            Hyb.text(UiText.tr("power.next_improvement"), left, ty, Tip.TITLE);
+            Hyb.textRight(UiText.tr("power.none_more_amps_buy_nothing"), right, ty, Tip.SUBTLE);
             ty += 14;
         } else {
             final Run next = f.next();
-            Hyb.text("Next improvement", left, ty, Tip.TITLE);
+            Hyb.text(UiText.tr("power.next_improvement"), left, ty, Tip.TITLE);
             final String plus = "+" + amps(f.nextAmps() - f.amps());
             final int pw = sentenceWidth(plus, "@" + f.tier());
             sentence(right - pw, ty, Tip.TITLE, plus, "@" + f.tier());
@@ -182,17 +185,24 @@ final class PowerPanel {
                 left,
                 ty,
                 boxW,
-                "Output",
+                UiText.tr("power.output"),
                 "recipes/s",
                 Fmt.compact(now.runsPerSecond()),
                 Fmt.compact(next.runsPerSecond()));
-            box(left + boxW + 4, ty, boxW, "Time", "per recipe", seconds(now.duration()), seconds(next.duration()));
+            box(
+                left + boxW + 4,
+                ty,
+                boxW,
+                UiText.tr("power.time"),
+                UiText.tr("power.per_recipe"),
+                seconds(now.duration()),
+                seconds(next.duration()));
             box(
                 left + 2 * (boxW + 4),
                 ty,
                 cw - 2 * (boxW + 4),
-                "Draw",
-                "EU/t",
+                UiText.tr("power.draw"),
+                UiText.tr("power.eu_t"),
                 Fmt.power(now.eut()),
                 Fmt.power(next.eut()));
             ty += 30;
@@ -201,10 +211,11 @@ final class PowerPanel {
         }
         Hyb.rect(left, ty, cw, 1, Tip.RULE);
         ty += 5;
-        Hyb.text("Demand for this card", left, ty, Tip.SUBTLE);
+        Hyb.text(UiText.tr("power.demand_for_this_card"), left, ty, Tip.SUBTLE);
         Hyb.textRight(Fmt.power(f.demand()) + " EU/t", right, ty, Tip.TITLE);
         Hyb.text(
-            f.shared() ? "All recipes, across the required machines." : "Across the required machines.",
+            f.shared() ? UiText.tr("power.all_recipes_across_the_required_machines")
+                : UiText.tr("power.across_the_required_machines"),
             left,
             ty + 10,
             Tip.SUBTLE);
@@ -288,9 +299,12 @@ final class PowerPanel {
     /** The amps chip's rows: the wheel's only while "Scroll changes values" is on. */
     private static String[][] ampRows() {
         return com.gtnhplanner.ui.PlannerSettings.scrollChangesValues()
-            ? new String[][] { { "Type amps", "Click" }, { "-1", "Right click" }, { "+1 / -1", "Wheel" },
-                { "+10 / -10", "Ctrl+Wheel" }, { "×4 or ÷4", "Shift+Wheel" } }
-            : new String[][] { { "Type amps", "Click" }, { "-1", "Right click" } };
+            ? new String[][] { { UiText.tr("power.type_amps"), UiText.tr("power.click") },
+                { "-1", UiText.tr("power.right_click") }, { "+1 / -1", UiText.tr("power.wheel") },
+                { "+10 / -10", UiText.tr("power.ctrl_wheel") },
+                { UiText.tr("power.4_or_4"), UiText.tr("power.shift_wheel") } }
+            : new String[][] { { UiText.tr("power.type_amps"), UiText.tr("power.click") },
+                { "-1", UiText.tr("power.right_click") } };
     }
 
     static void drawGuide(final int x, final int y, final RecipeCard.Part on) {
@@ -300,7 +314,7 @@ final class PowerPanel {
         int ty = y + PAD;
         final String[][] ampRows = ampRows();
         if (on == RecipeCard.Part.AMPS) Hyb.rect(x + PAD, ty, 1, 12 + ampRows.length * LINE - 2, Tip.SUBTLE);
-        Hyb.text("Amps", left, ty, Tip.TITLE);
+        Hyb.text(UiText.tr("power.amps"), left, ty, Tip.TITLE);
         ty += 12;
         for (final String[] r : ampRows) {
             Hyb.text(r[0], left, ty, Tip.SUBTLE);
@@ -309,10 +323,12 @@ final class PowerPanel {
         }
         ty += 6;
         final boolean wheel = com.gtnhplanner.ui.PlannerSettings.scrollChangesValues();
-        final String[][] tierRows = { { "Up", wheel ? "Click, wheel up" : "Click" },
-            { "Down", wheel ? "Right click, wheel down" : "Right click" } };
+        final String[][] tierRows = {
+            { UiText.tr("power.up"), wheel ? UiText.tr("power.click_wheel_up") : UiText.tr("power.click") },
+            { UiText.tr("power.down"),
+                wheel ? UiText.tr("power.right_click_wheel_down") : UiText.tr("power.right_click") } };
         if (on == RecipeCard.Part.TIER) Hyb.rect(x + PAD, ty, 1, 12 + tierRows.length * LINE - 2, Tip.SUBTLE);
-        Hyb.text("Tier", left, ty, Tip.TITLE);
+        Hyb.text(UiText.tr("power.tier"), left, ty, Tip.TITLE);
         ty += 12;
         for (final String[] r : tierRows) {
             Hyb.text(r[0], left, ty, Tip.SUBTLE);

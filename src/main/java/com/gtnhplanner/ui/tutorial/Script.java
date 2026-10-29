@@ -16,6 +16,7 @@ import com.gtnhplanner.nei.PlanMenu;
 import com.gtnhplanner.ui.BoardScreen;
 import com.gtnhplanner.ui.Planner;
 import com.gtnhplanner.ui.PlannerSettings;
+import com.gtnhplanner.ui.UiText;
 import com.gtnhplanner.ui.card.CardModel;
 import com.gtnhplanner.ui.card.RecipeCard;
 import com.gtnhplanner.ui.drawer.DrawerCard;
@@ -385,7 +386,7 @@ final class Script {
             .when(() -> benderTab.rect() != null, Steps.click(benderTab))
             .run(() -> TourRecipes.open(plateRecipe()))
             .until(() -> button.rect() != null, 3000)
-            .note(button, "This button *adds a recipe to a plan*.");
+            .note(button, UiText.tr("tutorial.step_1"));
 
         final Target bending = Targets.planMenuRow("Bending");
         beat(out).click(button)
@@ -396,9 +397,7 @@ final class Script {
             .when(() -> bending.rect() != null, Steps.seq(Steps.hover(bending, 200), Steps.click(bending)))
             .until(() -> hasCard(BENDER), 5000)
             .rest()
-            .noteBare(
-                card(BENDER, RecipeCard.Part.BODY),
-                "This is a *recipe in a plan*. It does nothing yet: nothing has told it how much to make.");
+            .noteBare(card(BENDER, RecipeCard.Part.BODY), UiText.tr("tutorial.step_2"));
     }
 
     // endregion
@@ -413,19 +412,13 @@ final class Script {
         beat(out).add(Steps.fit())
             .pause(400)
             .rest()
-            .noteAt(
-                "{M} *Middle mouse* to pan.\n{W} *Scroll* to zoom.\n{L} *Left click* to pan, or drag things around.\nTry it, then press next.",
-                0.5f,
-                0.2f)
+            .noteAt(UiText.tr("tutorial.step_3"), 0.5f, 0.2f)
             .add(Steps.freeLook());
 
         beat(out).add(Steps.fit())
             .pause(400)
             .rest()
-            .noteAt(
-                "{K} *W A S D* or the *arrow keys* to pan.\n{K} *Page Up* and *Page Down*, or *+* and *-*, to zoom.\nTry it, then press next.",
-                0.5f,
-                0.2f)
+            .noteAt(UiText.tr("tutorial.step_4"), 0.5f, 0.2f)
             .add(Steps.freeLook());
     }
 
@@ -443,16 +436,14 @@ final class Script {
             "10").until(() -> model(BENDER) != null && model(BENDER).machines > 0, 4000)
                 .until(Script::solved, 3000)
                 .rest()
-                .note(
-                    card(BENDER, RecipeCard.Part.BODY),
-                    "You can *pin a number* and it calculates the other numbers.");
+                .note(card(BENDER, RecipeCard.Part.BODY), UiText.tr("tutorial.step_5"));
 
         final Target count = card(BENDER, RecipeCard.Part.MACHINES);
         setNumber(any(beat(out), BENDER, true, "Iron Plate"), count, "2")
             .until(() -> model(BENDER) != null && model(BENDER).pinned, 3000)
             .until(Script::solved, 3000)
             .rest()
-            .note(count, "Or pin the *machine count*.");
+            .note(count, UiText.tr("tutorial.step_6"));
 
         final Target ingots = Targets.portControl(BENDER, false, "Iron Ingot", true);
         setNumber(
@@ -461,7 +452,7 @@ final class Script {
             "5").until(() -> model(BENDER) != null && model(BENDER).machines > 0, 4000)
                 .until(Script::solved, 3000)
                 .rest()
-                .note(Targets.around(Targets.port(BENDER, false, "Iron Ingot"), ingots), "Or pin an *input*.");
+                .note(Targets.around(Targets.port(BENDER, false, "Iron Ingot"), ingots), UiText.tr("tutorial.step_7"));
     }
 
     // endregion
@@ -475,17 +466,15 @@ final class Script {
             .click(tier)
             .until(Script::solved, 3000)
             .rest()
-            .note(tier, "Set the machine's *tier* here.");
+            .note(tier, UiText.tr("tutorial.step_8"));
 
         beat(out).pause(150)
             .note(
                 Targets.around(card(BENDER, RecipeCard.Part.POWER), card(BENDER, RecipeCard.Part.CIRCUIT)),
-                "Power use is shown here, but machines *don't need to be wired to power*. The circuit is also shown.");
+                UiText.tr("tutorial.step_9"));
 
         beat(out).opens(card(BENDER, RecipeCard.Part.SETTINGS))
-            .note(
-                Targets.popup(),
-                "This is the *settings panel*. If it has any settings, you can *pin* them to show them on the card.");
+            .note(Targets.popup(), UiText.tr("tutorial.step_10"));
     }
 
     // endregion
@@ -504,15 +493,13 @@ final class Script {
             .click(Targets.topKey("fit"))
             .pause(300)
             .rest()
-            .note(card(BENDERS.two, RecipeCard.Part.BODY), "You can *clone* machines.");
+            .note(card(BENDERS.two, RecipeCard.Part.BODY), UiText.tr("tutorial.step_11"));
 
         final Target plates = Targets.port(BENDERS.one, true, "Iron Plate");
         beat(out).drag(plates, Targets.shift(plates, 150, 0))
             .until(() -> hasDrawer("Iron Plate"), 3000)
             .rest()
-            .note(
-                drawerPart("Iron Plate", DrawerCard.Part.BODY),
-                "Drag an *input* or an *output* to make it a *drawer*.");
+            .note(drawerPart("Iron Plate", DrawerCard.Part.BODY), UiText.tr("tutorial.step_12"));
 
         // Left of the machines, between them: where a source belongs, clear of the cards.
         final Target spot = Targets.shift(Targets.port(BENDERS.one, false, "Iron Ingot"), -150, 110);
@@ -527,7 +514,7 @@ final class Script {
             .click(Targets.popupRow("Add as a source"))
             .until(() -> hasDrawer("Iron Ingot"), 3000)
             .rest()
-            .note(drawerPart("Iron Ingot", DrawerCard.Part.BODY), "Or bring one in from *NEI*.");
+            .note(drawerPart("Iron Ingot", DrawerCard.Part.BODY), UiText.tr("tutorial.step_13"));
 
         // Both machines wired to both drawers (four wires), and the plates asked of them together.
         final Target ingotDrawer = drawerPart("Iron Ingot", DrawerCard.Part.BODY);
@@ -545,9 +532,7 @@ final class Script {
             .until(() -> model(BENDERS.one) != null && model(BENDERS.one).pinned, 3000)
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                drawerPart("Iron Plate", DrawerCard.Part.RATE),
-                "*Drag from a drawer* to wire it. Set the drawer's *rate* and it applies to every machine wired to it.");
+            .note(drawerPart("Iron Plate", DrawerCard.Part.RATE), UiText.tr("tutorial.step_14"));
 
         beat(out).click(Targets.topKey("arrange"))
             .until(
@@ -559,9 +544,7 @@ final class Script {
             .click(Targets.topKey("fit"))
             .pause(300)
             .rest()
-            .note(
-                Targets.around(Targets.topKey("arrange"), Targets.topKey("fit")),
-                "*Arrange* untangles the plan, and *Fit* brings all of it into view.");
+            .note(Targets.around(Targets.topKey("arrange"), Targets.topKey("fit")), UiText.tr("tutorial.step_15"));
     }
 
     // endregion
@@ -569,9 +552,7 @@ final class Script {
     // region The overview
 
     private static void overview(final List<Beat> out) {
-        beat(out).note(
-            rail("all"),
-            "The *overview* lists everything in the plan. You can set your inputs and outputs from here too.");
+        beat(out).note(rail("all"), UiText.tr("tutorial.step_16"));
 
         beat(out).note(
             Targets.around(
@@ -579,10 +560,9 @@ final class Script {
                 rail("resource:Iron Ingot"),
                 rail("section:OUTPUTS"),
                 rail("resource:Iron Plate")),
-            "{b:Blue} is always something coming into your plan, and {o:Orange} is always something leaving it. Nothing else is shown in those colours.");
+            UiText.tr("tutorial.step_17"));
 
-        beat(out)
-            .note(rail("block:MACHINES"), "Your *machines* are here too: set how many from here, as on their cards.");
+        beat(out).note(rail("block:MACHINES"), UiText.tr("tutorial.step_18"));
     }
 
     // endregion
@@ -601,13 +581,11 @@ final class Script {
             .click(selection)
             .until(() -> merged(BENDER), 3000)
             .rest()
-            .note(
-                card(BENDER, RecipeCard.Part.BODY),
-                "Hold *Shift* to select more than one. Then you can *merge* machines, to run two recipes on one machine.");
+            .note(card(BENDER, RecipeCard.Part.BODY), UiText.tr("tutorial.step_19"));
 
         beat(out).clickUntil(Targets.topKey("undo"), () -> !merged(BENDER), 3)
             .rest()
-            .note(Targets.around(Targets.topKey("undo"), Targets.topKey("redo")), "*Undo* and *redo* are up here.");
+            .note(Targets.around(Targets.topKey("undo"), Targets.topKey("redo")), UiText.tr("tutorial.step_20"));
 
         // Each key is turned all the way round, back to where it was.
         final Target rate = Targets.topKey("rate"), power = Targets.topKey("power");
@@ -618,7 +596,7 @@ final class Script {
             .pause(250)
             .click(power)
             .rest()
-            .note(Targets.around(rate, power), "These buttons change *the way numbers are shown*.");
+            .note(Targets.around(rate, power), UiText.tr("tutorial.step_21"));
     }
 
     // endregion
@@ -654,7 +632,7 @@ final class Script {
             "20").until(() -> model(ACID) != null && model(ACID).machines > 0, 4000)
                 .until(Script::solved, 3000)
                 .rest()
-                .note(card(ACID, RecipeCard.Part.BODY), "Add as many recipes to a plan as you like.");
+                .note(card(ACID, RecipeCard.Part.BODY), UiText.tr("tutorial.step_22"));
 
         // A click on a port is NEI's page of what makes it; a recipe added from there lands wired into the port.
         final Target button = planButton(Script::oxygenRecipe);
@@ -672,9 +650,7 @@ final class Script {
             .until(() -> hasCard(ELECTROLYZER), 5000)
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                card(ELECTROLYZER, RecipeCard.Part.BODY),
-                "Click an input to find *what makes it*. A recipe added from there comes in *already wired*.");
+            .note(card(ELECTROLYZER, RecipeCard.Part.BODY), UiText.tr("tutorial.step_23"));
 
         // One electrolyzer pinned exactly: it cannot keep up with the acid set, so the rest of the oxygen has to come
         // in (an Up to count would slow the reactor instead).
@@ -689,9 +665,7 @@ final class Script {
                 // The reactor whole on the board, its Forced row in sight.
                 .until(() -> card(ACID, RecipeCard.Part.BODY).rect() != null, 2000)
                 .rest()
-                .note(
-                    Targets.forcedRow(ACID, false, "Oxygen"),
-                    "The acid is set and one electrolyzer is pinned *exactly*, but it can't keep up. The plan has to bring in the rest of the oxygen anyway: a *forced input*.");
+                .note(Targets.forcedRow(ACID, false, "Oxygen"), UiText.tr("tutorial.step_24"));
 
         // Right-click an output: NEI's page of what uses it, and the recipe added from there lands wired in. The mixer
         // takes the acid, so the reactor runs free between a pinned electrolyzer and a pinned mixer.
@@ -710,7 +684,7 @@ final class Script {
             .until(() -> hasCard(MIXER), 5000)
             .until(Script::solved, 3000)
             .rest()
-            .note(card(MIXER, RecipeCard.Part.BODY), "*Right-click* an output to find *what uses it*.");
+            .note(card(MIXER, RecipeCard.Part.BODY), UiText.tr("tutorial.step_25"));
 
         // The mixer pinned low and the electrolyzer high: the oxygen is more than the mixer's acid needs, so something
         // has to leave, as oxygen at the electrolyzer or as acid at the reactor. The slider shares it between them.
@@ -725,9 +699,7 @@ final class Script {
             .until(() -> rail("spare:Oxygen").rect() != null, 4000)
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                rail("spare:Oxygen"),
-                "Electrolyzer pinned *exactly* high, mixer pinned *exactly* low: more oxygen is made than used. The excess leaves the plan as a *forced output*.");
+            .note(rail("spare:Oxygen"), UiText.tr("tutorial.step_26"));
 
         // The slider, slowly to each end and back to the middle: all of the excess leaving as oxygen, then all of it
         // as acid (the reactor running harder), then half and half.
@@ -741,9 +713,7 @@ final class Script {
             .click(Targets.point(oxygenBar, 0.5f, 0.5f))
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                rail("spare:Oxygen"),
-                "The excess can leave at more than one machine. The *slider* sets the split: oxygen out of the electrolyzer, or extra acid out of the reactor. *Auto* hands it back to the solver.");
+            .note(rail("spare:Oxygen"), UiText.tr("tutorial.step_27"));
     }
 
     // endregion
@@ -798,9 +768,7 @@ final class Script {
             .until(() -> sideIs(com.gtnhplanner.data.flowchart.Drawer.Kind.TRASH), 2000)
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                sidePart(DrawerCard.Part.RULE),
-                "This key's menu also makes a product drawer *trash*: it voids what comes in, and leaves your outputs.");
+            .note(sidePart(DrawerCard.Part.RULE), UiText.tr("tutorial.step_28"));
         beat(out).run(() -> { if (side == null || !hasDrawer(side)) side = trashed(); })
             .when(
                 () -> !sideIs(com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT),
@@ -810,18 +778,14 @@ final class Script {
             .until(() -> sideIs(com.gtnhplanner.data.flowchart.Drawer.Kind.PRODUCT), 2000)
             .until(Script::solved, 3000)
             .rest()
-            .note(
-                sidePart(DrawerCard.Part.BODY),
-                "And back to a *product*. On *Any* it takes whatever comes out; set a rate and the plan works toward it.");
+            .note(sidePart(DrawerCard.Part.BODY), UiText.tr("tutorial.step_29"));
 
         beat(out).click(Targets.topKey("nonrecipe"))
             .until(
                 () -> Targets.boardPart("picker:sheet")
                     .rect() != null,
                 2000)
-            .note(
-                Targets.boardPart("picker:sheet"),
-                "This section is for *non-recipe machines*, mostly power generation.");
+            .note(Targets.boardPart("picker:sheet"), UiText.tr("tutorial.step_30"));
 
         // The turbine at HV burns the tower's benzene; everything else the tower takes and makes gets a drawer, and the
         // turbine's power one too, so the whole plan runs. The tower pinned to one says how many turbines that feeds.
@@ -843,9 +807,7 @@ final class Script {
             .until(Script::solved, 3000)
             .until(() -> card(TURBINE, RecipeCard.Part.BODY).rect() != null, 2000)
             .rest()
-            .note(
-                card(TURBINE, RecipeCard.Part.BODY),
-                "You can also *plan power*. This distillation tower makes enough benzene to run this many HV gas turbines.");
+            .note(card(TURBINE, RecipeCard.Part.BODY), UiText.tr("tutorial.step_31"));
     }
 
     /**
@@ -866,19 +828,19 @@ final class Script {
 
     private static void plans(final List<Beat> out) {
         beat(out).opens(Targets.boardPart("tab:+"))
-            .note(Targets.around(Targets.topKey("tabs"), Targets.popup()), "Here's how you make a *new plan*.");
+            .note(Targets.around(Targets.topKey("tabs"), Targets.popup()), UiText.tr("tutorial.step_32"));
 
         beat(out).escIf(Script::popupOpen)
             .rest()
             .note(
                 Targets.topKey("share"),
-                "Sign in and your plans save as you edit, on any computer. *Share* invites someone to build the plan with you, live.");
+                UiText.tr("tutorial.step_33"));
 
         beat(out).click(Targets.topKey("plans"))
             .until(Script::libraryOpen, 2000)
             .pause(400)
             .rest()
-            .note(Targets.topKey("plans"), "*Plans* has all your plans, and the ones people shared with you.");
+            .note(Targets.topKey("plans"), UiText.tr("tutorial.step_34"));
 
         // The Community shelf, in the library Plans opens.
         beat(out).escIf(Script::popupOpen)
@@ -900,7 +862,7 @@ final class Script {
             .rest()
             .note(
                 Targets.boardPart("library:all"),
-                "*Community* is where people post their plans. You can browse them here.");
+                UiText.tr("tutorial.step_35"));
     }
 
     private static boolean libraryOpen() {
@@ -953,7 +915,7 @@ final class Script {
             .pause(150)
             .click(bigger)
             .rest()
-            .note(note, "Annotations are possible with *sticky notes*. Right-click anywhere to make one.");
+            .note(note, UiText.tr("tutorial.step_36"));
     }
 
     // endregion
@@ -976,9 +938,7 @@ final class Script {
             .when(() -> RecipeCard.glanceAt(zoom()), Steps.wheel(card(ACID, RecipeCard.Part.BODY), 4))
             .pause(300)
             .opens(card(ACID, RecipeCard.Part.PLACE))
-            .note(
-                Targets.popup(),
-                "*Place in the world* puts a machine over the spot you'll build it. *Pin to the screen* keeps it in a corner while you play.");
+            .note(Targets.popup(), UiText.tr("tutorial.step_37"));
 
         // The keys as the player has them bound.
         final boolean arrows = PlannerKeys.minimapOnArrows();
@@ -1026,8 +986,7 @@ final class Script {
             .until(() -> Minecraft.getMinecraft().currentScreen instanceof TourScreen, 2000)
             .note(
                 Targets.minimap(),
-                "While you play, the *minimap* shows your plan and the *pin list* your pinned machines. Set both up under the gear. "
-                    + move
+                UiText.tr("tutorial.step_38") + move
                     + ", "
                     + outKey
                     + " and "
@@ -1066,17 +1025,13 @@ final class Script {
             .click(Targets.popupRow("New task board"))
             .until(() -> open.rect() != null, 3000)
             .rest()
-            .note(
-                Targets.boardPart("notices"),
-                "*Add to a task* puts machines on a task board, with how many to build.");
+            .note(Targets.boardPart("notices"), UiText.tr("tutorial.step_39"));
 
         beat(out).click(open)
             .until(Script::popupOpen, 3000)
             .pause(300)
             .rest()
-            .note(
-                Targets.popup(),
-                "A *task* holds notes, a checklist, comments and who is on it. Drag it across the columns as the work goes.");
+            .note(Targets.popup(), UiText.tr("tutorial.step_40"));
     }
 
     // endregion
@@ -1087,9 +1042,7 @@ final class Script {
         // At the Feedback key, the task's box put away.
         beat(out).escIf(Script::popupOpen)
             .rest()
-            .note(
-                Targets.topKey("feedback"),
-                "That's everything! Found a bug, or have an idea? *Feedback* sends it from the game. Questions about your own setup do well in GTNH Planner's thread on the *GT New Horizons Discord*.");
+            .note(Targets.topKey("feedback"), UiText.tr("tutorial.step_41"));
     }
 
     // endregion
