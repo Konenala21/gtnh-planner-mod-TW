@@ -1597,3 +1597,5 @@ gtnhplanner.ui.audit.removed_from_world=已從世界中移除%s
 gtnhplanner.ui.audit.placed_here=已將%s放置在這裡
 gtnhplanner.ui.audit.placed_taken=已將%s放置在這裡，並從%s移來
 gtnhplanner.ui.audit.post_as_user=以%s的身分發佈，讓所有人都能找到
+gtnhplanner.ui.audit.posted=已發佈
+gtnhplanner.ui.audit.moved_to=已將%s移到 %d, %d, %d

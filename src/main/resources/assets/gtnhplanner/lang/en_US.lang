@@ -1597,3 +1597,5 @@ gtnhplanner.ui.audit.removed_from_world=Removed %s from the world
 gtnhplanner.ui.audit.placed_here=Placed %s here
 gtnhplanner.ui.audit.placed_taken=Placed %s here. Taken from %s
 gtnhplanner.ui.audit.post_as_user=As %s, for everyone to find
+gtnhplanner.ui.audit.posted=posted
+gtnhplanner.ui.audit.moved_to=Moved %s to %d, %d, %d

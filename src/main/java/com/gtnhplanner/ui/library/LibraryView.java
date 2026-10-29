@@ -717,7 +717,7 @@ public final class LibraryView extends ParentWidget<LibraryView> implements Inte
             x + w - 6,
             y + TILE_H - 13,
             0xFF9FD9E6);
-        else if (g.getPostId() != null) Hyb.textRight("posted", x + w - 6, y + TILE_H - 13, 0xFF9FD9E6);
+        else if (g.getPostId() != null) Hyb.textRight(UiText.tr("audit.posted"), x + w - 6, y + TILE_H - 13, 0xFF9FD9E6);
         hits.add(new Hit(Kind.MY_TILE, x, y, x + w, y + TILE_H, slot));
     }
 

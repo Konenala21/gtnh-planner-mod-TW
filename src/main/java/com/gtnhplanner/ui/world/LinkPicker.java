@@ -322,7 +322,7 @@ public final class LinkPicker {
         com.gtnhplanner.ui.sound.Sfx.WORLD_PLACE.play();
         if (moving != null) {
             WorldLinks.relink(graph, node, moving, WorldLinks.link(dim, at[0], at[1], at[2], facing(), size), true);
-            WorldView.say("Moved " + name + " to " + at[0] + ", " + at[1] + ", " + at[2]);
+            WorldView.say(String.format(UiText.tr("audit.moved_to"), name, at[0], at[1], at[2]));
             finishing = true;
             return;
         }
